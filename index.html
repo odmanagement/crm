@@ -4476,7 +4476,8 @@ function Detail({
     loan: l,
     onUpdate: updateLoan,
     onRemove: () => removeLoan(l.id),
-    currentUser: currentUser
+    currentUser: currentUser,
+    clientName: client.name
   })), addingLoan && /*#__PURE__*/React.createElement(LoanForm, {
     onSave: saveLoan,
     onCancel: () => setAddingLoan(false)
@@ -4531,11 +4532,240 @@ function Detail({
   }
 }, h.by, " · ", h.when)))))))));
 }
+function CalcSection({
+  loan,
+  onUpdate,
+  clientName
+}) {
+  const calcs = loan.calcs && loan.calcs.length ? loan.calcs : [{
+    id: "c1",
+    title: "",
+    spa: "",
+    items: []
+  }, {
+    id: "c2",
+    title: "",
+    spa: "",
+    items: []
+  }];
+  const save = next => onUpdate({
+    ...loan,
+    calcs: next
+  });
+  const updCalc = (ci, patch) => save(calcs.map((c, i) => i === ci ? {
+    ...c,
+    ...patch
+  } : c));
+  const addItem = ci => updCalc(ci, {
+    items: [...(calcs[ci].items || []), {
+      id: uid(),
+      name: "",
+      amount: ""
+    }]
+  });
+  const updItem = (ci, ii, k, v) => updCalc(ci, {
+    items: calcs[ci].items.map((it, j) => j === ii ? {
+      ...it,
+      [k]: v
+    } : it)
+  });
+  const delItem = (ci, ii) => updCalc(ci, {
+    items: calcs[ci].items.filter((_, j) => j !== ii)
+  });
+  const fmt = n => {
+    const x = Number(String(n).replace(/[^0-9.-]/g, ""));
+    return isNaN(x) ? "0" : x.toLocaleString();
+  };
+  const netOf = c => {
+    const spa = Number(String(c.spa).replace(/[^0-9.-]/g, "")) || 0;
+    const sum = (c.items || []).reduce((s, it) => s + (Number(String(it.amount).replace(/[^0-9.-]/g, "")) || 0), 0);
+    return spa - sum;
+  };
+  const copyCalc = c => {
+    let txt = "Spa ： " + fmt(c.spa) + "\n";
+    (c.items || []).forEach(it => {
+      txt += (it.name || "-") + " : " + fmt(it.amount) + "\n";
+    });
+    txt += "Total Net : " + fmt(netOf(c)) + "\n\n";
+    txt += (clientName || "") + "：\nLucas :\nALEX :";
+    navigator.clipboard.writeText(txt).then(() => {}, () => {});
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: "#7c3aed",
+      letterSpacing: .5,
+      marginBottom: 8
+    }
+  }, "CALCULATION"), calcs.map((c, ci) => /*#__PURE__*/React.createElement("div", {
+    key: c.id || ci,
+    style: {
+      background: "#faf5ff",
+      border: "1px solid #e9d5ff",
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement(DebouncedInput, {
+    style: {
+      flex: 1,
+      border: "1px solid #e2e8f0",
+      borderRadius: 6,
+      padding: "6px 9px",
+      fontSize: 13,
+      fontWeight: 600,
+      fontFamily: "inherit"
+    },
+    placeholder: "Title (e.g. ALEX / Lucas)",
+    value: c.title,
+    onCommit: v => updCalc(ci, {
+      title: v
+    })
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => copyCalc(c),
+    style: {
+      background: "#7c3aed",
+      color: "#fff",
+      border: "none",
+      borderRadius: 6,
+      padding: "6px 12px",
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: "pointer"
+    }
+  }, "Copy")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 110,
+      fontSize: 13,
+      color: "#334155",
+      fontWeight: 600
+    }
+  }, "Spa"), /*#__PURE__*/React.createElement(DebouncedInput, {
+    type: "number",
+    style: {
+      flex: 1,
+      border: "1px solid #e2e8f0",
+      borderRadius: 6,
+      padding: "6px 9px",
+      fontSize: 13,
+      fontFamily: "inherit",
+      textAlign: "right"
+    },
+    placeholder: "0",
+    value: c.spa,
+    onCommit: v => updCalc(ci, {
+      spa: v
+    })
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 22
+    }
+  })), (c.items || []).map((it, ii) => /*#__PURE__*/React.createElement("div", {
+    key: it.id || ii,
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement(DebouncedInput, {
+    style: {
+      width: 110,
+      border: "1px solid #e2e8f0",
+      borderRadius: 6,
+      padding: "6px 9px",
+      fontSize: 13,
+      fontFamily: "inherit"
+    },
+    placeholder: "Item name",
+    value: it.name,
+    onCommit: v => updItem(ci, ii, "name", v)
+  }), /*#__PURE__*/React.createElement(DebouncedInput, {
+    type: "number",
+    style: {
+      flex: 1,
+      border: "1px solid #e2e8f0",
+      borderRadius: 6,
+      padding: "6px 9px",
+      fontSize: 13,
+      fontFamily: "inherit",
+      textAlign: "right"
+    },
+    placeholder: "0",
+    value: it.amount,
+    onCommit: v => updItem(ci, ii, "amount", v)
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => delItem(ci, ii),
+    style: {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      width: 22,
+      padding: 0
+    }
+  }, /*#__PURE__*/React.createElement(Trash2, {
+    size: 14,
+    color: "#cbd5e1"
+  })))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addItem(ci),
+    style: {
+      background: "#fff",
+      color: "#7c3aed",
+      border: "1px dashed #c4b5fd",
+      borderRadius: 6,
+      padding: "6px 12px",
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: "pointer",
+      marginTop: 2
+    }
+  }, "+ Add item"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      borderTop: "1px solid #e9d5ff",
+      marginTop: 10,
+      paddingTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: "#0f172a"
+    }
+  }, "Total Net"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      fontWeight: 700,
+      color: "#15803d"
+    }
+  }, fmt(netOf(c)))))));
+}
 function LoanBlock({
   loan,
   onUpdate,
   onRemove,
-  currentUser
+  currentUser,
+  clientName
 }) {
   const [expanded, setExpanded] = useState(true);
   const [fuText, setFuText] = useState("");
@@ -4765,7 +4995,11 @@ function LoanBlock({
         borderColor: s.color
       } : {})
     }
-  }, s.label))), /*#__PURE__*/React.createElement("div", {
+  }, s.label))), /*#__PURE__*/React.createElement(CalcSection, {
+    loan: loan,
+    onUpdate: onUpdate,
+    clientName: clientName
+  }), /*#__PURE__*/React.createElement("div", {
     style: S.fuAdd
   }, /*#__PURE__*/React.createElement("input", {
     style: S.fuInput,
