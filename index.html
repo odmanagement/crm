@@ -2411,6 +2411,7 @@ function CRM({ onLogout, currentUser }) {
 }
 
 /* ---------- Dashboard ---------- */
+const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vivien", "chialing"];
 function MissionPage({
   missions,
   onSave,
@@ -2418,6 +2419,7 @@ function MissionPage({
 }) {
   const [q, setQ] = React.useState("");
   const [filter, setFilter] = React.useState("all");
+  const [mine, setMine] = React.useState(false);
   const add = () => onSave([{
     id: uid(),
     task: "",
@@ -2445,12 +2447,14 @@ function MissionPage({
     color: "#16a34a"
   }];
   const list = missions.filter(m => {
+    if (mine && m.owner !== currentUser) return false;
     if (filter !== "all" && m.status !== filter) return false;
     if (!q) return true;
     const s = q.toLowerCase();
     return [m.task, m.owner].filter(Boolean).join(" ").toLowerCase().includes(s);
   });
-  const count = st => missions.filter(m => m.status === st).length;
+  const count = st => missions.filter(m => (!mine || m.owner === currentUser) && m.status === st).length;
+  const mineCount = missions.filter(m => m.owner === currentUser).length;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2480,6 +2484,11 @@ function MissionPage({
   }), " Add Mission")), /*#__PURE__*/React.createElement("div", {
     style: S.filters
   }, /*#__PURE__*/React.createElement(Chip, {
+    active: mine,
+    onClick: () => setMine(v => !v),
+    label: "⭐ Assigned to me " + mineCount,
+    color: "#4f46e5"
+  }), /*#__PURE__*/React.createElement(Chip, {
     active: filter === "all",
     onClick: () => setFilter("all"),
     label: "All " + missions.length
@@ -2502,7 +2511,7 @@ function MissionPage({
     style: S.th
   }, "Task"), /*#__PURE__*/React.createElement("th", {
     style: S.th
-  }, "Owner"), /*#__PURE__*/React.createElement("th", {
+  }, "Assign to"), /*#__PURE__*/React.createElement("th", {
     style: S.th
   }, "Due"), /*#__PURE__*/React.createElement("th", {
     style: S.th
@@ -2519,7 +2528,7 @@ function MissionPage({
       color: "#94a3b8",
       padding: "30px 0"
     }
-  }, "No missions yet — tap Add Mission")) : list.map((m, i) => {
+  }, "No missions — tap Add Mission")) : list.map((m, i) => {
     const st = STATUS.find(x => x.id === m.status) || STATUS[0];
     return /*#__PURE__*/React.createElement("tr", {
       key: m.id,
@@ -2548,12 +2557,19 @@ function MissionPage({
       onChange: e => upd(m.id, "task", e.target.value)
     })), /*#__PURE__*/React.createElement("td", {
       style: S.td
-    }, /*#__PURE__*/React.createElement("input", {
-      style: S.bankerInput,
+    }, /*#__PURE__*/React.createElement("select", {
+      style: {
+        ...S.bankerInput,
+        fontWeight: 600
+      },
       value: m.owner,
-      placeholder: "Owner",
       onChange: e => upd(m.id, "owner", e.target.value)
-    })), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "—"), MISSION_PEOPLE.map(p => /*#__PURE__*/React.createElement("option", {
+      key: p,
+      value: p
+    }, p)))), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("input", {
       type: "date",
