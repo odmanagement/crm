@@ -4620,7 +4620,7 @@ function CalcSection({
     });
     txt += "Total Net : " + fmt(netOf(c)) + "\n\n";
     const cn = c.cname !== undefined && c.cname !== "" ? c.cname : (clientName || "");
-    txt += "客户名字 : " + cn + "\nLucas : " + (c.lucas || "") + "\nAgent : " + (c.agent || "");
+    txt += "用户名字 : " + cn + "\nLucas : " + (c.lucas || "") + "\nAgent : " + (c.agent || "");
     navigator.clipboard.writeText(txt).then(() => {}, () => {});
   };
   const [copied, setCopied] = React.useState(-1);
@@ -4699,7 +4699,7 @@ function CalcSection({
   }, h("span", { style: { fontSize: 14, fontWeight: 700, color: "#0f172a" } }, "Total Net"),
     h("span", { style: { fontSize: 17, fontWeight: 700, color: netOf(c) < 0 ? "#dc2626" : "#15803d", fontVariantNumeric: "tabular-nums" } }, "RM " + fmt(netOf(c)))),
   h("div", { style: { marginTop: 8, paddingTop: 4, borderTop: "1px solid #e2e8f0" } },
-    [["cname", "客户名字", c.cname !== undefined && c.cname !== "" ? c.cname : (clientName || "")], ["lucas", "Lucas", c.lucas], ["agent", "Agent", c.agent]].map(([k, label, val]) => h("div", { key: k, className: "calc-row", style: row },
+    [["cname", "用户名字", c.cname !== undefined && c.cname !== "" ? c.cname : (clientName || "")], ["lucas", "Lucas", c.lucas], ["agent", "Agent", c.agent]].map(([k, label, val]) => h("div", { key: k, className: "calc-row", style: row },
       h("span", { style: { width: 80, fontSize: 14, fontWeight: 600, color: "#334155" } }, label + "："),
       h(DebouncedInput, {
         className: "calc-in",
