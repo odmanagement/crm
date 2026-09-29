@@ -4541,12 +4541,36 @@ function CalcSection({
     id: "c1",
     title: "",
     spa: "",
-    items: []
+    items: [{
+      id: uid(),
+      name: "Cost",
+      amount: ""
+    }, {
+      id: uid(),
+      name: "Spa Legal",
+      amount: ""
+    }]
   }, {
     id: "c2",
     title: "",
     spa: "",
-    items: []
+    items: [{
+      id: uid(),
+      name: "Cost",
+      amount: ""
+    }, {
+      id: uid(),
+      name: "Spa Legal",
+      amount: ""
+    }, {
+      id: uid(),
+      name: "Company",
+      amount: ""
+    }, {
+      id: uid(),
+      name: "Banker Fees",
+      amount: ""
+    }]
   }];
   const save = next => onUpdate({
     ...loan,
