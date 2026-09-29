@@ -2633,7 +2633,7 @@ function MissionPage({
         ...S.td,
         minWidth: 220
       }
-    }, /*#__PURE__*/React.createElement("input", {
+    }, /*#__PURE__*/React.createElement(DebouncedInput, {
       style: {
         ...S.bankerInput,
         textDecoration: m.status === "done" ? "line-through" : "none",
@@ -2641,7 +2641,7 @@ function MissionPage({
       },
       value: m.task,
       placeholder: "Task…",
-      onChange: e => upd(m.id, "task", e.target.value)
+      onCommit: v => upd(m.id, "task", v)
     })), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("select", {
@@ -2776,25 +2776,25 @@ function BankerPage({
     }
   }, i + 1), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankerInput,
     value: b.name,
     placeholder: "Name",
-    onChange: e => upd(b.id, "name", e.target.value)
+    onCommit: v => upd(b.id, "name", v)
   })), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankerInput,
     value: b.bank,
     placeholder: "Bank",
-    onChange: e => upd(b.id, "bank", e.target.value)
+    onCommit: v => upd(b.id, "bank", v)
   })), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankerInput,
     value: b.phone,
     placeholder: "Phone",
-    onChange: e => upd(b.id, "phone", e.target.value)
+    onCommit: v => upd(b.id, "phone", v)
   })), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("select", {
@@ -5317,7 +5317,7 @@ function DebouncedInput({
       if ((draft || "") !== (value || "")) onCommit(draft);
     },
     onKeyDown: e => {
-      if (e.key === "Enter") e.target.blur();
+      if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) e.target.blur();
     }
   });
 }
