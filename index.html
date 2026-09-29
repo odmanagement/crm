@@ -2424,22 +2424,26 @@ function CRM({ onLogout, currentUser }) {
 
 /* ---------- Dashboard ---------- */
 
-/* ---------- 指派任务弹窗（类似 Messenger） ---------- */
+/* ---------- 指派任务弹窗（Messenger 聊天头像风格） ---------- */
 function MissionPopups({ missions, currentUser, onView }) {
   const h = React.createElement;
   const KEY = "crm_seen_assign_" + (currentUser || "");
   const readSeen = () => { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } };
   const [seen, setSeen] = React.useState(() => readSeen());
+  const [open, setOpen] = React.useState(false);
+  const [peek, setPeek] = React.useState(true);
   const sigOf = m => m.id + "|" + (m.assignedAt || 0);
   const writeSeen = arr => { setSeen(arr); try { localStorage.setItem(KEY, JSON.stringify(arr.slice(-300))); } catch (e) {} };
-  const mine = (missions || []).filter(m => currentUser && m.owner === currentUser && m.assignedBy && m.assignedBy !== currentUser && m.status !== "done");
+  const mine = (missions || []).filter(m => currentUser && m.owner === currentUser && m.assignedBy && m.status !== "done");
   React.useEffect(() => {
     if (seen === null && currentUser) writeSeen(mine.map(sigOf));
   }, [seen, currentUser]);
-  const pending = seen === null ? [] : mine.filter(m => !seen.includes(sigOf(m)));
+  const pending = seen === null ? [] : mine.filter(m => !seen.includes(sigOf(m))).sort((x, y) => (y.assignedAt || 0) - (x.assignedAt || 0));
   const prevCount = React.useRef(0);
   React.useEffect(() => {
     if (pending.length > prevCount.current) {
+      setPeek(true);
+      const m = pending[0];
       try {
         const ac = new (window.AudioContext || window.webkitAudioContext)();
         [880, 1320].forEach((f, i) => {
@@ -2450,48 +2454,66 @@ function MissionPopups({ missions, currentUser, onView }) {
           o.start(t); o.stop(t + 0.2);
         });
       } catch (e) {}
+      try {
+        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+          new Notification((m.assignedBy === currentUser ? "你指派了任务给自己" : m.assignedBy + " 指派了任务给你"), { body: m.task || "新任务" });
+        }
+      } catch (e) {}
     }
+    if (!pending.length) setOpen(false);
     prevCount.current = pending.length;
   }, [pending.length]);
+  React.useEffect(() => {
+    try { document.title = (pending.length ? "(" + pending.length + ") " : "") + document.title.replace(/^\(\d+\) /, ""); } catch (e) {}
+  }, [pending.length]);
   if (!pending.length) return null;
+  const askNotify = () => { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {} };
   const dismiss = m => writeSeen([...(seen || []), sigOf(m)]);
   const dismissAll = () => writeSeen([...(seen || []), ...pending.map(sigOf)]);
-  const shown = pending.slice(0, 3);
-  const colors = ["#4f46e5", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
+  const colors = ["#0084ff", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
   const colorOf = n => colors[(n || "?").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
-  return h("div", {
-    style: { position: "fixed", right: 16, bottom: 16, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, width: 300, maxWidth: "calc(100vw - 32px)", fontFamily: "inherit" }
-  },
-  h("style", null, "@keyframes mpIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}"),
-  pending.length > 3 && h("button", {
-    onClick: dismissAll,
-    style: { alignSelf: "flex-end", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 999, padding: "4px 10px", fontSize: 12, color: "#64748b", cursor: "pointer", boxShadow: "0 2px 8px rgba(15,23,42,.08)" }
-  }, "还有 " + (pending.length - 3) + " 个 · 全部关闭"),
-  shown.map(m => h("div", {
-    key: sigOf(m),
-    style: { background: "#fff", borderRadius: 14, boxShadow: "0 8px 28px rgba(15,23,42,.18)", padding: "12px 12px 12px 14px", display: "flex", gap: 10, alignItems: "flex-start", animation: "mpIn .25s ease-out", border: "1px solid #eef2f6" }
-  },
-  h("div", {
-    style: { width: 38, height: 38, borderRadius: "50%", background: colorOf(m.assignedBy), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 15, flexShrink: 0, textTransform: "uppercase" }
-  }, (m.assignedBy || "?").charAt(0)),
-  h("div", { style: { flex: 1, minWidth: 0 } },
-    h("div", { style: { fontSize: 13, color: "#0f172a" } }, h("b", null, m.assignedBy), " 指派了任务给你"),
-    h("div", { style: { fontSize: 13, color: "#475569", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.task || "（任务内容还没填）"),
-    m.due && h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "截止 " + m.due),
-    h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
-      h("button", {
-        onClick: () => { dismiss(m); onView && onView(); },
-        style: { background: "#4f46e5", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }
-      }, "查看"),
-      h("button", {
-        onClick: () => dismiss(m),
-        style: { background: "#f1f5f9", color: "#475569", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, cursor: "pointer" }
-      }, "知道了"))),
-  h("button", {
-    onClick: () => dismiss(m),
-    title: "关闭",
-    style: { background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }
-  }, h(X, { size: 15, color: "#94a3b8" })))));
+  const avatar = (name, size) => h("div", {
+    style: { width: size, height: size, borderRadius: "50%", background: colorOf(name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.42, flexShrink: 0, textTransform: "uppercase" }
+  }, (name || "?").charAt(0));
+  const first = pending[0];
+  const who = m => m.assignedBy === currentUser ? "你" : m.assignedBy;
+  const verb = m => m.assignedBy === currentUser ? " 指派了任务给自己" : " 指派了任务给你";
+  const ago = t => { const d = Math.floor((Date.now() - (t || 0)) / 60000); return d < 1 ? "刚刚" : d < 60 ? d + " 分钟前" : d < 1440 ? Math.floor(d / 60) + " 小时前" : Math.floor(d / 1440) + " 天前"; };
+  return h("div", { style: { position: "fixed", right: 20, bottom: 20, zIndex: 9999, fontFamily: "inherit" } },
+    h("style", null, "@keyframes mhPop{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}@keyframes mhIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}@keyframes mhPeek{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}"),
+    // 聊天窗口
+    open && h("div", {
+      style: { position: "absolute", right: 0, bottom: 72, width: 330, maxWidth: "calc(100vw - 40px)", background: "#fff", borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,.2)", overflow: "hidden", animation: "mhIn .2s ease-out" }
+    },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #eef0f3" } },
+        h("div", { style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#050505" } }, "新任务 (" + pending.length + ")"),
+        h("button", { onClick: dismissAll, style: { background: "none", border: "none", color: "#0084ff", fontSize: 12, cursor: "pointer", fontWeight: 600 } }, "全部已读"),
+        h("button", { onClick: () => setOpen(false), title: "收起", style: { background: "#f0f2f5", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 14, color: "#65676b" }))),
+      h("div", { style: { maxHeight: 360, overflowY: "auto", padding: 6 } },
+        pending.map(m => h("div", { key: sigOf(m), style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start" } },
+          avatar(m.assignedBy, 40),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: "#050505" } }, who(m)), verb(m) + " · " + ago(m.assignedAt)),
+            h("div", { style: { display: "inline-block", marginTop: 4, background: "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word" } }, m.task || "（任务内容还没填）"),
+            m.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "截止 " + m.due),
+            h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
+              h("button", { onClick: () => { dismiss(m); onView && onView(); }, style: { background: "#0084ff", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "查看"),
+              h("button", { onClick: () => dismiss(m), style: { background: "#e4e6eb", color: "#050505", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, cursor: "pointer" } }, "知道了"))))))),
+    // 预览气泡
+    !open && peek && h("div", {
+      onClick: () => { askNotify(); setOpen(true); setPeek(false); },
+      style: { position: "absolute", right: 70, bottom: 6, width: 230, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
+    },
+      h("div", { style: { fontSize: 13, fontWeight: 700, color: "#050505" } }, who(first) + verb(first)),
+      h("div", { style: { fontSize: 13, color: "#65676b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first.task || "新任务"),
+      h("button", { onClick: e => { e.stopPropagation(); setPeek(false); }, style: { position: "absolute", top: 6, right: 6, background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" } }, h(X, { size: 13, color: "#94a3b8" }))),
+    // 圆形头像
+    h("div", {
+      onClick: () => { askNotify(); setOpen(!open); setPeek(false); },
+      title: "新任务",
+      style: { position: "relative", cursor: "pointer", borderRadius: "50%", boxShadow: "0 4px 14px rgba(0,0,0,.25)", animation: "mhPop .35s ease-out" }
+    }, avatar(first.assignedBy, 58),
+      h("div", { style: { position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 10, background: "#fa3e3e", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxSizing: "border-box" } }, pending.length)));
 }
 const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vivien", "chialing"];
 function MissionPage({
