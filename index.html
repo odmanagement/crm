@@ -4718,11 +4718,11 @@ function LoanBlock({
     placeholder: "Bank",
     value: b.bank,
     onChange: e => setBank(i, "bank", e.target.value)
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
     placeholder: "Officer",
     value: b.officer,
-    onChange: e => setBank(i, "officer", e.target.value)
+    onCommit: v => setBank(i, "officer", v)
   }), /*#__PURE__*/React.createElement("select", {
     style: {
       ...S.bankInput,
@@ -4736,7 +4736,7 @@ function LoanBlock({
     value: "approved"
   }, "Approved"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
-  }, "Rejected")), /*#__PURE__*/React.createElement("input", {
+  }, "Rejected")), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: {
       ...S.bankInput,
       width: 90
@@ -4744,7 +4744,7 @@ function LoanBlock({
     type: "number",
     placeholder: "Amount",
     value: b.amount || "",
-    onChange: e => setBank(i, "amount", e.target.value)
+    onCommit: v => setBank(i, "amount", v)
   }), /*#__PURE__*/React.createElement("button", {
     style: S.bankDelBtn,
     onClick: () => removeBank(i)
@@ -5032,6 +5032,31 @@ function Row({
   }, label), /*#__PURE__*/React.createElement("span", {
     style: S.detailValue
   }, value));
+}
+function DebouncedInput({
+  value,
+  onCommit,
+  style,
+  placeholder,
+  type
+}) {
+  const [draft, setDraft] = React.useState(value || "");
+  React.useEffect(() => {
+    setDraft(value || "");
+  }, [value]);
+  return React.createElement("input", {
+    style: style,
+    type: type || "text",
+    placeholder: placeholder || "",
+    value: draft,
+    onChange: e => setDraft(e.target.value),
+    onBlur: () => {
+      if ((draft || "") !== (value || "")) onCommit(draft);
+    },
+    onKeyDown: e => {
+      if (e.key === "Enter") e.target.blur();
+    }
+  });
 }
 function EditRow({
   label,
@@ -5730,7 +5755,8 @@ const S = {
   },
   panel: {
     background: "#f8fafc",
-    width: "min(500px, 100%)",
+    width: "min(50vw, 100%)",
+    minWidth: "min(560px, 100%)",
     height: "100%",
     overflowY: "auto",
     boxShadow: "-4px 0 24px rgba(0,0,0,.1)"
