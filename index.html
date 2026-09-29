@@ -2333,6 +2333,10 @@ function CRM({ onLogout, currentUser }) {
     onUpdate: updateClient,
     onSendVerify: () => sendToVerify(open),
     currentUser: currentUser
+  }), /*#__PURE__*/React.createElement(MissionPopups, {
+    missions: missions,
+    currentUser: currentUser,
+    onView: () => { setOpenId(null); setPage("mission"); }
   }), editing && /*#__PURE__*/React.createElement(EditForm, {
     initial: editing === "new" ? null : editing,
     onClose: () => setEditing(null),
@@ -2419,6 +2423,76 @@ function CRM({ onLogout, currentUser }) {
 }
 
 /* ---------- Dashboard ---------- */
+
+/* ---------- 指派任务弹窗（类似 Messenger） ---------- */
+function MissionPopups({ missions, currentUser, onView }) {
+  const h = React.createElement;
+  const KEY = "crm_seen_assign_" + (currentUser || "");
+  const readSeen = () => { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } };
+  const [seen, setSeen] = React.useState(() => readSeen());
+  const sigOf = m => m.id + "|" + (m.assignedAt || 0);
+  const writeSeen = arr => { setSeen(arr); try { localStorage.setItem(KEY, JSON.stringify(arr.slice(-300))); } catch (e) {} };
+  const mine = (missions || []).filter(m => currentUser && m.owner === currentUser && m.assignedBy && m.assignedBy !== currentUser && m.status !== "done");
+  React.useEffect(() => {
+    if (seen === null && currentUser) writeSeen(mine.map(sigOf));
+  }, [seen, currentUser]);
+  const pending = seen === null ? [] : mine.filter(m => !seen.includes(sigOf(m)));
+  const prevCount = React.useRef(0);
+  React.useEffect(() => {
+    if (pending.length > prevCount.current) {
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        [880, 1320].forEach((f, i) => {
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.frequency.value = f; o.connect(g); g.connect(ac.destination);
+          const t = ac.currentTime + i * 0.12;
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.15, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+          o.start(t); o.stop(t + 0.2);
+        });
+      } catch (e) {}
+    }
+    prevCount.current = pending.length;
+  }, [pending.length]);
+  if (!pending.length) return null;
+  const dismiss = m => writeSeen([...(seen || []), sigOf(m)]);
+  const dismissAll = () => writeSeen([...(seen || []), ...pending.map(sigOf)]);
+  const shown = pending.slice(0, 3);
+  const colors = ["#4f46e5", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
+  const colorOf = n => colors[(n || "?").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
+  return h("div", {
+    style: { position: "fixed", right: 16, bottom: 16, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, width: 300, maxWidth: "calc(100vw - 32px)", fontFamily: "inherit" }
+  },
+  h("style", null, "@keyframes mpIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}"),
+  pending.length > 3 && h("button", {
+    onClick: dismissAll,
+    style: { alignSelf: "flex-end", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 999, padding: "4px 10px", fontSize: 12, color: "#64748b", cursor: "pointer", boxShadow: "0 2px 8px rgba(15,23,42,.08)" }
+  }, "还有 " + (pending.length - 3) + " 个 · 全部关闭"),
+  shown.map(m => h("div", {
+    key: sigOf(m),
+    style: { background: "#fff", borderRadius: 14, boxShadow: "0 8px 28px rgba(15,23,42,.18)", padding: "12px 12px 12px 14px", display: "flex", gap: 10, alignItems: "flex-start", animation: "mpIn .25s ease-out", border: "1px solid #eef2f6" }
+  },
+  h("div", {
+    style: { width: 38, height: 38, borderRadius: "50%", background: colorOf(m.assignedBy), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 15, flexShrink: 0, textTransform: "uppercase" }
+  }, (m.assignedBy || "?").charAt(0)),
+  h("div", { style: { flex: 1, minWidth: 0 } },
+    h("div", { style: { fontSize: 13, color: "#0f172a" } }, h("b", null, m.assignedBy), " 指派了任务给你"),
+    h("div", { style: { fontSize: 13, color: "#475569", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.task || "（任务内容还没填）"),
+    m.due && h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "截止 " + m.due),
+    h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
+      h("button", {
+        onClick: () => { dismiss(m); onView && onView(); },
+        style: { background: "#4f46e5", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }
+      }, "查看"),
+      h("button", {
+        onClick: () => dismiss(m),
+        style: { background: "#f1f5f9", color: "#475569", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, cursor: "pointer" }
+      }, "知道了"))),
+  h("button", {
+    onClick: () => dismiss(m),
+    title: "关闭",
+    style: { background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }
+  }, h(X, { size: 15, color: "#94a3b8" })))));
+}
 const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vivien", "chialing"];
 function MissionPage({
   missions,
@@ -2436,10 +2510,15 @@ function MissionPage({
     status: "todo",
     by: currentUser || ""
   }, ...missions]);
-  const upd = (id, k, v) => onSave(missions.map(m => m.id === id ? {
+  const upd = (id, k, v) => onSave(missions.map(m => m.id === id ? (k === "owner" ? {
+    ...m,
+    owner: v,
+    assignedBy: currentUser || "",
+    assignedAt: Date.now()
+  } : {
     ...m,
     [k]: v
-  } : m));
+  }) : m));
   const del = id => onSave(missions.filter(m => m.id !== id));
   const STATUS = [{
     id: "todo",
