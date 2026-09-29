@@ -4619,7 +4619,8 @@ function CalcSection({
       txt += (it.name || "-") + " : " + fmt(it.amount) + "\n";
     });
     txt += "Total Net : " + fmt(netOf(c)) + "\n\n";
-    txt += (clientName || "") + "：\nLucas :\nALEX :";
+    const cn = c.cname !== undefined && c.cname !== "" ? c.cname : (clientName || "");
+    txt += "客户名字 : " + cn + "\nLucas : " + (c.lucas || "") + "\nAgent : " + (c.agent || "");
     navigator.clipboard.writeText(txt).then(() => {}, () => {});
   };
   const [copied, setCopied] = React.useState(-1);
@@ -4648,13 +4649,9 @@ function CalcSection({
   },
   h("div", {
     style: { display: "flex", alignItems: "center", gap: 6, paddingBottom: 6, marginBottom: 2, borderBottom: "1px solid #e2e8f0" }
-  }, h(DebouncedInput, {
-    className: "calc-in",
-    style: { flex: 1, fontSize: 15, fontWeight: 600, paddingLeft: 0 },
-    placeholder: "标题 (ALEX / Lucas)",
-    value: c.title,
-    onCommit: v => updCalc(ci, { title: v })
-  }), h("button", {
+  }, h("span", {
+    style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#0f172a", padding: "5px 0" }
+  }, ci === 0 ? "Agent" : ci === 1 ? "Lucas" : (c.title || "Calculation " + (ci + 1))), h("button", {
     onClick: () => { copyCalc(c); setCopied(ci); setTimeout(() => setCopied(-1), 1500); },
     title: "复制",
     style: { display: "flex", alignItems: "center", gap: 4, background: copied === ci ? "#dcfce7" : "#fff", color: copied === ci ? "#15803d" : "#64748b", border: "1px solid #e2e8f0", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }
@@ -4700,7 +4697,17 @@ function CalcSection({
   h("div", {
     style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "2px solid #0f172a", paddingTop: 8, marginTop: 2 }
   }, h("span", { style: { fontSize: 14, fontWeight: 700, color: "#0f172a" } }, "Total Net"),
-    h("span", { style: { fontSize: 17, fontWeight: 700, color: netOf(c) < 0 ? "#dc2626" : "#15803d", fontVariantNumeric: "tabular-nums" } }, "RM " + fmt(netOf(c))))))));
+    h("span", { style: { fontSize: 17, fontWeight: 700, color: netOf(c) < 0 ? "#dc2626" : "#15803d", fontVariantNumeric: "tabular-nums" } }, "RM " + fmt(netOf(c)))),
+  h("div", { style: { marginTop: 8, paddingTop: 4, borderTop: "1px solid #e2e8f0" } },
+    [["cname", "客户名字", c.cname !== undefined && c.cname !== "" ? c.cname : (clientName || "")], ["lucas", "Lucas", c.lucas], ["agent", "Agent", c.agent]].map(([k, label, val]) => h("div", { key: k, className: "calc-row", style: row },
+      h("span", { style: { width: 80, fontSize: 14, fontWeight: 600, color: "#334155" } }, label + "："),
+      h(DebouncedInput, {
+        className: "calc-in",
+        style: { flex: 1, color: "#0f172a" },
+        placeholder: "-",
+        value: val,
+        onCommit: v => updCalc(ci, { [k]: v })
+      }))))))));
 }
 function LoanBlock({
   loan,
