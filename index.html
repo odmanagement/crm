@@ -2336,7 +2336,8 @@ function CRM({ onLogout, currentUser }) {
   }), /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     currentUser: currentUser,
-    onView: () => { setOpenId(null); setPage("mission"); }
+    onView: () => { setOpenId(null); setPage("mission"); },
+    onDone: id => persistMissions(missions.map(m => m.id === id ? { ...m, status: "done" } : m))
   }), editing && /*#__PURE__*/React.createElement(EditForm, {
     initial: editing === "new" ? null : editing,
     onClose: () => setEditing(null),
@@ -2425,7 +2426,7 @@ function CRM({ onLogout, currentUser }) {
 /* ---------- Dashboard ---------- */
 
 /* ---------- 指派任务弹窗（Messenger 聊天头像风格） ---------- */
-function MissionPopups({ missions, currentUser, onView }) {
+function MissionPopups({ missions, currentUser, onView, onDone }) {
   const h = React.createElement;
   const KEY = "crm_seen_assign_" + (currentUser || "");
   const readSeen = () => { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } };
@@ -2438,7 +2439,7 @@ function MissionPopups({ missions, currentUser, onView }) {
   React.useEffect(() => {
     if (seen === null && currentUser) writeSeen(mine.map(sigOf));
   }, [seen, currentUser]);
-  const pending = seen === null ? [] : mine.filter(m => !seen.includes(sigOf(m))).sort((x, y) => (y.assignedAt || 0) - (x.assignedAt || 0));
+  const pending = mine.slice().sort((x, y) => (y.assignedAt || 0) - (x.assignedAt || 0));
   const prevCount = React.useRef(0);
   React.useEffect(() => {
     if (pending.length > prevCount.current) {
@@ -2468,8 +2469,6 @@ function MissionPopups({ missions, currentUser, onView }) {
   }, [pending.length]);
   if (!pending.length) return null;
   const askNotify = () => { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {} };
-  const dismiss = m => writeSeen([...(seen || []), sigOf(m)]);
-  const dismissAll = () => writeSeen([...(seen || []), ...pending.map(sigOf)]);
   const colors = ["#0084ff", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
   const colorOf = n => colors[(n || "?").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
   const avatar = (name, size) => h("div", {
@@ -2487,7 +2486,6 @@ function MissionPopups({ missions, currentUser, onView }) {
     },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #eef0f3" } },
         h("div", { style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#050505" } }, "新任务 (" + pending.length + ")"),
-        h("button", { onClick: dismissAll, style: { background: "none", border: "none", color: "#0084ff", fontSize: 12, cursor: "pointer", fontWeight: 600 } }, "全部已读"),
         h("button", { onClick: () => setOpen(false), title: "收起", style: { background: "#f0f2f5", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 14, color: "#65676b" }))),
       h("div", { style: { maxHeight: 360, overflowY: "auto", padding: 6 } },
         pending.map(m => h("div", { key: sigOf(m), style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start" } },
@@ -2497,8 +2495,8 @@ function MissionPopups({ missions, currentUser, onView }) {
             h("div", { style: { display: "inline-block", marginTop: 4, background: "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word" } }, m.task || "（任务内容还没填）"),
             m.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "截止 " + m.due),
             h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
-              h("button", { onClick: () => { dismiss(m); onView && onView(); }, style: { background: "#0084ff", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "查看"),
-              h("button", { onClick: () => dismiss(m), style: { background: "#e4e6eb", color: "#050505", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, cursor: "pointer" } }, "知道了"))))))),
+              h("button", { onClick: () => { setOpen(false); onView && onView(); }, style: { background: "#0084ff", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "查看"),
+              h("button", { onClick: () => onDone && onDone(m.id), style: { display: "flex", alignItems: "center", gap: 4, background: "#16a34a", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" } }, h(Check, { size: 13 }), "Done"))))))),
     // 预览气泡
     !open && peek && h("div", {
       onClick: () => { askNotify(); setOpen(true); setPeek(false); },
