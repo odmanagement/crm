@@ -736,6 +736,26 @@ function CountUp({ value }) {
   if (target == null) return str;
   return m[1] + Math.round(n).toLocaleString() + m[3];
 }
+/* ===== 每个页面不同的动画背景 ===== */
+function PageFx({ page }) {
+  const h = React.createElement;
+  if (page === "dashboard") return null;
+  const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
+  const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
+  let kids = [];
+  const kind = { house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
+  if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
+  if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
+  if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
+  if (kind === "scan") kids = [h("span", { key: "l", className: "line" }), h("span", { key: "g", className: "hex" })];
+  if (kind === "bars") kids = make(18, (i, a, b, c) => h("span", { key: i, className: "bar", style: { left: (i / 18) * 100 + "%", animationDelay: -c * 5 + "s", animationDuration: 3.5 + b * 3 + "s", "--h": 20 + a * 60 + "%" } }));
+  if (kind === "papers") kids = make(10, (i, a, b, c) => h("span", { key: i, className: "p", style: { left: a * 95 + "%", animationDuration: 14 + c * 12 + "s", animationDelay: -c * 22 + "s", "--r": (b * 60 - 30) + "deg" } }, h("i"), h("i"), h("i")));
+  if (kind === "waves") kids = [h("span", { key: 1, className: "w w1" }), h("span", { key: 2, className: "w w2" }), h("span", { key: 3, className: "w w3" })];
+  if (kind === "pulse") kids = make(4, (i) => h("span", { key: i, className: "r", style: { animationDelay: i * 1.5 + "s" } })).concat(make(3, (i) => h("span", { key: "q" + i, className: "r r2", style: { animationDelay: i * 2 + .7 + "s" } })));
+  if (kind === "stars") kids = make(40, (i, a, b, c) => h("span", { key: i, className: i % 7 === 0 ? "st ck" : "st", style: { left: a * 100 + "%", top: b * 100 + "%", animationDelay: -c * 4 + "s", animationDuration: 2 + c * 3 + "s" } }, i % 7 === 0 ? "✓" : null));
+  if (kind === "mesh") kids = [h("span", { key: 1, className: "m m1" }), h("span", { key: 2, className: "m m2" })];
+  return h("div", { className: "pfx pfx-" + kind, "aria-hidden": true }, kids);
+}
 /* ===== 每日自动备份（保留最近 14 天） ===== */
 const BACKUP_KEEP = 14;
 const _bkDate = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); };
@@ -2429,8 +2449,12 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement("div", {
-    style: S.content
+  }, "Sign out"))), /*#__PURE__*/React.createElement(PageFx, {
+    page: page
+  }), /*#__PURE__*/React.createElement("div", {
+    key: page,
+    className: "pg-anim pg-" + page,
+    style: { ...S.content, position: "relative", zIndex: 1 }
   }, loading ? /*#__PURE__*/React.createElement(Empty, {
     text: "Loading…"
   }) : page === "dashboard" ? /*#__PURE__*/React.createElement(Dashboard, {
@@ -3152,7 +3176,7 @@ function CompanyFilesPage() {
   const initials = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
   const cnt = { all: all.length, p: all.filter(c => c.pUrl).length, c: all.filter(c => c.cUrl).length, both: all.filter(c => c.pUrl && c.cUrl).length };
   const css = `
-  .co-wrap{margin:-28px;padding:32px 28px;min-height:calc(100vh - 67px);background:linear-gradient(180deg,#f5f3ff 0%,#eef2ff 40%,#f8fafc 100%)}
+  .co-wrap{margin:-28px;padding:32px 28px;min-height:calc(100vh - 67px);background:transparent}
   .co-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
   .co-title{font-size:26px;font-weight:800;color:#1e1b4b;letter-spacing:-.02em;margin:0}
   .co-title span{background:linear-gradient(90deg,#7c3aed,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -5963,7 +5987,80 @@ nav button:hover { color: #e2e8f0 !important; background: rgba(255,255,255,.05);
 .dash3d.tilting { box-shadow: 0 24px 50px rgba(10,10,40,.45), inset 0 1px 0 rgba(255,255,255,.12) !important; }
 button:active, a:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) { .fx3d, .stat-card, .dash3d { animation: none !important; } }
-.cz-page { margin: -28px; padding: 28px; min-height: calc(100vh - 67px); background: radial-gradient(700px 300px at 0% 0%, rgba(167,139,250,.25), transparent 70%), radial-gradient(600px 300px at 100% 0%, rgba(56,189,248,.2), transparent 70%), radial-gradient(600px 300px at 60% 100%, rgba(244,114,182,.14), transparent 70%), #f7f7fd; }
+
+.pfx { position: fixed; left: 76px; right: 0; top: 67px; bottom: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+/* house：紫色气泡往上飘 */
+.pfx-bubbles { background: linear-gradient(180deg,#f5f3ff,#ede9fe 60%,#e0e7ff); }
+.pfx-bubbles .b { position: absolute; bottom: -120px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.95), rgba(167,139,250,.45) 45%, rgba(139,92,246,.12) 70%); box-shadow: inset 0 0 12px rgba(255,255,255,.6); animation: bubUp linear infinite; }
+@keyframes bubUp { from { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: .9; } 50% { transform: translateY(-55vh) translateX(30px); } to { transform: translateY(-110vh) translateX(-20px); opacity: 0; } }
+/* car：速度线 */
+.pfx-speed { background: linear-gradient(120deg,#ecfeff,#e0f2fe 55%,#eef2ff); }
+.pfx-speed .s { position: absolute; left: -40%; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #06b6d4, #3b82f6); animation: zoom linear infinite; }
+@keyframes zoom { from { transform: translateX(0); } to { transform: translateX(170vw); } }
+/* personal：金币掉落 */
+.pfx-coins { background: linear-gradient(180deg,#fdf2f8,#fce7f3 50%,#fef3c7); }
+.pfx-coins .c { position: absolute; top: -60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #b45309; background: radial-gradient(circle at 35% 30%, #fef9c3, #facc15 50%, #d97706); box-shadow: 0 4px 10px rgba(217,119,6,.3), inset 0 -3px 0 rgba(0,0,0,.12); animation: coinFall linear infinite; opacity: .7; }
+@keyframes coinFall { from { transform: translateY(0) rotateY(0); } to { transform: translateY(110vh) rotateY(1080deg); } }
+/* verify：扫描线 */
+.pfx-scan { background: linear-gradient(180deg,#ecfdf5,#f0fdfa 60%,#ecfeff); }
+.pfx-scan .hex { position: absolute; inset: 0; background-image: radial-gradient(rgba(16,185,129,.25) 1.5px, transparent 1.5px); background-size: 22px 22px; }
+.pfx-scan .line { position: absolute; left: 0; right: 0; height: 120px; background: linear-gradient(180deg, transparent, rgba(16,185,129,.18), rgba(16,185,129,.55) 98%, transparent); box-shadow: 0 2px 16px rgba(16,185,129,.5); animation: scan 4.5s ease-in-out infinite; }
+@keyframes scan { 0% { top: -120px; } 100% { top: 100%; } }
+/* reports：跳动的柱状图 */
+.pfx-bars { background: linear-gradient(180deg,#eff6ff,#eef2ff); }
+.pfx-bars .bar { position: absolute; bottom: 0; width: 3.2%; margin-left: .8%; border-radius: 10px 10px 0 0; background: linear-gradient(180deg, rgba(99,102,241,.28), rgba(59,130,246,.06)); height: var(--h); transform-origin: bottom; animation: barUp ease-in-out infinite alternate; }
+@keyframes barUp { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+/* forms：纸张飘落 */
+.pfx-papers { background: linear-gradient(160deg,#fffbeb,#fef3c7 40%,#fff7ed); }
+.pfx-papers .p { position: absolute; top: -140px; width: 70px; height: 92px; border-radius: 6px; background: #fff; box-shadow: 0 8px 20px rgba(180,83,9,.15); padding: 12px 10px; box-sizing: border-box; animation: paper linear infinite; }
+.pfx-papers .p i { display: block; height: 5px; border-radius: 3px; background: #fde68a; margin-bottom: 8px; }
+.pfx-papers .p i:nth-child(2) { width: 70%; } .pfx-papers .p i:nth-child(3) { width: 50%; }
+@keyframes paper { from { transform: translateY(0) rotate(var(--r)) rotateX(0); } to { transform: translateY(125vh) rotate(calc(var(--r) * -1)) rotateX(360deg); } }
+/* company：彩色波浪 */
+.pfx-waves { background: linear-gradient(180deg,#f5f3ff,#eef2ff); }
+.pfx-waves .w { position: absolute; left: -50%; width: 200%; height: 60%; bottom: -30%; border-radius: 45%; animation: wave linear infinite; }
+.pfx-waves .w1 { background: rgba(139,92,246,.12); animation-duration: 18s; }
+.pfx-waves .w2 { background: rgba(14,165,233,.10); animation-duration: 24s; bottom: -34%; }
+.pfx-waves .w3 { background: rgba(236,72,153,.08); animation-duration: 30s; bottom: -38%; }
+@keyframes wave { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+/* banker：电话信号波纹 */
+.pfx-pulse { background: linear-gradient(180deg,#f0fdf4,#ecfeff); }
+.pfx-pulse .r { position: absolute; right: 8%; bottom: 10%; width: 120px; height: 120px; margin: -60px; border-radius: 50%; border: 2px solid rgba(34,197,94,.45); animation: ping 6s ease-out infinite; }
+.pfx-pulse .r2 { right: auto; left: 12%; bottom: auto; top: 20%; border-color: rgba(6,182,212,.4); }
+@keyframes ping { from { transform: scale(.3); opacity: .9; } to { transform: scale(6); opacity: 0; } }
+/* mission：闪烁星星和勾 */
+.pfx-stars { background: linear-gradient(180deg,#faf5ff,#f5f3ff 50%,#fdf4ff); }
+.pfx-stars .st { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; box-shadow: 0 0 10px #c4b5fd; animation: twinkle ease-in-out infinite; }
+.pfx-stars .ck { width: auto; height: auto; background: none; box-shadow: none; color: #10b981; font-weight: 900; font-size: 16px; text-shadow: 0 0 10px rgba(16,185,129,.5); }
+@keyframes twinkle { 0%,100% { opacity: .15; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.3); } }
+/* 其他：柔和渐变 */
+.pfx-mesh { background: #f3f4fa; }
+.pfx-mesh .m { position: absolute; width: 60vw; height: 60vw; border-radius: 50%; filter: blur(80px); opacity: .35; }
+.pfx-mesh .m1 { background: #a78bfa; left: -20vw; top: -30vw; animation: drift1 24s ease-in-out infinite; }
+.pfx-mesh .m2 { background: #7dd3fc; right: -20vw; bottom: -30vw; animation: drift2 28s ease-in-out infinite; }
+/* 每页不同的进场动画 */
+.pg-anim > * { animation-duration: .8s; animation-timing-function: cubic-bezier(.16,1,.3,1); animation-fill-mode: backwards; }
+.pg-house > * { animation-name: inUp; }
+.pg-car > * { animation-name: inRight; }
+.pg-personal > * { animation-name: inZoom; }
+.pg-verify > * { animation-name: inBlur; }
+.pg-reports > * { animation-name: inRise; }
+.pg-html_forms > * { animation-name: inFlip; }
+.pg-html_company > * { animation-name: inPop; }
+.pg-banker > * { animation-name: inLeft; }
+.pg-mission > * { animation-name: inDrop; }
+.pg-clients > * { animation-name: inUp; }
+@keyframes inUp { from { opacity: 0; transform: translateY(24px); } }
+@keyframes inRight { from { opacity: 0; transform: translateX(60px) skewX(-4deg); } }
+@keyframes inLeft { from { opacity: 0; transform: translateX(-60px); } }
+@keyframes inZoom { from { opacity: 0; transform: scale(.92); } }
+@keyframes inBlur { from { opacity: 0; filter: blur(12px); } }
+@keyframes inRise { from { opacity: 0; transform: perspective(900px) rotateX(18deg) translateY(40px); } }
+@keyframes inFlip { from { opacity: 0; transform: perspective(900px) rotateY(-25deg); transform-origin: left; } }
+@keyframes inPop { from { opacity: 0; transform: scale(.85); } 70% { transform: scale(1.02); } }
+@keyframes inDrop { from { opacity: 0; transform: translateY(-40px); } 70% { transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .pfx * { animation: none !important; } .pg-anim > * { animation: none !important; } }
+.cz-page { margin: -28px; padding: 28px; min-height: calc(100vh - 67px); background: transparent; }
 .cz-page > div:last-child { border-radius: 16px !important; overflow: hidden; box-shadow: 0 12px 34px -12px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
 .cz-table thead tr { background: linear-gradient(90deg,#7c3aed,#4f46e5 45%,#0ea5e9); }
 .cz-table thead th { background: transparent !important; color: #fff !important; border-color: rgba(255,255,255,.12) !important; letter-spacing: .03em; }
