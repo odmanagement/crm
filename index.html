@@ -2660,7 +2660,9 @@ function MissionPhotos({ mission, onChange, onClose }) {
     delPhoto && h("div", { onClick: e => e.stopPropagation() }, h(PwDialog, { title: "删除这张照片", desc: "删除后不能复原。", confirmText: "删除", onCancel: () => setDelPhoto(null),
       onOk: async () => { const id = delPhoto; setDelPhoto(null); onChange(photos.filter(x => x !== id)); try { await DB.del("mphoto_" + id); } catch (e) {} delete _photoCache[id]; } })));
 }
-const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vivien", "chialing", "lucas"];
+const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vv", "chialing", "lucas"];
+/* 改名：旧名字 → 新名字（旧任务会自动转过去） */
+const MISSION_RENAME = { vivien: "vv" };
 function MissionPage({
   missions,
   onSave,
@@ -2670,6 +2672,11 @@ function MissionPage({
   const [filter, setFilter] = React.useState("all");
   const [mine, setMine] = React.useState(false);
   const boss = isMissionBoss(currentUser);
+  React.useEffect(() => {
+    const fix = v => MISSION_RENAME[String(v || "").toLowerCase()] || v;
+    if (missions.some(m => fix(m.owner) !== m.owner || fix(m.by) !== m.by || fix(m.assignedBy) !== m.assignedBy))
+      onSave(missions.map(m => ({ ...m, owner: fix(m.owner), by: fix(m.by), ...(m.assignedBy ? { assignedBy: fix(m.assignedBy) } : {}) })));
+  }, [missions]);
   const [delId, setDelId] = React.useState(null);
   const [photoId, setPhotoId] = React.useState(null);
   const add = () => onSave([{
