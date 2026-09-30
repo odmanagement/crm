@@ -2212,6 +2212,34 @@ function CRM({ onLogout, currentUser }) {
     if (!loading) ensureDailyBackup({ clients, missions, bankers, verifications });
   }, [loading]);
   const [showBackup, setShowBackup] = React.useState(false);
+  const [notices, setNotices] = React.useState([]);
+  React.useEffect(() => { DB.get("mission_notices").then(v => { if (v) setNotices(JSON.parse(v)); }).catch(() => {}); }, []);
+  React.useEffect(() => DB.subscribe(async (key, value) => {
+    if (key !== "mission_notices") return;
+    try { const v = value == null ? await DB.get(key) : value; setNotices(v ? JSON.parse(v) : []); } catch (e) {}
+  }), []);
+  const addNotice = async n => {
+    try {
+      const raw = await DB.get("mission_notices");
+      const cur = raw ? JSON.parse(raw) : [];
+      const next = [...cur, n].slice(-200);
+      setNotices(next);
+      await DB.set("mission_notices", JSON.stringify(next));
+    } catch (e) { console.error(e); }
+  };
+  const clearNotice = async id => {
+    try {
+      const raw = await DB.get("mission_notices");
+      const next = (raw ? JSON.parse(raw) : []).filter(x => x.id !== id);
+      setNotices(next);
+      await DB.set("mission_notices", JSON.stringify(next));
+    } catch (e) { console.error(e); }
+  };
+  const noticeForDone = m => {
+    const to = m && (m.assignedBy || m.by);
+    if (!to || sameUser(to, currentUser)) return;
+    addNotice({ id: uid(), to: canonUser(to), from: currentUser, task: m.task || "", due: m.due || "", at: Date.now() });
+  };
   useGlobalFx();
   const [sound, setSound] = React.useState(soundOn());
   const restoreSnapshot = async snap => {
@@ -2481,6 +2509,7 @@ function CRM({ onLogout, currentUser }) {
     bankers: bankers,
     onSave: persistBankers
   }) : page === "mission" ? /*#__PURE__*/React.createElement(MissionPage, {
+    onDoneNotify: noticeForDone,
     missions: missions,
     onSave: persistMissions,
     currentUser: currentUser
@@ -2502,12 +2531,15 @@ function CRM({ onLogout, currentUser }) {
     onRestore: restoreSnapshot
   }), /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
+    notices: notices,
+    onClearNotice: clearNotice,
     currentUser: currentUser,
     onView: () => { setOpenId(null); setPage("mission"); },
     onDone: async id => {
       const dm = missions.find(m => m.id === id) || {};
       if (!window.confirm("确定完成「" + (dm.task || "这个任务") + "」吗？\n按确定后任务会被删除，不能复原。")) return;
       persistMissions(missions.filter(m => m.id !== id));
+      noticeForDone(dm);
       for (const pid of dm.photos || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
     }
   }), editing && /*#__PURE__*/React.createElement(EditForm, {
@@ -2607,28 +2639,27 @@ const CZ_BANK = { MUAMALAT: 340, BSN: 210, "BANK RAKYAT": 225, "B.RAKYAT": 225, 
 const czBankHue = b => { const k = String(b || "").trim().toUpperCase(); return k in CZ_BANK ? CZ_BANK[k] : czHue(k); };
 const CZ_TYPE = { house: 262, car: 190, personal: 330 };
 /* ---------- 指派任务弹窗（Messenger 聊天头像风格） ---------- */
-function MissionPopups({ missions, currentUser, onView, onDone }) {
+function MissionPopups({ missions, notices, currentUser, onView, onDone, onClearNotice }) {
   const h = React.createElement;
-  const KEY = "crm_seen_assign_" + (currentUser || "");
-  const readSeen = () => { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } };
-  const [seen, setSeen] = React.useState(() => readSeen());
   const [open, setOpen] = React.useState(false);
   const [peek, setPeek] = React.useState(true);
-  const sigOf = m => m.id + "|" + (m.assignedAt || 0);
-  const writeSeen = arr => { setSeen(arr); try { localStorage.setItem(KEY, JSON.stringify(arr.slice(-300))); } catch (e) {} };
   const mine = (missions || []).filter(m => sameUser(m.owner, currentUser) && m.assignedBy && m.status !== "done");
-  React.useEffect(() => {
-    if (seen === null && currentUser) writeSeen(mine.map(sigOf));
-  }, [seen, currentUser]);
-  const pending = mine.slice().sort((x, y) => (y.assignedAt || 0) - (x.assignedAt || 0));
+  const myNotices = (notices || []).filter(n => sameUser(n.to, currentUser));
+  const items = [
+    ...myNotices.map(n => ({ kind: "n", key: "n" + n.id, name: n.from, at: n.at, n })),
+    ...mine.map(m => ({ kind: "a", key: m.id + "|" + (m.assignedAt || 0), name: m.assignedBy, at: m.assignedAt, m }))
+  ].sort((x, y) => (y.at || 0) - (x.at || 0));
   const prevCount = React.useRef(0);
+  const up = s => String(s || "").toUpperCase();
+  const titleOf = it => it.kind === "n" ? up(it.n.from) + " 完成了任务 ✅" : (sameUser(it.m.assignedBy, currentUser) ? "你 指派了任务给自己" : up(it.m.assignedBy) + " 指派了任务给你");
+  const textOf = it => it.kind === "n" ? (it.n.task || "（没有任务内容）") : (it.m.task || "（任务内容还没填）");
   React.useEffect(() => {
-    if (pending.length > prevCount.current) {
+    if (items.length > prevCount.current) {
       setPeek(true);
-      const m = pending[0];
+      const it = items[0];
       try {
         const ac = new (window.AudioContext || window.webkitAudioContext)();
-        [880, 1320].forEach((f, i) => {
+        (it.kind === "n" ? [660, 880, 1320] : [880, 1320]).forEach((f, i) => {
           const o = ac.createOscillator(), g = ac.createGain();
           o.frequency.value = f; o.connect(g); g.connect(ac.destination);
           const t = ac.currentTime + i * 0.12;
@@ -2636,63 +2667,58 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
           o.start(t); o.stop(t + 0.2);
         });
       } catch (e) {}
-      try {
-        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-          new Notification((sameUser(m.assignedBy, currentUser) ? "你指派了任务给自己" : String(m.assignedBy || "").toUpperCase() + " 指派了任务给你"), { body: m.task || "新任务" });
-        }
-      } catch (e) {}
+      try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification(titleOf(it), { body: textOf(it) }); } catch (e) {}
     }
-    if (!pending.length) setOpen(false);
-    prevCount.current = pending.length;
-  }, [pending.length]);
+    if (!items.length) setOpen(false);
+    prevCount.current = items.length;
+  }, [items.length]);
   React.useEffect(() => {
-    try { document.title = (pending.length ? "(" + pending.length + ") " : "") + document.title.replace(/^\(\d+\) /, ""); } catch (e) {}
-  }, [pending.length]);
-  if (!pending.length) return null;
+    try { document.title = (items.length ? "(" + items.length + ") " : "") + document.title.replace(/^\(\d+\) /, ""); } catch (e) {}
+  }, [items.length]);
+  if (!items.length) return null;
   const askNotify = () => { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {} };
   const colors = ["#0084ff", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
   const colorOf = n => colors[(n || "?").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
-  const avatar = (name, size) => h("div", {
-    style: { width: size, height: size, borderRadius: "50%", background: colorOf(name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.42, flexShrink: 0, textTransform: "uppercase" }
-  }, (name || "?").charAt(0));
-  const first = pending[0];
-  const who = m => sameUser(m.assignedBy, currentUser) ? "你" : String(m.assignedBy || "").toUpperCase();
-  const verb = m => sameUser(m.assignedBy, currentUser) ? " 指派了任务给自己" : " 指派了任务给你";
+  const avatar = (name, size, done) => h("div", {
+    style: { position: "relative", width: size, height: size, borderRadius: "50%", background: colorOf(name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.42, flexShrink: 0, textTransform: "uppercase" }
+  }, (name || "?").charAt(0), done ? h("span", { style: { position: "absolute", right: -2, bottom: -2, width: size * 0.42, height: size * 0.42, borderRadius: "50%", background: "#16a34a", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(Check, { size: size * 0.24, color: "#fff" })) : null);
+  const first = items[0];
   const ago = t => { const d = Math.floor((Date.now() - (t || 0)) / 60000); return d < 1 ? "刚刚" : d < 60 ? d + " 分钟前" : d < 1440 ? Math.floor(d / 60) + " 小时前" : Math.floor(d / 1440) + " 天前"; };
+  const btn = (bg, color) => ({ display: "flex", alignItems: "center", gap: 4, background: bg, color, border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" });
   return h("div", { style: { position: "fixed", right: 20, bottom: 20, zIndex: 9999, fontFamily: "inherit" } },
     h("style", null, "@keyframes mhPop{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}@keyframes mhIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}@keyframes mhPeek{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}"),
-    // 聊天窗口
     open && h("div", {
-      style: { position: "absolute", right: 0, bottom: 72, width: 330, maxWidth: "calc(100vw - 40px)", background: "#fff", borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,.2)", overflow: "hidden", animation: "mhIn .2s ease-out" }
+      style: { position: "absolute", right: 0, bottom: 72, width: 340, maxWidth: "calc(100vw - 40px)", background: "#fff", borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,.2)", overflow: "hidden", animation: "mhIn .2s ease-out" }
     },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #eef0f3" } },
-        h("div", { style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#050505" } }, "新任务 (" + pending.length + ")"),
+        h("div", { style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#050505" } }, "通知 (" + items.length + ")"),
         h("button", { onClick: () => setOpen(false), title: "收起", style: { background: "#f0f2f5", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 14, color: "#65676b" }))),
-      h("div", { style: { maxHeight: 360, overflowY: "auto", padding: 6 } },
-        pending.map(m => h("div", { key: sigOf(m), style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start" } },
-          avatar(m.assignedBy, 40),
+      h("div", { style: { maxHeight: 380, overflowY: "auto", padding: 6 } },
+        items.map(it => h("div", { key: it.key, style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start", background: it.kind === "n" ? "#f0fdf4" : "transparent", marginBottom: 2 } },
+          avatar(it.name, 40, it.kind === "n"),
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: "#050505" } }, who(m)), verb(m) + " · " + ago(m.assignedAt)),
-            h("div", { style: { display: "inline-block", marginTop: 4, background: "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word" } }, m.task || "（任务内容还没填）"),
-            m.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "截止 " + m.due),
+            h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: it.kind === "n" ? "#15803d" : "#050505" } }, titleOf(it)), " · " + ago(it.at)),
+            h("div", { style: { display: "inline-block", marginTop: 4, background: it.kind === "n" ? "#dcfce7" : "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word", textDecoration: it.kind === "n" ? "line-through" : "none" } }, textOf(it)),
+            it.kind === "a" && it.m.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "截止 " + it.m.due),
+            it.kind === "n" && it.n.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "原本截止 " + it.n.due),
             h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
-              h("button", { onClick: () => { setOpen(false); onView && onView(); }, style: { background: "#0084ff", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" } }, "查看"),
-              h("button", { onClick: () => onDone && onDone(m.id), style: { display: "flex", alignItems: "center", gap: 4, background: "#16a34a", color: "#fff", border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" } }, h(Check, { size: 13 }), "Done"))))))),
-    // 预览气泡
+              it.kind === "a" ? [
+                h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
+                h("button", { key: "d", onClick: () => onDone && onDone(it.m.id), style: btn("#16a34a", "#fff") }, h(Check, { size: 13 }), "Done")
+              ] : h("button", { onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了"))))))),
     !open && peek && h("div", {
       onClick: () => { askNotify(); setOpen(true); setPeek(false); },
-      style: { position: "absolute", right: 70, bottom: 6, width: 230, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
+      style: { position: "absolute", right: 70, bottom: 6, width: 240, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
     },
-      h("div", { style: { fontSize: 13, fontWeight: 700, color: "#050505" } }, who(first) + verb(first)),
-      h("div", { style: { fontSize: 13, color: "#65676b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first.task || "新任务"),
+      h("div", { style: { fontSize: 13, fontWeight: 700, color: first.kind === "n" ? "#15803d" : "#050505" } }, titleOf(first)),
+      h("div", { style: { fontSize: 13, color: "#65676b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, textOf(first)),
       h("button", { onClick: e => { e.stopPropagation(); setPeek(false); }, style: { position: "absolute", top: 6, right: 6, background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" } }, h(X, { size: 13, color: "#94a3b8" }))),
-    // 圆形头像
     h("div", {
       onClick: () => { askNotify(); setOpen(!open); setPeek(false); },
-      title: "新任务",
+      title: "通知",
       style: { position: "relative", cursor: "pointer", borderRadius: "50%", boxShadow: "0 4px 14px rgba(0,0,0,.25)", animation: "mhPop .35s ease-out" }
-    }, avatar(first.assignedBy, 58),
-      h("div", { style: { position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 10, background: "#fa3e3e", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxSizing: "border-box" } }, pending.length)));
+    }, avatar(first.name, 58, first.kind === "n"),
+      h("div", { style: { position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 10, background: "#fa3e3e", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxSizing: "border-box" } }, items.length)));
 }
 /* Mission 权限：这些人是老板，可以看全部任务内容 */
 const MISSION_BOSSES = ["lucas"];
@@ -2768,6 +2794,7 @@ const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vv", "chialing", "luca
 /* 改名：旧名字 → 新名字（旧任务会自动转过去） */
 const MISSION_RENAME = { vivien: "vv", lucasgor: "lucas", lucasgor178: "lucas" };
 function MissionPage({
+  onDoneNotify,
   missions,
   onSave,
   currentUser
@@ -2806,6 +2833,7 @@ function MissionPage({
     onSave(missions.filter(x => x.id !== id));
     for (const pid of (m && m.photos) || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
   };
+  const canEditAssign = m => boss || sameUser(m.assignedBy || m.by, currentUser) || (!m.assignedBy && !m.by);
   const canView = m => boss || sameUser(m.owner, currentUser) || (!m.owner && sameUser(m.by, currentUser));
   const visible = missions.filter(canView);
   const others = missions.filter(m => !canView(m));
@@ -2950,6 +2978,8 @@ function MissionPage({
         fontWeight: 700
       },
       value: m.owner,
+      disabled: !canEditAssign(m),
+      title: canEditAssign(m) ? "" : "🔒 只有指派的人可以改",
       onChange: e => upd(m.id, "owner", e.target.value)
     }, /*#__PURE__*/React.createElement("option", {
       value: ""
@@ -2965,6 +2995,8 @@ function MissionPage({
         ...(m.due && m.status !== "done" ? (m.due < today() ? czPill(355, { padding: "5px 10px", width: "auto" }) : m.due === today() ? czPill(30, { padding: "5px 10px", width: "auto" }) : czPill(210, { padding: "5px 10px", width: "auto" })) : {})
       },
       value: m.due,
+      disabled: !canEditAssign(m),
+      title: canEditAssign(m) ? "" : "🔒 只有指派的人可以改",
       onChange: e => upd(m.id, "due", e.target.value)
     })), /*#__PURE__*/React.createElement("td", {
       style: S.td
@@ -3011,7 +3043,7 @@ function MissionPage({
           /*#__PURE__*/React.createElement("div", { style: { fontSize: 12.5, color: "#94a3b8" } }, "按确定后，这个任务" + (n ? "和 " + n + " 张照片" : "") + "会被删除，不能复原。")),
         /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, padding: 20 } },
           /*#__PURE__*/React.createElement("button", { onClick: () => setDoneId(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600 } }, "取消"),
-          /*#__PURE__*/React.createElement("button", { onClick: async () => { const id = doneId; setDoneId(null); await del(id); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
+          /*#__PURE__*/React.createElement("button", { onClick: async () => { const id = doneId; const dm = missions.find(x => x.id === id); setDoneId(null); await del(id); onDoneNotify && onDoneNotify(dm); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
   })(), delId && /*#__PURE__*/React.createElement(PwDialog, {
     title: "删除任务",
     desc: "删除「" + ((missions.find(x => x.id === delId) || {}).task || "这个任务") + "」，连同照片一起删除，不能复原。",
@@ -6116,6 +6148,7 @@ button:active, a:active { transform: scale(.97); }
 .cz-table tbody tr:nth-child(even) td { background: #fbfaff; }
 .cz-table tbody tr:hover td { background: #f3f0ff !important; }
 .cz-table select, .cz-table input { cursor: pointer; }
+.cz-table select:disabled, .cz-table input:disabled { cursor: not-allowed; opacity: .85; filter: saturate(.7); }
 .stat-card:nth-child(2) { animation-delay: .06s; } .stat-card:nth-child(3) { animation-delay: .12s; } .stat-card:nth-child(4) { animation-delay: .18s; }
 `;
 const S = {
