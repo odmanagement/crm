@@ -1993,6 +1993,7 @@ function LoginPage({
   const h = React.createElement;
   const css = `
   .lg-wrap{position:relative;min-height:100vh;overflow:hidden;background:#07071a;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;color:#e2e8f0}
+  .lg-wrap, .lg-wrap *{text-transform:uppercase}
   .lg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%)}
   .lg-orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55;animation:lgFloat 14s ease-in-out infinite}
   .lg-o1{width:520px;height:520px;background:#6d28d9;top:-160px;left:-120px}
@@ -3374,14 +3375,14 @@ function Dashboard({
   }))).sort((a, b) => a.date < b.date ? -1 : 1).slice(0, 8);
   const DK = {
     wrap: { margin: -28, padding: 28, minHeight: "calc(100vh - 67px)", position: "relative", overflow: "hidden", background: "radial-gradient(900px 480px at 5% -5%, rgba(139,92,246,.45), transparent 65%), radial-gradient(800px 500px at 100% 105%, rgba(59,130,246,.40), transparent 65%), radial-gradient(600px 380px at 65% 35%, rgba(34,211,238,.16), transparent 70%), radial-gradient(500px 300px at 30% 90%, rgba(236,72,153,.14), transparent 70%), linear-gradient(160deg,#1a1b4b 0%,#141540 50%,#16235a 100%)" },
-    grid: { position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)", backgroundSize: "48px 48px", WebkitMaskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)", maskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)" },
+    grid: { display: "none", position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)", backgroundSize: "48px 48px", WebkitMaskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)", maskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)" },
     card: { position: "relative", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 20, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", boxShadow: "0 10px 30px rgba(10,10,40,.25), inset 0 1px 0 rgba(255,255,255,.12)" },
     head: { fontSize: 13, fontWeight: 700, marginBottom: 12, paddingLeft: 10, borderLeft: "3px solid #c084fc", color: "#fff", letterSpacing: ".04em", textTransform: "uppercase" },
     typeRight: { ...S.typeRight, color: "#c7d2fe" },
     empty: { ...S.fuEmpty, color: "#a5b4fc" },
     reset: { ...S.resetBtn, background: "rgba(255,255,255,.1)", color: "#e0e7ff", border: "1px solid rgba(255,255,255,.18)" }
   };
-  return /*#__PURE__*/React.createElement("div", { className: "dk-dash", style: DK.wrap }, /*#__PURE__*/React.createElement("div", { style: DK.grid }), /*#__PURE__*/React.createElement("div", { className: "fx3d", "aria-hidden": true }, /*#__PURE__*/React.createElement("div", { className: "ring r1" }), /*#__PURE__*/React.createElement("div", { className: "ring r2" }), /*#__PURE__*/React.createElement("div", { className: "cube c1" }, ["f", "b", "l", "r", "t", "d"].map(k => /*#__PURE__*/React.createElement("i", { key: k, className: k }))), /*#__PURE__*/React.createElement("div", { className: "cube c2" }, ["f", "b", "l", "r", "t", "d"].map(k => /*#__PURE__*/React.createElement("i", { key: k, className: k }))), /*#__PURE__*/React.createElement("div", { className: "orb o1" }), /*#__PURE__*/React.createElement("div", { className: "orb o2" })), /*#__PURE__*/React.createElement("div", { style: { position: "relative" } }, clients.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement("div", { className: "dk-dash", style: DK.wrap }, /*#__PURE__*/React.createElement("div", { style: DK.grid }), /*#__PURE__*/React.createElement("div", { className: "fx3d", "aria-hidden": true }, /*#__PURE__*/React.createElement("div", { className: "au a1" }), /*#__PURE__*/React.createElement("div", { className: "au a2" }), /*#__PURE__*/React.createElement("div", { className: "au a3" }), /*#__PURE__*/React.createElement("div", { className: "floor" })), /*#__PURE__*/React.createElement("div", { style: { position: "relative" } }, clients.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: S.importBanner
   }, /*#__PURE__*/React.createElement("span", null, "Import 20 clients · 22 house loans from your sheet"), /*#__PURE__*/React.createElement("button", {
     style: S.importBtn,
@@ -3479,8 +3480,8 @@ function Stat({
   const glow = { "#7c3aed": "124,58,237", "#16a34a": "16,185,129", "#4f46e5": "59,130,246" }[color] || "6,182,212";
   return /*#__PURE__*/React.createElement("div", {
     className: "stat-card tilt3d",
-    "data-tilt": 14,
-    "data-lift": 18,
+    "data-tilt": 7,
+    "data-lift": 10,
     style: { ...S.stat, background: bg, border: "1px solid rgba(255,255,255,.25)", boxShadow: "0 12px 30px rgba(" + glow + ",.45), inset 0 1px 0 rgba(255,255,255,.3)" }
   }, /*#__PURE__*/React.createElement("div", {
     style: { position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.18)", top: -70, right: -50 }
@@ -5921,6 +5922,8 @@ function EditForm({
 }
 const CSS = `
 * { box-sizing: border-box; }
+#root, #root *, #root input, #root textarea, #root select, #root option, #root button { text-transform: uppercase !important; }
+#root input::placeholder, #root textarea::placeholder { text-transform: uppercase; }
 input:focus, textarea:focus, select:focus { outline: 2px solid #4f46e5; outline-offset: -1px; }
 button { cursor: pointer; font-family: inherit; }
 ::-webkit-scrollbar { width: 8px; }
@@ -5937,31 +5940,27 @@ nav button:hover { color: #e2e8f0 !important; background: rgba(255,255,255,.05);
 .stat-card.tilting { box-shadow: 0 26px 50px rgba(30,20,90,.55) !important; }
 .glare { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0; transition: opacity .3s; background: radial-gradient(260px circle at var(--gx,50%) var(--gy,50%), rgba(255,255,255,.35), transparent 60%); }
 .tilting .glare { opacity: 1; }
-.stat-card { animation: flip3d .8s cubic-bezier(.2,.8,.2,1) backwards !important; transform-origin: 50% 100%; }
-.stat-card:nth-child(2) { animation-delay: .08s !important; } .stat-card:nth-child(3) { animation-delay: .16s !important; } .stat-card:nth-child(4) { animation-delay: .24s !important; }
-@keyframes flip3d { from { opacity: 0; transform: perspective(900px) rotateX(-70deg) translateY(30px); } to { opacity: 1; transform: none; } }
-.dash3d { animation: rise3d .9s .25s cubic-bezier(.2,.8,.2,1) backwards; }
-@keyframes rise3d { from { opacity: 0; transform: perspective(1200px) rotateX(25deg) translateY(40px) scale(.96); } to { opacity: 1; transform: none; } }
-.dk-dash .dash3d button { animation: rowIn .5s cubic-bezier(.2,.8,.2,1) backwards; }
-.dk-dash .dash3d button:nth-of-type(1) { animation-delay: .45s; } .dk-dash .dash3d button:nth-of-type(2) { animation-delay: .52s; } .dk-dash .dash3d button:nth-of-type(3) { animation-delay: .59s; } .dk-dash .dash3d button:nth-of-type(4) { animation-delay: .66s; } .dk-dash .dash3d button:nth-of-type(5) { animation-delay: .73s; } .dk-dash .dash3d button:nth-of-type(n+6) { animation-delay: .8s; }
-@keyframes rowIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
-.fx3d { position: absolute; inset: 0; pointer-events: none; perspective: 900px; overflow: hidden; }
-.fx3d .ring { position: absolute; border-radius: 50%; border: 2px solid rgba(167,139,250,.35); box-shadow: 0 0 30px rgba(139,92,246,.35), inset 0 0 20px rgba(139,92,246,.2); transform-style: preserve-3d; }
-.fx3d .r1 { width: 380px; height: 380px; right: -60px; bottom: -80px; animation: spin3d 18s linear infinite; }
-.fx3d .r2 { width: 220px; height: 220px; left: 38%; bottom: 8%; border-color: rgba(34,211,238,.35); box-shadow: 0 0 26px rgba(34,211,238,.3); animation: spin3d 12s linear infinite reverse; }
-@keyframes spin3d { from { transform: rotateX(68deg) rotateZ(0deg); } to { transform: rotateX(68deg) rotateZ(360deg); } }
-.fx3d .cube { position: absolute; width: 56px; height: 56px; transform-style: preserve-3d; animation: cube3d 14s linear infinite; }
-.fx3d .cube i { position: absolute; inset: 0; border: 1.5px solid rgba(165,180,252,.55); background: rgba(139,92,246,.10); box-shadow: inset 0 0 18px rgba(139,92,246,.25); }
-.fx3d .cube .f { transform: translateZ(28px); } .fx3d .cube .b { transform: rotateY(180deg) translateZ(28px); } .fx3d .cube .l { transform: rotateY(-90deg) translateZ(28px); } .fx3d .cube .r { transform: rotateY(90deg) translateZ(28px); } .fx3d .cube .t { transform: rotateX(90deg) translateZ(28px); } .fx3d .cube .d { transform: rotateX(-90deg) translateZ(28px); }
-.fx3d .c1 { left: 12%; bottom: 14%; }
-.fx3d .c2 { right: 22%; bottom: 32%; width: 36px; height: 36px; animation-duration: 10s; animation-direction: reverse; }
-.fx3d .c2 i { border-color: rgba(103,232,249,.55); background: rgba(34,211,238,.08); }
-.fx3d .c2 .f { transform: translateZ(18px); } .fx3d .c2 .b { transform: rotateY(180deg) translateZ(18px); } .fx3d .c2 .l { transform: rotateY(-90deg) translateZ(18px); } .fx3d .c2 .r { transform: rotateY(90deg) translateZ(18px); } .fx3d .c2 .t { transform: rotateX(90deg) translateZ(18px); } .fx3d .c2 .d { transform: rotateX(-90deg) translateZ(18px); }
-@keyframes cube3d { 0% { transform: translateY(0) rotateX(0) rotateY(0); } 50% { transform: translateY(-24px) rotateX(180deg) rotateY(180deg); } 100% { transform: translateY(0) rotateX(360deg) rotateY(360deg); } }
-.fx3d .orb { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.9), rgba(167,139,250,.6) 35%, rgba(79,70,229,.2) 70%, transparent 72%); filter: drop-shadow(0 10px 20px rgba(79,70,229,.5)); animation: floaty 7s ease-in-out infinite; }
-.fx3d .o1 { width: 46px; height: 46px; left: 55%; bottom: 20%; }
-.fx3d .o2 { width: 26px; height: 26px; left: 28%; bottom: 36%; animation-delay: -3s; background: radial-gradient(circle at 30% 30%, #fff, rgba(34,211,238,.7) 35%, rgba(14,165,233,.2) 70%, transparent 72%); }
-@keyframes floaty { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-30px) scale(1.08); } }
+.stat-card { animation: softIn .9s cubic-bezier(.16,1,.3,1) backwards !important; background-size: 200% 200% !important; }
+.stat-card:nth-child(2) { animation-delay: .07s !important; } .stat-card:nth-child(3) { animation-delay: .14s !important; } .stat-card:nth-child(4) { animation-delay: .21s !important; }
+.stat-card:after { content: ""; position: absolute; top: 0; bottom: 0; width: 45%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.22), transparent); transform: skewX(-18deg); animation: sheen 6s ease-in-out infinite; pointer-events: none; }
+.stat-card:nth-child(2):after { animation-delay: 1.2s; } .stat-card:nth-child(3):after { animation-delay: 2.4s; } .stat-card:nth-child(4):after { animation-delay: 3.6s; }
+@keyframes sheen { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+@keyframes softIn { from { opacity: 0; transform: translateY(18px) scale(.98); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+.dash3d { animation: softIn 1s .25s cubic-bezier(.16,1,.3,1) backwards; }
+.dk-dash .dash3d button { animation: rowIn .6s cubic-bezier(.16,1,.3,1) backwards; }
+.dk-dash .dash3d button:nth-of-type(1) { animation-delay: .45s; } .dk-dash .dash3d button:nth-of-type(2) { animation-delay: .5s; } .dk-dash .dash3d button:nth-of-type(3) { animation-delay: .55s; } .dk-dash .dash3d button:nth-of-type(4) { animation-delay: .6s; } .dk-dash .dash3d button:nth-of-type(5) { animation-delay: .65s; } .dk-dash .dash3d button:nth-of-type(n+6) { animation-delay: .7s; }
+@keyframes rowIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fx3d { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.fx3d .au { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; mix-blend-mode: screen; }
+.fx3d .a1 { width: 520px; height: 420px; left: -8%; top: -12%; background: #8b5cf6; animation: drift1 22s ease-in-out infinite; }
+.fx3d .a2 { width: 480px; height: 420px; right: -6%; top: 10%; background: #0ea5e9; animation: drift2 26s ease-in-out infinite; }
+.fx3d .a3 { width: 420px; height: 360px; left: 35%; bottom: -14%; background: #ec4899; opacity: .35; animation: drift3 30s ease-in-out infinite; }
+@keyframes drift1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(120px,80px) scale(1.15); } }
+@keyframes drift2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-140px,60px) scale(.9); } }
+@keyframes drift3 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-80px,-60px) scale(1.2); } }
+.fx3d .floor { position: absolute; left: -60%; right: -60%; bottom: 0; height: 65%; transform: perspective(420px) rotateX(58deg); transform-origin: 50% 100%; background-image: linear-gradient(rgba(196,181,253,.45) 2px, transparent 2px), linear-gradient(90deg, rgba(196,181,253,.45) 2px, transparent 2px); background-size: 70px 70px; animation: floorMove 4s linear infinite; -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9) 10%, transparent 90%); mask-image: linear-gradient(to top, rgba(0,0,0,.9) 10%, transparent 90%); }
+@keyframes floorMove { from { background-position: 0 0; } to { background-position: 0 70px; } }
+.dash3d.tilting { box-shadow: 0 24px 50px rgba(10,10,40,.45), inset 0 1px 0 rgba(255,255,255,.12) !important; }
 button:active, a:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) { .fx3d, .stat-card, .dash3d { animation: none !important; } }
 .cz-page { margin: -28px; padding: 28px; min-height: calc(100vh - 67px); background: radial-gradient(700px 300px at 0% 0%, rgba(167,139,250,.25), transparent 70%), radial-gradient(600px 300px at 100% 0%, rgba(56,189,248,.2), transparent 70%), radial-gradient(600px 300px at 60% 100%, rgba(244,114,182,.14), transparent 70%), #f7f7fd; }
