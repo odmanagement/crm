@@ -2789,76 +2789,88 @@ function BankerPage({
   })))))))));
 }
 /* ---------- Company：Payslip + CL 合并 ---------- */
-function FolderArt({ c1, c2, check }) {
-  const h = React.createElement, id = "fg" + c1.replace("#", "");
-  return h("svg", { width: 46, height: 42, viewBox: "0 0 46 42", style: { flexShrink: 0, filter: "drop-shadow(0 6px 10px rgba(0,0,0,.35))" } },
-    h("defs", null,
-      h("linearGradient", { id: id + "b", x1: 0, y1: 0, x2: 1, y2: 1 }, h("stop", { offset: 0, stopColor: c2 }), h("stop", { offset: 1, stopColor: c1 })),
-      h("linearGradient", { id: id + "f", x1: 0, y1: 0, x2: 0, y2: 1 }, h("stop", { offset: 0, stopColor: "#fff", stopOpacity: .55 }), h("stop", { offset: 1, stopColor: c1, stopOpacity: .9 }))),
-    h("path", { d: "M4 8a4 4 0 0 1 4-4h9l4 4h17a4 4 0 0 1 4 4v22a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z", fill: "url(#" + id + "b)" }),
-    h("rect", { x: 9, y: 9, width: 26, height: 18, rx: 2, fill: "#fff", opacity: .9, transform: "rotate(-6 22 18)" }),
-    h("rect", { x: 11, y: 11, width: 26, height: 18, rx: 2, fill: "#f1f5f9", opacity: .95, transform: "rotate(4 24 20)" }),
-    h("path", { d: "M2 17a4 4 0 0 1 4-4h34a4 4 0 0 1 4 4l-2 17a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z", fill: "url(#" + id + "f)" }),
-    h("rect", { x: 12, y: 24, width: 10, height: 2.5, rx: 1.2, fill: "#fff", opacity: .8 }),
-    h("rect", { x: 12, y: 29, width: 6, height: 2.5, rx: 1.2, fill: "#fff", opacity: .6 }),
-    check && h("g", null, h("circle", { cx: 37, cy: 34, r: 7, fill: "#fff" }), h("circle", { cx: 37, cy: 34, r: 5.6, fill: "#22c55e" }), h("path", { d: "M34.3 34.2l1.8 1.8 3.4-3.6", stroke: "#fff", strokeWidth: 1.8, fill: "none", strokeLinecap: "round", strokeLinejoin: "round" })));
-}
 function CompanyFilesPage() {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
-  const [open, setOpen] = React.useState(null);
+  const [openName, setOpenName] = React.useState(null);
+  const [filter, setFilter] = React.useState("all");
   const urlOf = (list, n) => { const t = n && list.find(x => x.name === n); return t ? t.url || t.file : null; };
   const all = COMPANY_FILES.map(c => ({ ...c, pUrl: urlOf(PAYSLIP_TOOLS, c.payslip), cUrl: urlOf(OFFER_TOOLS, c.cl) }));
-  const rows = all.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase()));
-  const pal = [["#a3e635", "#facc15"], ["#3b82f6", "#ec4899"], ["#22d3ee", "#a78bfa"], ["#ef4444", "#f472b6"], ["#a855f7", "#6366f1"], ["#f97316", "#facc15"], ["#10b981", "#22d3ee"]];
-  const both = all.filter(c => c.pUrl && c.cUrl).length;
-  const sum = [["Total Companies", all.length, 0], ["Payslip", all.filter(c => c.pUrl).length, 1], ["CL", all.filter(c => c.cUrl).length, 2], ["Payslip + CL", both, 6]];
+  const rows = all.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase()))
+    .filter(c => filter === "all" || (filter === "p" && c.pUrl) || (filter === "c" && c.cUrl) || (filter === "both" && c.pUrl && c.cUrl));
+  const hues = [262, 199, 330, 152, 24, 222, 285, 174, 350, 45];
+  const hueOf = n => hues[n.split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % hues.length];
+  const initials = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+  const cnt = { all: all.length, p: all.filter(c => c.pUrl).length, c: all.filter(c => c.cUrl).length, both: all.filter(c => c.pUrl && c.cUrl).length };
   const css = `
-  .cf-wrap{margin:-28px;padding:28px;min-height:calc(100vh - 67px);background:#161618;color:#f1f5f9}
-  .cf-h{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;margin:4px 0 16px}
-  .cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-  .cf-card{position:relative;display:flex;align-items:center;gap:14px;padding:18px 18px;border-radius:12px;background:#232326;overflow:hidden;cursor:pointer;border:none;text-align:left;color:#f1f5f9;font-family:inherit;transition:transform .18s,box-shadow .18s;width:100%}
-  .cf-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.45)}
-  .cf-card .cf-arrow{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:12px;color:#cbd5e1}
-  .cf-name{font-size:15px;font-weight:700;line-height:1.25}
-  .cf-sub{font-size:13px;color:#cbd5e1;margin-top:4px;font-weight:600}
-  .cf-search{width:100%;max-width:360px;padding:10px 14px;border-radius:10px;border:1px solid #333338;background:#1f1f22;color:#fff;font-size:14px;outline:none;font-family:inherit;box-sizing:border-box}
-  .cf-search:focus{border-color:#a3e635}
-  .cf-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
-  .cf-modal{width:100%;max-width:400px;background:#1f1f22;border:1px solid #2e2e33;border-radius:16px;padding:22px;color:#f1f5f9;animation:cfIn .2s ease-out}
-  @keyframes cfIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
-  .cf-btn{display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;background:#2a2a2e;text-decoration:none;color:#f1f5f9;margin-top:10px;transition:background .15s}
-  .cf-btn:hover{background:#333338}
-  .cf-btn.off{opacity:.35;pointer-events:none}
+  .co-wrap{margin:-28px;padding:32px 28px;min-height:calc(100vh - 67px);background:linear-gradient(180deg,#f5f3ff 0%,#eef2ff 40%,#f8fafc 100%)}
+  .co-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .co-title{font-size:26px;font-weight:800;color:#1e1b4b;letter-spacing:-.02em;margin:0}
+  .co-title span{background:linear-gradient(90deg,#7c3aed,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .co-desc{font-size:13px;color:#64748b;margin-top:4px}
+  .co-search{position:relative;width:300px;max-width:100%}
+  .co-search input{width:100%;box-sizing:border-box;padding:11px 14px 11px 38px;border-radius:999px;border:1px solid #e0e7ff;background:#fff;font-size:14px;outline:none;font-family:inherit;box-shadow:0 2px 10px rgba(79,70,229,.06)}
+  .co-search input:focus{border-color:#a5b4fc;box-shadow:0 0 0 4px rgba(99,102,241,.12)}
+  .co-tabs{display:inline-flex;background:#fff;border:1px solid #e0e7ff;border-radius:999px;padding:4px;gap:2px;margin-bottom:22px;box-shadow:0 2px 10px rgba(79,70,229,.06);flex-wrap:wrap}
+  .co-tab{border:none;background:none;padding:7px 16px;border-radius:999px;font-size:13px;font-weight:600;color:#64748b;font-family:inherit;display:flex;gap:6px;align-items:center}
+  .co-tab b{font-size:11px;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:1px 7px}
+  .co-tab.on{background:linear-gradient(120deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(79,70,229,.35)}
+  .co-tab.on b{background:rgba(255,255,255,.25);color:#fff}
+  .co-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:26px 18px;padding-top:12px}
+  .co-f{position:relative;cursor:pointer;transition:transform .2s}
+  .co-f:hover{transform:translateY(-3px)}
+  .co-tabshape{position:absolute;top:-12px;left:0;width:44%;height:22px;border-radius:12px 14px 0 0}
+  .co-body{position:relative;border-radius:0 16px 16px 16px;padding:18px;min-height:112px;box-sizing:border-box;box-shadow:0 10px 24px -8px var(--sh);overflow:hidden}
+  .co-body:after{content:"";position:absolute;right:-30px;bottom:-40px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.13)}
+  .co-mono{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;letter-spacing:.02em}
+  .co-name{color:#fff;font-weight:700;font-size:15.5px;margin-top:12px;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.15)}
+  .co-docs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .co-pill{font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,.2);border-radius:999px;padding:3px 9px;letter-spacing:.03em}
+  .co-pill.off{background:transparent;border:1px dashed rgba(255,255,255,.45);color:rgba(255,255,255,.7)}
+  .co-paper{position:absolute;left:14px;right:14px;height:30px;border-radius:8px 8px 0 0;background:#fff;box-shadow:0 -2px 8px rgba(0,0,0,.08);transition:transform .25s}
+  .co-f:hover .co-paper{transform:translateY(-5px)}
+  .co-open{margin-top:10px;background:#fff;border-radius:14px;padding:8px;box-shadow:0 12px 30px -10px rgba(30,27,75,.3);animation:coIn .2s ease-out;border:1px solid #eef2ff}
+  @keyframes coIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .co-link{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;text-decoration:none;color:#1e1b4b;transition:background .15s}
+  .co-link:hover{background:#f5f3ff}
+  .co-link.off{opacity:.4;pointer-events:none}
+  .co-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
   `;
-  const card = (key, title, sub, i, onClick, check) => {
-    const [c1, c2] = pal[i % pal.length];
-    return h("button", { key, className: "cf-card", onClick, style: { borderLeft: "3px solid " + c1, backgroundImage: "radial-gradient(200px 120px at 85% 70%, " + c1 + "33, transparent 70%)" } },
-      h(FolderArt, { c1, c2, check }),
-      h("div", { style: { minWidth: 0, paddingRight: 18 } }, h("div", { className: "cf-name" }, title), h("div", { className: "cf-sub" }, sub)),
-      h("span", { className: "cf-arrow" }, "↗"));
-  };
-  return h("div", { className: "cf-wrap" },
+  const Search = typeof window !== "undefined" && typeof window.Search === "function" ? window.Search : null;
+  return h("div", { className: "co-wrap" },
     h("style", null, css),
-    h("div", { className: "cf-h" }, h("span", { style: { color: "#a3e635" } }, "▰"), "Company Summary"),
-    h("div", { className: "cf-grid", style: { marginBottom: 28 } }, sum.map(([t, n, i]) => h("div", { key: t, className: "cf-card", style: { cursor: "default", borderLeft: "3px solid " + pal[i][0], backgroundImage: "radial-gradient(200px 120px at 85% 70%, " + pal[i][0] + "33, transparent 70%)" } },
-      h(FolderArt, { c1: pal[i][0], c2: pal[i][1], check: i === 6 }),
-      h("div", null, h("div", { className: "cf-name" }, t), h("div", { className: "cf-sub", style: { fontSize: 15, color: "#fff" } }, n))))),
-    h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 } },
-      h("div", { className: "cf-h", style: { margin: 0 } }, h("span", { style: { color: "#a3e635" } }, "▰"), "Company Files"),
-      h("input", { className: "cf-search", placeholder: "搜索公司 / Search company", value: q, onChange: e => setQ(e.target.value) })),
-    h("div", { className: "cf-grid" }, rows.map((c, i) => card(c.name, c.name, [c.pUrl && "Payslip", c.cUrl && "CL"].filter(Boolean).join(" · "), all.indexOf(c), () => setOpen(c), c.pUrl && c.cUrl)),
-      rows.length === 0 && h("div", { style: { color: "#94a3b8", padding: 20 } }, "找不到公司")),
-    open && h("div", { className: "cf-ov", onClick: () => setOpen(null) },
-      h("div", { className: "cf-modal", onClick: e => e.stopPropagation() },
-        h("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 6 } },
-          h(FolderArt, { c1: pal[Math.max(0, all.findIndex(x => x.name === open.name)) % pal.length][0], c2: pal[Math.max(0, all.findIndex(x => x.name === open.name)) % pal.length][1] }),
-          h("div", { style: { flex: 1, fontSize: 17, fontWeight: 700 } }, open.name),
-          h("button", { onClick: () => setOpen(null), style: { background: "#2a2a2e", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, h(X, { size: 15, color: "#cbd5e1" }))),
-        [["Payslip", "工资单", all.find(x => x.name === open.name).pUrl, "#3b82f6", "#a78bfa"], ["CL", "Confirmation Letter", all.find(x => x.name === open.name).cUrl, "#22d3ee", "#a3e635"]].map(([t, sub, url, c1, c2]) => h("a", { key: t, className: "cf-btn" + (url ? "" : " off"), href: url || undefined, target: "_blank", rel: "noopener" },
-          h(FolderArt, { c1, c2 }),
-          h("div", { style: { flex: 1 } }, h("div", { style: { fontWeight: 700, fontSize: 15 } }, t), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, url ? sub : "还没有文件")),
-          url && h("span", { style: { color: "#cbd5e1" } }, "↗"))))));
+    h("div", { className: "co-top" },
+      h("div", null,
+        h("h1", { className: "co-title" }, h("span", null, "Company"), " Files"),
+        h("div", { className: "co-desc" }, "点公司文件夹，打开 Payslip 或 CL")),
+      h("div", { className: "co-search" },
+        h("span", { style: { position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#a5b4fc", fontSize: 14 } }, "⌕"),
+        h("input", { placeholder: "搜索公司 / Search company", value: q, onChange: e => setQ(e.target.value) }))),
+    h("div", { className: "co-tabs" },
+      [["all", "全部"], ["p", "Payslip"], ["c", "CL"], ["both", "两样都有"]].map(([k, t]) => h("button", { key: k, className: "co-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t, h("b", null, cnt[k])))),
+    h("div", { className: "co-grid" },
+      rows.map(c => {
+        const hu = hueOf(c.name), isOpen = openName === c.name;
+        const c1 = "hsl(" + hu + ",78%,62%)", c2 = "hsl(" + ((hu + 35) % 360) + ",75%,52%)", tab = "hsl(" + hu + ",70%,72%)";
+        return h("div", { key: c.name },
+          h("div", { className: "co-f", onClick: () => setOpenName(isOpen ? null : c.name) },
+            h("div", { className: "co-tabshape", style: { background: tab } }),
+            h("div", { className: "co-paper", style: { top: -4 } }),
+            h("div", { className: "co-body", style: { background: "linear-gradient(135deg," + c1 + "," + c2 + ")", "--sh": "hsla(" + hu + ",70%,45%,.55)" } },
+              h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
+                h("div", { className: "co-mono" }, initials(c.name)),
+                h("span", { style: { color: "#fff", fontSize: 18, opacity: .9, transition: "transform .2s", transform: isOpen ? "rotate(180deg)" : "none" } }, "⌄")),
+              h("div", { className: "co-name" }, c.name),
+              h("div", { className: "co-docs" },
+                h("span", { className: "co-pill" + (c.pUrl ? "" : " off") }, "PAYSLIP"),
+                h("span", { className: "co-pill" + (c.cUrl ? "" : " off") }, "CL")))),
+          isOpen && h("div", { className: "co-open" },
+            [["Payslip", "工资单", c.pUrl, "PS", "linear-gradient(135deg,#8b5cf6,#6366f1)"], ["CL", "Confirmation Letter", c.cUrl, "CL", "linear-gradient(135deg,#06b6d4,#3b82f6)"]].map(([t, sub, url, ab, bg]) => h("a", { key: t, className: "co-link" + (url ? "" : " off"), href: url || undefined, target: "_blank", rel: "noopener" },
+              h("div", { className: "co-ic", style: { background: bg } }, ab),
+              h("div", { style: { flex: 1 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t), h("div", { style: { fontSize: 12, color: "#94a3b8" } }, url ? sub : "还没有文件")),
+              url && h("span", { style: { color: "#a5b4fc", fontSize: 14 } }, "↗")))));
+      }),
+      rows.length === 0 && h("div", { style: { color: "#94a3b8", padding: 20 } }, "找不到公司")));
 }
 function LinkListPage({
   title,
