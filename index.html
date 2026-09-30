@@ -546,6 +546,9 @@ function authClient() {
   }
   return _authClient;
 }
+/* ===== 同一个人的不同登录名（左边的登录名 → 当成右边这个人） ===== */
+const USER_ALIASES = { lucasgor: "lucas" };
+function canonUser(u) { const k = String(u || "").trim().toLowerCase(); return USER_ALIASES[k] || k; }
 /* ===== 权限：这些账号看不到 Lucas Cost（填登录邮箱 @ 前面的名字，小写） ===== */
 const LUCAS_HIDDEN_USERS = ["admin"];
 function canSeeLucas() {
@@ -2025,7 +2028,7 @@ function App() {
   if (!session) return /*#__PURE__*/React.createElement(LoginPage, {
     onLogin: (s, sess) => setSession(sess)
   });
-  window.__crmUser = session && session.user && session.user.email ? session.user.email.split("@")[0].trim().toLowerCase() : "";
+  window.__crmUser = canonUser(session && session.user && session.user.email ? session.user.email.split("@")[0] : "");
   return /*#__PURE__*/React.createElement(CRM, {
     onLogout: logout,
     currentUser: window.__crmUser
@@ -2592,8 +2595,8 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
 }
 /* Mission 权限：这些人是老板，可以看全部任务内容 */
 const MISSION_BOSSES = ["lucas"];
-const sameUser = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-const isMissionBoss = u => MISSION_BOSSES.includes(String(u || "").toLowerCase());
+const sameUser = (a, b) => !!a && !!b && canonUser(a) === canonUser(b);
+const isMissionBoss = u => MISSION_BOSSES.includes(canonUser(u));
 function PwDialog({ title, desc, confirmText, onOk, onCancel }) {
   const h = React.createElement;
   const [pw, setPw] = React.useState(""), [err, setErr] = React.useState(""), [busy, setBusy] = React.useState(false);
@@ -2662,7 +2665,7 @@ function MissionPhotos({ mission, onChange, onClose }) {
 }
 const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vv", "chialing", "lucas"];
 /* 改名：旧名字 → 新名字（旧任务会自动转过去） */
-const MISSION_RENAME = { vivien: "vv" };
+const MISSION_RENAME = { vivien: "vv", lucasgor: "lucas" };
 function MissionPage({
   missions,
   onSave,
