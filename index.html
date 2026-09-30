@@ -2025,7 +2025,7 @@ function App() {
   if (!session) return /*#__PURE__*/React.createElement(LoginPage, {
     onLogin: (s, sess) => setSession(sess)
   });
-  window.__crmUser = session && session.user && session.user.email ? session.user.email.split("@")[0] : "";
+  window.__crmUser = session && session.user && session.user.email ? session.user.email.split("@")[0].trim().toLowerCase() : "";
   return /*#__PURE__*/React.createElement(CRM, {
     onLogout: logout,
     currentUser: window.__crmUser
@@ -2512,7 +2512,7 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
   const [peek, setPeek] = React.useState(true);
   const sigOf = m => m.id + "|" + (m.assignedAt || 0);
   const writeSeen = arr => { setSeen(arr); try { localStorage.setItem(KEY, JSON.stringify(arr.slice(-300))); } catch (e) {} };
-  const mine = (missions || []).filter(m => currentUser && m.owner === currentUser && m.assignedBy && m.status !== "done");
+  const mine = (missions || []).filter(m => sameUser(m.owner, currentUser) && m.assignedBy && m.status !== "done");
   React.useEffect(() => {
     if (seen === null && currentUser) writeSeen(mine.map(sigOf));
   }, [seen, currentUser]);
@@ -2592,6 +2592,7 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
 }
 /* Mission 权限：这些人是老板，可以看全部任务内容 */
 const MISSION_BOSSES = ["lucas"];
+const sameUser = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 const isMissionBoss = u => MISSION_BOSSES.includes(String(u || "").toLowerCase());
 function PwDialog({ title, desc, confirmText, onOk, onCancel }) {
   const h = React.createElement;
@@ -2693,7 +2694,7 @@ function MissionPage({
     onSave(missions.filter(x => x.id !== id));
     for (const pid of (m && m.photos) || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
   };
-  const canView = m => boss || m.owner === currentUser || (!m.owner && m.by === currentUser);
+  const canView = m => boss || sameUser(m.owner, currentUser) || (!m.owner && sameUser(m.by, currentUser));
   const visible = missions.filter(canView);
   const others = missions.filter(m => !canView(m));
   const othersBy = others.reduce((acc, m) => { const k = m.owner || "—"; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
@@ -2711,14 +2712,15 @@ function MissionPage({
     color: "#16a34a"
   }];
   const list = visible.filter(m => {
-    if (mine && m.owner !== currentUser) return false;
+    if (mine && !sameUser(m.owner, currentUser)) return false;
     if (filter !== "all" && m.status !== filter) return false;
     if (!q) return true;
     const s = q.toLowerCase();
     return [m.task, m.owner].filter(Boolean).join(" ").toLowerCase().includes(s);
   });
-  const count = st => visible.filter(m => (!mine || m.owner === currentUser) && m.status === st).length;
-  const mineCount = missions.filter(m => m.owner === currentUser).length;
+  const count = st => visible.filter(m => (!mine || sameUser(m.owner, currentUser)) && m.status === st).length;
+  const mineCount = missions.filter(m => sameUser(m.owner, currentUser)).length;
+  const notInList = !boss && currentUser && !MISSION_PEOPLE.some(p => sameUser(p, currentUser));
   return /*#__PURE__*/React.createElement("div", { className: "cz-page" }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2762,7 +2764,9 @@ function MissionPage({
     onClick: () => setFilter(s.id),
     label: s.label + " " + count(s.id),
     color: s.color
-  }))), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }))), notInList && /*#__PURE__*/React.createElement("div", {
+    style: { background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, fontWeight: 600 }
+  }, "⚠️ 你的登录名字是「" + currentUser + "」，但指派名单里没有这个名字，所以老板指派的任务你会看不到。请通知管理员把名单改成「" + currentUser + "」。"), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "linear-gradient(120deg,#ede9fe,#e0f2fe)", border: "1px solid #ddd6fe", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, color: "#4c1d95" }
   }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（只有老板可以看内容）"), Object.entries(othersBy).map(([n, c]) => /*#__PURE__*/React.createElement("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.1)" } }, czAvatar(n, 20), n, /*#__PURE__*/React.createElement("span", { style: { color: "#7c3aed" } }, c)))), /*#__PURE__*/React.createElement("div", {
     style: S.tableWrap
@@ -5856,6 +5860,7 @@ const S = {
     position: "sticky",
     top: 0,
     height: "100vh",
+    overflowY: "auto",
     flexShrink: 0,
     zIndex: 20
   },
