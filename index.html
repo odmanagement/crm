@@ -2926,7 +2926,16 @@ function Dashboard({
     ...f,
     loan: l
   }))).sort((a, b) => a.date < b.date ? -1 : 1).slice(0, 8);
-  return /*#__PURE__*/React.createElement("div", null, clients.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  const DK = {
+    wrap: { margin: -28, padding: 28, minHeight: "calc(100vh - 67px)", position: "relative", overflow: "hidden", background: "radial-gradient(800px 420px at 10% 0%, rgba(124,58,237,.22), transparent 70%), radial-gradient(700px 420px at 95% 100%, rgba(37,99,235,.18), transparent 70%), radial-gradient(500px 300px at 60% 40%, rgba(6,182,212,.07), transparent 70%), #07071a" },
+    grid: { position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px)", backgroundSize: "48px 48px", WebkitMaskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)", maskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)" },
+    card: { position: "relative", background: "rgba(18,18,48,.6)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: 20, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", boxShadow: "0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05)" },
+    head: { fontSize: 13, fontWeight: 700, marginBottom: 12, paddingLeft: 10, borderLeft: "3px solid #8b5cf6", color: "#e2e8f0", letterSpacing: ".04em", textTransform: "uppercase" },
+    typeRight: { ...S.typeRight, color: "#94a3b8" },
+    empty: { ...S.fuEmpty, color: "#64748b" },
+    reset: { ...S.resetBtn, background: "rgba(255,255,255,.04)", color: "#94a3b8", border: "1px solid rgba(255,255,255,.1)" }
+  };
+  return /*#__PURE__*/React.createElement("div", { className: "dk-dash", style: DK.wrap }, /*#__PURE__*/React.createElement("div", { style: DK.grid }), /*#__PURE__*/React.createElement("div", { style: { position: "relative" } }, clients.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: S.importBanner
   }, /*#__PURE__*/React.createElement("span", null, "Import 20 clients · 22 house loans from your sheet"), /*#__PURE__*/React.createElement("button", {
     style: S.importBtn,
@@ -2935,7 +2944,7 @@ function Dashboard({
     style: S.resetBar
   }, /*#__PURE__*/React.createElement("button", {
     style: {
-      ...S.resetBtn,
+      ...DK.reset,
       ...(resetArmed ? {
         background: "#dc2626",
         color: "#fff",
@@ -2964,9 +2973,9 @@ function Dashboard({
   })), /*#__PURE__*/React.createElement("div", {
     style: S.dashCols
   }, /*#__PURE__*/React.createElement("div", {
-    style: S.dashCard
+    style: DK.card
   }, /*#__PURE__*/React.createElement("div", {
-    style: S.dashHead
+    style: DK.head
   }, "By Type"), TYPES.map(t => {
     const ls = allLoans.filter(l => l.type === t.id);
     const amt = ls.reduce((s, l) => s + Number(l.amount || 0), 0);
@@ -2984,23 +2993,23 @@ function Dashboard({
     }, /*#__PURE__*/React.createElement("span", {
       style: {
         ...S.typeIcon,
-        background: t.color + "1a"
+        background: t.color + "2e", boxShadow: "0 0 14px " + t.color + "44"
       }
     }, /*#__PURE__*/React.createElement(Icon, {
       size: 15,
       color: t.color
     })), t.label), /*#__PURE__*/React.createElement("span", {
-      style: S.typeRight
+      style: DK.typeRight
     }, ls.length, " · ", num(amt), " ", /*#__PURE__*/React.createElement(ChevronRight, {
       size: 14,
-      color: "#cbd5e1"
+      color: "#475569"
     })));
   })), /*#__PURE__*/React.createElement("div", {
-    style: S.dashCard
+    style: DK.card
   }, /*#__PURE__*/React.createElement("div", {
-    style: S.dashHead
+    style: DK.head
   }, "Upcoming Follow-ups"), dueList.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: S.fuEmpty
+    style: DK.empty
   }, "No follow-ups"), dueList.map(f => {
     const overdue = f.date < today();
     return /*#__PURE__*/React.createElement("button", {
@@ -3015,11 +3024,12 @@ function Dashboard({
       style: {
         ...S.dueDate,
         ...(overdue ? {
-          color: "#dc2626"
+          color: "#f87171",
+          textShadow: "0 0 10px rgba(248,113,113,.5)"
         } : {})
       }
     }, f.date));
-  }))));
+  })))));
 }
 function Stat({
   label,
@@ -5481,6 +5491,7 @@ nav button:hover { color: #e2e8f0 !important; background: rgba(255,255,255,.05);
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(79,70,229,.3) !important; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .stat-card { animation: cardIn .45s ease-out both; }
+.dk-dash button:hover { background: rgba(255,255,255,.05) !important; }
 .stat-card:nth-child(2) { animation-delay: .06s; } .stat-card:nth-child(3) { animation-delay: .12s; } .stat-card:nth-child(4) { animation-delay: .18s; }
 `;
 const S = {
@@ -5702,10 +5713,12 @@ const S = {
     width: "100%",
     background: "none",
     border: "none",
-    padding: "10px 0",
-    borderBottom: "1px solid #f1f5f9",
+    padding: "11px 8px",
+    borderBottom: "1px solid rgba(255,255,255,.06)",
     fontSize: 14,
-    fontWeight: 500
+    fontWeight: 500,
+    color: "#e2e8f0",
+    borderRadius: 8
   },
   typeIcon: {
     width: 28,
@@ -5730,22 +5743,24 @@ const S = {
     width: "100%",
     background: "none",
     border: "none",
-    padding: "10px 0",
-    borderBottom: "1px solid #f1f5f9",
-    textAlign: "left"
+    padding: "10px 8px",
+    borderBottom: "1px solid rgba(255,255,255,.06)",
+    textAlign: "left",
+    borderRadius: 8
   },
   dueText: {
     fontSize: 14,
-    fontWeight: 500
+    fontWeight: 500,
+    color: "#f1f5f9"
   },
   dueSub: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "#7c83a8",
     marginTop: 2
   },
   dueDate: {
     fontSize: 12.5,
-    color: "#64748b",
+    color: "#a5b4fc",
     fontWeight: 600,
     whiteSpace: "nowrap"
   },
