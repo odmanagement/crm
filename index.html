@@ -2590,6 +2590,75 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
     }, avatar(first.assignedBy, 58),
       h("div", { style: { position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 10, background: "#fa3e3e", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxSizing: "border-box" } }, pending.length)));
 }
+/* Mission 权限：这些人是老板，可以看全部任务内容 */
+const MISSION_BOSSES = ["lucas"];
+const isMissionBoss = u => MISSION_BOSSES.includes(String(u || "").toLowerCase());
+function PwDialog({ title, desc, confirmText, onOk, onCancel }) {
+  const h = React.createElement;
+  const [pw, setPw] = React.useState(""), [err, setErr] = React.useState(""), [busy, setBusy] = React.useState(false);
+  const go = async () => { if (!pw || busy) return; setBusy(true); if (await checkRestorePw(pw)) { await onOk(); } else { setErr("密码错误"); setPw(""); } setBusy(false); };
+  return h("div", { onClick: onCancel, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 340, background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
+      h("div", { style: { fontSize: 16, fontWeight: 800, color: "#1e1b4b" } }, "🔒 " + title),
+      desc && h("div", { style: { fontSize: 13, color: "#64748b", margin: "6px 0 14px", lineHeight: 1.5 } }, desc),
+      h("input", { type: "password", autoFocus: true, value: pw, placeholder: "密码", inputMode: "numeric", onChange: e => { setPw(e.target.value); setErr(""); }, onKeyDown: e => { if (e.key === "Enter") go(); },
+        style: { width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 10, border: "1px solid " + (err ? "#f87171" : "#e0e7ff"), fontSize: 16, letterSpacing: ".2em", outline: "none", fontFamily: "inherit", marginTop: desc ? 0 : 12 } }),
+      err && h("div", { style: { color: "#dc2626", fontSize: 12.5, marginTop: 6, fontWeight: 600 } }, err),
+      h("div", { style: { display: "flex", gap: 8, marginTop: 16 } },
+        h("button", { onClick: onCancel, style: { flex: 1, padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600 } }, "取消"),
+        h("button", { onClick: go, disabled: !pw || busy, style: { flex: 1, padding: 10, borderRadius: 10, border: "none", background: pw ? "linear-gradient(120deg,#ef4444,#db2777)" : "#fecaca", color: "#fff", fontWeight: 700 } }, busy ? "处理中…" : (confirmText || "确认")))));
+}
+/* ---------- Mission 照片 ---------- */
+const _photoCache = {};
+function compressImage(file, max = 1280, q = 0.72) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onerror = rej;
+    fr.onload = () => { const img = new Image(); img.onerror = rej; img.onload = () => {
+      const r = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL("image/jpeg", q)); }; img.src = fr.result; };
+    fr.readAsDataURL(file);
+  });
+}
+function PhotoImg({ id, style, onClick }) {
+  const [src, setSrc] = React.useState(_photoCache[id] || null);
+  React.useEffect(() => { let on = true; if (!_photoCache[id]) DB.get("mphoto_" + id).then(v => { if (v) { _photoCache[id] = v; on && setSrc(v); } }).catch(() => {}); return () => { on = false; }; }, [id]);
+  return src ? React.createElement("img", { src, style, onClick, alt: "" }) : React.createElement("div", { style: { ...style, background: "linear-gradient(90deg,#eef2ff,#f5f3ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc", fontSize: 12 } }, "…");
+}
+function MissionPhotos({ mission, onChange, onClose }) {
+  const h = React.createElement;
+  const [busy, setBusy] = React.useState(false), [big, setBig] = React.useState(null), [delPhoto, setDelPhoto] = React.useState(null);
+  const photos = mission.photos || [];
+  const addFiles = async files => {
+    if (!files || !files.length) return;
+    setBusy(true);
+    const ids = [];
+    for (const f of Array.from(files)) {
+      if (!f.type.startsWith("image/")) continue;
+      try { const data = await compressImage(f); const id = uid(); _photoCache[id] = data; await DB.set("mphoto_" + id, data); ids.push(id); } catch (e) { alert("照片上传失败：" + (e.message || e)); }
+    }
+    if (ids.length) onChange([...photos, ...ids]);
+    setBusy(false);
+  };
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.55)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
+      h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#ec4899,#8b5cf6 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center", gap: 10 } },
+        h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontSize: 16, fontWeight: 800 } }, "📷 照片 (" + photos.length + ")"), h("div", { style: { fontSize: 12.5, opacity: .9, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, mission.task || "（任务内容还没填）")),
+        h("button", { onClick: onClose, style: { background: "rgba(255,255,255,.22)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
+      h("div", { style: { padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 } },
+        photos.map(id => h("div", { key: id, style: { position: "relative" } },
+          h(PhotoImg, { id, onClick: () => setBig(id), style: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12, cursor: "zoom-in", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,.1)" } }),
+          h("button", { onClick: () => setDelPhoto(id), title: "删除照片", style: { position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 13, color: "#fff" })))),
+        h("label", { style: { aspectRatio: "1", borderRadius: 12, border: "2px dashed #c4b5fd", background: "#faf5ff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: busy ? "default" : "pointer", color: "#7c3aed", fontWeight: 700, fontSize: 13 } },
+          h("span", { style: { fontSize: 26, lineHeight: 1 } }, busy ? "⏳" : "+"), busy ? "上传中…" : "添加照片",
+          h("input", { type: "file", accept: "image/*", multiple: true, disabled: busy, style: { display: "none" }, onChange: e => { addFiles(e.target.files); e.target.value = ""; } })))),
+    big && h("div", { onClick: e => { e.stopPropagation(); setBig(null); }, style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.88)", zIndex: 320, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" } },
+      h(PhotoImg, { id: big, style: { maxWidth: "100%", maxHeight: "100%", borderRadius: 8, width: "auto", height: "auto", minWidth: 60, minHeight: 60 } })),
+    delPhoto && h("div", { onClick: e => e.stopPropagation() }, h(PwDialog, { title: "删除这张照片", desc: "删除后不能复原。", confirmText: "删除", onCancel: () => setDelPhoto(null),
+      onOk: async () => { const id = delPhoto; setDelPhoto(null); onChange(photos.filter(x => x !== id)); try { await DB.del("mphoto_" + id); } catch (e) {} delete _photoCache[id]; } })));
+}
 const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vivien", "chialing", "lucas"];
 function MissionPage({
   missions,
@@ -2599,10 +2668,13 @@ function MissionPage({
   const [q, setQ] = React.useState("");
   const [filter, setFilter] = React.useState("all");
   const [mine, setMine] = React.useState(false);
+  const boss = isMissionBoss(currentUser);
+  const [delId, setDelId] = React.useState(null);
+  const [photoId, setPhotoId] = React.useState(null);
   const add = () => onSave([{
     id: uid(),
     task: "",
-    owner: "",
+    owner: boss ? "" : currentUser || "",
     due: "",
     status: "todo",
     by: currentUser || ""
@@ -2616,7 +2688,15 @@ function MissionPage({
     ...m,
     [k]: v
   }) : m));
-  const del = id => onSave(missions.filter(m => m.id !== id));
+  const del = async id => {
+    const m = missions.find(x => x.id === id);
+    onSave(missions.filter(x => x.id !== id));
+    for (const pid of (m && m.photos) || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
+  };
+  const canView = m => boss || m.owner === currentUser || (!m.owner && m.by === currentUser);
+  const visible = missions.filter(canView);
+  const others = missions.filter(m => !canView(m));
+  const othersBy = others.reduce((acc, m) => { const k = m.owner || "—"; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
   const STATUS = [{
     id: "todo",
     label: "To Do",
@@ -2630,14 +2710,14 @@ function MissionPage({
     label: "Done",
     color: "#16a34a"
   }];
-  const list = missions.filter(m => {
+  const list = visible.filter(m => {
     if (mine && m.owner !== currentUser) return false;
     if (filter !== "all" && m.status !== filter) return false;
     if (!q) return true;
     const s = q.toLowerCase();
     return [m.task, m.owner].filter(Boolean).join(" ").toLowerCase().includes(s);
   });
-  const count = st => missions.filter(m => (!mine || m.owner === currentUser) && m.status === st).length;
+  const count = st => visible.filter(m => (!mine || m.owner === currentUser) && m.status === st).length;
   const mineCount = missions.filter(m => m.owner === currentUser).length;
   return /*#__PURE__*/React.createElement("div", { className: "cz-page" }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2675,14 +2755,16 @@ function MissionPage({
   }), /*#__PURE__*/React.createElement(Chip, {
     active: filter === "all",
     onClick: () => setFilter("all"),
-    label: "All " + missions.length
+    label: "All " + visible.length
   }), STATUS.map(s => /*#__PURE__*/React.createElement(Chip, {
     key: s.id,
     active: filter === s.id,
     onClick: () => setFilter(s.id),
     label: s.label + " " + count(s.id),
     color: s.color
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "linear-gradient(120deg,#ede9fe,#e0f2fe)", border: "1px solid #ddd6fe", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, color: "#4c1d95" }
+  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（只有老板可以看内容）"), Object.entries(othersBy).map(([n, c]) => /*#__PURE__*/React.createElement("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.1)" } }, czAvatar(n, 20), n, /*#__PURE__*/React.createElement("span", { style: { color: "#7c3aed" } }, c)))), /*#__PURE__*/React.createElement("div", {
     style: S.tableWrap
   }, /*#__PURE__*/React.createElement("table", {
     className: "cz-table",
@@ -2701,19 +2783,21 @@ function MissionPage({
   }, "Due"), /*#__PURE__*/React.createElement("th", {
     style: S.th
   }, "Status"), /*#__PURE__*/React.createElement("th", {
+    style: S.th
+  }, "Photos"), /*#__PURE__*/React.createElement("th", {
     style: {
       ...S.th,
       width: 50
     }
   }))), /*#__PURE__*/React.createElement("tbody", null, list.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-    colSpan: 6,
+    colSpan: 7,
     style: {
       ...S.td,
       textAlign: "center",
       color: "#94a3b8",
       padding: "30px 0"
     }
-  }, "No missions — tap Add Mission")) : list.map((m, i) => {
+  }, boss ? "No missions — tap Add Mission" : "你还没有任务 — tap Add Mission")) : list.map((m, i) => {
     const st = STATUS.find(x => x.id === m.status) || STATUS[0];
     return /*#__PURE__*/React.createElement("tr", {
       key: m.id,
@@ -2787,14 +2871,29 @@ function MissionPage({
     }, s.label)))), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setPhotoId(m.id),
+      style: (m.photos || []).length ? { display: "inline-flex", alignItems: "center", gap: 6, border: "none", borderRadius: 999, padding: "5px 12px 5px 5px", background: "linear-gradient(120deg,#fce7f3,#ede9fe)", color: "#9d174d", fontWeight: 700, fontSize: 12.5 } : { border: "1px dashed #c4b5fd", borderRadius: 999, padding: "5px 12px", background: "#faf5ff", color: "#7c3aed", fontWeight: 700, fontSize: 12.5 }
+    }, (m.photos || []).length ? [/*#__PURE__*/React.createElement(PhotoImg, { key: "t", id: m.photos[0], style: { width: 24, height: 24, borderRadius: "50%", objectFit: "cover" } }), "📷 " + m.photos.length] : "+ 📷")), /*#__PURE__*/React.createElement("td", {
+      style: S.td
+    }, /*#__PURE__*/React.createElement("button", {
       style: S.fuDel,
-      onClick: () => del(m.id),
+      onClick: () => setDelId(m.id),
       title: "Delete"
     }, /*#__PURE__*/React.createElement(Trash2, {
       size: 15,
       color: "#cbd5e1"
     }))));
-  })))));
+  })))), delId && /*#__PURE__*/React.createElement(PwDialog, {
+    title: "删除任务",
+    desc: "删除「" + ((missions.find(x => x.id === delId) || {}).task || "这个任务") + "」，连同照片一起删除，不能复原。",
+    confirmText: "删除",
+    onCancel: () => setDelId(null),
+    onOk: async () => { const id = delId; setDelId(null); await del(id); }
+  }), photoId && missions.find(x => x.id === photoId) && /*#__PURE__*/React.createElement(MissionPhotos, {
+    mission: missions.find(x => x.id === photoId),
+    onChange: ids => upd(photoId, "photos", ids),
+    onClose: () => setPhotoId(null)
+  }));
 }
 function BankerPage({
   bankers,
