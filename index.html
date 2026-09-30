@@ -694,12 +694,22 @@ async function ensureDailyBackup(snap) {
     _bkDoneDate = d;
   } catch (e) { console.error("backup failed", e); }
 }
+const RESTORE_PW_HASH = "f53c1d7fb65abc920fae5e510dafff98b4e4ebeb261adabbaa7c52585c65e0fe";
+async function checkRestorePw(pw) {
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("odm-crm-restore::" + pw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("") === RESTORE_PW_HASH;
+  } catch (e) { return false; }
+}
 function BackupPanel({ onClose, current, onRestore }) {
   const h = React.createElement;
   const [idx, setIdx] = React.useState(null);
   const [info, setInfo] = React.useState({});
   const [hasUndo, setHasUndo] = React.useState(false);
   const [busy, setBusy] = React.useState("");
+  const [ask, setAsk] = React.useState(null);
+  const [pw, setPw] = React.useState("");
+  const [pwErr, setPwErr] = React.useState("");
   React.useEffect(() => { (async () => {
     try { const raw = await DB.get("backup_index"); const list = raw ? JSON.parse(raw) : []; setIdx(list.slice().reverse());
       const inf = {};
@@ -708,8 +718,11 @@ function BackupPanel({ onClose, current, onRestore }) {
       setHasUndo(!!(await DB.get("backup_undo")));
     } catch (e) { setIdx([]); }
   })(); }, []);
-  const restoreKey = async (key, label) => {
-    if (!window.confirm("确定要还原到「" + label + "」吗？\n现在的资料会被替换（系统会先存一份，可以撤销）。")) return;
+  const restoreKey = (key, label) => { setAsk({ key, label }); setPw(""); setPwErr(""); };
+  const doRestore = async () => {
+    const { key, label } = ask;
+    if (!(await checkRestorePw(pw))) { setPwErr("密码错误"); setPw(""); return; }
+    setAsk(null);
     setBusy(key);
     try {
       const raw = await DB.get(key);
@@ -737,7 +750,19 @@ function BackupPanel({ onClose, current, onRestore }) {
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontWeight: 700, fontSize: 14, color: "#1e1b4b" } }, d, i === 0 ? h("span", { style: { marginLeft: 6, fontSize: 11, color: "#059669", background: "#d1fae5", padding: "1px 7px", borderRadius: 999 } }, "最新") : null),
             h("div", { style: { fontSize: 12, color: "#64748b", marginTop: 2 } }, info[d] ? info[d].clients + " 个客户 · " + info[d].missions + " 个任务 · " + fmt(info[d].at) : "…")),
-          h("button", { onClick: () => restoreKey("backup_" + d, d), disabled: !!busy, style: { padding: "7px 14px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 700, fontSize: 12.5, boxShadow: "0 4px 12px rgba(79,70,229,.3)" } }, busy === "backup_" + d ? "还原中…" : "还原"))))));
+          h("button", { onClick: () => restoreKey("backup_" + d, d), disabled: !!busy || !!ask, style: { padding: "7px 14px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 700, fontSize: 12.5, boxShadow: "0 4px 12px rgba(79,70,229,.3)" } }, busy === "backup_" + d ? "还原中…" : "还原"))),
+      ask && h("div", { style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 310, padding: 20 }, onClick: () => setAsk(null) },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 340, background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
+          h("div", { style: { fontSize: 16, fontWeight: 800, color: "#1e1b4b" } }, "🔒 输入还原密码"),
+          h("div", { style: { fontSize: 13, color: "#64748b", margin: "6px 0 14px", lineHeight: 1.5 } }, "要还原到「" + ask.label + "」，现在的资料会被替换（系统会先存一份，可以撤销）。"),
+          h("input", { type: "password", autoFocus: true, value: pw, placeholder: "密码", inputMode: "numeric",
+            onChange: e => { setPw(e.target.value); setPwErr(""); },
+            onKeyDown: e => { if (e.key === "Enter") doRestore(); },
+            style: { width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 10, border: "1px solid " + (pwErr ? "#f87171" : "#e0e7ff"), fontSize: 16, letterSpacing: ".2em", outline: "none", fontFamily: "inherit" } }),
+          pwErr && h("div", { style: { color: "#dc2626", fontSize: 12.5, marginTop: 6, fontWeight: 600 } }, pwErr),
+          h("div", { style: { display: "flex", gap: 8, marginTop: 16 } },
+            h("button", { onClick: () => setAsk(null), style: { flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600 } }, "取消"),
+            h("button", { onClick: doRestore, disabled: !pw, style: { flex: 1, padding: "10px", borderRadius: 10, border: "none", background: pw ? "linear-gradient(120deg,#7c3aed,#4f46e5)" : "#c7d2fe", color: "#fff", fontWeight: 700 } }, "确认还原")))))));
 }
 const NAV = [{
   id: "dashboard",
