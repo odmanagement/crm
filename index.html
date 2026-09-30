@@ -815,6 +815,10 @@ const NAV = [{
   label: "Mission",
   icon: CheckCircle2
 }];
+/* 某些账号看不到的 Forms（填文件名） */
+const FORMS_HIDDEN = {
+  admin: ["CAR_SALES_QUOTATION.html"]
+};
 const FORMS_TOOLS = [{
   name: "Application Form",
   file: "APPLICATION_FORM.html"
@@ -2373,7 +2377,7 @@ function CRM({ onLogout, currentUser }) {
     onSave: persistVerifications
   }) : page === "html_forms" ? /*#__PURE__*/React.createElement(LinkListPage, {
     title: "Forms",
-    tools: FORMS_TOOLS
+    tools: FORMS_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
   }) : page === "html_company" || page === "html_payslip" || page === "html_offer" ? /*#__PURE__*/React.createElement(CompanyFilesPage, null) : page === "banker" ? /*#__PURE__*/React.createElement(BankerPage, {
     bankers: bankers,
     onSave: persistBankers
