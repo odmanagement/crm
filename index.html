@@ -2927,13 +2927,13 @@ function Dashboard({
     loan: l
   }))).sort((a, b) => a.date < b.date ? -1 : 1).slice(0, 8);
   const DK = {
-    wrap: { margin: -28, padding: 28, minHeight: "calc(100vh - 67px)", position: "relative", overflow: "hidden", background: "radial-gradient(800px 420px at 10% 0%, rgba(124,58,237,.22), transparent 70%), radial-gradient(700px 420px at 95% 100%, rgba(37,99,235,.18), transparent 70%), radial-gradient(500px 300px at 60% 40%, rgba(6,182,212,.07), transparent 70%), #07071a" },
-    grid: { position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px)", backgroundSize: "48px 48px", WebkitMaskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)", maskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)" },
-    card: { position: "relative", background: "rgba(18,18,48,.6)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: 20, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", boxShadow: "0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05)" },
-    head: { fontSize: 13, fontWeight: 700, marginBottom: 12, paddingLeft: 10, borderLeft: "3px solid #8b5cf6", color: "#e2e8f0", letterSpacing: ".04em", textTransform: "uppercase" },
-    typeRight: { ...S.typeRight, color: "#94a3b8" },
-    empty: { ...S.fuEmpty, color: "#64748b" },
-    reset: { ...S.resetBtn, background: "rgba(255,255,255,.04)", color: "#94a3b8", border: "1px solid rgba(255,255,255,.1)" }
+    wrap: { margin: -28, padding: 28, minHeight: "calc(100vh - 67px)", position: "relative", overflow: "hidden", background: "radial-gradient(900px 480px at 5% -5%, rgba(139,92,246,.45), transparent 65%), radial-gradient(800px 500px at 100% 105%, rgba(59,130,246,.40), transparent 65%), radial-gradient(600px 380px at 65% 35%, rgba(34,211,238,.16), transparent 70%), radial-gradient(500px 300px at 30% 90%, rgba(236,72,153,.14), transparent 70%), linear-gradient(160deg,#1a1b4b 0%,#141540 50%,#16235a 100%)" },
+    grid: { position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)", backgroundSize: "48px 48px", WebkitMaskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)", maskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)" },
+    card: { position: "relative", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 20, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", boxShadow: "0 10px 30px rgba(10,10,40,.25), inset 0 1px 0 rgba(255,255,255,.12)" },
+    head: { fontSize: 13, fontWeight: 700, marginBottom: 12, paddingLeft: 10, borderLeft: "3px solid #c084fc", color: "#fff", letterSpacing: ".04em", textTransform: "uppercase" },
+    typeRight: { ...S.typeRight, color: "#c7d2fe" },
+    empty: { ...S.fuEmpty, color: "#a5b4fc" },
+    reset: { ...S.resetBtn, background: "rgba(255,255,255,.1)", color: "#e0e7ff", border: "1px solid rgba(255,255,255,.18)" }
   };
   return /*#__PURE__*/React.createElement("div", { className: "dk-dash", style: DK.wrap }, /*#__PURE__*/React.createElement("div", { style: DK.grid }), /*#__PURE__*/React.createElement("div", { style: { position: "relative" } }, clients.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: S.importBanner
@@ -2993,11 +2993,11 @@ function Dashboard({
     }, /*#__PURE__*/React.createElement("span", {
       style: {
         ...S.typeIcon,
-        background: t.color + "2e", boxShadow: "0 0 14px " + t.color + "44"
+        background: t.color, boxShadow: "0 4px 14px " + t.color + "88"
       }
     }, /*#__PURE__*/React.createElement(Icon, {
       size: 15,
-      color: t.color
+      color: "#fff"
     })), t.label), /*#__PURE__*/React.createElement("span", {
       style: DK.typeRight
     }, ls.length, " · ", num(amt), " ", /*#__PURE__*/React.createElement(ChevronRight, {
@@ -3024,8 +3024,8 @@ function Dashboard({
       style: {
         ...S.dueDate,
         ...(overdue ? {
-          color: "#f87171",
-          textShadow: "0 0 10px rgba(248,113,113,.5)"
+          color: "#fda4af",
+          textShadow: "0 0 10px rgba(251,113,133,.6)"
         } : {})
       }
     }, f.date));
@@ -3037,22 +3037,26 @@ function Stat({
   color = "#0f172a",
   small
 }) {
-  const glow = { "#7c3aed": "#a78bfa", "#16a34a": "#4ade80", "#4f46e5": "#60a5fa" }[color] || "#22d3ee";
-  const txt = { "#7c3aed": "#c4b5fd", "#16a34a": "#86efac", "#4f46e5": "#93c5fd" }[color] || "#ffffff";
+  const bg = {
+    "#7c3aed": "linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%)",
+    "#16a34a": "linear-gradient(135deg,#10b981 0%,#0d9488 100%)",
+    "#4f46e5": "linear-gradient(135deg,#3b82f6 0%,#4f46e5 100%)"
+  }[color] || "linear-gradient(135deg,#06b6d4 0%,#2563eb 100%)";
+  const glow = { "#7c3aed": "124,58,237", "#16a34a": "16,185,129", "#4f46e5": "59,130,246" }[color] || "6,182,212";
   return /*#__PURE__*/React.createElement("div", {
     className: "stat-card",
-    style: S.stat
+    style: { ...S.stat, background: bg, border: "1px solid rgba(255,255,255,.25)", boxShadow: "0 12px 30px rgba(" + glow + ",.45), inset 0 1px 0 rgba(255,255,255,.3)" }
   }, /*#__PURE__*/React.createElement("div", {
-    style: { position: "absolute", width: 140, height: 140, borderRadius: "50%", background: glow, filter: "blur(50px)", opacity: .35, top: -60, right: -40 }
+    style: { position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.18)", top: -70, right: -50 }
   }), /*#__PURE__*/React.createElement("div", {
-    style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(180deg," + glow + ",transparent)" }
+    style: { position: "absolute", width: 90, height: 90, borderRadius: "50%", background: "rgba(255,255,255,.1)", bottom: -40, right: 60 }
   }), /*#__PURE__*/React.createElement("div", {
-    style: S.statLabel
+    style: { ...S.statLabel, color: "rgba(255,255,255,.85)" }
   }, label), /*#__PURE__*/React.createElement("div", {
     style: {
       ...S.statValue,
-      color: txt,
-      textShadow: "0 0 24px " + glow + "66",
+      color: "#fff",
+      textShadow: "0 2px 12px rgba(0,0,0,.2)",
       fontSize: small ? 22 : 30
     }
   }, value));
@@ -5504,7 +5508,7 @@ const S = {
   },
   sidebar: {
     width: 76,
-    background: "linear-gradient(180deg,#0e0e28 0%,#07071a 100%)",
+    background: "linear-gradient(180deg,#1c1d52 0%,#12133a 100%)",
     borderRight: "1px solid rgba(255,255,255,.06)",
     display: "flex",
     flexDirection: "column",
@@ -5536,7 +5540,7 @@ const S = {
     gap: 4,
     background: "none",
     border: "none",
-    color: "#7c83a8",
+    color: "#a5accf",
     borderRadius: 12,
     padding: "10px 0",
     transition: ".15s"
@@ -5566,7 +5570,7 @@ const S = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "16px 28px",
-    background: "linear-gradient(90deg,#0e0e28,#0b0b22 60%,#101030)",
+    background: "linear-gradient(90deg,#1c1d52,#1a1b4b 60%,#1b2660)",
     backdropFilter: "blur(14px)",
     WebkitBackdropFilter: "blur(14px)",
     borderBottom: "1px solid rgba(255,255,255,.06)",
@@ -5714,10 +5718,10 @@ const S = {
     background: "none",
     border: "none",
     padding: "11px 8px",
-    borderBottom: "1px solid rgba(255,255,255,.06)",
+    borderBottom: "1px solid rgba(255,255,255,.1)",
     fontSize: 14,
     fontWeight: 500,
-    color: "#e2e8f0",
+    color: "#fff",
     borderRadius: 8
   },
   typeIcon: {
@@ -5744,7 +5748,7 @@ const S = {
     background: "none",
     border: "none",
     padding: "10px 8px",
-    borderBottom: "1px solid rgba(255,255,255,.06)",
+    borderBottom: "1px solid rgba(255,255,255,.1)",
     textAlign: "left",
     borderRadius: 8
   },
@@ -5755,12 +5759,12 @@ const S = {
   },
   dueSub: {
     fontSize: 12,
-    color: "#7c83a8",
+    color: "#a5b4fc",
     marginTop: 2
   },
   dueDate: {
     fontSize: 12.5,
-    color: "#a5b4fc",
+    color: "#e0e7ff",
     fontWeight: 600,
     whiteSpace: "nowrap"
   },
