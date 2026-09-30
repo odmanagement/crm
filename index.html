@@ -547,7 +547,7 @@ function authClient() {
   return _authClient;
 }
 /* ===== 同一个人的不同登录名（左边的登录名 → 当成右边这个人） ===== */
-const USER_ALIASES = { lucasgor: "lucas" };
+const USER_ALIASES = { lucasgor: "lucas", lucasgor178: "lucas" };
 function canonUser(u) { const k = String(u || "").trim().toLowerCase(); return USER_ALIASES[k] || k; }
 /* ===== 权限：这些账号看不到 Lucas Cost（填登录邮箱 @ 前面的名字，小写） ===== */
 const LUCAS_HIDDEN_USERS = ["admin"];
@@ -742,7 +742,7 @@ function BackupPanel({ onClose, current, onRestore }) {
   return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.55)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 460, maxHeight: "85vh", overflow: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
       h("div", { style: { padding: "18px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center", gap: 10 } },
-        h("div", { style: { flex: 1 } }, h("div", { style: { fontSize: 17, fontWeight: 800 } }, "🛟 备份 / Backups"), h("div", { style: { fontSize: 12, opacity: .85, marginTop: 2 } }, "每天自动备份一次，保留最近 " + BACKUP_KEEP + " 天")),
+        h("div", { style: { flex: 1 } }, h("div", { style: { fontSize: 17, fontWeight: 800 } }, "💾 备份 / Backups"), h("div", { style: { fontSize: 12, opacity: .85, marginTop: 2 } }, "每天自动备份一次，保留最近 " + BACKUP_KEEP + " 天")),
         h("button", { onClick: onClose, style: { background: "rgba(255,255,255,.2)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
       h("div", { style: { padding: 14 } },
         hasUndo && h("button", { onClick: () => restoreKey("backup_undo", "还原之前的资料"), disabled: !!busy, style: { width: "100%", marginBottom: 10, padding: "11px 14px", borderRadius: 12, border: "1px dashed #f59e0b", background: "#fffbeb", color: "#b45309", fontWeight: 700, fontSize: 13 } }, busy === "backup_undo" ? "还原中…" : "↩ 撤销上一次还原"),
@@ -2028,7 +2028,8 @@ function App() {
   if (!session) return /*#__PURE__*/React.createElement(LoginPage, {
     onLogin: (s, sess) => setSession(sess)
   });
-  window.__crmUser = canonUser(session && session.user && session.user.email ? session.user.email.split("@")[0] : "");
+  window.__crmLogin = session && session.user && session.user.email ? session.user.email : "";
+  window.__crmUser = canonUser(window.__crmLogin.split("@")[0]);
   return /*#__PURE__*/React.createElement(CRM, {
     onLogout: logout,
     currentUser: window.__crmUser
@@ -2344,11 +2345,14 @@ function CRM({ onLogout, currentUser }) {
     size: 14
   }), " ", dueCount, " to follow up"), /*#__PURE__*/React.createElement("span", {
     style: S.saveState
-  }, saving ? "Saving…" : "Synced"), canSeeLucas() && /*#__PURE__*/React.createElement("button", {
+  }, saving ? "Saving…" : "Synced"), currentUser && /*#__PURE__*/React.createElement("span", {
+    title: "登录邮箱：" + (window.__crmLogin || ""),
+    style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px 3px 3px", borderRadius: 999, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "#e0e7ff", fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }
+  }, czAvatar(currentUser, 22), String(currentUser).toUpperCase(), isMissionBoss(currentUser) ? /*#__PURE__*/React.createElement("span", { style: { background: "linear-gradient(120deg,#f59e0b,#ef4444)", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5 } }, "BOSS") : null), canSeeLucas() && /*#__PURE__*/React.createElement("button", {
     style: S.logoutBtn,
     onClick: () => setShowBackup(true),
     title: "备份 / Backups"
-  }, "🛟 Backup"), page !== "verify" && /*#__PURE__*/React.createElement("button", {
+  }, "💾 Backup"), page !== "verify" && /*#__PURE__*/React.createElement("button", {
     style: S.addBtn,
     onClick: () => setEditing("new")
   }, /*#__PURE__*/React.createElement(Plus, {
@@ -2665,7 +2669,7 @@ function MissionPhotos({ mission, onChange, onClose }) {
 }
 const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vv", "chialing", "lucas"];
 /* 改名：旧名字 → 新名字（旧任务会自动转过去） */
-const MISSION_RENAME = { vivien: "vv", lucasgor: "lucas" };
+const MISSION_RENAME = { vivien: "vv", lucasgor: "lucas", lucasgor178: "lucas" };
 function MissionPage({
   missions,
   onSave,
