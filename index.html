@@ -2534,7 +2534,7 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
       } catch (e) {}
       try {
         if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-          new Notification((m.assignedBy === currentUser ? "你指派了任务给自己" : m.assignedBy + " 指派了任务给你"), { body: m.task || "新任务" });
+          new Notification((sameUser(m.assignedBy, currentUser) ? "你指派了任务给自己" : String(m.assignedBy || "").toUpperCase() + " 指派了任务给你"), { body: m.task || "新任务" });
         }
       } catch (e) {}
     }
@@ -2552,8 +2552,8 @@ function MissionPopups({ missions, currentUser, onView, onDone }) {
     style: { width: size, height: size, borderRadius: "50%", background: colorOf(name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.42, flexShrink: 0, textTransform: "uppercase" }
   }, (name || "?").charAt(0));
   const first = pending[0];
-  const who = m => m.assignedBy === currentUser ? "你" : m.assignedBy;
-  const verb = m => m.assignedBy === currentUser ? " 指派了任务给自己" : " 指派了任务给你";
+  const who = m => sameUser(m.assignedBy, currentUser) ? "你" : String(m.assignedBy || "").toUpperCase();
+  const verb = m => sameUser(m.assignedBy, currentUser) ? " 指派了任务给自己" : " 指派了任务给你";
   const ago = t => { const d = Math.floor((Date.now() - (t || 0)) / 60000); return d < 1 ? "刚刚" : d < 60 ? d + " 分钟前" : d < 1440 ? Math.floor(d / 60) + " 小时前" : Math.floor(d / 1440) + " 天前"; };
   return h("div", { style: { position: "fixed", right: 20, bottom: 20, zIndex: 9999, fontFamily: "inherit" } },
     h("style", null, "@keyframes mhPop{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}@keyframes mhIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}@keyframes mhPeek{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}"),
@@ -2773,9 +2773,9 @@ function MissionPage({
     color: s.color
   }))), notInList && /*#__PURE__*/React.createElement("div", {
     style: { background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, fontWeight: 600 }
-  }, "⚠️ 你的登录名字是「" + currentUser + "」，但指派名单里没有这个名字，所以老板指派的任务你会看不到。请通知管理员把名单改成「" + currentUser + "」。"), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "⚠️ 你的登录名字是「" + String(currentUser).toUpperCase() + "」，但指派名单里没有这个名字，所以老板指派的任务你会看不到。请通知管理员把名单改成「" + String(currentUser).toUpperCase() + "」。"), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "linear-gradient(120deg,#ede9fe,#e0f2fe)", border: "1px solid #ddd6fe", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, color: "#4c1d95" }
-  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（只有老板可以看内容）"), Object.entries(othersBy).map(([n, c]) => /*#__PURE__*/React.createElement("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.1)" } }, czAvatar(n, 20), n, /*#__PURE__*/React.createElement("span", { style: { color: "#7c3aed" } }, c)))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（只有老板可以看内容）"), Object.entries(othersBy).map(([n, c]) => /*#__PURE__*/React.createElement("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.1)" } }, czAvatar(n, 20), String(n).toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: "#7c3aed" } }, c)))), /*#__PURE__*/React.createElement("div", {
     style: S.tableWrap
   }, /*#__PURE__*/React.createElement("table", {
     className: "cz-table",
@@ -2851,7 +2851,7 @@ function MissionPage({
     }, "—"), MISSION_PEOPLE.map(p => /*#__PURE__*/React.createElement("option", {
       key: p,
       value: p
-    }, p))))), /*#__PURE__*/React.createElement("td", {
+    }, p.toUpperCase()))))), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("input", {
       type: "date",
