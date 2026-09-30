@@ -546,6 +546,11 @@ function authClient() {
   }
   return _authClient;
 }
+/* ===== 权限：这些账号看不到 Lucas Cost（填登录邮箱 @ 前面的名字，小写） ===== */
+const LUCAS_HIDDEN_USERS = ["admin"];
+function canSeeLucas() {
+  return !LUCAS_HIDDEN_USERS.map(x => String(x).toLowerCase()).includes(String(window.__crmUser || "").toLowerCase());
+}
 let supa = null;
 const DB = {
   _init() {
@@ -1910,9 +1915,10 @@ function App() {
   if (!session) return /*#__PURE__*/React.createElement(LoginPage, {
     onLogin: (s, sess) => setSession(sess)
   });
+  window.__crmUser = session && session.user && session.user.email ? session.user.email.split("@")[0] : "";
   return /*#__PURE__*/React.createElement(CRM, {
     onLogout: logout,
-    currentUser: session && session.user && session.user.email ? session.user.email.split("@")[0] : ""
+    currentUser: window.__crmUser
   });
 }
 function CRM({ onLogout, currentUser }) {
@@ -3136,7 +3142,7 @@ function ClientsPage({
     ...S.th,
     ...S.thNum
   }
-}, "Cost"), /*#__PURE__*/React.createElement("th", {
+}, "Cost"), canSeeLucas() && /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thNum
@@ -3212,7 +3218,7 @@ function ClientsPage({
       ...S.td,
       ...S.tdNum
     }
-  }, l.amount ? money(l.amount) : ""), /*#__PURE__*/React.createElement("td", {
+  }, l.amount ? money(l.amount) : ""), canSeeLucas() && /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
       ...S.tdNum
@@ -3342,7 +3348,7 @@ function TypePage({
     ...S.th,
     ...S.thNum
   }
-}, "Cost"), /*#__PURE__*/React.createElement("th", {
+}, "Cost"), canSeeLucas() && /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thNum
@@ -3418,7 +3424,7 @@ function TypePage({
       ...S.td,
       ...S.tdNum
     }
-  }, l.amount ? money(l.amount) : ""), /*#__PURE__*/React.createElement("td", {
+  }, l.amount ? money(l.amount) : ""), canSeeLucas() && /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
       ...S.tdNum
@@ -4569,7 +4575,7 @@ function Detail({
     textAlign: "center",
     padding: "30px 0"
   }
-}, "还没有修改记录 / No history yet") : client.history.map((h, i) => /*#__PURE__*/React.createElement("div", {
+}, "还没有修改记录 / No history yet") : client.history.filter(h => canSeeLucas() || h.field !== "Lucas Cost").map((h, i) => /*#__PURE__*/React.createElement("div", {
   key: i,
   style: {
     padding: "10px 0",
@@ -4926,7 +4932,7 @@ function LoanBlock({
     onChange: v => setField("approved", v),
     type: "number",
     prefix: "RM"
-  }), /*#__PURE__*/React.createElement(EditRow, {
+  }), canSeeLucas() && /*#__PURE__*/React.createElement(EditRow, {
     label: "Lucas Cost",
     value: loan.lucasCost,
     onChange: v => setField("lucasCost", v),
