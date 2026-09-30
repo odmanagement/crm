@@ -672,6 +672,73 @@ const STAGES = [{
   color: "#dc2626"
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
+/* ===== 每日自动备份（保留最近 14 天） ===== */
+const BACKUP_KEEP = 14;
+const _bkDate = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); };
+let _bkDoneDate = null;
+async function ensureDailyBackup(snap) {
+  const d = _bkDate();
+  if (_bkDoneDate === d) return;
+  if (!snap || !snap.clients || !snap.clients.length) return;
+  try {
+    const raw = await DB.get("backup_index");
+    let idx = raw ? JSON.parse(raw) : [];
+    if (!idx.includes(d)) {
+      await DB.set("backup_" + d, JSON.stringify({ at: new Date().toISOString(), by: window.__crmUser || "", ...snap }));
+      idx = [...idx, d].sort();
+      const drop = idx.slice(0, Math.max(0, idx.length - BACKUP_KEEP));
+      idx = idx.slice(-BACKUP_KEEP);
+      await DB.set("backup_index", JSON.stringify(idx));
+      for (const k of drop) { try { await DB.del("backup_" + k); } catch (e) {} }
+    }
+    _bkDoneDate = d;
+  } catch (e) { console.error("backup failed", e); }
+}
+function BackupPanel({ onClose, current, onRestore }) {
+  const h = React.createElement;
+  const [idx, setIdx] = React.useState(null);
+  const [info, setInfo] = React.useState({});
+  const [hasUndo, setHasUndo] = React.useState(false);
+  const [busy, setBusy] = React.useState("");
+  React.useEffect(() => { (async () => {
+    try { const raw = await DB.get("backup_index"); const list = raw ? JSON.parse(raw) : []; setIdx(list.slice().reverse());
+      const inf = {};
+      for (const d of list) { try { const b = await DB.get("backup_" + d); if (b) { const j = JSON.parse(b); inf[d] = { clients: (j.clients || []).length, missions: (j.missions || []).length, at: j.at, by: j.by }; } } catch (e) {} }
+      setInfo(inf);
+      setHasUndo(!!(await DB.get("backup_undo")));
+    } catch (e) { setIdx([]); }
+  })(); }, []);
+  const restoreKey = async (key, label) => {
+    if (!window.confirm("确定要还原到「" + label + "」吗？\n现在的资料会被替换（系统会先存一份，可以撤销）。")) return;
+    setBusy(key);
+    try {
+      const raw = await DB.get(key);
+      if (!raw) { alert("找不到这份备份"); setBusy(""); return; }
+      const snap = JSON.parse(raw);
+      if (key !== "backup_undo") await DB.set("backup_undo", JSON.stringify({ at: new Date().toISOString(), by: window.__crmUser || "", ...current }));
+      await onRestore(snap);
+      alert("已还原到「" + label + "」");
+      onClose();
+    } catch (e) { alert("还原失败：" + e.message); }
+    setBusy("");
+  };
+  const fmt = iso => { try { const d = new Date(iso); return d.toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }); } catch (e) { return ""; } };
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.55)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 460, maxHeight: "85vh", overflow: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
+      h("div", { style: { padding: "18px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center", gap: 10 } },
+        h("div", { style: { flex: 1 } }, h("div", { style: { fontSize: 17, fontWeight: 800 } }, "🛟 备份 / Backups"), h("div", { style: { fontSize: 12, opacity: .85, marginTop: 2 } }, "每天自动备份一次，保留最近 " + BACKUP_KEEP + " 天")),
+        h("button", { onClick: onClose, style: { background: "rgba(255,255,255,.2)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
+      h("div", { style: { padding: 14 } },
+        hasUndo && h("button", { onClick: () => restoreKey("backup_undo", "还原之前的资料"), disabled: !!busy, style: { width: "100%", marginBottom: 10, padding: "11px 14px", borderRadius: 12, border: "1px dashed #f59e0b", background: "#fffbeb", color: "#b45309", fontWeight: 700, fontSize: 13 } }, busy === "backup_undo" ? "还原中…" : "↩ 撤销上一次还原"),
+        idx === null ? h("div", { style: { padding: 30, textAlign: "center", color: "#94a3b8" } }, "载入中…") :
+        idx.length === 0 ? h("div", { style: { padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 14 } }, "还没有备份。今天第一次打开后会自动备份。") :
+        idx.map((d, i) => h("div", { key: d, style: { display: "flex", alignItems: "center", gap: 12, padding: "12px 10px", borderBottom: "1px solid #f1f5f9" } },
+          h("div", { style: { width: 42, height: 42, borderRadius: 12, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, background: i === 0 ? "linear-gradient(135deg,#10b981,#0d9488)" : "linear-gradient(135deg,#a78bfa,#6366f1)", lineHeight: 1.05 } }, h("span", { style: { fontSize: 15 } }, d.slice(8)), h("span", { style: { fontSize: 9, opacity: .9 } }, d.slice(5, 7) + "月")),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontWeight: 700, fontSize: 14, color: "#1e1b4b" } }, d, i === 0 ? h("span", { style: { marginLeft: 6, fontSize: 11, color: "#059669", background: "#d1fae5", padding: "1px 7px", borderRadius: 999 } }, "最新") : null),
+            h("div", { style: { fontSize: 12, color: "#64748b", marginTop: 2 } }, info[d] ? info[d].clients + " 个客户 · " + info[d].missions + " 个任务 · " + fmt(info[d].at) : "…")),
+          h("button", { onClick: () => restoreKey("backup_" + d, d), disabled: !!busy, style: { padding: "7px 14px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 700, fontSize: 12.5, boxShadow: "0 4px 12px rgba(79,70,229,.3)" } }, busy === "backup_" + d ? "还原中…" : "还原"))))));
+}
 const NAV = [{
   id: "dashboard",
   label: "Dashboard",
@@ -2026,6 +2093,18 @@ function CRM({ onLogout, currentUser }) {
       try { unsub && unsub(); } catch (e) {}
     };
   }, []);
+  React.useEffect(() => {
+    if (!loading) ensureDailyBackup({ clients, missions, bankers, verifications });
+  }, [loading]);
+  const [showBackup, setShowBackup] = React.useState(false);
+  const restoreSnapshot = async snap => {
+    const jobs = [];
+    if (snap.clients) { setClients(snap.clients); jobs.push(DB.set("clients", JSON.stringify(snap.clients))); }
+    if (snap.missions) { setMissions(snap.missions); jobs.push(DB.set("missions", JSON.stringify(snap.missions))); }
+    if (snap.bankers) { setBankers(snap.bankers); jobs.push(DB.set("bankers", JSON.stringify(snap.bankers))); }
+    if (snap.verifications) { setVerifications(snap.verifications); jobs.push(DB.set("verifications", JSON.stringify(snap.verifications))); }
+    await Promise.all(jobs);
+  };
   const persistVerifications = async next => {
     setVerifications(next);
     setSaving(true);
@@ -2068,6 +2147,7 @@ function CRM({ onLogout, currentUser }) {
     alert(`${client.name} sent to verify queue`);
   };
   const persist = async next => {
+    ensureDailyBackup({ clients, missions, bankers, verifications });
     setClients(next);
     setSaving(true);
     try {
@@ -2108,6 +2188,7 @@ function CRM({ onLogout, currentUser }) {
   };
   const [resetArmed, setResetArmed] = useState(false);
   const resetAll = async () => {
+    return; // 已停用
     if (!resetArmed) {
       setResetArmed(true);
       setTimeout(() => setResetArmed(false), 4000);
@@ -2231,7 +2312,11 @@ function CRM({ onLogout, currentUser }) {
     size: 14
   }), " ", dueCount, " to follow up"), /*#__PURE__*/React.createElement("span", {
     style: S.saveState
-  }, saving ? "Saving…" : "Synced"), page !== "verify" && /*#__PURE__*/React.createElement("button", {
+  }, saving ? "Saving…" : "Synced"), canSeeLucas() && /*#__PURE__*/React.createElement("button", {
+    style: S.logoutBtn,
+    onClick: () => setShowBackup(true),
+    title: "备份 / Backups"
+  }, "🛟 Backup"), page !== "verify" && /*#__PURE__*/React.createElement("button", {
     style: S.addBtn,
     onClick: () => setEditing("new")
   }, /*#__PURE__*/React.createElement(Plus, {
@@ -2283,6 +2368,10 @@ function CRM({ onLogout, currentUser }) {
     onUpdate: updateClient,
     onSendVerify: () => sendToVerify(open),
     currentUser: currentUser
+  }), showBackup && /*#__PURE__*/React.createElement(BackupPanel, {
+    onClose: () => setShowBackup(false),
+    current: { clients, missions, bankers, verifications },
+    onRestore: restoreSnapshot
   }), /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     currentUser: currentUser,
@@ -3065,19 +3154,7 @@ function Dashboard({
   }, /*#__PURE__*/React.createElement("span", null, "Import 20 clients · 22 house loans from your sheet"), /*#__PURE__*/React.createElement("button", {
     style: S.importBtn,
     onClick: onImport
-  }, "Import Now")) : /*#__PURE__*/React.createElement("div", {
-    style: S.resetBar
-  }, /*#__PURE__*/React.createElement("button", {
-    style: {
-      ...DK.reset,
-      ...(resetArmed ? {
-        background: "#dc2626",
-        color: "#fff",
-        borderColor: "#dc2626"
-      } : {})
-    },
-    onClick: onReset
-  }, resetArmed ? "Tap again to confirm reset" : "Reset & re-import from sheet")), /*#__PURE__*/React.createElement("div", {
+  }, "Import Now")) : null, /*#__PURE__*/React.createElement("div", {
     style: S.statGrid
   }, /*#__PURE__*/React.createElement(Stat, {
     label: "Total Clients",
