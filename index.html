@@ -1037,7 +1037,7 @@ const NAV = [{
   icon: CheckCircle2
 }, {
   id: "submission",
-  label: "Submission",
+  label: "Closing",
   icon: Send
 }, {
   id: "leave",
@@ -2976,11 +2976,18 @@ function LeavePage({ currentUser }) {
   const [list, save] = useCloudList("leaves");
   const [view, setView] = React.useState("upcoming");
   const [q, setQ] = React.useState("");
+  const [form, setForm] = React.useState(null);
   const boss = isMissionBoss(currentUser);
   const t = today();
   const items = list || [];
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, ...(k === "status" ? { decidedBy: currentUser } : {}) } : x));
-  const add = () => save([{ id: uid(), name: canonUser(currentUser), type: "annual", from: t, to: t, reason: "", status: boss ? "approved" : "pending", by: currentUser, at: Date.now() }, ...items]);
+  const add = () => setForm({ name: canonUser(currentUser), type: "annual", from: t, to: t, reason: "" });
+  const submitForm = () => {
+    if (!form.reason.trim()) { alert("请填写请假原因"); return; }
+    if (form.to < form.from) { alert("结束日期不能早于开始日期"); return; }
+    save([{ id: uid(), ...form, reason: form.reason.trim(), status: boss ? "approved" : "pending", by: currentUser, at: Date.now() }, ...items]);
+    setForm(null);
+  };
   const del = x => { if (window.confirm("删除 " + String(x.name).toUpperCase() + " 的请假记录？")) save(items.filter(y => y.id !== x.id)); };
   const canEdit = x => boss || sameUser(x.by, currentUser) || sameUser(x.name, currentUser);
   const onToday = items.filter(x => x.status !== "rejected" && x.from <= t && (x.to || x.from) >= t);
@@ -3014,63 +3021,83 @@ function LeavePage({ currentUser }) {
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 " + st[2] } }, i + 1),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, czAvatar(x.name, 26),
               boss ? h("select", { style: pillSel(czHue(x.name)), value: x.name, onChange: e => upd(x.id, "name", e.target.value) }, MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))) : h("b", { style: { color: "hsl(" + czHue(x.name) + ",60%,35%)" } }, String(x.name).toUpperCase()))),
-            h("td", { style: S.td }, h("select", { disabled: !ed, style: pillSel(lt[2]), value: x.type, onChange: e => upd(x.id, "type", e.target.value) }, LEAVE_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
+            h("td", { style: S.td }, h("span", { title: "提交后不能更改", style: { ...czPill(lt[2], { padding: "5px 12px", fontSize: 12.5 }), whiteSpace: "nowrap" } }, lt[1])),
             h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: "auto" }, value: x.from || "", onChange: e => save(items.map(y => y.id === x.id ? { ...y, from: e.target.value, to: (y.to && y.to >= e.target.value) ? y.to : e.target.value } : y)) })),
             h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: "auto" }, value: x.to || "", min: x.from, onChange: e => upd(x.id, "to", e.target.value) })),
             h("td", { style: { ...S.td, fontWeight: 800, textAlign: "center" } }, leaveDays(x.from, x.to, x.type)),
-            h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: S.bankerInput, value: x.reason, placeholder: ed ? "原因…" : "", onCommit: v => ed && upd(x.id, "reason", v) })),
+            h("td", { style: { ...S.td, minWidth: 180, maxWidth: 320, fontSize: 13.5, color: "#334155", whiteSpace: "normal", wordBreak: "break-word" }, title: "提交后不能更改" }, x.reason || h("span", { style: { color: "#cbd5e1" } }, "—")),
             h("td", { style: S.td }, boss
               ? h("select", { style: { ...S.bankerInput, background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", width: "auto", fontWeight: 800 }, value: x.status, onChange: e => upd(x.id, "status", e.target.value) }, LEAVE_STATUS.map(y => h("option", { key: y[0], value: y[0] }, y[1])))
               : h("span", { title: x.decidedBy ? "由 " + String(x.decidedBy).toUpperCase() + " 处理" : "等老板批准", style: { background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, st[1])),
             h("td", { style: S.td }, ed ? h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" })) : h("span", { style: { opacity: .4 } }, "🔒")));
-        })))));
+        })))), form && h("div", { onClick: () => setForm(null), style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.5)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
+      h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#0ea5e9,#6366f1)", color: "#fff", display: "flex", alignItems: "center" } },
+        h("div", { style: { flex: 1, fontSize: 16, fontWeight: 800 } }, "🏖 申请请假"),
+        h("button", { onClick: () => setForm(null), style: { background: "rgba(255,255,255,.2)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
+      h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
+        boss && h("label", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "员工"),
+          h("select", { value: form.name, onChange: e => setForm({ ...form, name: e.target.value }), style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 } }, MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
+        h("div", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "假别"),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, LEAVE_TYPES.map(y => h("button", { key: y[0], type: "button", onClick: () => setForm({ ...form, type: y[0], to: y[0] === "half" ? form.from : form.to }), style: { ...czPill(y[2], { padding: "6px 12px", fontSize: 12.5 }), cursor: "pointer", outline: form.type === y[0] ? "2px solid hsl(" + y[2] + ",70%,50%)" : "none", opacity: form.type === y[0] ? 1 : .6 } }, y[1])))),
+        h("div", { style: { display: "flex", gap: 10 } },
+          h("label", { style: { flex: 1 } }, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "开始"),
+            h("input", { type: "date", value: form.from, onChange: e => setForm({ ...form, from: e.target.value, to: form.to < e.target.value || form.type === "half" ? e.target.value : form.to }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 } })),
+          h("label", { style: { flex: 1 } }, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "结束"),
+            h("input", { type: "date", value: form.to, min: form.from, disabled: form.type === "half", onChange: e => setForm({ ...form, to: e.target.value }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 } }))),
+        h("div", { style: { fontSize: 12.5, color: "#64748b" } }, "共 ", h("b", null, leaveDays(form.from, form.to, form.type)), " 天（星期日不算）"),
+        h("label", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "原因"),
+          h("textarea", { value: form.reason, rows: 3, placeholder: "请填写原因…", onChange: e => setForm({ ...form, reason: e.target.value }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", resize: "vertical" } })),
+        h("div", { style: { fontSize: 12, color: "#f59e0b", fontWeight: 600 } }, "⚠️ 提交后，假别和原因都不能再更改。"),
+        h("button", { onClick: submitForm, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#0ea5e9,#6366f1)", color: "#fff", fontWeight: 800, fontSize: 14.5, boxShadow: "0 8px 20px rgba(79,70,229,.35)" } }, "提交 / Submit")))));
 }
 
-/* ---------- Submission List（Build / Ori / Special Case） ---------- */
-const SUB_TYPES = [["build", "Build", 262], ["ori", "Ori", 199], ["special", "Special Case", 25]];
+/* ---------- Closing List（Build / Ori / Special Case / Cancel / Rencai） ---------- */
+const SUB_TYPES = [["build", "Build", 262], ["ori", "Ori", 199], ["special", "Special Case", 25], ["cancel", "Cancel", 0], ["rencai", "Rencai", 150]];
 const SUB_STATUS = [["preparing", "Preparing", "#64748b"], ["submitted", "Submitted", "#3b82f6"], ["pending", "Pending", "#f59e0b"], ["approved", "Approved", "#16a34a"], ["rejected", "Rejected", "#dc2626"]];
+const CLOSING_AGENTS = ["alex", "steven", "vick", "fin", "candy", "edward", "nico", "anna", "gary", "darren", "davis", "celement", "br", "ivan", "kelvin", "lee", "nick", "william"];
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("submissions");
   const [tab, setTab] = React.useState("all");
   const [q, setQ] = React.useState("");
   const items = list || [];
-  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v } : x));
-  const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", company: "", bank: "", amount: "", agent: canonUser(currentUser), status: "preparing", remark: "", by: currentUser, at: Date.now() }, ...items]);
-  const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」的 submission？")) save(items.filter(y => y.id !== x.id)); };
+  // 旧资料：以前的 agent 其实是 staff
+  const staffOf = x => x.staff !== undefined ? x.staff : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? x.agent : "");
+  const agentOf = x => x.staff !== undefined ? (x.agent || "") : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? "" : (x.agent || ""));
+  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, staff: staffOf(x), agent: agentOf(x), [k]: v } : x));
+  const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", staff: canonUser(currentUser), agent: "", status: "preparing", remark: "", by: currentUser, at: Date.now() }, ...items]);
+  const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => tab === "all" || x.cat === tab)
-    .filter(x => !q || [x.client, x.company, x.bank, x.agent, x.remark].join(" ").toLowerCase().includes(q.toLowerCase()))
+    .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark].join(" ").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at);
-  const money = v => { const n = Number(String(v).replace(/[^\d.]/g, "")); return n ? "RM " + n.toLocaleString() : ""; };
-  const totalAmt = shown.reduce((a, x) => a + (Number(String(x.amount).replace(/[^\d.]/g, "")) || 0), 0);
-  const typeCard = (k, label, hue, n) => h("button", { key: k, onClick: () => setTab(k), style: { flex: "1 1 160px", textAlign: "left", border: tab === k ? "2px solid hsl(" + hue + ",70%,55%)" : "1px solid #eef0f4", borderRadius: 16, padding: "14px 16px", background: tab === k ? "linear-gradient(135deg,hsl(" + hue + ",90%,97%),#fff)" : "rgba(255,255,255,.9)", boxShadow: tab === k ? "0 10px 24px -12px hsl(" + hue + ",70%,50%)" : "0 6px 18px -14px rgba(0,0,0,.3)", cursor: "pointer", transition: "all .2s" } },
+  const typeCard = (k, label, hue, n) => h("button", { key: k, onClick: () => setTab(k), style: { flex: "1 1 130px", textAlign: "left", border: tab === k ? "2px solid hsl(" + hue + ",70%,55%)" : "1px solid #eef0f4", borderRadius: 16, padding: "12px 16px", background: tab === k ? "linear-gradient(135deg,hsl(" + hue + ",90%,97%),#fff)" : "rgba(255,255,255,.92)", boxShadow: tab === k ? "0 10px 24px -12px hsl(" + hue + ",70%,50%)" : "0 6px 18px -14px rgba(0,0,0,.3)", cursor: "pointer", transition: "all .2s" } },
     h("div", { style: { fontSize: 12, fontWeight: 800, color: "hsl(" + hue + ",55%,45%)", letterSpacing: ".04em" } }, label),
-    h("div", { style: { fontSize: 26, fontWeight: 900, color: "#1e293b", marginTop: 2 } }, n));
+    h("div", { style: { fontSize: 24, fontWeight: 900, color: "#1e293b", marginTop: 2 } }, n));
+  const agentHue = n => CZ_HUES[Math.max(0, CLOSING_AGENTS.indexOf(String(n).toLowerCase())) % CZ_HUES.length];
   return h("div", { className: "cz-page" },
     h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 } },
       typeCard("all", "ALL", 230, items.length),
       SUB_TYPES.map(([k, l, hue]) => typeCard(k, l.toUpperCase(), hue, items.filter(x => x.cat === k).length))),
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
-      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / company / bank / agent", value: q, onChange: e => setQ(e.target.value) })),
-      totalAmt > 0 && h("span", { style: { fontWeight: 800, color: "#334155", background: "rgba(255,255,255,.9)", border: "1px solid #eef0f4", borderRadius: 12, padding: "9px 14px", fontSize: 13.5 } }, "合计 RM " + totalAmt.toLocaleString()),
-      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Submission")),
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / staff / agent / remark", value: q, onChange: e => setQ(e.target.value) })),
+      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Closing")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Company", "Bank", "Amount", "Agent", "Status", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 11, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 11, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有 submission — 按「Add Submission」")) :
+      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Status", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
+          const sf = staffOf(x), ag = agentOf(x);
           return h("tr", { key: x.id },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 hsl(" + ty[2] + ",70%,55%)" } }, i + 1),
             h("td", { style: S.td }, h("input", { type: "date", style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
             h("td", { style: S.td }, h("select", { style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
-            h("td", { style: { ...S.td, minWidth: 150 } }, h(DebouncedInput, { style: { ...S.bankerInput, fontWeight: 700 }, value: x.client, placeholder: "Client", onCommit: v => upd(x.id, "client", v) })),
-            h("td", { style: { ...S.td, minWidth: 140 } }, h(DebouncedInput, { style: S.bankerInput, value: x.company, placeholder: "Company", onCommit: v => upd(x.id, "company", v) })),
-            h("td", { style: { ...S.td, minWidth: 110 } }, h(DebouncedInput, { style: x.bank ? { ...S.bankerInput, ...czPill(czBankHue(x.bank), { padding: "5px 10px", width: "auto", maxWidth: 140 }) } : S.bankerInput, value: x.bank, placeholder: "Bank", onCommit: v => upd(x.id, "bank", v) })),
-            h("td", { style: { ...S.td, minWidth: 110 } }, h(DebouncedInput, { style: { ...S.bankerInput, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: x.amount, placeholder: "RM", onCommit: v => upd(x.id, "amount", v) }), x.amount && h("div", { style: { fontSize: 11, color: "#94a3b8", textAlign: "right" } }, money(x.amount))),
-            h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, x.agent ? czAvatar(x.agent, 22) : null, h("select", { style: x.agent ? pillSel(czHue(x.agent)) : S.bankerInput, value: x.agent || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
+            h("td", { style: { ...S.td, minWidth: 170 } }, h(DebouncedInput, { style: { ...S.bankerInput, fontWeight: 700 }, value: x.client, placeholder: "Client", onCommit: v => upd(x.id, "client", v) })),
+            h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
+            h("td", { style: S.td }, h("select", { style: ag ? pillSel(agentHue(ag)) : S.bankerInput, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
             h("td", { style: S.td }, h("select", { style: { ...S.bankerInput, background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", width: "auto", fontWeight: 800 }, value: x.status, onChange: e => upd(x.id, "status", e.target.value) }, SUB_STATUS.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
-            h("td", { style: { ...S.td, minWidth: 160 } }, h(DebouncedInput, { style: S.bankerInput, value: x.remark, placeholder: "Remark", onCommit: v => upd(x.id, "remark", v) })),
+            h("td", { style: { ...S.td, minWidth: 200 } }, h(DebouncedInput, { style: S.bankerInput, value: x.remark, placeholder: "Remark", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))));
 }
