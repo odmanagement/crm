@@ -575,19 +575,42 @@ const DB = {
     }
     return localStorage.getItem("crm_" + key);
   },
+  _sent: {},
+  _queue: {},
+  _noteSent(key, value) {
+    const now = Date.now();
+    const arr = (this._sent[key] || []).filter(x => now - x.t < 20000);
+    arr.push({ v: value, t: now });
+    this._sent[key] = arr.slice(-30);
+  },
+  _isEcho(key, value) {
+    const now = Date.now();
+    return (this._sent[key] || []).some(x => now - x.t < 20000 && x.v === value);
+  },
   async set(key, value) {
     if (useCloud) {
-      const s = this._init();
-      const {
-        error
-      } = await s.from("crm_store").upsert({
-        key,
-        value
-      }, {
-        onConflict: "key"
-      });
-      if (error) console.error(error);
-      return;
+      this._noteSent(key, value);
+      // 同一个 key 的写入排队，只写最新的一份，避免旧资料盖掉新资料
+      const q = this._queue[key] || (this._queue[key] = { running: false, next: null, waiters: [] });
+      q.next = value;
+      const done = new Promise(r => q.waiters.push(r));
+      if (!q.running) {
+        q.running = true;
+        (async () => {
+          while (q.next !== null) {
+            const v = q.next; q.next = null;
+            const ws = q.waiters.splice(0);
+            try {
+              const s = this._init();
+              const { error } = await s.from("crm_store").upsert({ key, value: v }, { onConflict: "key" });
+              if (error) console.error(error);
+            } catch (e) { console.error(e); }
+            ws.forEach(r => r());
+          }
+          q.running = false;
+        })();
+      }
+      return done;
     }
     localStorage.setItem("crm_" + key, value);
   },
@@ -599,24 +622,31 @@ const DB = {
     }
     localStorage.removeItem("crm_" + key);
   },
+  _listeners: new Set(),
+  _chan: null,
   subscribe(onChange) {
     if (!useCloud) return () => {};
-    const s = this._init();
-    const ch = s.channel("crm_store_changes").on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "crm_store"
-    }, payload => {
-      try {
-        const row = payload.new || payload.old || {};
-        onChange(row.key, row.value);
-      } catch (e) {}
-    }).subscribe();
-    return () => {
-      try {
-        s.removeChannel(ch);
-      } catch (e) {}
-    };
+    this._listeners.add(onChange);
+    if (!this._chan) {
+      const s = this._init();
+      this._chan = s.channel("crm_store_changes").on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "crm_store"
+      }, async payload => {
+        try {
+          const row = payload.new || payload.old || {};
+          const key = row.key;
+          if (!key || String(key).startsWith("mphoto_") || String(key).startsWith("backup_")) return;
+          if (this._queue[key] && this._queue[key].running) return; // 自己还在保存中，忽略
+          let v = row.value;
+          if (v == null) v = await this.get(key);
+          if (v == null || this._isEcho(key, v)) return; // 自己刚存的回音，忽略
+          this._listeners.forEach(fn => { try { fn(key, v); } catch (e) {} });
+        } catch (e) {}
+      }).subscribe();
+    }
+    return () => { this._listeners.delete(onChange); };
   }
 };
 const TYPES = [{
@@ -2077,6 +2107,21 @@ function LoginPage({
         h("button", { className: "lg-btn", onClick: submit, disabled: busy }, busy ? "登录中…" : "登录 / Sign in  →"),
         h("div", { className: "lg-foot" }, "© " + new Date().getFullYear() + " OD MANAGEMENT"))));
 }
+class ErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error("CRM crash:", err, info); }
+  render() {
+    if (!this.state.err) return this.props.children;
+    if (this.props.silent) return null;
+    const e = this.state.err;
+    return React.createElement("div", { style: { padding: 40, fontFamily: "sans-serif", maxWidth: 720, margin: "40px auto", background: "#fff", borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,.1)" } },
+      React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#dc2626", marginBottom: 10 } }, "⚠️ 页面出错了 / Something went wrong"),
+      React.createElement("div", { style: { fontSize: 14, color: "#475569", marginBottom: 14 } }, "请把下面的红字截图给技术人员："),
+      React.createElement("pre", { style: { whiteSpace: "pre-wrap", background: "#fef2f2", color: "#991b1b", padding: 14, borderRadius: 10, fontSize: 12.5, maxHeight: 260, overflow: "auto" } }, String(e && (e.stack || e.message) || e).slice(0, 1500)),
+      React.createElement("button", { onClick: () => location.reload(), style: { marginTop: 14, padding: "10px 18px", borderRadius: 10, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" } }, "重新载入 / Reload"));
+  }
+}
 function App() {
   const [session, setSession] = React.useState(null);
   const [checking, setChecking] = React.useState(true);
@@ -2238,7 +2283,7 @@ function CRM({ onLogout, currentUser }) {
   const noticeForDone = m => {
     const to = m && (m.assignedBy || m.by);
     if (!to || sameUser(to, currentUser)) return;
-    addNotice({ id: uid(), to: canonUser(to), from: currentUser, task: m.task || "", due: m.due || "", at: Date.now() });
+    addNotice({ id: uid(), to: canonUser(to), from: currentUser, task: m.task || "", at: Date.now() });
   };
   useGlobalFx();
   const [sound, setSound] = React.useState(soundOn());
@@ -2477,9 +2522,9 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement(PageFx, {
+  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(PageFx, {
     page: page
-  }), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
     key: page,
     className: "pg-anim pg-" + page,
     style: { ...S.content, position: "relative", zIndex: 1 }
@@ -2529,7 +2574,7 @@ function CRM({ onLogout, currentUser }) {
     onClose: () => setShowBackup(false),
     current: { clients, missions, bankers, verifications },
     onRestore: restoreSnapshot
-  }), /*#__PURE__*/React.createElement(MissionPopups, {
+  }), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -2542,7 +2587,7 @@ function CRM({ onLogout, currentUser }) {
       noticeForDone(dm);
       for (const pid of dm.photos || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
     }
-  }), editing && /*#__PURE__*/React.createElement(EditForm, {
+  })), editing && /*#__PURE__*/React.createElement(EditForm, {
     initial: editing === "new" ? null : editing,
     onClose: () => setEditing(null),
     onSave: saveClient
@@ -2699,8 +2744,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: it.kind === "n" ? "#15803d" : "#050505" } }, titleOf(it)), " · " + ago(it.at)),
             h("div", { style: { display: "inline-block", marginTop: 4, background: it.kind === "n" ? "#dcfce7" : "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word", textDecoration: it.kind === "n" ? "line-through" : "none" } }, textOf(it)),
-            it.kind === "a" && it.m.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "截止 " + it.m.due),
-            it.kind === "n" && it.n.due && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "原本截止 " + it.n.due),
+            it.kind === "a" && it.m.date && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "📅 " + it.m.date.split("-").reverse().join("/")),
             h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
               it.kind === "a" ? [
                 h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
@@ -2817,13 +2861,15 @@ function MissionPage({
     owner: boss ? "" : currentUser || "",
     due: "",
     status: "todo",
+    date: today(),
     by: currentUser || ""
   }, ...missions]);
   const upd = (id, k, v) => onSave(missions.map(m => m.id === id ? (k === "owner" ? {
     ...m,
     owner: v,
     assignedBy: currentUser || "",
-    assignedAt: Date.now()
+    assignedAt: Date.now(),
+    date: today()
   } : {
     ...m,
     [k]: v
@@ -2834,7 +2880,7 @@ function MissionPage({
     for (const pid of (m && m.photos) || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
   };
   const canEditAssign = m => boss || sameUser(m.assignedBy || m.by, currentUser) || (!m.assignedBy && !m.by);
-  const canView = m => boss || sameUser(m.owner, currentUser) || (!m.owner && sameUser(m.by, currentUser));
+  const canView = m => boss || sameUser(m.owner, currentUser) || sameUser(m.assignedBy, currentUser) || sameUser(m.by, currentUser);
   const visible = missions.filter(canView);
   const others = missions.filter(m => !canView(m));
   const othersBy = others.reduce((acc, m) => { const k = m.owner || "—"; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
@@ -2908,7 +2954,7 @@ function MissionPage({
     style: { background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, fontWeight: 600 }
   }, "⚠️ 你的登录名字是「" + String(currentUser).toUpperCase() + "」，但指派名单里没有这个名字，所以老板指派的任务你会看不到。请通知管理员把名单改成「" + String(currentUser).toUpperCase() + "」。"), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "linear-gradient(120deg,#ede9fe,#e0f2fe)", border: "1px solid #ddd6fe", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, color: "#4c1d95" }
-  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（只有老板可以看内容）"), Object.entries(othersBy).map(([n, c]) => /*#__PURE__*/React.createElement("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.1)" } }, czAvatar(n, 20), String(n).toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: "#7c3aed" } }, c)))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（内容只有相关的人可以看）")), /*#__PURE__*/React.createElement("div", {
     style: S.tableWrap
   }, /*#__PURE__*/React.createElement("table", {
     className: "cz-table",
@@ -2924,7 +2970,7 @@ function MissionPage({
     style: S.th
   }, "Assign to"), /*#__PURE__*/React.createElement("th", {
     style: S.th
-  }, "Due"), /*#__PURE__*/React.createElement("th", {
+  }, "Date"), /*#__PURE__*/React.createElement("th", {
     style: S.th
   }, "Status"), /*#__PURE__*/React.createElement("th", {
     style: S.th
@@ -2988,17 +3034,10 @@ function MissionPage({
       value: p
     }, p.toUpperCase()))))), /*#__PURE__*/React.createElement("td", {
       style: S.td
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "date",
-      style: {
-        ...S.bankerInput,
-        ...(m.due && m.status !== "done" ? (m.due < today() ? czPill(355, { padding: "5px 10px", width: "auto" }) : m.due === today() ? czPill(30, { padding: "5px 10px", width: "auto" }) : czPill(210, { padding: "5px 10px", width: "auto" })) : {})
-      },
-      value: m.due,
-      disabled: !canEditAssign(m),
-      title: canEditAssign(m) ? "" : "🔒 只有指派的人可以改",
-      onChange: e => upd(m.id, "due", e.target.value)
-    })), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement("span", {
+      title: "自动填入指派当天的日期",
+      style: { display: "inline-flex", alignItems: "center", gap: 6, ...czPill(210, { padding: "5px 12px", fontSize: 13 }) }
+    }, "📅 ", (m.date || (m.assignedAt > 1000 ? new Date(m.assignedAt).toISOString().slice(0, 10) : "") || "—").split("-").reverse().join("/"))), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("select", {
       style: {
@@ -7512,7 +7551,7 @@ const S = {
     return setTimeout(function(){ boot(tries+1); }, 100);
   }
   var root = ReactDOM.createRoot(document.getElementById("root"));
-  root.render(/*#__PURE__*/React.createElement(App, null));
+  root.render(React.createElement(ErrorBoundary, null, React.createElement(App, null)));
 })(0);
 </script>
 </body>
