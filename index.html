@@ -500,9 +500,11 @@ const L = {
   Shield: _icon(["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"]),
   ShieldCheck: _icon(["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z", "m9 12 2 2 4-4"]),
   Check: _icon(["M20 6 9 17l-5-5"]),
+  ListTodo: _icon(["m3 17 2 2 4-4", "m3 7 2 2 4-4", "M13 6h8", "M13 12h8", "M13 18h8"]),
   Folder: _icon(["M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"])
 };
 const {
+  ListTodo,
   Plus,
   Search,
   Phone,
@@ -1029,6 +1031,10 @@ const NAV = [{
   id: "mission",
   label: "Mission",
   icon: CheckCircle2
+}, {
+  id: "todo",
+  label: "To Do",
+  icon: ListTodo
 }];
 /* 某些账号看不到的 Forms（填文件名） */
 const FORMS_HIDDEN = {
@@ -2530,7 +2536,7 @@ function CRM({ onLogout, currentUser }) {
   }, /*#__PURE__*/React.createElement(Wallet, {
     size: 22,
     color: "#fff"
-  })), NAV.map(n => {
+  })), NAV.filter(n => !(n.id === "todo" && canonUser(currentUser) === "admin")).map(n => {
     // 有 children 的是分组（Loan）
     if (n.children) {
       const Icon = n.icon;
@@ -2670,6 +2676,8 @@ function CRM({ onLogout, currentUser }) {
   }) : page === "html_company" || page === "html_payslip" || page === "html_offer" ? /*#__PURE__*/React.createElement(CompanyFilesPage, null) : page === "banker" ? /*#__PURE__*/React.createElement(BankerPage, {
     bankers: bankers,
     onSave: persistBankers
+  }) : page === "todo" && canonUser(currentUser) !== "admin" ? /*#__PURE__*/React.createElement(TodoPage, {
+    currentUser: currentUser
   }) : page === "mission" ? /*#__PURE__*/React.createElement(MissionPage, {
     onDoneNotify: noticeForDone,
     missions: missions,
@@ -2954,6 +2962,77 @@ function MissionPhotos({ mission, onChange, onClose }) {
       h(PhotoImg, { id: big, style: { maxWidth: "100%", maxHeight: "100%", borderRadius: 8, width: "auto", height: "auto", minWidth: 60, minHeight: 60 } })),
     delPhoto && h("div", { onClick: e => e.stopPropagation() }, h(PwDialog, { title: "删除这张照片", desc: "删除后不能复原。", confirmText: "删除", onCancel: () => setDelPhoto(null),
       onOk: async () => { const id = delPhoto; setDelPhoto(null); onChange(photos.filter(x => x !== id)); try { await DB.del("mphoto_" + id); } catch (e) {} delete _photoCache[id]; } })));
+}
+/* ---------- 个人 To Do List（每个人自己的，admin 没有） ---------- */
+function TodoPage({ currentUser }) {
+  const h = React.createElement;
+  const KEY = "todo_" + canonUser(currentUser);
+  const [items, setItems] = React.useState(null);
+  const [text, setText] = React.useState("");
+  const [filter, setFilter] = React.useState("all");
+  const [justDone, setJustDone] = React.useState(null);
+  React.useEffect(() => { DB.get(KEY).then(v => setItems(v ? JSON.parse(v) : [])).catch(() => setItems([])); }, [KEY]);
+  React.useEffect(() => DB.subscribe((k, v) => { if (k === KEY && v) { try { setItems(JSON.parse(v)); } catch (e) {} } }), [KEY]);
+  const save = list => { setItems(list); DB.set(KEY, JSON.stringify(list)); };
+  const theme = USER_THEMES[canonUser(currentUser)];
+  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#6d28d9", "#eab308"] }[theme] || ["#4f46e5", "#0ea5e9"];
+  const list = items || [];
+  const add = () => { const t = text.trim(); if (!t) return; save([{ id: uid(), text: t, done: false, at: Date.now() }, ...list]); setText(""); };
+  const toggle = id => { const it = list.find(x => x.id === id); if (it && !it.done) { setJustDone(id); setTimeout(() => setJustDone(null), 700); } save(list.map(x => x.id === id ? { ...x, done: !x.done, doneAt: x.done ? null : Date.now() } : x)); };
+  const remove = id => save(list.filter(x => x.id !== id));
+  const edit = (id, v) => save(list.map(x => x.id === id ? { ...x, text: v } : x));
+  const doneN = list.filter(x => x.done).length, total = list.length, pct = total ? Math.round(doneN / total * 100) : 0;
+  const shown = list.filter(x => filter === "all" || (filter === "active" ? !x.done : x.done)).sort((a, b) => (a.done - b.done) || (b.at - a.at));
+  const css = `
+  .td-wrap{max-width:760px;margin:0 auto}
+  .td-card{background:rgba(255,255,255,.92);border-radius:20px;box-shadow:0 14px 40px -12px rgba(30,27,75,.25);overflow:hidden;border:1px solid rgba(255,255,255,.8)}
+  .td-head{padding:22px 24px;color:#fff;background:linear-gradient(120deg,${ac[0]},${ac[1]})}
+  .td-bar{height:10px;border-radius:999px;background:rgba(255,255,255,.3);overflow:hidden;margin-top:12px}
+  .td-bar i{display:block;height:100%;border-radius:999px;background:#fff;transition:width .5s cubic-bezier(.16,1,.3,1)}
+  .td-add{display:flex;gap:10px;padding:16px 18px;border-bottom:1px solid #f1f5f9}
+  .td-add input{flex:1;padding:12px 16px;border-radius:12px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;font-family:inherit}
+  .td-add input:focus{border-color:${ac[0]};box-shadow:0 0 0 4px ${ac[0]}22}
+  .td-add button{padding:0 20px;border-radius:12px;border:none;color:#fff;font-weight:800;font-size:14px;background:linear-gradient(120deg,${ac[0]},${ac[1]});box-shadow:0 6px 16px ${ac[0]}55}
+  .td-tabs{display:flex;gap:6px;padding:12px 18px 4px}
+  .td-tab{padding:6px 14px;border-radius:999px;border:none;font-weight:700;font-size:12.5px;background:#f1f5f9;color:#475569}
+  .td-tab.on{background:${ac[0]};color:#fff}
+  .td-row{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f8fafc;transition:background .2s}
+  .td-row:hover{background:#fafafa}
+  .td-chk{width:26px;height:26px;border-radius:50%;border:2.5px solid ${ac[0]};background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;padding:0}
+  .td-chk.on{background:linear-gradient(135deg,${ac[0]},${ac[1]});border-color:transparent}
+  .td-pop{animation:tdPop .6s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes tdPop{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+  .td-row.done .td-txt{text-decoration:line-through;color:#94a3b8}
+  .td-txt{flex:1;border:none;background:transparent;font-size:15px;font-weight:600;color:#1e293b;outline:none;padding:4px 6px;border-radius:6px;font-family:inherit;min-width:0}
+  .td-txt:focus{background:#f8fafc}
+  .td-del{border:none;background:none;opacity:.35;padding:4px;display:flex}
+  .td-row:hover .td-del{opacity:1}
+  .td-empty{padding:40px;text-align:center;color:#94a3b8;font-size:14px}
+  `;
+  return h("div", { className: "td-wrap" },
+    h("style", null, css),
+    h("div", { className: "td-card" },
+      h("div", { className: "td-head" },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+          czAvatar(currentUser, 40),
+          h("div", { style: { flex: 1 } },
+            h("div", { style: { fontSize: 20, fontWeight: 900 } }, String(currentUser).toUpperCase() + " 的 TO DO"),
+            h("div", { style: { fontSize: 13, opacity: .9, marginTop: 2 } }, "只有你自己看得到 · 完成 " + doneN + " / " + total)),
+          h("div", { style: { fontSize: 30, fontWeight: 900 } }, pct + "%")),
+        h("div", { className: "td-bar" }, h("i", { style: { width: pct + "%" } }))),
+      h("div", { className: "td-add" },
+        h("input", { value: text, placeholder: "写下要做的事，按 Enter 加入…", onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) add(); } }),
+        h("button", { onClick: add }, "+ 加入")),
+      h("div", { className: "td-tabs" },
+        [["all", "全部 " + total], ["active", "未完成 " + (total - doneN)], ["done", "已完成 " + doneN]].map(([k, t]) => h("button", { key: k, className: "td-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t)),
+        doneN > 0 && h("button", { className: "td-tab", style: { marginLeft: "auto" }, onClick: () => { if (window.confirm("清除全部已完成的事项？")) save(list.filter(x => !x.done)); } }, "清除已完成")),
+      items === null ? h("div", { className: "td-empty" }, "载入中…") :
+      shown.length === 0 ? h("div", { className: "td-empty" }, filter === "done" ? "还没有完成的事项" : "今天还没有要做的事 ✨") :
+      shown.map(x => h("div", { key: x.id, className: "td-row" + (x.done ? " done" : "") },
+        h("button", { className: "td-chk" + (x.done ? " on" : "") + (justDone === x.id ? " td-pop" : ""), onClick: () => toggle(x.id), title: x.done ? "标回未完成" : "完成" }, x.done ? h(Check, { size: 15, color: "#fff" }) : null),
+        h(DebouncedInput, { className: "td-txt", value: x.text, onCommit: v => v.trim() ? edit(x.id, v) : remove(x.id) }),
+        x.done && x.doneAt && h("span", { style: { fontSize: 11.5, color: "#94a3b8", whiteSpace: "nowrap" } }, new Date(x.doneAt).toLocaleDateString("en-GB")),
+        h("button", { className: "td-del", onClick: () => remove(x.id), title: "删除" }, h(Trash2, { size: 16, color: "#ef4444" }))))));
 }
 /* ---------- 我指派的任务 ---------- */
 function AssignedByMePanel({ missions, currentUser, onClose }) {
@@ -6365,6 +6444,20 @@ button:active, a:active { transform: scale(.97); }
 [class*="theme-"] .app-header > :first-child, [class*="theme-"] .app-header > :first-child * { background: none !important; -webkit-text-fill-color: #fff !important; color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,.18); }
 [class*="theme-"] .app-header button:not([style*="gradient"]) { background: rgba(255,255,255,.22) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.45) !important; }
 [class*="theme-"] .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.22) !important; color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+/* 主题数字卡颜色 */
+.theme-cat .stat-card:nth-child(1) { background: linear-gradient(135deg,#ef4444,#b91c1c) !important; box-shadow: 0 12px 30px rgba(220,38,38,.4) !important; }
+.theme-cat .stat-card:nth-child(2) { background: linear-gradient(135deg,#f59e0b,#d97706) !important; box-shadow: 0 12px 30px rgba(217,119,6,.4) !important; }
+.theme-cat .stat-card:nth-child(3) { background: linear-gradient(135deg,#e11d48,#9f1239) !important; box-shadow: 0 12px 30px rgba(225,29,72,.4) !important; }
+.theme-cat .stat-card:nth-child(4) { background: linear-gradient(135deg,#fbbf24,#ea580c) !important; box-shadow: 0 12px 30px rgba(234,88,12,.4) !important; }
+.theme-cat .stat-card { border: 1.5px solid #fde68a !important; }
+.theme-pink .stat-card:nth-child(1) { background: linear-gradient(135deg,#f9a8d4,#ec4899) !important; box-shadow: 0 12px 30px rgba(236,72,153,.35) !important; }
+.theme-pink .stat-card:nth-child(2) { background: linear-gradient(135deg,#f0abfc,#d946ef) !important; box-shadow: 0 12px 30px rgba(217,70,239,.35) !important; }
+.theme-pink .stat-card:nth-child(3) { background: linear-gradient(135deg,#fda4af,#f43f5e) !important; box-shadow: 0 12px 30px rgba(244,63,94,.35) !important; }
+.theme-pink .stat-card:nth-child(4) { background: linear-gradient(135deg,#fcd34d,#f472b6) !important; box-shadow: 0 12px 30px rgba(244,114,182,.35) !important; }
+.theme-star .stat-card:nth-child(1) { background: linear-gradient(135deg,#6366f1,#4338ca) !important; }
+.theme-star .stat-card:nth-child(2) { background: linear-gradient(135deg,#8b5cf6,#6d28d9) !important; }
+.theme-star .stat-card:nth-child(3) { background: linear-gradient(135deg,#facc15,#ca8a04) !important; }
+.theme-star .stat-card:nth-child(4) { background: linear-gradient(135deg,#a78bfa,#eab308) !important; }
 /* pink：浅粉红 + 狗狗 */
 .theme-pink #root, .theme-pink, .theme-pink * { -webkit-text-stroke: .35px currentColor; }
 .theme-pink input, .theme-pink select, .theme-pink textarea { -webkit-text-stroke: .3px currentColor; font-weight: 600 !important; }
