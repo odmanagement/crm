@@ -3138,21 +3138,29 @@ function ClosingRanking({ items, staffOf }) {
     h("div", { style: card },
       h("div", { style: { fontSize: 17, fontWeight: 900, color: "#1e1b4b", marginBottom: 4 } }, "📅 每个星期五 TOP"),
       h("div", { style: { fontSize: 12, color: "#94a3b8", marginBottom: 12 } }, "星期六到星期五算一个星期 · 不算 Cancel"),
-      weeks.map(({ f, rank }) => {
-        const cur = f === thisFri, future = f > thisFri;
-        const winners = rank.filter(r => rank[0] && r[1] === rank[0][1]);
-        return h("div", { key: f, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 14, marginBottom: 8, background: cur ? "linear-gradient(120deg,#eef2ff,#fdf4ff)" : "#f8fafc", border: cur ? "1.5px solid #a5b4fc" : "1px solid #f1f5f9", opacity: future ? .5 : 1 } },
-          h("div", { style: { width: 54, textAlign: "center", lineHeight: 1.1 } },
-            h("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#94a3b8" } }, "FRI"),
-            h("div", { style: { fontSize: 18, fontWeight: 900, color: cur ? "#4f46e5" : "#334155" } }, f.slice(8) + "/" + f.slice(5, 7))),
-          winners.length ? h("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 } },
-            h("div", { style: { position: "relative", paddingTop: 14 } }, h(CrownSvg, { size: 24, style: { position: "absolute", left: "50%", top: 0, transform: "translateX(-50%) rotate(-8deg)" } }), czAvatar(winners[0][0], 30)),
-            h("div", { style: { minWidth: 0 } },
-              h("div", { style: { fontWeight: 900, color: "hsl(" + czHue(winners[0][0]) + ",60%,35%)" } }, winners.map(r => String(r[0]).toUpperCase()).join(" · ")),
-              h("div", { style: { fontSize: 11.5, color: "#64748b" } }, winners[0][1] + " closing" + (rank.length > 1 ? " · 共 " + rank.reduce((a, r) => a + r[1], 0) + " 笔" : "")))) :
-            h("div", { style: { flex: 1, color: "#cbd5e1", fontSize: 13 } }, future ? "还没到" : "这个星期没有 closing"),
-          cur && h("span", { style: { fontSize: 11, fontWeight: 800, color: "#fff", background: "#4f46e5", borderRadius: 999, padding: "2px 8px" } }, "本周"));
-      })));
+      (() => {
+        const shownWeeks = weeks.filter(w => w.f <= thisFri).reverse();
+        if (!shownWeeks.length) return h("div", { style: { padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 } }, "这个月还没开始");
+        return shownWeeks.map(({ f, rank }) => {
+          const cur = f === thisFri;
+          const topN = rank.length ? rank[0][1] : 0;
+          const wsum = rank.reduce((a, r) => a + r[1], 0);
+          return h("div", { key: f, style: { padding: "12px 14px", borderRadius: 16, marginBottom: 10, background: cur ? "linear-gradient(120deg,#eef2ff,#fdf4ff)" : "#f8fafc", border: cur ? "1.5px solid #a5b4fc" : "1px solid #f1f5f9" } },
+            h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: rank.length ? 10 : 0 } },
+              h("div", { style: { fontSize: 15, fontWeight: 900, color: cur ? "#4f46e5" : "#334155" } }, "FRI " + f.slice(8) + "/" + f.slice(5, 7)),
+              cur && h("span", { style: { fontSize: 11, fontWeight: 800, color: "#fff", background: "#4f46e5", borderRadius: 999, padding: "2px 8px" } }, "本周"),
+              h("div", { style: { marginLeft: "auto", fontSize: 12, fontWeight: 800, color: "#64748b" } }, wsum ? "共 " + wsum + " 笔" : "")),
+            rank.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+              rank.map(([n, c]) => {
+                const win = c === topN;
+                return h("div", { key: n, style: { position: "relative", display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px 4px 4px", borderRadius: 999, background: win ? "linear-gradient(120deg,#fef3c7,#fde68a)" : "#fff", border: win ? "1.5px solid #f59e0b" : "1px solid #e2e8f0", boxShadow: win ? "0 4px 12px -4px rgba(245,158,11,.5)" : "none", marginTop: win ? 10 : 0 } },
+                  win && h(CrownSvg, { size: 20, style: { position: "absolute", left: 6, top: -13, transform: "rotate(-12deg)" } }),
+                  czAvatar(n, 24),
+                  h("span", { style: { fontWeight: 800, fontSize: 12.5, color: "hsl(" + czHue(n) + ",60%,32%)" } }, String(n).toUpperCase()),
+                  h("span", { style: { fontWeight: 900, fontSize: 13, color: win ? "#b45309" : "#1e293b", marginLeft: 2 } }, c));
+              })) : h("div", { style: { color: "#cbd5e1", fontSize: 13, marginTop: 6 } }, "这个星期还没有 closing"));
+        });
+      })()));
 }
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
