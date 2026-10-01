@@ -3096,9 +3096,9 @@ function SubmissionPage({ currentUser }) {
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / staff / agent / remark", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Closing")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Status", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
+      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
           const sf = staffOf(x), ag = agentOf(x);
@@ -3109,7 +3109,6 @@ function SubmissionPage({ currentUser }) {
             h("td", { style: { ...S.td, minWidth: 140 } }, h(DebouncedInput, { style: { ...S.bankerInput, fontWeight: 700 }, value: x.client, placeholder: "Client", onCommit: v => upd(x.id, "client", v) })),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
-            h("td", { style: S.td }, h("select", { style: { ...S.bankerInput, background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", width: "auto", fontWeight: 800 }, value: x.status, onChange: e => upd(x.id, "status", e.target.value) }, SUB_STATUS.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
             h("td", { style: { ...S.td, minWidth: 220, maxWidth: 340, width: 280, verticalAlign: "top" } }, h(AutoTextarea, { value: x.remark, placeholder: "Remark", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))));
@@ -4160,12 +4159,13 @@ function ClientsPage({
   }, ty.short), /*#__PURE__*/React.createElement("td", {
     style: S.td,
     onClick: e => e.stopPropagation()
-  }, l.link ? /*#__PURE__*/React.createElement("a", {
-    href: l.link,
+  }, linkOf(l, c) ? /*#__PURE__*/React.createElement("a", {
+    href: linkOf(l, c),
     target: "_blank",
     rel: "noopener",
+    title: linkLabelOf(l, c),
     style: S.linkCell
-  }, "Open") : ""), /*#__PURE__*/React.createElement("td", {
+  }, "Open", linkCountOf(l, c) > 1 ? " (" + linkCountOf(l, c) + ")" : "") : ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, l.agent || ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
@@ -4355,12 +4355,13 @@ function TypePage({
   }, _i + 1), /*#__PURE__*/React.createElement("td", {
     style: S.td,
     onClick: e => e.stopPropagation()
-  }, l.link ? /*#__PURE__*/React.createElement("a", {
-    href: l.link,
+  }, linkOf(l, c) ? /*#__PURE__*/React.createElement("a", {
+    href: linkOf(l, c),
     target: "_blank",
     rel: "noopener",
+    title: linkLabelOf(l, c),
     style: S.linkCell
-  }, "Open") : ""), /*#__PURE__*/React.createElement("td", {
+  }, "Open", linkCountOf(l, c) > 1 ? " (" + linkCountOf(l, c) + ")" : "") : ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, l.agent || ""), /*#__PURE__*/React.createElement("td", {
     style: c.flag ? {
@@ -5289,6 +5290,11 @@ function ClientCard({
     color: "#cbd5e1"
   })));
 }
+/* 表格 LINK 栏：先用贷款自己的 link，没有就用客户资料里 Links & Files 的第一个 */
+const _fixUrl = u => { u = String(u || "").trim(); return !u ? "" : /^https?:\/\//i.test(u) ? u : "https://" + u; };
+const linkOf = (l, c) => _fixUrl((l && l.link) || (((c && c.links) || []).find(x => x && x.url && String(x.url).trim()) || {}).url);
+const linkLabelOf = (l, c) => (l && l.link) ? "Link" : ((((c && c.links) || []).find(x => x && x.url && String(x.url).trim()) || {}).label || "Link");
+const linkCountOf = (l, c) => ((l && l.link) ? 1 : 0) + ((c && c.links) || []).filter(x => x && x.url && String(x.url).trim()).length;
 function Chip({
   active,
   onClick,
@@ -5645,13 +5651,13 @@ function CalcSection({
     const sum = (c.items || []).reduce((s, it) => s + (Number(String(it.amount).replace(/[^0-9.-]/g, "")) || 0), 0);
     return spa - sum;
   };
-  const copyCalc = c => {
+  const copyCalc = (c, ci) => {
     let txt = "Spa ： " + fmt(c.spa) + "\n";
     (c.items || []).forEach(it => {
       txt += (it.name || "-") + " : " + fmt(it.amount) + "\n";
     });
-    txt += "Total Net : " + fmt(netOf(c)) + "\n\n";
-    txt += (clientName || "用户名字") + " : " + (c.cname || "") + "\nLucas : " + (c.lucas || "") + "\nAgent : " + (c.agent || "");
+    txt += "Total Net : " + fmt(netOf(c));
+    if (ci !== 0) txt += "\n\n" + (clientName || "用户名字") + " : " + (c.cname || "") + "\nLucas : " + (c.lucas || "") + "\nAgent : " + (c.agent || "");
     navigator.clipboard.writeText(txt).then(() => {}, () => {});
   };
   const [copied, setCopied] = React.useState(-1);
@@ -5683,7 +5689,7 @@ function CalcSection({
   }, h("span", {
     style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#0f172a", padding: "5px 0" }
   }, ci === 0 ? "Agent" : ci === 1 ? "Lucas" : (c.title || "Calculation " + (ci + 1))), h("button", {
-    onClick: () => { copyCalc(c); setCopied(ci); setTimeout(() => setCopied(-1), 1500); },
+    onClick: () => { copyCalc(c, ci); setCopied(ci); setTimeout(() => setCopied(-1), 1500); },
     title: "复制",
     style: { display: "flex", alignItems: "center", gap: 4, background: copied === ci ? "#dcfce7" : "#fff", color: copied === ci ? "#15803d" : "#64748b", border: "1px solid #e2e8f0", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }
   }, copied === ci ? h(Check, { size: 13 }) : null, copied === ci ? "已复制" : "Copy")),
@@ -5729,7 +5735,7 @@ function CalcSection({
     style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "2px solid #0f172a", paddingTop: 8, marginTop: 2 }
   }, h("span", { style: { fontSize: 14, fontWeight: 700, color: "#0f172a" } }, "Total Net"),
     h("span", { style: { fontSize: 17, fontWeight: 700, color: netOf(c) < 0 ? "#dc2626" : "#15803d", fontVariantNumeric: "tabular-nums" } }, "RM " + fmt(netOf(c)))),
-  h("div", { style: { marginTop: 8, paddingTop: 4, borderTop: "1px solid #e2e8f0" } },
+  ci !== 0 && h("div", { style: { marginTop: 8, paddingTop: 4, borderTop: "1px solid #e2e8f0" } },
     [["cname", clientName || "用户名字", c.cname], ["lucas", "Lucas", c.lucas], ["agent", "Agent", c.agent]].map(([k, label, val]) => h("div", { key: k, className: "calc-row", style: row },
       h("span", { style: { minWidth: 80, maxWidth: "60%", fontSize: 14, fontWeight: 600, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label + "："),
       h(DebouncedInput, {
