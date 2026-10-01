@@ -961,6 +961,7 @@ const FORMS_TOOLS = [{
   name: "PL Costing",
   file: "PL_COSTING.html"
 }];
+const HTML_TOOLS = FORMS_TOOLS;
 const PAYSLIP_TOOLS = [{
   name: "Amazing Leader",
   url: "https://docs.google.com/spreadsheets/d/1_Y4ULAmKR16-DSY3HxIwlSXR1aUL6DpC/copy"
@@ -2280,7 +2281,16 @@ function CRM({ onLogout, currentUser }) {
       await DB.set("mission_notices", JSON.stringify(next));
     } catch (e) { console.error(e); }
   };
+  const addDoneLog = async m => {
+    try {
+      const raw = await DB.get("mission_done");
+      const cur = raw ? JSON.parse(raw) : [];
+      const entry = { id: m.id, task: m.task || "", owner: m.owner || "", assignedBy: m.assignedBy || m.by || "", date: m.date || "", photos: (m.photos || []).length, doneBy: currentUser, doneAt: Date.now() };
+      await DB.set("mission_done", JSON.stringify([...cur, entry].slice(-500)));
+    } catch (e) { console.error(e); }
+  };
   const noticeForDone = m => {
+    if (m) addDoneLog(m);
     const to = m && (m.assignedBy || m.by);
     if (!to || sameUser(to, currentUser)) return;
     addNotice({ id: uid(), to: canonUser(to), from: currentUser, task: m.task || "", at: Date.now() });
@@ -2677,7 +2687,9 @@ function CRM({ onLogout, currentUser }) {
 
 /* ---------- 彩色小工具（Mission / Banker） ---------- */
 const CZ_HUES = [262, 199, 330, 152, 24, 222, 285, 174, 350, 45];
-const czHue = n => CZ_HUES[String(n || "?").split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % CZ_HUES.length];
+/* 固定颜色：MONEY 黄、LUCAS 蓝、VV 粉 */
+const PERSON_HUE = { money: 45, lucas: 215, vv: 330 };
+const czHue = n => { const k = typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase(); return k in PERSON_HUE ? PERSON_HUE[k] : CZ_HUES[String(n || "?").split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % CZ_HUES.length]; };
 const czAvatar = (n, size = 28) => React.createElement("span", { style: { width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, color: "#fff", textTransform: "uppercase", background: "linear-gradient(135deg,hsl(" + czHue(n) + ",80%,62%),hsl(" + ((czHue(n) + 35) % 360) + ",75%,50%))", boxShadow: "0 3px 8px hsla(" + czHue(n) + ",70%,50%,.35)" } }, String(n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?");
 const czPill = (hue, extra) => ({ background: "hsl(" + hue + ",90%,95%)", color: "hsl(" + hue + ",65%,38%)", border: "1px solid hsl(" + hue + ",80%,86%)", borderRadius: 999, fontWeight: 700, padding: "5px 12px", ...(extra || {}) });
 const CZ_BANK = { MUAMALAT: 340, BSN: 210, "BANK RAKYAT": 225, "B.RAKYAT": 225, RAKYAT: 225, PBB: 0, "PUBLIC BANK": 0, MAYBANK: 45, CIMB: 355, RHB: 200, "BANK ISLAM": 320, ALRAJHI: 190, "AL RAJHI": 190, HLB: 215, "HONG LEONG": 215, AMBANK: 5, MBSB: 160, AFFIN: 230, OCBC: 0, UOB: 230, AGRO: 120, "AGRO BANK": 120 };
@@ -2723,7 +2735,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
   if (!items.length) return null;
   const askNotify = () => { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {} };
   const colors = ["#0084ff", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
-  const colorOf = n => colors[(n || "?").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
+  const colorOf = n => "hsl(" + czHue(n) + ",75%,52%)";
   const avatar = (name, size, done) => h("div", {
     style: { position: "relative", width: size, height: size, borderRadius: "50%", background: colorOf(name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.42, flexShrink: 0, textTransform: "uppercase" }
   }, (name || "?").charAt(0), done ? h("span", { style: { position: "absolute", right: -2, bottom: -2, width: size * 0.42, height: size * 0.42, borderRadius: "50%", background: "#16a34a", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(Check, { size: size * 0.24, color: "#fff" })) : null);
@@ -2834,6 +2846,42 @@ function MissionPhotos({ mission, onChange, onClose }) {
     delPhoto && h("div", { onClick: e => e.stopPropagation() }, h(PwDialog, { title: "删除这张照片", desc: "删除后不能复原。", confirmText: "删除", onCancel: () => setDelPhoto(null),
       onOk: async () => { const id = delPhoto; setDelPhoto(null); onChange(photos.filter(x => x !== id)); try { await DB.del("mphoto_" + id); } catch (e) {} delete _photoCache[id]; } })));
 }
+/* ---------- 我指派的任务 ---------- */
+function AssignedByMePanel({ missions, currentUser, onClose }) {
+  const h = React.createElement;
+  const [tab, setTab] = React.useState("active");
+  const [done, setDone] = React.useState(null);
+  React.useEffect(() => { DB.get("mission_done").then(v => setDone(v ? JSON.parse(v) : [])).catch(() => setDone([])); }, []);
+  const mineOut = m => sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser);
+  const active = (missions || []).filter(mineOut).sort((a, b) => (b.assignedAt || 0) - (a.assignedAt || 0));
+  const finished = (done || []).filter(mineOut).sort((a, b) => b.doneAt - a.doneAt);
+  const STATUS = [{ id: "todo", label: "To Do", color: "#64748b" }, { id: "doing", label: "Doing", color: "#f59e0b" }, { id: "done", label: "Done", color: "#16a34a" }];
+  const st = id => STATUS.find(x => x.id === id) || STATUS[0];
+  const fmtD = d => d ? d.split("-").reverse().join("/") : "—";
+  const fmtT = t => { try { return new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  const byPerson = active.reduce((a, m) => { const k = canonUser(m.owner); a[k] = a[k] || { todo: 0, doing: 0 }; a[k][m.status === "doing" ? "doing" : "todo"]++; return a; }, {});
+  const row = (m, isDone) => h("div", { key: (isDone ? "d" : "a") + m.id + (m.doneAt || ""), style: { display: "flex", gap: 12, alignItems: "center", padding: "12px 14px", borderRadius: 14, background: isDone ? "#f0fdf4" : "#fff", border: "1px solid " + (isDone ? "#bbf7d0" : "#eef2ff"), marginBottom: 8 } },
+    czAvatar(m.owner, 36),
+    h("div", { style: { flex: 1, minWidth: 0 } },
+      h("div", { style: { fontSize: 12, color: "#64748b", fontWeight: 700 } }, "→ ", h("span", { style: { color: "hsl(" + czHue(m.owner) + ",65%,40%)" } }, String(m.owner).toUpperCase()), " · 📅 " + fmtD(m.date)),
+      h("div", { style: { fontSize: 14, fontWeight: 600, color: "#1e1b4b", marginTop: 3, wordBreak: "break-word", textDecoration: isDone ? "line-through" : "none" } }, m.task || "（没有任务内容）"),
+      isDone && h("div", { style: { fontSize: 12, color: "#15803d", marginTop: 3, fontWeight: 600 } }, "✅ 完成于 " + fmtT(m.doneAt))),
+    isDone ? h("span", { style: { background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 12px", fontSize: 12, fontWeight: 800 } }, "DONE") :
+      h("span", { style: { background: st(m.status).color + "1a", color: st(m.status).color, border: "1px solid " + st(m.status).color + "40", borderRadius: 999, padding: "4px 12px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" } }, st(m.status).label));
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.5)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 620, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "#f8f7ff", borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
+      h("div", { style: { padding: "18px 22px", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center", gap: 12 } },
+        h("div", { style: { flex: 1 } }, h("div", { style: { fontSize: 18, fontWeight: 800 } }, "📤 我指派的任务"), h("div", { style: { fontSize: 12.5, opacity: .9, marginTop: 2 } }, "看你指派给谁、进度，以及已完成的任务")),
+        h("button", { onClick: onClose, style: { background: "rgba(255,255,255,.2)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 16, color: "#fff" }))),
+      Object.keys(byPerson).length > 0 && h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 18px 0" } },
+        Object.entries(byPerson).map(([n, c]) => h("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "4px 12px 4px 4px", fontSize: 12.5, fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.12)" } }, czAvatar(n, 22), String(n).toUpperCase(),
+          h("span", { style: { color: "#64748b" } }, "TO DO " + c.todo), h("span", { style: { color: "#f59e0b" } }, "· DOING " + c.doing)))),
+      h("div", { style: { display: "flex", gap: 6, padding: "14px 18px 8px" } },
+        [["active", "进行中", active.length, "#4f46e5"], ["done", "已完成", done === null ? "…" : finished.length, "#16a34a"]].map(([k, t, n, c]) => h("button", { key: k, onClick: () => setTab(k), style: { flex: 1, padding: "10px", borderRadius: 12, border: "none", fontWeight: 800, fontSize: 13.5, background: tab === k ? c : "#fff", color: tab === k ? "#fff" : "#475569", boxShadow: tab === k ? "0 6px 16px " + c + "55" : "0 1px 4px rgba(0,0,0,.06)" } }, t + " " + n))),
+      h("div", { style: { padding: "4px 18px 18px", overflowY: "auto" } },
+        tab === "active" ? (active.length ? active.map(m => row(m, false)) : h("div", { style: { textAlign: "center", color: "#94a3b8", padding: 30 } }, "你还没有指派任务给别人")) :
+        (done === null ? h("div", { style: { textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…") : finished.length ? finished.map(m => row(m, true)) : h("div", { style: { textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有完成的任务")))));
+}
 const MISSION_PEOPLE = ["sam", "alice", "joey", "money", "vv", "chialing", "lucas"];
 /* 改名：旧名字 → 新名字（旧任务会自动转过去） */
 const MISSION_RENAME = { vivien: "vv", lucasgor: "lucas", lucasgor178: "lucas" };
@@ -2854,6 +2902,8 @@ function MissionPage({
   }, [missions]);
   const [delId, setDelId] = React.useState(null);
   const [doneId, setDoneId] = React.useState(null);
+  const [showOut, setShowOut] = React.useState(false);
+  const outCount = missions.filter(m => sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser)).length;
   const [photoId, setPhotoId] = React.useState(null);
   const add = () => onSave([{
     id: uid(),
@@ -2950,7 +3000,10 @@ function MissionPage({
     onClick: () => setFilter(s.id),
     label: s.label + " " + count(s.id),
     color: s.color
-  }))), notInList && /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowOut(true),
+    style: { marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", fontWeight: 700, fontSize: 13, boxShadow: "0 6px 16px rgba(79,70,229,.3)" }
+  }, "📤 我指派的任务", /*#__PURE__*/React.createElement("span", { style: { background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 8px" } }, outCount))), notInList && /*#__PURE__*/React.createElement("div", {
     style: { background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, fontWeight: 600 }
   }, "⚠️ 你的登录名字是「" + String(currentUser).toUpperCase() + "」，但指派名单里没有这个名字，所以老板指派的任务你会看不到。请通知管理员把名单改成「" + String(currentUser).toUpperCase() + "」。"), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "linear-gradient(120deg,#ede9fe,#e0f2fe)", border: "1px solid #ddd6fe", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, color: "#4c1d95" }
@@ -2968,7 +3021,7 @@ function MissionPage({
     style: S.th
   }, "Task"), /*#__PURE__*/React.createElement("th", {
     style: S.th
-  }, "Assign to"), /*#__PURE__*/React.createElement("th", {
+  }, "From → Assign to"), /*#__PURE__*/React.createElement("th", {
     style: S.th
   }, "Date"), /*#__PURE__*/React.createElement("th", {
     style: S.th
@@ -3017,7 +3070,7 @@ function MissionPage({
       onCommit: v => upd(m.id, "task", v)
     })), /*#__PURE__*/React.createElement("td", {
       style: S.td
-    }, /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, m.owner ? czAvatar(m.owner, 26) : null, /*#__PURE__*/React.createElement("select", {
+    }, /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, (m.assignedBy || m.by) ? /*#__PURE__*/React.createElement("span", { title: "指派人", style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 800, color: "hsl(" + czHue(m.assignedBy || m.by) + ",60%,40%)", whiteSpace: "nowrap" } }, czAvatar(m.assignedBy || m.by, 22), String(canonUser(m.assignedBy || m.by)).toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: "#a5b4fc", fontSize: 14 } }, "→")) : null, m.owner ? czAvatar(m.owner, 26) : null, /*#__PURE__*/React.createElement("select", {
       style: {
         ...S.bankerInput,
         ...(m.owner ? czPill(czHue(m.owner), { padding: "5px 10px", width: "auto" }) : {}),
@@ -3083,7 +3136,11 @@ function MissionPage({
         /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, padding: 20 } },
           /*#__PURE__*/React.createElement("button", { onClick: () => setDoneId(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600 } }, "取消"),
           /*#__PURE__*/React.createElement("button", { onClick: async () => { const id = doneId; const dm = missions.find(x => x.id === id); setDoneId(null); await del(id); onDoneNotify && onDoneNotify(dm); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
-  })(), delId && /*#__PURE__*/React.createElement(PwDialog, {
+  })(), showOut && /*#__PURE__*/React.createElement(AssignedByMePanel, {
+    missions: missions,
+    currentUser: currentUser,
+    onClose: () => setShowOut(false)
+  }), delId && /*#__PURE__*/React.createElement(PwDialog, {
     title: "删除任务",
     desc: "删除「" + ((missions.find(x => x.id === delId) || {}).task || "这个任务") + "」，连同照片一起删除，不能复原。",
     confirmText: "删除",
