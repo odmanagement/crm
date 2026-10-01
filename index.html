@@ -500,10 +500,14 @@ const L = {
   Shield: _icon(["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"]),
   ShieldCheck: _icon(["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z", "m9 12 2 2 4-4"]),
   Check: _icon(["M20 6 9 17l-5-5"]),
+  CalendarDays: _icon([_r({ x: 3, y: 4, width: 18, height: 18, rx: 2 }), "M16 2v4", "M8 2v4", "M3 10h18", "M8 14h.01", "M12 14h.01", "M16 14h.01", "M8 18h.01", "M12 18h.01"]),
+  Send: _icon(["m22 2-7 20-4-9-9-4Z", "M22 2 11 13"]),
   ListTodo: _icon(["m3 17 2 2 4-4", "m3 7 2 2 4-4", "M13 6h8", "M13 12h8", "M13 18h8"]),
   Folder: _icon(["M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"])
 };
 const {
+  CalendarDays,
+  Send,
   ListTodo,
   Plus,
   Search,
@@ -876,7 +880,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1031,6 +1035,14 @@ const NAV = [{
   id: "mission",
   label: "Mission",
   icon: CheckCircle2
+}, {
+  id: "submission",
+  label: "Submission",
+  icon: Send
+}, {
+  id: "leave",
+  label: "On Leave",
+  icon: CalendarDays
 }, {
   id: "todo",
   label: "To Do",
@@ -2614,6 +2626,10 @@ function CRM({ onLogout, currentUser }) {
   }) : page === "html_company" || page === "html_payslip" || page === "html_offer" ? /*#__PURE__*/React.createElement(CompanyFilesPage, null) : page === "banker" ? /*#__PURE__*/React.createElement(BankerPage, {
     bankers: bankers,
     onSave: persistBankers
+  }) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
+    currentUser: currentUser
+  }) : page === "submission" ? /*#__PURE__*/React.createElement(SubmissionPage, {
+    currentUser: currentUser
   }) : page === "todo" && canonUser(currentUser) !== "admin" ? /*#__PURE__*/React.createElement(TodoPage, {
     currentUser: currentUser
   }) : page === "mission" ? /*#__PURE__*/React.createElement(MissionPage, {
@@ -2932,6 +2948,131 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser }) {
           h("span", { className: "sb-caret" }), h(Icon, { size: 18 }), h("span", { className: "sb-txt" }, n.label));
       })),
     h("div", { className: "sb-ver" }, "v27"));
+}
+/* ---------- 共用：存在云端的列表 ---------- */
+function useCloudList(key) {
+  const [list, setList] = React.useState(null);
+  React.useEffect(() => { DB.get(key).then(v => setList(v ? JSON.parse(v) : [])).catch(() => setList([])); }, [key]);
+  React.useEffect(() => DB.subscribe((k, v) => { if (k === key && v) { try { setList(JSON.parse(v)); } catch (e) {} } }), [key]);
+  const save = next => { setList(next); DB.set(key, JSON.stringify(next)); };
+  return [list, save];
+}
+const pillSel = (hue, extra) => ({ ...S.bankerInput, ...czPill(hue, { padding: "5px 10px", width: "auto", ...(extra || {}) }), fontWeight: 700 });
+
+/* ---------- On Leave 请假表 ---------- */
+const LEAVE_TYPES = [["annual", "Annual Leave", 215], ["mc", "MC / Sick", 0], ["emergency", "Emergency", 25], ["unpaid", "Unpaid", 270], ["half", "Half Day", 175], ["other", "Other", 45]];
+const LEAVE_STATUS = [["pending", "Pending", "#f59e0b"], ["approved", "Approved", "#16a34a"], ["rejected", "Rejected", "#dc2626"]];
+function leaveDays(from, to, type) {
+  if (!from) return 0;
+  if (type === "half") return 0.5;
+  const a = new Date(from), b = new Date(to || from);
+  if (b < a) return 0;
+  let n = 0;
+  for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0) n++;
+  return n;
+}
+function LeavePage({ currentUser }) {
+  const h = React.createElement;
+  const [list, save] = useCloudList("leaves");
+  const [view, setView] = React.useState("upcoming");
+  const [q, setQ] = React.useState("");
+  const boss = isMissionBoss(currentUser);
+  const t = today();
+  const items = list || [];
+  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, ...(k === "status" ? { decidedBy: currentUser } : {}) } : x));
+  const add = () => save([{ id: uid(), name: canonUser(currentUser), type: "annual", from: t, to: t, reason: "", status: boss ? "approved" : "pending", by: currentUser, at: Date.now() }, ...items]);
+  const del = x => { if (window.confirm("删除 " + String(x.name).toUpperCase() + " 的请假记录？")) save(items.filter(y => y.id !== x.id)); };
+  const canEdit = x => boss || sameUser(x.by, currentUser) || sameUser(x.name, currentUser);
+  const onToday = items.filter(x => x.status !== "rejected" && x.from <= t && (x.to || x.from) >= t);
+  const shown = items.filter(x => view === "all" || (view === "upcoming" ? (x.to || x.from) >= t : (x.to || x.from) < t))
+    .filter(x => !q || (x.name + " " + x.reason + " " + x.type).toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => view === "past" ? (b.from || "").localeCompare(a.from || "") : (a.from || "").localeCompare(b.from || ""));
+  const daysByPerson = items.filter(x => x.status === "approved" && (x.from || "").slice(0, 4) === t.slice(0, 4)).reduce((acc, x) => { acc[x.name] = (acc[x.name] || 0) + leaveDays(x.from, x.to, x.type); return acc; }, {});
+  const fmt = d => d ? d.split("-").reverse().join("/") : "";
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 } },
+      h("div", { style: { flex: "1 1 340px", background: "rgba(255,255,255,.9)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4" } },
+        h("div", { style: { fontSize: 13, fontWeight: 800, color: "#475569", marginBottom: 8 } }, "🏖 今天请假 · " + fmt(t)),
+        onToday.length ? h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, onToday.map(x => h("span", { key: x.id, style: { display: "inline-flex", alignItems: "center", gap: 6, ...czPill(czHue(x.name), { padding: "4px 12px 4px 4px", fontSize: 13 }) } }, czAvatar(x.name, 24), String(x.name).toUpperCase(), h("span", { style: { fontWeight: 600, opacity: .8 } }, "· " + ((LEAVE_TYPES.find(y => y[0] === x.type) || [])[1] || "")))))
+          : h("div", { style: { color: "#16a34a", fontWeight: 700, fontSize: 14 } }, "✅ 今天全员到齐")),
+      h("div", { style: { flex: "1 1 340px", background: "rgba(255,255,255,.9)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4" } },
+        h("div", { style: { fontSize: 13, fontWeight: 800, color: "#475569", marginBottom: 8 } }, "📊 " + t.slice(0, 4) + " 已批准天数"),
+        Object.keys(daysByPerson).length ? h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, Object.entries(daysByPerson).sort((a, b) => b[1] - a[1]).map(([n, d]) => h("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#f8fafc", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, fontSize: 12.5, color: "#334155", border: "1px solid #eef0f4" } }, czAvatar(n, 20), String(n).toUpperCase(), h("b", { style: { color: "hsl(" + czHue(n) + ",60%,40%)" } }, d + " 天"))))
+          : h("div", { style: { color: "#94a3b8", fontSize: 13 } }, "还没有记录"))),
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / reason", value: q, onChange: e => setQ(e.target.value) })),
+      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 申请请假")),
+    h("div", { style: S.filters }, [["upcoming", "即将 / 进行中"], ["past", "已过去"], ["all", "全部"]].map(([k, l]) => h(Chip, { key: k, active: view === k, onClick: () => setView(k), label: l + " " + items.filter(x => k === "all" || (k === "upcoming" ? (x.to || x.from) >= t : (x.to || x.from) < t)).length }))),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Name", "Type", "From", "To", "Days", "Reason", "Status", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "没有请假记录 — 按「申请请假」")) :
+        shown.map((x, i) => {
+          const ed = canEdit(x), lt = LEAVE_TYPES.find(y => y[0] === x.type) || LEAVE_TYPES[0], st = LEAVE_STATUS.find(y => y[0] === x.status) || LEAVE_STATUS[0];
+          const isNow = x.status !== "rejected" && x.from <= t && (x.to || x.from) >= t;
+          return h("tr", { key: x.id, style: isNow ? { background: "#fffbeb" } : null },
+            h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 " + st[2] } }, i + 1),
+            h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, czAvatar(x.name, 26),
+              boss ? h("select", { style: pillSel(czHue(x.name)), value: x.name, onChange: e => upd(x.id, "name", e.target.value) }, MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))) : h("b", { style: { color: "hsl(" + czHue(x.name) + ",60%,35%)" } }, String(x.name).toUpperCase()))),
+            h("td", { style: S.td }, h("select", { disabled: !ed, style: pillSel(lt[2]), value: x.type, onChange: e => upd(x.id, "type", e.target.value) }, LEAVE_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
+            h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: "auto" }, value: x.from || "", onChange: e => save(items.map(y => y.id === x.id ? { ...y, from: e.target.value, to: (y.to && y.to >= e.target.value) ? y.to : e.target.value } : y)) })),
+            h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: "auto" }, value: x.to || "", min: x.from, onChange: e => upd(x.id, "to", e.target.value) })),
+            h("td", { style: { ...S.td, fontWeight: 800, textAlign: "center" } }, leaveDays(x.from, x.to, x.type)),
+            h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: S.bankerInput, value: x.reason, placeholder: ed ? "原因…" : "", onCommit: v => ed && upd(x.id, "reason", v) })),
+            h("td", { style: S.td }, boss
+              ? h("select", { style: { ...S.bankerInput, background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", width: "auto", fontWeight: 800 }, value: x.status, onChange: e => upd(x.id, "status", e.target.value) }, LEAVE_STATUS.map(y => h("option", { key: y[0], value: y[0] }, y[1])))
+              : h("span", { title: x.decidedBy ? "由 " + String(x.decidedBy).toUpperCase() + " 处理" : "等老板批准", style: { background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, st[1])),
+            h("td", { style: S.td }, ed ? h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" })) : h("span", { style: { opacity: .4 } }, "🔒")));
+        })))));
+}
+
+/* ---------- Submission List（Build / Ori / Special Case） ---------- */
+const SUB_TYPES = [["build", "Build", 262], ["ori", "Ori", 199], ["special", "Special Case", 25]];
+const SUB_STATUS = [["preparing", "Preparing", "#64748b"], ["submitted", "Submitted", "#3b82f6"], ["pending", "Pending", "#f59e0b"], ["approved", "Approved", "#16a34a"], ["rejected", "Rejected", "#dc2626"]];
+function SubmissionPage({ currentUser }) {
+  const h = React.createElement;
+  const [list, save] = useCloudList("submissions");
+  const [tab, setTab] = React.useState("all");
+  const [q, setQ] = React.useState("");
+  const items = list || [];
+  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v } : x));
+  const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", company: "", bank: "", amount: "", agent: canonUser(currentUser), status: "preparing", remark: "", by: currentUser, at: Date.now() }, ...items]);
+  const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」的 submission？")) save(items.filter(y => y.id !== x.id)); };
+  const shown = items.filter(x => tab === "all" || x.cat === tab)
+    .filter(x => !q || [x.client, x.company, x.bank, x.agent, x.remark].join(" ").toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at);
+  const money = v => { const n = Number(String(v).replace(/[^\d.]/g, "")); return n ? "RM " + n.toLocaleString() : ""; };
+  const totalAmt = shown.reduce((a, x) => a + (Number(String(x.amount).replace(/[^\d.]/g, "")) || 0), 0);
+  const typeCard = (k, label, hue, n) => h("button", { key: k, onClick: () => setTab(k), style: { flex: "1 1 160px", textAlign: "left", border: tab === k ? "2px solid hsl(" + hue + ",70%,55%)" : "1px solid #eef0f4", borderRadius: 16, padding: "14px 16px", background: tab === k ? "linear-gradient(135deg,hsl(" + hue + ",90%,97%),#fff)" : "rgba(255,255,255,.9)", boxShadow: tab === k ? "0 10px 24px -12px hsl(" + hue + ",70%,50%)" : "0 6px 18px -14px rgba(0,0,0,.3)", cursor: "pointer", transition: "all .2s" } },
+    h("div", { style: { fontSize: 12, fontWeight: 800, color: "hsl(" + hue + ",55%,45%)", letterSpacing: ".04em" } }, label),
+    h("div", { style: { fontSize: 26, fontWeight: 900, color: "#1e293b", marginTop: 2 } }, n));
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 } },
+      typeCard("all", "ALL", 230, items.length),
+      SUB_TYPES.map(([k, l, hue]) => typeCard(k, l.toUpperCase(), hue, items.filter(x => x.cat === k).length))),
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / company / bank / agent", value: q, onChange: e => setQ(e.target.value) })),
+      totalAmt > 0 && h("span", { style: { fontWeight: 800, color: "#334155", background: "rgba(255,255,255,.9)", border: "1px solid #eef0f4", borderRadius: 12, padding: "9px 14px", fontSize: 13.5 } }, "合计 RM " + totalAmt.toLocaleString()),
+      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Submission")),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Company", "Bank", "Amount", "Agent", "Status", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 11, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 11, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有 submission — 按「Add Submission」")) :
+        shown.map((x, i) => {
+          const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
+          return h("tr", { key: x.id },
+            h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 hsl(" + ty[2] + ",70%,55%)" } }, i + 1),
+            h("td", { style: S.td }, h("input", { type: "date", style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
+            h("td", { style: S.td }, h("select", { style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
+            h("td", { style: { ...S.td, minWidth: 150 } }, h(DebouncedInput, { style: { ...S.bankerInput, fontWeight: 700 }, value: x.client, placeholder: "Client", onCommit: v => upd(x.id, "client", v) })),
+            h("td", { style: { ...S.td, minWidth: 140 } }, h(DebouncedInput, { style: S.bankerInput, value: x.company, placeholder: "Company", onCommit: v => upd(x.id, "company", v) })),
+            h("td", { style: { ...S.td, minWidth: 110 } }, h(DebouncedInput, { style: x.bank ? { ...S.bankerInput, ...czPill(czBankHue(x.bank), { padding: "5px 10px", width: "auto", maxWidth: 140 }) } : S.bankerInput, value: x.bank, placeholder: "Bank", onCommit: v => upd(x.id, "bank", v) })),
+            h("td", { style: { ...S.td, minWidth: 110 } }, h(DebouncedInput, { style: { ...S.bankerInput, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: x.amount, placeholder: "RM", onCommit: v => upd(x.id, "amount", v) }), x.amount && h("div", { style: { fontSize: 11, color: "#94a3b8", textAlign: "right" } }, money(x.amount))),
+            h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, x.agent ? czAvatar(x.agent, 22) : null, h("select", { style: x.agent ? pillSel(czHue(x.agent)) : S.bankerInput, value: x.agent || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
+            h("td", { style: S.td }, h("select", { style: { ...S.bankerInput, background: st[2] + "1a", color: st[2], border: "1px solid " + st[2] + "40", borderRadius: 999, padding: "5px 12px", width: "auto", fontWeight: 800 }, value: x.status, onChange: e => upd(x.id, "status", e.target.value) }, SUB_STATUS.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
+            h("td", { style: { ...S.td, minWidth: 160 } }, h(DebouncedInput, { style: S.bankerInput, value: x.remark, placeholder: "Remark", onCommit: v => upd(x.id, "remark", v) })),
+            h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
+        })))));
 }
 /* ---------- 个人 To Do List（每个人自己的，admin 没有） ---------- */
 function TodoPage({ currentUser }) {
