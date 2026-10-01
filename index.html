@@ -2668,6 +2668,7 @@ function CRM({ onLogout, currentUser }) {
     }
   })), editing && /*#__PURE__*/React.createElement(EditForm, {
     initial: editing === "new" ? null : editing,
+    defaultType: ["house", "car", "personal"].includes(page) ? page : "house",
     onClose: () => setEditing(null),
     onSave: saveClient
   }), showDue && /*#__PURE__*/React.createElement("div", {
@@ -6355,8 +6356,10 @@ function Field({
 function EditForm({
   initial,
   onClose,
-  onSave
+  onSave,
+  defaultType
 }) {
+  const [loanType, setLoanType] = useState(defaultType || "house");
   const [f, setF] = useState(initial || {
     id: uid(),
     name: "",
@@ -6375,6 +6378,10 @@ function EditForm({
   const submit = () => {
     if (!f.name.trim()) {
       setNameError(true);
+      return;
+    }
+    if (!initial && loanType && !(f.loans || []).length) {
+      onSave({ ...f, loans: [{ id: uid(), type: loanType, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] });
       return;
     }
     onSave(f);
@@ -6452,9 +6459,18 @@ function EditForm({
     },
     value: f.note,
     onChange: e => set("note", e.target.value)
-  })), !initial && /*#__PURE__*/React.createElement("div", {
-    style: S.hint
-  }, "Add loans in the client detail after saving"), /*#__PURE__*/React.createElement("div", {
+  })), !initial && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6 }
+  }, "LOAN TYPE"), /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, flexWrap: "wrap" }
+  }, [["house", "🏠 House Loan", 262], ["car", "🚗 Car Loan", 190], ["personal", "💼 Personal Loan", 330], ["", "暂时不加", 220]].map(([k, l, hue]) => /*#__PURE__*/React.createElement("button", {
+    key: k || "none",
+    type: "button",
+    onClick: () => setLoanType(k),
+    style: { ...czPill(hue, { padding: "8px 14px", fontSize: 13 }), cursor: "pointer", opacity: loanType === k ? 1 : .55, outline: loanType === k ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 }
+  }, l))), /*#__PURE__*/React.createElement("div", {
+    style: { ...S.hint, marginTop: 6 }
+  }, loanType ? "保存后会自动建立一个 " + ({ house: "House", car: "Car", personal: "Personal" })[loanType] + " Loan，其他资料可以在客户页面再填" : "保存后可以在客户页面再加 Loan")), /*#__PURE__*/React.createElement("div", {
     style: S.formActions
   }, /*#__PURE__*/React.createElement("button", {
     style: S.cancelBtn,
@@ -7187,7 +7203,7 @@ const S = {
     position: "sticky",
     left: 0,
     zIndex: 1,
-    boxShadow: "2px 0 4px -2px rgba(0,0,0,0.08)"
+    boxShadow: "inset -1px 0 0 #e2e8f0, inset 0 -1px 0 #e2e8f0, inset 1px 0 0 #e2e8f0, 3px 0 5px -2px rgba(0,0,0,0.1)"
   },
   tdNum: {
     textAlign: "right",
