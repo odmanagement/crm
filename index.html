@@ -5645,8 +5645,11 @@ function CalcSection({
     items: calcs[ci].items.filter((_, j) => j !== ii)
   });
   const fmt = n => {
-    const x = Number(String(n).replace(/[^0-9.-]/g, ""));
-    return isNaN(x) ? "0" : x.toLocaleString();
+    let x = Number(String(n).replace(/[^0-9.-]/g, ""));
+    if (isNaN(x)) return "0";
+    x = Math.round(x * 100) / 100;
+    const hasDec = Math.abs(x % 1) > 0.000001;
+    return x.toLocaleString("en-US", hasDec ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
   };
   const numOf = v => Number(String(v == null ? "" : v).replace(/[^0-9.-]/g, "")) || 0;
   // 自动带入：Cost = 贷款的 Cost（Amount）；LUCAS 卡的 Company = Lucas Cost − Cost
