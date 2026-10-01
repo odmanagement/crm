@@ -802,18 +802,40 @@ const CatSvg = ({ c = "#f97316", size = 60 }) => React.createElement("svg", { wi
   React.createElement("path", { d: "M28 37 L32 37 L30 39.5Z", fill: "#fb7185" }),
   React.createElement("path", { d: "M30 39.5 Q27 43 24.5 41 M30 39.5 Q33 43 35.5 41", stroke: "#1f2937", strokeWidth: 1.4, fill: "none", strokeLinecap: "round" }),
   React.createElement("path", { d: "M8 34 L19 36 M8 40 L19 38 M52 34 L41 36 M52 40 L41 38", stroke: "#1f2937", strokeWidth: 1.1, opacity: .6, strokeLinecap: "round" }));
-const DogSvg = ({ c = "#d6a77a", size = 56 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
-  React.createElement("ellipse", { cx: 13, cy: 26, rx: 7, ry: 13, fill: "#8b5e3c", transform: "rotate(18 13 26)" }),
-  React.createElement("ellipse", { cx: 47, cy: 26, rx: 7, ry: 13, fill: "#8b5e3c", transform: "rotate(-18 47 26)" }),
-  React.createElement("ellipse", { cx: 30, cy: 32, rx: 18, ry: 17, fill: c }),
-  React.createElement("ellipse", { cx: 37, cy: 26, rx: 6, ry: 5, fill: "#fff", opacity: .55 }),
-  React.createElement("ellipse", { cx: 30, cy: 40, rx: 9, ry: 7, fill: "#fff7ed" }),
-  React.createElement("circle", { cx: 23, cy: 30, r: 2.6, fill: "#1f2937" }), React.createElement("circle", { cx: 37, cy: 30, r: 2.6, fill: "#1f2937" }),
-  React.createElement("circle", { cx: 23.8, cy: 29, r: .9, fill: "#fff" }), React.createElement("circle", { cx: 37.8, cy: 29, r: .9, fill: "#fff" }),
-  React.createElement("ellipse", { cx: 30, cy: 37, rx: 3.4, ry: 2.4, fill: "#1f2937" }),
-  React.createElement("path", { d: "M30 39.5 Q27 43 25 41.5 M30 39.5 Q33 43 35 41.5", stroke: "#1f2937", strokeWidth: 1.3, fill: "none", strokeLinecap: "round" }),
-  React.createElement("path", { d: "M28 43 Q30 47 32 43Z", fill: "#fb7185" }),
-  React.createElement("ellipse", { cx: 19, cy: 36, rx: 2.8, ry: 1.7, fill: "#fb7185", opacity: .5 }), React.createElement("ellipse", { cx: 41, cy: 36, rx: 2.8, ry: 1.7, fill: "#fb7185", opacity: .5 }));
+const DogSvg = ({ c = "#e8c4a0", size = 56 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
+  React.createElement("path", { d: "M14 18 Q6 20 7 32 Q8 38 13 37 Q16 30 17 22Z", fill: "#c08a5b" }),
+  React.createElement("path", { d: "M46 18 Q54 20 53 32 Q52 38 47 37 Q44 30 43 22Z", fill: "#c08a5b" }),
+  React.createElement("ellipse", { cx: 30, cy: 33, rx: 17, ry: 16, fill: c }),
+  React.createElement("ellipse", { cx: 30, cy: 41, rx: 8.5, ry: 6.5, fill: "#fffaf3" }),
+  React.createElement("path", { d: "M21.5 30.5 Q23.5 28 25.5 30.5", stroke: "#3f2a1d", strokeWidth: 2, fill: "none", strokeLinecap: "round" }),
+  React.createElement("path", { d: "M34.5 30.5 Q36.5 28 38.5 30.5", stroke: "#3f2a1d", strokeWidth: 2, fill: "none", strokeLinecap: "round" }),
+  React.createElement("path", { d: "M21 29 L19.6 27.6 M22.4 28.2 L21.6 26.6 M39 29 L40.4 27.6 M37.6 28.2 L38.4 26.6", stroke: "#3f2a1d", strokeWidth: 1, strokeLinecap: "round" }),
+  React.createElement("ellipse", { cx: 30, cy: 37.6, rx: 2.6, ry: 1.9, fill: "#3f2a1d" }),
+  React.createElement("path", { d: "M30 39.4 Q28 42 26.5 40.8 M30 39.4 Q32 42 33.5 40.8", stroke: "#3f2a1d", strokeWidth: 1.2, fill: "none", strokeLinecap: "round" }),
+  React.createElement("ellipse", { cx: 19.5, cy: 36, rx: 3.4, ry: 2, fill: "#fb7185", opacity: .6 }), React.createElement("ellipse", { cx: 40.5, cy: 36, rx: 3.4, ry: 2, fill: "#fb7185", opacity: .6 }),
+  React.createElement("path", { d: "M30 17 L21 12 Q18 11 18.6 15 L19.6 21 Q20.4 23 23 21.6Z", fill: "#f472b6", stroke: "#fff", strokeWidth: 1 }),
+  React.createElement("path", { d: "M30 17 L39 12 Q42 11 41.4 15 L40.4 21 Q39.6 23 37 21.6Z", fill: "#f472b6", stroke: "#fff", strokeWidth: 1 }),
+  React.createElement("circle", { cx: 30, cy: 17, r: 3.3, fill: "#ec4899", stroke: "#fff", strokeWidth: 1 }),
+  React.createElement("circle", { cx: 23, cy: 15.5, r: 1, fill: "#fff", opacity: .8 }), React.createElement("circle", { cx: 37, cy: 15.5, r: 1, fill: "#fff", opacity: .8 }));
+const RedPacket = ({ size = 44 }) => React.createElement("svg", { width: size * .78, height: size, viewBox: "0 0 39 50" },
+  React.createElement("rect", { x: 1, y: 1, width: 37, height: 48, rx: 5, fill: "#dc2626", stroke: "#fbbf24", strokeWidth: 1.5 }),
+  React.createElement("path", { d: "M1 14 Q19.5 26 38 14 L38 6 Q38 1 33 1 L6 1 Q1 1 1 6Z", fill: "#b91c1c" }),
+  React.createElement("circle", { cx: 19.5, cy: 21, r: 7, fill: "#fbbf24", stroke: "#fde68a", strokeWidth: 1 }),
+  React.createElement("text", { x: 19.5, y: 25, textAnchor: "middle", fontSize: 10, fontWeight: 900, fill: "#b91c1c", fontFamily: "serif" }, "福"),
+  React.createElement("path", { d: "M8 38 H31 M8 42 H24", stroke: "#fbbf24", strokeWidth: 1.4, strokeLinecap: "round", opacity: .7 }));
+const Lantern = ({ size = 46 }) => React.createElement("svg", { width: size * .8, height: size, viewBox: "0 0 40 50" },
+  React.createElement("line", { x1: 20, y1: 0, x2: 20, y2: 6, stroke: "#b45309", strokeWidth: 1.5 }),
+  React.createElement("rect", { x: 12, y: 5, width: 16, height: 4, rx: 1.5, fill: "#f59e0b" }),
+  React.createElement("ellipse", { cx: 20, cy: 23, rx: 17, ry: 14, fill: "#ef4444" }),
+  React.createElement("path", { d: "M20 9 Q10 23 20 37 M20 9 Q30 23 20 37 M8 15 Q20 23 8 31 M32 15 Q20 23 32 31", stroke: "#b91c1c", strokeWidth: 1, fill: "none", opacity: .7 }),
+  React.createElement("rect", { x: 12, y: 36, width: 16, height: 4, rx: 1.5, fill: "#f59e0b" }),
+  React.createElement("path", { d: "M16 40 L15 49 M20 40 L20 50 M24 40 L25 49", stroke: "#f59e0b", strokeWidth: 1.4, strokeLinecap: "round" }));
+const LuckyCoin = ({ size = 34, mark = "" }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 40 40" },
+  React.createElement("circle", { cx: 20, cy: 20, r: 18, fill: "#fbbf24", stroke: "#d97706", strokeWidth: 2 }),
+  React.createElement("circle", { cx: 20, cy: 20, r: 13.5, fill: "none", stroke: "#fde68a", strokeWidth: 1.5 }),
+  mark ? React.createElement("text", { x: 20, y: 25.5, textAnchor: "middle", fontSize: 15, fontWeight: 900, fill: "#b45309", fontFamily: "Arial" }, mark)
+       : React.createElement("rect", { x: 15.5, y: 15.5, width: 9, height: 9, fill: "#fef3c7", stroke: "#d97706", strokeWidth: 1.5 }),
+  React.createElement("ellipse", { cx: 13, cy: 11, rx: 4, ry: 2, fill: "#fff", opacity: .55, transform: "rotate(-30 13 11)" }));
 const StarBuddy = ({ c = "#facc15", size = 50 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
   React.createElement("path", { d: "M30 4 Q33 4 35 10 L39 20 Q40 22 43 22 L53 23 Q58 24 56 28 L48 36 Q46 38 47 41 L50 51 Q51 57 46 55 L36 49 Q30 46 24 49 L14 55 Q9 57 10 51 L13 41 Q14 38 12 36 L4 28 Q2 24 7 23 L17 22 Q20 22 21 20 L25 10 Q27 4 30 4Z", fill: c, stroke: "#fff", strokeWidth: 2, strokeLinejoin: "round" }),
   React.createElement("ellipse", { cx: 24, cy: 31, rx: 2.4, ry: 3, fill: "#3b2f6b" }), React.createElement("ellipse", { cx: 36, cy: 31, rx: 2.4, ry: 3, fill: "#3b2f6b" }),
@@ -825,20 +847,24 @@ function ThemeFx({ theme, page }) {
   const R = i => { const x = Math.sin(i * 91.17 + theme.length * 3.3) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 51), R(i + 151)));
   let kids = [];
-  if (theme === "pink") kids = make(22, (i, a, b, c) => i % 3 === 0
-    ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 14 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(DogSvg, { c: ["#e8c4a0", "#d6a77a", "#f5deb3", "#c08a5b"][i % 4], size: 34 + b * 30 }))
-    : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 14 + b * 18, animationDuration: 10 + c * 12 + "s", animationDelay: -c * 20 + "s", color: "#f472b6" } }, ["🦴", "🐾", "♡", "🐾", "💗"][i % 5]));
+  if (theme === "pink") kids = make(30, (i, a, b, c) => i % 5 !== 4
+    ? h("span", { key: i, className: "tf-fall tf-spin", style: { left: a * 100 + "%", animationDuration: 8 + c * 9 + "s", animationDelay: -c * 16 + "s" } }, h(LuckyCoin, { size: 22 + b * 22, mark: ["$", "RM", "¥"][i % 3] }))
+    : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 14 + b * 16, animationDuration: 10 + c * 12 + "s", animationDelay: -c * 20 + "s", color: "#f472b6" } }, ["💗", "♡", "✦"][i % 3]));
   if (theme === "honey") kids = make(20, (i, a, b, c) => h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 16 + b * 18, animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s" } }, ["🍯", "🌼", "🐝", "🍪", "🌻"][i % 5]));
   if (theme === "star") kids = make(30, (i, a, b, c) => i % 4 === 0
     ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 13 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(StarBuddy, { c: ["#fde047", "#fbbf24", "#fcd34d", "#c4b5fd"][i % 4], size: 30 + b * 34 }))
     : h("span", { key: i, className: "tf-twinkle", style: { left: a * 100 + "%", top: b * 100 + "%", fontSize: 8 + c * 16, animationDelay: -c * 3 + "s", animationDuration: 1.6 + b * 2.5 + "s" } }, i % 3 ? "✦" : "★"))
     .concat([h("span", { key: "s1", className: "tf-shoot" }), h("span", { key: "s2", className: "tf-shoot", style: { top: "35%", animationDelay: "3.5s" } })]);
-  if (theme === "cat") kids = make(16, (i, a, b, c) => i % 3 === 0
-    ? h("span", { key: i, className: "tf-float tf-cat", style: { left: a * 95 + "%", animationDuration: 14 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(CatSvg, { c: ["#f97316", "#fbbf24", "#94a3b8", "#78716c"][i % 4], size: 34 + b * 30 }))
-    : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 16 + b * 16, animationDuration: 11 + c * 12 + "s", animationDelay: -c * 20 + "s" } }, ["🐾", "🐟", "🧶", "🐾", "🐟"][i % 5]));
+  if (theme === "cat") kids = make(24, (i, a, b, c) => {
+    const k = i % 4;
+    if (k === 0) return h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 14 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(CatSvg, { c: ["#fbbf24", "#f97316", "#fde68a"][i % 3], size: 36 + b * 28 }));
+    if (k === 1) return h("span", { key: i, className: "tf-fall tf-sway", style: { left: a * 100 + "%", animationDuration: 9 + c * 9 + "s", animationDelay: -c * 16 + "s" } }, h(RedPacket, { size: 30 + b * 22 }));
+    if (k === 2) return h("span", { key: i, className: "tf-fall tf-spin", style: { left: a * 100 + "%", animationDuration: 7 + c * 8 + "s", animationDelay: -c * 14 + "s" } }, h(LuckyCoin, { size: 20 + b * 18 }));
+    return h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 16 + b * 14, animationDuration: 11 + c * 12 + "s", animationDelay: -c * 20 + "s", color: "#dc2626", fontWeight: 900, fontFamily: "serif" } }, ["福", "✦", "🐾"][i % 3]);
+  }).concat([h("span", { key: "l1", className: "tf-lantern", style: { left: "6%" } }, h(Lantern, { size: 64 })), h("span", { key: "l2", className: "tf-lantern", style: { right: "6%", animationDelay: "-1.5s" } }, h(Lantern, { size: 64 }))]);
   return h("div", { className: "pfx tfx tfx-" + theme, "aria-hidden": true }, kids,
-    theme === "cat" && h("div", { className: "tf-peek" }, h(CatSvg, { c: "#f97316", size: 90 })),
-    theme === "pink" && h("div", { className: "tf-peek" }, h(DogSvg, { c: "#e8c4a0", size: 92 })),
+    theme === "cat" && h("div", { className: "tf-peek" }, h(CatSvg, { c: "#fbbf24", size: 90 })),
+    theme === "pink" && h("div", { className: "tf-peek" }, h(LuckyCoin, { size: 80, mark: "RM" })),
     theme === "star" && h("div", { className: "tf-peek tf-peek-star" }, h(StarBuddy, { c: "#fde047", size: 92 })));
 }
 /* ===== 每个页面不同的动画背景 ===== */
@@ -6326,14 +6352,24 @@ button:active, a:active { transform: scale(.97); }
 /* ===== 个人主题 ===== */
 .tfx .tf-float { position: absolute; bottom: -60px; animation: tfUp linear infinite; opacity: .8; filter: drop-shadow(0 4px 6px rgba(0,0,0,.08)); }
 @keyframes tfUp { 0% { transform: translateY(0) rotate(0); opacity: 0; } 10% { opacity: .85; } 50% { transform: translateY(-55vh) translateX(25px) rotate(12deg); } 100% { transform: translateY(-115vh) translateX(-15px) rotate(-10deg); opacity: 0; } }
+.tfx .tf-fall { position: absolute; top: -70px; animation-name: tfFall; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes tfFall { from { transform: translateY(0); } to { transform: translateY(115vh); } }
+.tfx .tf-fall > svg { display: block; }
+.tfx .tf-spin > svg { animation: coinSpin 2.4s linear infinite; }
+@keyframes coinSpin { 0% { transform: rotateY(0); } 100% { transform: rotateY(360deg); } }
+.tfx .tf-sway > svg { animation: sway 2.6s ease-in-out infinite alternate; transform-origin: 50% 0; }
+@keyframes sway { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+.tf-lantern { position: absolute; top: -4px; transform-origin: 50% 0; animation: sway 3s ease-in-out infinite alternate; filter: drop-shadow(0 6px 12px rgba(220,38,38,.35)); }
 .tf-peek { position: absolute; right: 30px; bottom: -18px; animation: peek 7s ease-in-out infinite; }
 @keyframes peek { 0%, 60%, 100% { transform: translateY(70px); } 70%, 90% { transform: translateY(0); } }
 [class*="theme-"] .app-header > :first-child, [class*="theme-"] .app-header > :first-child * { background: none !important; -webkit-text-fill-color: #fff !important; color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,.18); }
 [class*="theme-"] .app-header button:not([style*="gradient"]) { background: rgba(255,255,255,.22) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.45) !important; }
 [class*="theme-"] .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.22) !important; color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
 /* pink：浅粉红 + 狗狗 */
+.theme-pink #root, .theme-pink, .theme-pink * { -webkit-text-stroke: .35px currentColor; }
+.theme-pink input, .theme-pink select, .theme-pink textarea { -webkit-text-stroke: .3px currentColor; font-weight: 600 !important; }
 .theme-pink { background: #fff5f9 !important; }
-.tfx-pink { background-color: #fff1f7; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Cg fill='%23f9a8d4' fill-opacity='.28'%3E%3Cellipse cx='20' cy='26' rx='7' ry='6'/%3E%3Ccircle cx='11' cy='17' r='3'/%3E%3Ccircle cx='17' cy='12' r='3'/%3E%3Ccircle cx='24' cy='12' r='3'/%3E%3Ccircle cx='30' cy='17' r='3'/%3E%3Cellipse cx='65' cy='70' rx='7' ry='6'/%3E%3Ccircle cx='56' cy='61' r='3'/%3E%3Ccircle cx='62' cy='56' r='3'/%3E%3Ccircle cx='69' cy='56' r='3'/%3E%3Ccircle cx='75' cy='61' r='3'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg,#fff5f9,#fce7f3); }
+.tfx-pink { background-color: #fff1f7; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23f9a8d4' stroke-opacity='.5' stroke-width='1.6'%3E%3Ccircle cx='20' cy='20' r='9'/%3E%3Ccircle cx='20' cy='20' r='5.5'/%3E%3Ccircle cx='60' cy='60' r='9'/%3E%3Ccircle cx='60' cy='60' r='5.5'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg,#fff5f9,#fce7f3); }
 .theme-pink .app-sidebar { background: linear-gradient(180deg,#fbcfe8,#f9a8d4) !important; border-right: 1px solid #f9a8d4 !important; }
 .theme-pink nav button { color: #9d174d !important; }
 .theme-pink .app-header { background: linear-gradient(90deg,#fce7f3,#fbcfe8 60%,#f5d0fe) !important; border-bottom: 1px solid #f9a8d4 !important; }
@@ -6369,23 +6405,16 @@ button:active, a:active { transform: scale(.97); }
 .theme-honey nav button { color: #fff7e0 !important; }
 .theme-honey .dk-dash { background: radial-gradient(800px 420px at 10% 0%, rgba(253,224,71,.25), transparent 70%), linear-gradient(160deg,#78350f,#92400e 50%,#a16207) !important; }
 .theme-honey .cz-table thead tr { background: linear-gradient(90deg,#d97706,#f59e0b 50%,#facc15) !important; }
-/* cat：淡黄色 + 猫咪 */
-.theme-cat { background: #fffdf0 !important; }
-.tfx-cat { background-color: #fffbe8; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Cg fill='%23fcd34d' fill-opacity='.35'%3E%3Cellipse cx='20' cy='26' rx='7' ry='6'/%3E%3Ccircle cx='11' cy='17' r='3'/%3E%3Ccircle cx='17' cy='12' r='3'/%3E%3Ccircle cx='24' cy='12' r='3'/%3E%3Ccircle cx='30' cy='17' r='3'/%3E%3Cellipse cx='65' cy='70' rx='7' ry='6'/%3E%3Ccircle cx='56' cy='61' r='3'/%3E%3Ccircle cx='62' cy='56' r='3'/%3E%3Ccircle cx='69' cy='56' r='3'/%3E%3Ccircle cx='75' cy='61' r='3'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg,#fffdf0,#fef9c3); }
-.theme-cat .app-sidebar { background: linear-gradient(180deg,#fef08a,#fde68a) !important; border-right: 1px solid #fcd34d !important; }
-.theme-cat nav button { color: #854d0e !important; }
-.theme-cat .app-header { background: linear-gradient(90deg,#fefce8,#fef08a 60%,#fde68a) !important; border-bottom: 1px solid #fcd34d !important; }
-.theme-cat .app-header > :first-child, .theme-cat .app-header > :first-child * { -webkit-text-fill-color: #a16207 !important; color: #a16207 !important; text-shadow: none !important; }
-.theme-cat .app-header button:not([style*="gradient"]), .theme-cat .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.75) !important; color: #a16207 !important; border: 1px solid #fcd34d !important; }
-.theme-cat .dk-dash { background: radial-gradient(800px 420px at 10% 0%, rgba(255,255,255,.75), transparent 70%), linear-gradient(160deg,#fffdf0,#fef9c3 50%,#fde68a) !important; }
-.theme-cat .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(234,179,8,.28) 2px, transparent 2px), linear-gradient(90deg, rgba(234,179,8,.28) 2px, transparent 2px) !important; }
-.theme-cat .dk-dash .fx3d .au { opacity: .2; }
-.theme-cat .dk-dash .dash3d { background: rgba(255,255,255,.78) !important; border-color: #fde68a !important; box-shadow: 0 10px 30px rgba(234,179,8,.18) !important; }
-.theme-cat .dk-dash .dash3d, .theme-cat .dk-dash .dash3d button, .theme-cat .dk-dash .dash3d div { color: #713f12 !important; }
-.theme-cat .dk-dash .dash3d button div:last-child, .theme-cat .dk-dash .dash3d span { color: #a16207 !important; }
-.theme-cat .dk-dash .dash3d button { border-bottom-color: #fef3c7 !important; }
-.theme-cat .dk-dash > div > div > button { color: #854d0e !important; }
-.theme-cat .cz-table thead tr { background: linear-gradient(90deg,#eab308,#facc15 50%,#fbbf24) !important; }
+/* cat：红色新春 + 红包 + 猫猫 */
+.theme-cat { background: #fff5f2 !important; }
+.tfx-cat { background-color: #fff4ef; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23fca5a5' stroke-opacity='.45' stroke-width='1.6'%3E%3Ccircle cx='20' cy='20' r='9'/%3E%3Crect x='16.5' y='16.5' width='7' height='7'/%3E%3Ccircle cx='60' cy='60' r='9'/%3E%3Crect x='56.5' y='56.5' width='7' height='7'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg,#fff7ed,#ffe4e1); }
+.theme-cat .app-sidebar { background: linear-gradient(180deg,#dc2626,#991b1b) !important; border-right: 2px solid #fbbf24 !important; }
+.theme-cat nav button { color: #fde68a !important; }
+.theme-cat .app-header { background: linear-gradient(90deg,#b91c1c,#dc2626 55%,#f59e0b) !important; border-bottom: 2px solid #fbbf24 !important; }
+.theme-cat .dk-dash { background: radial-gradient(700px 380px at 10% 0%, rgba(251,191,36,.28), transparent 70%), radial-gradient(700px 400px at 95% 100%, rgba(251,191,36,.18), transparent 70%), linear-gradient(160deg,#7f1d1d,#b91c1c 55%,#991b1b) !important; }
+.theme-cat .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(253,224,71,.4) 2px, transparent 2px), linear-gradient(90deg, rgba(253,224,71,.4) 2px, transparent 2px) !important; }
+.theme-cat .dk-dash .dash3d { border-color: rgba(251,191,36,.45) !important; }
+.theme-cat .cz-table thead tr { background: linear-gradient(90deg,#b91c1c,#dc2626 55%,#f59e0b) !important; }
 .cz-page { margin: -28px; padding: 28px; min-height: calc(100vh - 67px); background: transparent; }
 .cz-page > div:last-child { border-radius: 16px !important; overflow: hidden; box-shadow: 0 12px 34px -12px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
 .cz-table thead tr { background: linear-gradient(90deg,#7c3aed,#4f46e5 45%,#0ea5e9); }
