@@ -2636,7 +2636,7 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && page !== "dashboard" ? /*#__PURE__*/React.createElement(ThemeFx, {
+  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
     theme: USER_THEMES[canonUser(currentUser)],
     page: page
   }) : /*#__PURE__*/React.createElement(PageFx, {
@@ -6375,7 +6375,7 @@ button:active, a:active { transform: scale(.97); }
 .theme-pink .app-header { background: linear-gradient(90deg,#fce7f3,#fbcfe8 60%,#f5d0fe) !important; border-bottom: 1px solid #f9a8d4 !important; }
 .theme-pink .app-header > :first-child, .theme-pink .app-header > :first-child * { -webkit-text-fill-color: #be185d !important; color: #be185d !important; text-shadow: none !important; }
 .theme-pink .app-header button:not([style*="gradient"]), .theme-pink .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.7) !important; color: #be185d !important; border: 1px solid #f9a8d4 !important; }
-.theme-pink .dk-dash { background: radial-gradient(800px 420px at 10% 0%, rgba(255,255,255,.7), transparent 70%), linear-gradient(160deg,#fff1f7,#fce7f3 50%,#fbcfe8) !important; }
+.theme-pink .dk-dash { background: transparent !important; }
 .theme-pink .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(236,72,153,.25) 2px, transparent 2px), linear-gradient(90deg, rgba(236,72,153,.25) 2px, transparent 2px) !important; }
 .theme-pink .dk-dash .fx3d .au { opacity: .25; }
 .theme-pink .dk-dash .dash3d { background: rgba(255,255,255,.75) !important; border-color: #fbcfe8 !important; box-shadow: 0 10px 30px rgba(236,72,153,.15) !important; }
@@ -6411,9 +6411,14 @@ button:active, a:active { transform: scale(.97); }
 .theme-cat .app-sidebar { background: linear-gradient(180deg,#dc2626,#991b1b) !important; border-right: 2px solid #fbbf24 !important; }
 .theme-cat nav button { color: #fde68a !important; }
 .theme-cat .app-header { background: linear-gradient(90deg,#b91c1c,#dc2626 55%,#f59e0b) !important; border-bottom: 2px solid #fbbf24 !important; }
-.theme-cat .dk-dash { background: radial-gradient(700px 380px at 10% 0%, rgba(251,191,36,.28), transparent 70%), radial-gradient(700px 400px at 95% 100%, rgba(251,191,36,.18), transparent 70%), linear-gradient(160deg,#7f1d1d,#b91c1c 55%,#991b1b) !important; }
-.theme-cat .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(253,224,71,.4) 2px, transparent 2px), linear-gradient(90deg, rgba(253,224,71,.4) 2px, transparent 2px) !important; }
-.theme-cat .dk-dash .dash3d { border-color: rgba(251,191,36,.45) !important; }
+.theme-cat .dk-dash { background: transparent !important; }
+.theme-cat .dk-dash .fx3d .au { display: none; }
+.theme-cat .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(220,38,38,.18) 2px, transparent 2px), linear-gradient(90deg, rgba(220,38,38,.18) 2px, transparent 2px) !important; }
+.theme-cat .dk-dash .dash3d { background: rgba(255,255,255,.82) !important; border: 1.5px solid #fcd34d !important; box-shadow: 0 10px 30px rgba(220,38,38,.12) !important; }
+.theme-cat .dk-dash .dash3d, .theme-cat .dk-dash .dash3d button, .theme-cat .dk-dash .dash3d div { color: #7f1d1d !important; }
+.theme-cat .dk-dash .dash3d button div:last-child, .theme-cat .dk-dash .dash3d span { color: #b91c1c !important; }
+.theme-cat .dk-dash .dash3d button { border-bottom-color: #fee2e2 !important; }
+.theme-cat .dk-dash .dash3d > div:first-child { border-left-color: #dc2626 !important; }
 .theme-cat .cz-table thead tr { background: linear-gradient(90deg,#b91c1c,#dc2626 55%,#f59e0b) !important; }
 .cz-page { margin: -28px; padding: 28px; min-height: calc(100vh - 67px); background: transparent; }
 .cz-page > div:last-child { border-radius: 16px !important; overflow: hidden; box-shadow: 0 12px 34px -12px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
