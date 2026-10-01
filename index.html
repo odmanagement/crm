@@ -2686,11 +2686,13 @@ function CRM({ onLogout, currentUser }) {
 
 
 /* ---------- 彩色小工具（Mission / Banker） ---------- */
-const CZ_HUES = [262, 199, 330, 152, 24, 222, 285, 174, 350, 45];
-/* 固定颜色：MONEY 黄、LUCAS 蓝、VV 粉、JOEY 橙、SAM 绿、CHIALING 青、ALICE 紫 */
-const PERSON_HUE = { money: 45, lucas: 215, vv: 330, joey: 15, sam: 145, chialing: 180, alice: 270 };
-const czHue = n => { const k = typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase(); return k in PERSON_HUE ? PERSON_HUE[k] : CZ_HUES[String(n || "?").split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % CZ_HUES.length]; };
-const czAvatar = (n, size = 28) => React.createElement("span", { style: { width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, color: "#fff", textTransform: "uppercase", background: "linear-gradient(135deg,hsl(" + czHue(n) + ",85%,62%),hsl(" + czHue(n) + ",80%,46%))", boxShadow: "0 3px 8px hsla(" + czHue(n) + ",70%,50%,.35)" } }, String(n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?");
+const CZ_HUES = [270, 20, 178, 295, 0, 30, 255, 190];
+/* 固定颜色：MONEY 淡黄、VV 粉、LUCAS 蓝、ALICE 绿；其他人随机 */
+const PERSON_HUE = { money: 50, lucas: 215, vv: 330, alice: 140 };
+const PERSON_LIGHT = { money: true };
+const czIsLight = n => !!PERSON_LIGHT[typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase()];
+const czHue = n => { const k = typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase(); if (k in PERSON_HUE) return PERSON_HUE[k]; const others = (typeof MISSION_PEOPLE !== "undefined" ? MISSION_PEOPLE : []).filter(x => !(x in PERSON_HUE)); const ix = others.indexOf(k); if (ix >= 0) return CZ_HUES[ix % CZ_HUES.length]; return CZ_HUES[String(n || "?").split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % CZ_HUES.length]; };
+const czAvatar = (n, size = 28) => React.createElement("span", { style: { width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, color: czIsLight(n) ? "#854d0e" : "#fff", textTransform: "uppercase", background: czIsLight(n) ? "linear-gradient(135deg,hsl(" + czHue(n) + ",100%,85%),hsl(" + czHue(n) + ",95%,70%))" : "linear-gradient(135deg,hsl(" + czHue(n) + ",85%,62%),hsl(" + czHue(n) + ",80%,46%))", boxShadow: "0 3px 8px hsla(" + czHue(n) + ",70%,50%,.35)" } }, String(n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?");
 const czPill = (hue, extra) => ({ background: "hsl(" + hue + ",90%,95%)", color: "hsl(" + hue + ",65%,38%)", border: "1px solid hsl(" + hue + ",80%,86%)", borderRadius: 999, fontWeight: 700, padding: "5px 12px", ...(extra || {}) });
 const CZ_BANK = { MUAMALAT: 340, BSN: 210, "BANK RAKYAT": 225, "B.RAKYAT": 225, RAKYAT: 225, PBB: 0, "PUBLIC BANK": 0, MAYBANK: 45, CIMB: 355, RHB: 200, "BANK ISLAM": 320, ALRAJHI: 190, "AL RAJHI": 190, HLB: 215, "HONG LEONG": 215, AMBANK: 5, MBSB: 160, AFFIN: 230, OCBC: 0, UOB: 230, AGRO: 120, "AGRO BANK": 120 };
 const czBankHue = b => { const k = String(b || "").trim().toUpperCase(); return k in CZ_BANK ? CZ_BANK[k] : czHue(k); };
@@ -2735,7 +2737,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
   if (!items.length) return null;
   const askNotify = () => { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {} };
   const colors = ["#0084ff", "#0891b2", "#db2777", "#ea580c", "#16a34a", "#7c3aed"];
-  const colorOf = n => "hsl(" + czHue(n) + ",75%,52%)";
+  const colorOf = n => czIsLight(n) ? "hsl(" + czHue(n) + ",95%,72%)" : "hsl(" + czHue(n) + ",75%,52%)";
   const avatar = (name, size, done) => h("div", {
     style: { position: "relative", width: size, height: size, borderRadius: "50%", background: colorOf(name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.42, flexShrink: 0, textTransform: "uppercase" }
   }, (name || "?").charAt(0), done ? h("span", { style: { position: "absolute", right: -2, bottom: -2, width: size * 0.42, height: size * 0.42, borderRadius: "50%", background: "#16a34a", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(Check, { size: size * 0.24, color: "#fff" })) : null);
@@ -3117,7 +3119,7 @@ function MissionPage({
       style: S.td
     }, canEditAssign(m) ? /*#__PURE__*/React.createElement("button", {
       style: S.fuDel,
-      onClick: () => setDelId(m.id),
+      onClick: () => { if (window.confirm("确定删除「" + (m.task || "这个任务") + "」吗？" + ((m.photos || []).length ? "\n照片也会一起删除。" : ""))) del(m.id); },
       title: "Delete"
     }, /*#__PURE__*/React.createElement(Trash2, {
       size: 15,
