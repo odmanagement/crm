@@ -4134,7 +4134,7 @@ function ClientsPage({
     ty = typeOf(l.type);
   const bankMap = {};
   (l.banks || []).forEach(b => {
-    bankMap[(b.bank || "").toUpperCase()] = b;
+    bankMap[bankKey(b.bank)] = b;
   });
   return /*#__PURE__*/React.createElement("tr", {
     key: l.id,
@@ -4227,7 +4227,9 @@ function ClientsPage({
 }
 
 /* ---------- Type page ---------- */
-const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","MICHELLE"];
+const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB","MICHELLE"];
+const BANK_ALIAS = { "HONG LEONG": "HLB", "HONG LEONG BANK": "HLB", "BANK RAKYAT": "B.RAKYAT", "RAKYAT": "B.RAKYAT", "PUBLIC BANK": "PBB", "PUBLIC": "PBB", "AL RAJHI": "ALRAJHI", "AL-RAJHI": "ALRAJHI" };
+const bankKey = b => { const k = String(b || "").trim().toUpperCase().replace(/\s+/g, " "); return BANK_ALIAS[k] || k; };
 function TypePage({
   type,
   clients,
@@ -4340,7 +4342,7 @@ function TypePage({
     st = stageOf(l.stage);
   const bankMap = {};
   (l.banks || []).forEach(b => {
-    bankMap[(b.bank || "").toUpperCase()] = b;
+    bankMap[bankKey(b.bank)] = b;
   });
   return /*#__PURE__*/React.createElement("tr", {
     key: l.id,
@@ -5476,7 +5478,7 @@ function Detail({
   }, "No links yet — tap Add Link"), links.map(lk => /*#__PURE__*/React.createElement("div", {
     key: lk.id,
     style: S.linkRow
-  }, /*#__PURE__*/React.createElement("input", {
+  }, !((client.loans || []).length && (client.loans || []).every(x => x.type === "personal")) && /*#__PURE__*/React.createElement("input", {
     style: {
       ...S.bankInput,
       flex: 1
@@ -5896,7 +5898,17 @@ function LoanBlock({
     style: S.miniBtn
   }))), expanded && /*#__PURE__*/React.createElement("div", {
     style: S.loanBlockBody
-  }, /*#__PURE__*/React.createElement(EditRow, {
+  }, loan.type === "personal" ? [/*#__PURE__*/React.createElement(EditRow, {
+    key: "agent",
+    label: "Agent",
+    value: loan.agent,
+    onChange: v => setField("agent", v)
+  }), /*#__PURE__*/React.createElement(EditRow, {
+    key: "admin",
+    label: "Admin",
+    value: loan.admin,
+    onChange: v => setField("admin", v)
+  })] : [/*#__PURE__*/React.createElement(React.Fragment, { key: "std" }, /*#__PURE__*/React.createElement(EditRow, {
     label: "Amount",
     value: loan.amount,
     onChange: v => setField("amount", v),
@@ -5940,7 +5952,7 @@ function LoanBlock({
     onChange: v => setField("lucasCost", v),
     type: "number",
     prefix: "RM"
-  }), /*#__PURE__*/React.createElement("div", {
+  }))], /*#__PURE__*/React.createElement("div", {
     style: S.bankSection
   }, /*#__PURE__*/React.createElement("div", {
     style: S.bankEditHead
@@ -5963,7 +5975,7 @@ function LoanBlock({
     onChange: e => setBank(i, "bank", e.target.value)
   }), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
-    placeholder: "Officer",
+    placeholder: "Banker",
     value: b.officer,
     onCommit: v => setBank(i, "officer", v)
   }), /*#__PURE__*/React.createElement("select", {
@@ -6008,7 +6020,7 @@ function LoanBlock({
         borderColor: s.color
       } : {})
     }
-  }, s.label))), /*#__PURE__*/React.createElement(CalcSection, {
+  }, s.label))), loan.type !== "personal" && /*#__PURE__*/React.createElement(CalcSection, {
     loan: loan,
     onUpdate: onUpdate,
     clientName: clientName
@@ -6209,7 +6221,7 @@ function LoanForm({
       ...S.input,
       flex: 2
     },
-    placeholder: "Officer",
+    placeholder: "Banker",
     value: b.officer,
     onChange: e => setBank(i, "officer", e.target.value)
   }), /*#__PURE__*/React.createElement("select", {
