@@ -3071,11 +3071,95 @@ function AutoTextarea({ value, onCommit, placeholder, style }) {
     onFocus: e => { e.target.style.borderColor = "#c4b5fd"; e.target.style.background = "#fff"; },
     onBlurCapture: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } });
 }
+/* ---------- Closing 排行榜（每月 + 每个星期五） ---------- */
+const CrownSvg = ({ size = 40, style }) => React.createElement("svg", { width: size, height: size * .78, viewBox: "0 0 64 50", style },
+  React.createElement("defs", null,
+    React.createElement("linearGradient", { id: "crG", x1: 0, y1: 0, x2: 0, y2: 1 }, React.createElement("stop", { offset: 0, stopColor: "#fff7c2" }), React.createElement("stop", { offset: .35, stopColor: "#fcd34d" }), React.createElement("stop", { offset: 1, stopColor: "#d97706" })),
+    React.createElement("linearGradient", { id: "crB", x1: 0, y1: 0, x2: 0, y2: 1 }, React.createElement("stop", { offset: 0, stopColor: "#fbbf24" }), React.createElement("stop", { offset: 1, stopColor: "#b45309" }))),
+  React.createElement("path", { d: "M6 16 L18 30 L32 8 L46 30 L58 16 L54 40 L10 40 Z", fill: "url(#crG)", stroke: "#b45309", strokeWidth: 2, strokeLinejoin: "round" }),
+  React.createElement("rect", { x: 9, y: 39, width: 46, height: 8, rx: 3, fill: "url(#crB)", stroke: "#92400e", strokeWidth: 1.5 }),
+  React.createElement("circle", { cx: 6, cy: 15, r: 4, fill: "#fde047", stroke: "#b45309", strokeWidth: 1.5 }),
+  React.createElement("circle", { cx: 32, cy: 7, r: 4.5, fill: "#fde047", stroke: "#b45309", strokeWidth: 1.5 }),
+  React.createElement("circle", { cx: 58, cy: 15, r: 4, fill: "#fde047", stroke: "#b45309", strokeWidth: 1.5 }),
+  React.createElement("circle", { cx: 32, cy: 28, r: 4.5, fill: "#ef4444", stroke: "#fff", strokeWidth: 1.2 }),
+  React.createElement("circle", { cx: 19, cy: 33, r: 2.8, fill: "#3b82f6", stroke: "#fff", strokeWidth: 1 }),
+  React.createElement("circle", { cx: 45, cy: 33, r: 2.8, fill: "#10b981", stroke: "#fff", strokeWidth: 1 }),
+  React.createElement("path", { d: "M14 20 L20 28", stroke: "#fff", strokeWidth: 2, strokeLinecap: "round", opacity: .7 }));
+function ClosingRanking({ items, staffOf }) {
+  const h = React.createElement;
+  const now = new Date();
+  const [ym, setYm] = React.useState(now.getFullYear() * 12 + now.getMonth());
+  const Y = Math.floor(ym / 12), M = ym % 12;
+  const pad = n => String(n).padStart(2, "0");
+  const iso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const fridayOf = ds => { const d = new Date(ds + "T00:00:00"); d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7)); return iso(d); };
+  const valid = items.filter(x => x.date && x.cat !== "cancel" && staffOf(x));
+  const tally = list => Object.entries(list.reduce((a, x) => { const k = canonUser(staffOf(x)); a[k] = (a[k] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const monthKey = Y + "-" + pad(M + 1);
+  const monthRank = tally(valid.filter(x => x.date.slice(0, 7) === monthKey));
+  const fridays = [];
+  for (let d = new Date(Y, M, 1); d.getMonth() === M; d.setDate(d.getDate() + 1)) if (d.getDay() === 5) fridays.push(iso(d));
+  const thisFri = fridayOf(iso(now));
+  const weeks = fridays.map(f => ({ f, rank: tally(valid.filter(x => fridayOf(x.date) === f)) }));
+  const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const medal = ["🥇", "🥈", "🥉"];
+  const podiumH = [118, 92, 76];
+  const order = [1, 0, 2];
+  const max = monthRank.length ? monthRank[0][1] : 1;
+  const rankNo = c => monthRank.findIndex(r => r[1] === c) + 1; // 一样多就同名次
+  const card = { background: "rgba(255,255,255,.94)", borderRadius: 18, padding: 18, border: "1px solid #eef0f4", boxShadow: "0 10px 30px -16px rgba(30,27,75,.3)" };
+  return h("div", { className: "rk-grid", style: { display: "grid", gridTemplateColumns: "minmax(320px,1.2fr) minmax(300px,1fr)", gap: 14, marginBottom: 16 } },
+    h("style", null, "@keyframes podUp{from{transform:scaleY(.2);opacity:0}to{transform:none;opacity:1}}@keyframes crown{0%,100%{transform:translateX(-50%) rotate(-6deg)}50%{transform:translateX(-50%) translateY(-4px) rotate(6deg)}}@media(max-width:900px){.rk-grid{grid-template-columns:1fr!important}}"),
+    h("div", { style: card },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 } },
+        h("div", { style: { fontSize: 17, fontWeight: 900, color: "#1e1b4b", flex: 1 } }, "🏆 每月排行"),
+        h("button", { onClick: () => setYm(ym - 1), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, width: 30, height: 30, fontWeight: 900 } }, "‹"),
+        h("div", { style: { fontWeight: 900, minWidth: 90, textAlign: "center", color: "#4f46e5" } }, MONTHS[M] + " " + Y),
+        h("button", { onClick: () => setYm(ym + 1), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, width: 30, height: 30, fontWeight: 900 } }, "›")),
+      monthRank.length === 0 ? h("div", { style: { padding: 40, textAlign: "center", color: "#94a3b8" } }, "这个月还没有 closing") : [
+        h("div", { key: "pod", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 10, height: 236, marginBottom: 10 } },
+          order.map(i => monthRank[i] ? h("div", { key: i, style: { display: "flex", flexDirection: "column", alignItems: "center", width: 110 } },
+            h("div", { style: { position: "relative", paddingTop: rankNo(monthRank[i][1]) === 1 ? 30 : 0 } },
+              rankNo(monthRank[i][1]) === 1 && h(CrownSvg, { size: i === 0 ? 48 : 38, style: { position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", filter: "drop-shadow(0 3px 4px rgba(0,0,0,.25))", animation: "crown 2.4s " + (i * .3) + "s ease-in-out infinite" } }),
+              czAvatar(monthRank[i][0], i === 0 ? 58 : 46)),
+            h("div", { style: { fontWeight: 900, fontSize: 13.5, marginTop: 4, color: "hsl(" + czHue(monthRank[i][0]) + ",60%,35%)" } }, String(monthRank[i][0]).toUpperCase()),
+            h("div", { style: { width: "100%", height: podiumH[i], marginTop: 6, borderRadius: "12px 12px 0 0", background: ["linear-gradient(180deg,#fde047,#f59e0b)", "linear-gradient(180deg,#e2e8f0,#94a3b8)", "linear-gradient(180deg,#fed7aa,#c2410c)"][i], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 8, color: "#fff", transformOrigin: "bottom", animation: "podUp .7s " + (i * .12) + "s cubic-bezier(.2,1.2,.4,1) backwards", boxShadow: "inset 0 2px 0 rgba(255,255,255,.4)" } },
+              h("div", { style: { fontSize: 24 } }, medal[Math.min(2, rankNo(monthRank[i][1]) - 1)]),
+              h("div", { style: { fontSize: 22, fontWeight: 900, textShadow: "0 1px 3px rgba(0,0,0,.25)" } }, monthRank[i][1]),
+              h("div", { style: { fontSize: 10.5, fontWeight: 800, opacity: .9 } }, "CLOSING"))) : null)),
+        h("div", { key: "list", style: { display: "flex", flexDirection: "column", gap: 6 } },
+          monthRank.map(([n, c]) => h("div", { key: n, style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13.5 } },
+            rankNo(c) === 1 ? h("div", { style: { width: 22, display: "flex", justifyContent: "center" } }, h(CrownSvg, { size: 22 })) : h("div", { style: { width: 22, textAlign: "center", fontWeight: 900, color: rankNo(c) <= 3 ? "#f59e0b" : "#94a3b8" } }, rankNo(c)),
+            czAvatar(n, 24),
+            h("div", { style: { width: 86, fontWeight: 800, color: "#334155" } }, String(n).toUpperCase()),
+            h("div", { style: { flex: 1, height: 10, background: "#f1f5f9", borderRadius: 999, overflow: "hidden" } },
+              h("div", { style: { width: (c / max * 100) + "%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,hsl(" + czHue(n) + ",80%,65%),hsl(" + czHue(n) + ",75%,48%))", transition: "width .6s" } })),
+            h("div", { style: { width: 30, textAlign: "right", fontWeight: 900, color: "#1e293b" } }, c))))]),
+    h("div", { style: card },
+      h("div", { style: { fontSize: 17, fontWeight: 900, color: "#1e1b4b", marginBottom: 4 } }, "📅 每个星期五 TOP"),
+      h("div", { style: { fontSize: 12, color: "#94a3b8", marginBottom: 12 } }, "星期六到星期五算一个星期 · 不算 Cancel"),
+      weeks.map(({ f, rank }) => {
+        const cur = f === thisFri, future = f > thisFri;
+        const winners = rank.filter(r => rank[0] && r[1] === rank[0][1]);
+        return h("div", { key: f, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 14, marginBottom: 8, background: cur ? "linear-gradient(120deg,#eef2ff,#fdf4ff)" : "#f8fafc", border: cur ? "1.5px solid #a5b4fc" : "1px solid #f1f5f9", opacity: future ? .5 : 1 } },
+          h("div", { style: { width: 54, textAlign: "center", lineHeight: 1.1 } },
+            h("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#94a3b8" } }, "FRI"),
+            h("div", { style: { fontSize: 18, fontWeight: 900, color: cur ? "#4f46e5" : "#334155" } }, f.slice(8) + "/" + f.slice(5, 7))),
+          winners.length ? h("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 } },
+            h("div", { style: { position: "relative", paddingTop: 14 } }, h(CrownSvg, { size: 24, style: { position: "absolute", left: "50%", top: 0, transform: "translateX(-50%) rotate(-8deg)" } }), czAvatar(winners[0][0], 30)),
+            h("div", { style: { minWidth: 0 } },
+              h("div", { style: { fontWeight: 900, color: "hsl(" + czHue(winners[0][0]) + ",60%,35%)" } }, winners.map(r => String(r[0]).toUpperCase()).join(" · ")),
+              h("div", { style: { fontSize: 11.5, color: "#64748b" } }, winners[0][1] + " closing" + (rank.length > 1 ? " · 共 " + rank.reduce((a, r) => a + r[1], 0) + " 笔" : "")))) :
+            h("div", { style: { flex: 1, color: "#cbd5e1", fontSize: 13 } }, future ? "还没到" : "这个星期没有 closing"),
+          cur && h("span", { style: { fontSize: 11, fontWeight: 800, color: "#fff", background: "#4f46e5", borderRadius: 999, padding: "2px 8px" } }, "本周"));
+      })));
+}
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("submissions");
   const [tab, setTab] = React.useState("all");
   const [q, setQ] = React.useState("");
+  const [showRank, setShowRank] = React.useState(true);
   const items = list || [];
   // 旧资料：以前的 agent 其实是 staff
   const staffOf = x => x.staff !== undefined ? x.staff : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? x.agent : "");
@@ -3096,7 +3180,9 @@ function SubmissionPage({ currentUser }) {
       SUB_TYPES.map(([k, l, hue]) => typeCard(k, l.toUpperCase(), hue, items.filter(x => x.cat === k).length))),
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / staff / agent / remark", value: q, onChange: e => setQ(e.target.value) })),
+      h("button", { onClick: () => setShowRank(!showRank), style: { ...S.addBtn, background: showRank ? "linear-gradient(120deg,#f59e0b,#eab308)" : "#fff", color: showRank ? "#fff" : "#b45309", border: "1px solid #fcd34d", boxShadow: "none" } }, "🏆 Ranking"),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Closing")),
+    showRank && h(ClosingRanking, { items, staffOf }),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
       h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
