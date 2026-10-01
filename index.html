@@ -12,6 +12,7 @@
   .calc-in:hover { background: #f8fafc; }
   .calc-in:focus { background: #fff; border-color: #c4b5fd; }
   .calc-in::placeholder { color: #cbd5e1; }
+  .calc-in:disabled { color: #7c3aed !important; background: #f5f3ff !important; border-color: #ede9fe !important; cursor: help; -webkit-text-fill-color: #7c3aed; opacity: 1; }
   .calc-in::-webkit-outer-spin-button, .calc-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .calc-in[type=number] { -moz-appearance: textfield; }
   .calc-del { opacity: .35; } .calc-row:hover .calc-del { opacity: 1; }
@@ -5647,17 +5648,37 @@ function CalcSection({
     const x = Number(String(n).replace(/[^0-9.-]/g, ""));
     return isNaN(x) ? "0" : x.toLocaleString();
   };
-  const netOf = c => {
-    const spa = Number(String(c.spa).replace(/[^0-9.-]/g, "")) || 0;
-    const sum = (c.items || []).reduce((s, it) => s + (Number(String(it.amount).replace(/[^0-9.-]/g, "")) || 0), 0);
-    return spa - sum;
+  const numOf = v => Number(String(v == null ? "" : v).replace(/[^0-9.-]/g, "")) || 0;
+  // 自动带入：Cost = 贷款的 Cost（Amount）；LUCAS 卡的 Company = Lucas Cost − Cost
+  const loanCost = numOf(loan.amount), loanLucas = numOf(loan.lucasCost);
+  const isName = (it, n) => String(it.name || "").trim().toLowerCase() === n;
+  const autoOf = (it, ci) => {
+    if (isName(it, "cost") && loanCost) return { v: loanCost, why: "自动 = 贷款 Cost" };
+    if (ci === 1 && isName(it, "company") && loanCost && loanLucas) return { v: loanLucas - loanCost, why: "自动 = Lucas Cost − Cost" };
+    return null;
+  };
+  const effAmt = (it, ci) => { const a = autoOf(it, ci); return a ? a.v : numOf(it.amount); };
+  const netOf = (c, ci) => {
+    const idx = ci === undefined ? calcs.indexOf(c) : ci;
+    return numOf(c.spa) - (c.items || []).reduce((s, it) => s + effAmt(it, idx), 0);
   };
   const copyCalc = (c, ci) => {
     let txt = "Spa ： " + fmt(c.spa) + "\n";
-    (c.items || []).forEach(it => {
-      txt += (it.name || "-") + " : " + fmt(it.amount) + "\n";
-    });
-    txt += "Total Net : " + fmt(netOf(c));
+    const its = c.items || [];
+    if (ci !== 0) {
+      // LUCAS 卡：Cost 显示 = Cost + Company（即 Lucas Cost），不显示 Company 那一行
+      const comp = its.filter(it => isName(it, "company")).reduce((s, it) => s + effAmt(it, ci), 0);
+      let costDone = false;
+      its.forEach(it => {
+        if (isName(it, "company")) return;
+        if (isName(it, "cost") && !costDone) { costDone = true; txt += "Cost : " + fmt(effAmt(it, ci) + comp) + "\n"; return; }
+        txt += (it.name || "-") + " : " + fmt(effAmt(it, ci)) + "\n";
+      });
+      if (!costDone && comp) txt += "Cost : " + fmt(comp) + "\n";
+    } else {
+      its.forEach(it => { txt += (it.name || "-") + " : " + fmt(effAmt(it, ci)) + "\n"; });
+    }
+    txt += "Total Net : " + fmt(netOf(c, ci));
     if (ci !== 0) txt += "\n\n" + (clientName || "用户名字") + " : " + (c.cname || "") + "\nLucas : " + (c.lucas || "") + "\nAgent : " + (c.agent || "");
     navigator.clipboard.writeText(txt).then(() => {}, () => {});
   };
@@ -5719,7 +5740,9 @@ function CalcSection({
       className: "calc-in",
       style: { ...amt, color: "#475569" },
       placeholder: "0",
-      value: it.amount,
+      value: autoOf(it, ci) ? String(autoOf(it, ci).v) : it.amount,
+      disabled: !!autoOf(it, ci),
+      title: autoOf(it, ci) ? autoOf(it, ci).why : "",
       onCommit: v => updItem(ci, ii, "amount", v)
     }),
     h("button", {
