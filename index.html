@@ -2954,7 +2954,7 @@ function MissionPage({
     style: { background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, fontWeight: 600 }
   }, "⚠️ 你的登录名字是「" + String(currentUser).toUpperCase() + "」，但指派名单里没有这个名字，所以老板指派的任务你会看不到。请通知管理员把名单改成「" + String(currentUser).toUpperCase() + "」。"), !boss && others.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "linear-gradient(120deg,#ede9fe,#e0f2fe)", border: "1px solid #ddd6fe", borderRadius: 14, padding: "12px 16px", marginBottom: 14, fontSize: 13.5, color: "#4c1d95" }
-  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（内容只有相关的人可以看）")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 800 } }, "🔒 其他同事的任务：" + others.length + " 个"), /*#__PURE__*/React.createElement("span", { style: { color: "#6d28d9", opacity: .8 } }, "（内容只有相关的人可以看）"), Object.entries(othersBy).sort((a, b) => b[1] - a[1]).map(([n, c]) => /*#__PURE__*/React.createElement("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, color: "#334155", boxShadow: "0 1px 4px rgba(79,70,229,.1)" } }, czAvatar(n, 20), String(n).toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: "#7c3aed" } }, c)))), /*#__PURE__*/React.createElement("div", {
     style: S.tableWrap
   }, /*#__PURE__*/React.createElement("table", {
     className: "cz-table",
