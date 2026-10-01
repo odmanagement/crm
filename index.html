@@ -3492,79 +3492,74 @@ function CompanyFilesPage() {
   const initials = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
   const cnt = { all: all.length, p: all.filter(c => c.pUrl).length, c: all.filter(c => c.cUrl).length, both: all.filter(c => c.pUrl && c.cUrl).length };
   const css = `
-  .co-wrap{margin:-28px;padding:32px 28px;min-height:calc(100vh - 67px);background:transparent}
-  .co-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
-  .co-title{font-size:26px;font-weight:800;color:#1e1b4b;letter-spacing:-.02em;margin:0}
-  .co-title span{background:linear-gradient(90deg,#7c3aed,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .co-desc{font-size:13px;color:#64748b;margin-top:4px}
-  .co-search{position:relative;width:300px;max-width:100%}
-  .co-search input{width:100%;box-sizing:border-box;padding:11px 14px 11px 38px;border-radius:999px;border:1px solid #e0e7ff;background:#fff;font-size:14px;outline:none;font-family:inherit;box-shadow:0 2px 10px rgba(79,70,229,.06)}
-  .co-search input:focus{border-color:#a5b4fc;box-shadow:0 0 0 4px rgba(99,102,241,.12)}
-  .co-tabs{display:inline-flex;background:#fff;border:1px solid #e0e7ff;border-radius:999px;padding:4px;gap:2px;margin-bottom:22px;box-shadow:0 2px 10px rgba(79,70,229,.06);flex-wrap:wrap}
-  .co-tab{border:none;background:none;padding:7px 16px;border-radius:999px;font-size:13px;font-weight:600;color:#64748b;font-family:inherit;display:flex;gap:6px;align-items:center}
-  .co-tab b{font-size:11px;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:1px 7px}
-  .co-tab.on{background:linear-gradient(120deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(79,70,229,.35)}
+  .co-wrap{margin:-28px;padding:30px 28px;min-height:calc(100vh - 67px);background:transparent;--a1:#6366f1;--a2:#8b5cf6;--ink:#1e1b4b;--soft:#eef2ff}
+  .theme-pink .co-wrap{--a1:#ec4899;--a2:#f472b6;--ink:#831843;--soft:#fdf2f8}
+  .theme-cat .co-wrap{--a1:#dc2626;--a2:#f59e0b;--ink:#7f1d1d;--soft:#fff7ed}
+  .theme-star .co-wrap{--a1:#d4a52c;--a2:#f6d77a;--ink:#5c4312;--soft:#fffbeb}
+  .co-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;background:rgba(255,255,255,.88);border:1px solid rgba(0,0,0,.05);border-radius:18px;padding:18px 20px;box-shadow:0 8px 24px -12px rgba(0,0,0,.15)}
+  .co-title{font-size:22px;font-weight:900;color:var(--ink);margin:0;display:flex;align-items:center;gap:10px}
+  .co-title i{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;font-style:normal;font-size:18px;box-shadow:0 6px 14px -4px var(--a1)}
+  .co-desc{font-size:12.5px;color:#64748b;margin-top:4px}
+  .co-search{position:relative;width:260px;max-width:100%}
+  .co-search input{width:100%;box-sizing:border-box;padding:10px 14px 10px 34px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-size:14px;outline:none;font-family:inherit}
+  .co-search input:focus{border-color:var(--a1);box-shadow:0 0 0 3px color-mix(in srgb,var(--a1) 18%,transparent)}
+  .co-addbtn{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:12px;border:none;background:linear-gradient(120deg,var(--a1),var(--a2));color:#fff;font-weight:800;font-size:13.5px;white-space:nowrap;box-shadow:0 6px 16px -6px var(--a1)}
+  .co-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .co-tab{border:1px solid #e2e8f0;background:rgba(255,255,255,.9);padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:700;color:#475569;font-family:inherit;display:flex;gap:6px;align-items:center}
+  .co-tab b{font-size:11px;background:var(--soft);color:var(--a1);border-radius:999px;padding:0 7px}
+  .co-tab.on{background:var(--a1);border-color:var(--a1);color:#fff}
   .co-tab.on b{background:rgba(255,255,255,.25);color:#fff}
-  .co-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:26px 18px;padding-top:12px}
-  .co-f{position:relative;cursor:pointer;transition:transform .2s}
-  .co-f:hover{transform:translateY(-3px)}
-  .co-tabshape{position:absolute;top:-12px;left:0;width:44%;height:22px;border-radius:12px 14px 0 0}
-  .co-body{position:relative;border-radius:0 16px 16px 16px;padding:18px;min-height:112px;box-sizing:border-box;box-shadow:0 10px 24px -8px var(--sh);overflow:hidden}
-  .co-body:after{content:"";position:absolute;right:-30px;bottom:-40px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.13)}
-  .co-mono{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;letter-spacing:.02em}
-  .co-name{color:#fff;font-weight:700;font-size:15.5px;margin-top:12px;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.15)}
-  .co-docs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-  .co-pill{font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,.2);border-radius:999px;padding:3px 9px;letter-spacing:.03em}
-  .co-pill.off{background:transparent;border:1px dashed rgba(255,255,255,.45);color:rgba(255,255,255,.7)}
-  .co-paper{position:absolute;left:14px;right:14px;height:30px;border-radius:8px 8px 0 0;background:#fff;box-shadow:0 -2px 8px rgba(0,0,0,.08);transition:transform .25s}
-  .co-f:hover .co-paper{transform:translateY(-5px)}
-  .co-open{margin-top:10px;background:#fff;border-radius:14px;padding:8px;box-shadow:0 12px 30px -10px rgba(30,27,75,.3);animation:coIn .2s ease-out;border:1px solid #eef2ff}
-  @keyframes coIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-  .co-link{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;text-decoration:none;color:#1e1b4b;transition:background .15s}
-  .co-link:hover{background:#f5f3ff}
-  .co-link.off{opacity:.4;pointer-events:none}
-  .co-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
+  .co-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+  .co-card{position:relative;background:#fff;border-radius:16px;border:1px solid color-mix(in srgb,var(--c) 18%,#eef0f4);padding:16px;box-shadow:0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);transition:transform .2s,box-shadow .2s;overflow:hidden}
+  .co-card:before{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:color-mix(in srgb,var(--c) 9%,transparent)}
+  .co-card:hover{transform:translateY(-3px);box-shadow:0 16px 30px -14px rgba(15,23,42,.3)}
+  .co-head{display:flex;align-items:center;gap:12px}
+  .co-mono{position:relative;width:44px;height:44px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 75%,#fff),var(--c));box-shadow:0 6px 14px -6px var(--c)}
+  .co-name{position:relative;flex:1;min-width:0;font-weight:800;font-size:14.5px;color:var(--ink);line-height:1.25}
+  .co-sub{font-size:11.5px;color:#94a3b8;font-weight:600;margin-top:2px}
+  .co-more{position:relative;border:none;background:#f8fafc;width:30px;height:30px;border-radius:9px;color:#64748b;font-size:16px;font-weight:900;flex-shrink:0}
+  .co-more:hover{background:var(--soft);color:var(--a1)}
+  .co-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+  .co-doc{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;border-radius:10px;font-size:12.5px;font-weight:800;text-decoration:none;transition:all .15s}
+  .co-doc.yes{background:color-mix(in srgb,var(--c) 11%,#fff);color:color-mix(in srgb,var(--c) 85%,#000);border:1px solid color-mix(in srgb,var(--c) 25%,transparent)}
+  .co-doc.yes.cl{background:#fff;border:1.5px solid color-mix(in srgb,var(--c) 45%,transparent)}
+  .co-doc.yes:hover{background:var(--c);color:#fff;transform:translateY(-1px);box-shadow:0 6px 14px -6px var(--c)}
+  .co-doc.no{background:#f8fafc;color:#cbd5e1;border:1px dashed #e2e8f0;cursor:pointer}
+  .co-doc.no:hover{color:var(--a1);border-color:var(--a1)}
+  .theme-star .co-addbtn,.theme-star .co-title i{color:#4a3610}
   `;
-  const Search = typeof window !== "undefined" && typeof window.Search === "function" ? window.Search : null;
+  const PAL = {
+    cat: ["#dc2626", "#d97706", "#059669", "#e11d48", "#ca8a04", "#ea580c", "#0f766e", "#9f1239"],
+    pink: ["#ec4899", "#a855f7", "#f43f5e", "#d946ef", "#fb7185", "#8b5cf6", "#f472b6"],
+    star: ["#d4a52c", "#e09f5a", "#a3b18a", "#c08552", "#e6b800", "#d08c60", "#b5a642"]
+  }[USER_THEMES[canonUser(window.__crmUser)]] || ["#6366f1", "#0ea5e9", "#14b8a6", "#8b5cf6", "#f43f5e", "#f59e0b", "#10b981", "#ec4899"];
+  const colorOf = (c, i) => PAL[i % PAL.length];
+  const doc = (label, url, c) => url
+    ? h("a", { className: "co-doc yes" + (label === "CL" ? " cl" : ""), href: url, target: "_blank", rel: "noopener" }, label === "CL" ? "✉️ " : "📄 ", label, h("span", { style: { opacity: .7 } }, "↗"))
+    : h("button", { className: "co-doc no", onClick: () => openEdit(c), title: "加链接" }, "+ ", label);
   return h("div", { className: "co-wrap" },
     h("style", null, css),
     h("div", { className: "co-top" },
       h("div", null,
-        h("h1", { className: "co-title" }, h("span", null, "Company"), " Files"),
-        h("div", { className: "co-desc" }, "点公司文件夹，打开 Payslip 或 CL")),
+        h("h1", { className: "co-title" }, h("i", null, "🗂"), "Company Files"),
+        h("div", { className: "co-desc" }, "每家公司的 Payslip 和 CL，一按就打开")),
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" } },
         h("div", { className: "co-search" },
-          h("span", { style: { position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#a5b4fc", fontSize: 14 } }, "⌕"),
+          h(Search, { size: 15, color: "#94a3b8", style: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" } }),
           h("input", { placeholder: "搜索公司 / Search company", value: q, onChange: e => setQ(e.target.value) })),
-        h("button", { onClick: () => openEdit(null), style: { display: "flex", alignItems: "center", gap: 6, padding: "11px 18px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", fontWeight: 700, fontSize: 14, boxShadow: "0 8px 20px rgba(79,70,229,.35)", whiteSpace: "nowrap" } }, h(Plus, { size: 16 }), "添加公司 / 文件"))),
+        h("button", { className: "co-addbtn", onClick: () => openEdit(null) }, h(Plus, { size: 15 }), "添加公司 / 文件"))),
     h("div", { className: "co-tabs" },
       [["all", "全部"], ["p", "Payslip"], ["c", "CL"], ["both", "两样都有"]].map(([k, t]) => h("button", { key: k, className: "co-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t, h("b", null, cnt[k])))),
     h("div", { className: "co-grid" },
-      rows.map(c => {
-        const hu = hueOf(c.name), isOpen = openName === c.name;
-        const c1 = "hsl(" + hu + ",78%,62%)", c2 = "hsl(" + ((hu + 35) % 360) + ",75%,52%)", tab = "hsl(" + hu + ",70%,72%)";
-        return h("div", { key: c.name },
-          h("div", { className: "co-f", onClick: () => setOpenName(isOpen ? null : c.name) },
-            h("div", { className: "co-tabshape", style: { background: tab } }),
-            h("div", { className: "co-paper", style: { top: -4 } }),
-            h("div", { className: "co-body", style: { background: "linear-gradient(135deg," + c1 + "," + c2 + ")", "--sh": "hsla(" + hu + ",70%,45%,.55)" } },
-              h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
-                h("div", { className: "co-mono" }, initials(c.name)),
-                h("span", { style: { color: "#fff", fontSize: 18, opacity: .9, transition: "transform .2s", transform: isOpen ? "rotate(180deg)" : "none" } }, "⌄")),
-              h("div", { className: "co-name" }, c.name),
-              h("div", { className: "co-docs" },
-                h("span", { className: "co-pill" + (c.pUrl ? "" : " off") }, "PAYSLIP"),
-                h("span", { className: "co-pill" + (c.cUrl ? "" : " off") }, "CL")))),
-          isOpen && h("div", { className: "co-open" },
-            [["Payslip", "工资单", c.pUrl, "PS", "linear-gradient(135deg,#8b5cf6,#6366f1)"], ["CL", "Confirmation Letter", c.cUrl, "CL", "linear-gradient(135deg,#06b6d4,#3b82f6)"]].map(([t, sub, url, ab, bg]) => h("a", { key: t, className: "co-link" + (url ? "" : " off"), href: url || undefined, target: "_blank", rel: "noopener" },
-              h("div", { className: "co-ic", style: { background: bg } }, ab),
-              h("div", { style: { flex: 1 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t), h("div", { style: { fontSize: 12, color: "#94a3b8" } }, url ? sub : "还没有文件")),
-              url && h("span", { style: { color: "#a5b4fc", fontSize: 14 } }, "↗"))),
-            h("div", { style: { display: "flex", gap: 6, padding: "6px 4px 2px", borderTop: "1px dashed #e0e7ff", marginTop: 4 } },
-              h("button", { onClick: () => openEdit(c), style: { flex: 1, padding: "8px", borderRadius: 10, border: "1px solid #ddd6fe", background: "#faf5ff", color: "#6d28d9", fontWeight: 700, fontSize: 12.5 } }, (!c.pUrl || !c.cUrl) ? "+ 加 / 改链接" : "✎ 改链接"),
-              c.customId && !c.builtin && h("button", { onClick: () => setDelItem(c), style: { padding: "8px 12px", borderRadius: 10, border: "1px solid #fecaca", background: "#fff1f2", color: "#dc2626", fontWeight: 700, fontSize: 12.5 } }, "删除")),
-            c.by && h("div", { style: { fontSize: 11, color: "#94a3b8", padding: "2px 6px 4px" } }, "由 " + String(c.by).toUpperCase() + " 添加")));
-      }),
+      rows.map((c, i) => h("div", { key: c.name, className: "co-card", style: { "--c": colorOf(c, all.findIndex(x => x.name === c.name)) } },
+        h("div", { className: "co-head" },
+          h("div", { className: "co-mono" }, initials(c.name)),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { className: "co-name" }, c.name),
+            h("div", { className: "co-sub" }, [c.pUrl && "Payslip", c.cUrl && "CL"].filter(Boolean).join(" · ") || "还没有文件", c.by ? " · 由 " + String(c.by).toUpperCase() + " 添加" : "")),
+          h("button", { className: "co-more", title: "改链接", onClick: () => openEdit(c) }, "⋯"),
+          c.customId && !c.builtin && h("button", { className: "co-more", title: "删除", onClick: () => setDelItem(c), style: { color: "#ef4444" } }, "×")),
+        h("div", { className: "co-btns", style: { position: "relative" } }, doc("PAYSLIP", c.pUrl, c), doc("CL", c.cUrl, c)))),
       rows.length === 0 && h("div", { style: { color: "#94a3b8", padding: 20 } }, "找不到公司")),
     edit && h("div", { onClick: () => setEdit(null), style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.5)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
