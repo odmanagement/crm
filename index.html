@@ -853,8 +853,8 @@ function ThemeFx({ theme, page }) {
     ? h("span", { key: i, className: "tf-fall tf-spin", style: { left: a * 100 + "%", animationDuration: 8 + c * 9 + "s", animationDelay: -c * 16 + "s" } }, h(LuckyCoin, { size: 22 + b * 22, mark: ["$", "RM", "¥"][i % 3] }))
     : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 14 + b * 16, animationDuration: 10 + c * 12 + "s", animationDelay: -c * 20 + "s", color: "#f472b6" } }, ["💗", "♡", "✦"][i % 3]));
   if (theme === "honey") kids = make(20, (i, a, b, c) => h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 16 + b * 18, animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s" } }, ["🍯", "🌼", "🐝", "🍪", "🌻"][i % 5]));
-  if (theme === "star") kids = make(30, (i, a, b, c) => i % 4 === 0
-    ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 13 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(StarBuddy, { c: ["#fde047", "#fbbf24", "#fcd34d", "#c4b5fd"][i % 4], size: 30 + b * 34 }))
+  if (theme === "star") kids = make(40, (i, a, b, c) => i % 3 !== 2
+    ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 12 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(StarBuddy, { c: ["#fde68a", "#fcd77f", "#fef3c7", "#f9e08e", "#fdeaa7"][i % 5], size: 30 + b * 38 }))
     : h("span", { key: i, className: "tf-twinkle", style: { left: a * 100 + "%", top: b * 100 + "%", fontSize: 8 + c * 16, animationDelay: -c * 3 + "s", animationDuration: 1.6 + b * 2.5 + "s" } }, i % 3 ? "✦" : "★"))
     .concat([h("span", { key: "s1", className: "tf-shoot" }), h("span", { key: "s2", className: "tf-shoot", style: { top: "35%", animationDelay: "3.5s" } })]);
   if (theme === "cat") kids = make(24, (i, a, b, c) => {
@@ -867,7 +867,7 @@ function ThemeFx({ theme, page }) {
   return h("div", { className: "pfx tfx tfx-" + theme, "aria-hidden": true }, kids,
     theme === "cat" && h("div", { className: "tf-peek" }, h(CatSvg, { c: "#fbbf24", size: 90 })),
     theme === "pink" && h("div", { className: "tf-peek" }, h(LuckyCoin, { size: 80, mark: "RM" })),
-    theme === "star" && h("div", { className: "tf-peek tf-peek-star" }, h(StarBuddy, { c: "#fde047", size: 92 })));
+    theme === "star" && h("div", { className: "tf-peek tf-peek-star" }, h(StarBuddy, { c: "#fde68a", size: 92 })));
 }
 /* ===== 每个页面不同的动画背景 ===== */
 function PageFx({ page }) {
@@ -2580,7 +2580,7 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
+  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
     theme: USER_THEMES[canonUser(currentUser)],
     page: page
   }) : /*#__PURE__*/React.createElement(PageFx, {
@@ -2945,7 +2945,7 @@ function TodoPage({ currentUser }) {
   React.useEffect(() => DB.subscribe((k, v) => { if (k === KEY && v) { try { setItems(JSON.parse(v)); } catch (e) {} } }), [KEY]);
   const save = list => { setItems(list); DB.set(KEY, JSON.stringify(list)); };
   const theme = USER_THEMES[canonUser(currentUser)];
-  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#6d28d9", "#eab308"] }[theme] || ["#4f46e5", "#0ea5e9"];
+  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#ca8a04", "#facc15"] }[theme] || ["#4f46e5", "#0ea5e9"];
   const list = items || [];
   const add = () => { const t = text.trim(); if (!t) return; save([{ id: uid(), text: t, done: false, at: Date.now() }, ...list]); setText(""); };
   const toggle = id => { const it = list.find(x => x.id === id); if (it && !it.done) { setJustDone(id); setTimeout(() => setJustDone(null), 700); } save(list.map(x => x.id === id ? { ...x, done: !x.done, doneAt: x.done ? null : Date.now() } : x)); };
@@ -3787,6 +3787,7 @@ function Dashboard({
         gap: 8
       }
     }, /*#__PURE__*/React.createElement("span", {
+      className: "type-ic",
       style: {
         ...S.typeIcon,
         background: t.color, boxShadow: "0 4px 14px " + t.color + "88"
@@ -6436,10 +6437,6 @@ button:active, a:active { transform: scale(.97); }
 .theme-cat .sb-item { color: #fde68a !important; } .theme-cat .sb-item:hover { background: rgba(255,255,255,.12); }
 .theme-cat .sb-item.on { background: linear-gradient(120deg,#fbbf24,#f59e0b) !important; color: #7f1d1d !important; box-shadow: 0 6px 16px rgba(251,191,36,.4) !important; }
 .theme-cat .sb-role { color: #fde68a; } .theme-cat .sb-prof { border-color: rgba(253,230,138,.3); }
-.theme-star .sb { background: linear-gradient(180deg,#4338ca,#312e81) !important; }
-.theme-star .sb-item { color: #fef9c3 !important; }
-.theme-star .sb-item.on { background: linear-gradient(120deg,#facc15,#eab308) !important; color: #312e81 !important; }
-.theme-star .sb-role { color: #fde047; }
 /* ===== 个人主题 ===== */
 .tfx .tf-float { position: absolute; bottom: -60px; animation: tfUp linear infinite; opacity: .8; filter: drop-shadow(0 4px 6px rgba(0,0,0,.08)); }
 @keyframes tfUp { 0% { transform: translateY(0) rotate(0); opacity: 0; } 10% { opacity: .85; } 50% { transform: translateY(-55vh) translateX(25px) rotate(12deg); } 100% { transform: translateY(-115vh) translateX(-15px) rotate(-10deg); opacity: 0; } }
@@ -6466,10 +6463,11 @@ button:active, a:active { transform: scale(.97); }
 .theme-pink .stat-card:nth-child(2) { background: linear-gradient(135deg,#f0abfc,#d946ef) !important; box-shadow: 0 12px 30px rgba(217,70,239,.35) !important; }
 .theme-pink .stat-card:nth-child(3) { background: linear-gradient(135deg,#fda4af,#f43f5e) !important; box-shadow: 0 12px 30px rgba(244,63,94,.35) !important; }
 .theme-pink .stat-card:nth-child(4) { background: linear-gradient(135deg,#fcd34d,#f472b6) !important; box-shadow: 0 12px 30px rgba(244,114,182,.35) !important; }
-.theme-star .stat-card:nth-child(1) { background: linear-gradient(135deg,#6366f1,#4338ca) !important; }
-.theme-star .stat-card:nth-child(2) { background: linear-gradient(135deg,#8b5cf6,#6d28d9) !important; }
-.theme-star .stat-card:nth-child(3) { background: linear-gradient(135deg,#facc15,#ca8a04) !important; }
-.theme-star .stat-card:nth-child(4) { background: linear-gradient(135deg,#a78bfa,#eab308) !important; }
+.theme-star .stat-card:nth-child(1) { background: linear-gradient(135deg,#fef3c7,#fde68a) !important; box-shadow: 0 10px 24px rgba(214,170,60,.22) !important; border: 1px solid #f5e6b3 !important; }
+.theme-star .stat-card:nth-child(2) { background: linear-gradient(135deg,#fdecc8,#fbd38d) !important; box-shadow: 0 10px 24px rgba(214,170,60,.22) !important; border: 1px solid #f5e6b3 !important; }
+.theme-star .stat-card:nth-child(3) { background: linear-gradient(135deg,#fff4c2,#f9e08e) !important; box-shadow: 0 10px 24px rgba(214,170,60,.22) !important; border: 1px solid #f5e6b3 !important; }
+.theme-star .stat-card:nth-child(4) { background: linear-gradient(135deg,#fdf2d0,#f6d77a) !important; box-shadow: 0 10px 24px rgba(214,170,60,.22) !important; border: 1px solid #f5e6b3 !important; }
+.theme-star .stat-card div { color: #5c4312 !important; text-shadow: none !important; }
 /* pink：浅粉红 + 狗狗 */
 .theme-pink #root, .theme-pink, .theme-pink * { -webkit-text-stroke: .35px currentColor; }
 .theme-pink input, .theme-pink select, .theme-pink textarea { -webkit-text-stroke: .3px currentColor; font-weight: 600 !important; }
@@ -6489,19 +6487,43 @@ button:active, a:active { transform: scale(.97); }
 .theme-pink .dk-dash .dash3d button { border-bottom-color: #fce7f3 !important; }
 .theme-pink .dk-dash button[style*="resetBtn"], .theme-pink .dk-dash > div > div > button { color: #9d174d !important; }
 .theme-pink .cz-table thead tr { background: linear-gradient(90deg,#f472b6,#f9a8d4 50%,#e879f9) !important; }
-/* star：星星人 */
-.theme-star { background: #f5f3ff !important; }
-.tfx-star { background: radial-gradient(700px 360px at 15% 0%, rgba(253,224,71,.28), transparent 70%), radial-gradient(600px 320px at 90% 15%, rgba(196,181,253,.45), transparent 70%), linear-gradient(180deg,#fefce8,#f5f3ff 55%,#ede9fe); }
-.tfx-star .tf-twinkle { position: absolute; color: #facc15; text-shadow: 0 0 8px rgba(250,204,21,.7); animation: twinkle ease-in-out infinite; }
-.tfx-star .tf-twinkle:nth-child(3n) { color: #a78bfa; text-shadow: 0 0 8px rgba(167,139,250,.6); }
-.tf-shoot { position: absolute; top: 12%; left: -10%; width: 160px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #fde047, #fff); box-shadow: 0 0 10px #fde047; transform: rotate(-18deg); animation: shoot 7s ease-in infinite; }
+/* star：星星人（浅黄色，柔和统一） */
+.theme-star { background: #fffef8 !important; }
+.tfx-star { background: radial-gradient(700px 360px at 15% 0%, #ffffff, transparent 70%), radial-gradient(600px 320px at 90% 15%, rgba(254,243,199,.7), transparent 70%), linear-gradient(180deg,#fffef8,#fffbeb 60%,#fef9e7); }
+.tfx-star .tf-twinkle { position: absolute; color: #f6c445; text-shadow: 0 0 6px rgba(250,204,21,.45); animation: twinkle ease-in-out infinite; }
+.tfx-star .tf-twinkle:nth-child(3n) { color: #f3d27a; }
+.tf-shoot { position: absolute; top: 12%; left: -10%; width: 160px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #f6c445, #fff); box-shadow: 0 0 8px #fde68a; transform: rotate(-18deg); animation: shoot 7s ease-in infinite; }
 @keyframes shoot { 0%, 70% { left: -15%; top: 10%; opacity: 0; } 72% { opacity: 1; } 100% { left: 110%; top: 45%; opacity: 0; } }
 .tf-peek-star { animation-duration: 8s; }
-.theme-star .app-sidebar { background: linear-gradient(180deg,#4338ca,#312e81) !important; }
-.theme-star .app-header { background: linear-gradient(90deg,#4f46e5,#7c3aed 55%,#eab308) !important; }
-.theme-star nav button { color: #fef9c3 !important; }
-.theme-star .dk-dash { background: radial-gradient(800px 420px at 10% 0%, rgba(253,224,71,.22), transparent 70%), linear-gradient(160deg,#1e1b4b,#312e81 50%,#4c1d95) !important; }
-.theme-star .cz-table thead tr { background: linear-gradient(90deg,#4f46e5,#7c3aed 50%,#eab308) !important; }
+.tfx-star .tf-float { opacity: .7; }
+.theme-star .app-sidebar, .theme-star .sb { background: linear-gradient(180deg,#fffcf0,#fef6d8) !important; border-right: 1px solid #f5e6b3 !important; }
+.theme-star .sb-item, .theme-star nav button { color: #8a6a2a !important; }
+.theme-star .sb-item:hover { background: rgba(253,230,138,.35) !important; }
+.theme-star .sb-item.on { background: linear-gradient(120deg,#fde68a,#fcd77f) !important; color: #6b4e16 !important; box-shadow: 0 4px 12px rgba(234,179,8,.18) !important; }
+.theme-star .sb-name { color: #6b4e16 !important; } .theme-star .sb-role { color: #c89b3c !important; } .theme-star .sb-prof { border-color: #f5e6b3 !important; } .theme-star .sb-sub { border-color: #f0dca0 !important; } .theme-star .sb-ver { color: #d6c08a; }
+.theme-star .app-header { background: linear-gradient(90deg,#fffdf5,#fef9e1 60%,#fdf1c4) !important; border-bottom: 1px solid #f5e6b3 !important; }
+.theme-star .app-header > :first-child, .theme-star .app-header > :first-child * { -webkit-text-fill-color: #8a6a2a !important; color: #8a6a2a !important; text-shadow: none !important; }
+.theme-star .app-header button:not([style*="gradient"]), .theme-star .app-header span[title^="登录邮箱"] { background: #fff !important; color: #8a6a2a !important; border: 1px solid #f0dca0 !important; }
+.theme-star .dk-dash { background: transparent !important; }
+.theme-star .dk-dash .fx3d .au { display: none; }
+.theme-star .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(214,180,90,.18) 2px, transparent 2px), linear-gradient(90deg, rgba(214,180,90,.18) 2px, transparent 2px) !important; }
+.theme-star .dk-dash .dash3d { background: rgba(255,255,255,.9) !important; border: 1px solid #f5e6b3 !important; box-shadow: 0 10px 28px rgba(180,140,40,.08) !important; }
+.theme-star .dk-dash .dash3d, .theme-star .dk-dash .dash3d button, .theme-star .dk-dash .dash3d div { color: #6b4e16 !important; }
+.theme-star .dk-dash .dash3d button div:last-child, .theme-star .dk-dash .dash3d span { color: #a8823a !important; }
+.theme-star .dk-dash .dash3d button { border-bottom-color: #fbf3d9 !important; }
+.theme-star .dk-dash .dash3d > div:first-child { border-left-color: #f6c445 !important; }
+.theme-star .cz-table thead tr { background: linear-gradient(90deg,#fdeaa7,#fde68a 50%,#fcefc0) !important; }
+.theme-star .cz-table thead th { color: #6b4e16 !important; }
+.theme-star button[style*="gradient"]:not(.stat-card):not(.td-chk), .theme-star span[style*="linear-gradient(120deg, rgb(124, 58, 237)"] { background: linear-gradient(120deg,#f6d77a,#efc35a) !important; box-shadow: 0 4px 12px rgba(214,170,60,.25) !important; color: #4a3610 !important; }
+.theme-star span[style*="linear-gradient(120deg, rgb(124, 58, 237)"] span { color: #4a3610 !important; }
+.theme-star .dk-dash .type-ic { background: linear-gradient(135deg,#f9e08e,#efc35a) !important; box-shadow: 0 3px 10px rgba(214,170,60,.3) !important; }
+.theme-star .dk-dash .type-ic svg { stroke: #6b4e16 !important; }
+.theme-star .td-head, .theme-star .td-add button { background: linear-gradient(120deg,#f6d77a,#fdeaa7) !important; color: #4a3610 !important; }
+.theme-star .td-head * { color: #4a3610 !important; } .theme-star .td-bar { background: rgba(255,255,255,.6) !important; } .theme-star .td-bar i { background: #d4a52c !important; }
+.theme-star div[style*="237, 233, 254"] { background: linear-gradient(120deg,#fffbeb,#fef6d8) !important; border-color: #f5e6b3 !important; color: #6b4e16 !important; }
+.theme-star div[style*="237, 233, 254"] span { color: #8a6a2a !important; }
+.theme-star div[style*="237, 233, 254"] span[style*="gradient"], .theme-star div[style*="237, 233, 254"] span[style*="gradient"] span { color: #4a3610 !important; }
+.theme-star button[style*="rgb(30, 41, 59)"] { background: #e9c46a !important; border-color: #e9c46a !important; color: #4a3610 !important; }
 /* honey：淡黄蜂蜜 */
 .theme-honey { background: #fffbeb !important; }
 .tfx-honey { background-color: #fff8d6; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='98' viewBox='0 0 56 98'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0 32L0 82V48l28 16 28-16v34L28 98z' fill='none' stroke='%23fcd34d' stroke-opacity='.45' stroke-width='2'/%3E%3C/svg%3E"), linear-gradient(180deg,#fffbe6,#fef3c7); }
