@@ -7151,16 +7151,16 @@ button:active, a:active { transform: scale(.97); }
 .tp-wrap { border-radius: 16px !important; overflow: auto !important; box-shadow: 0 12px 34px -14px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
 .tp-table tbody tr { cursor: pointer; }
 
-/* ===== 统一的干净表头（所有表格） ===== */
-html body .cz-table thead tr, html body [class*="theme-"] .cz-table thead tr { background: #f8fafc !important; }
+/* ===== 统一表头：实色（不会一格一格重复） ===== */
+html body .cz-table thead tr, html body [class*="theme-"] .cz-table thead tr { background: var(--th-bg, #4f46e5) !important; }
 html body .cz-table thead th, html body table.tp-table thead th, html body [class*="theme-"] table thead th {
-  background: #f8fafc !important; color: #64748b !important; -webkit-text-fill-color: #64748b !important;
+  background: var(--th-bg, #4f46e5) !important; color: var(--th-fg, #fff) !important; -webkit-text-fill-color: var(--th-fg, #fff) !important;
   font-size: 11.5px !important; font-weight: 800 !important; letter-spacing: .06em !important;
-  border: none !important; border-bottom: 2px solid var(--th-acc, #6366f1) !important; padding-top: 13px !important; padding-bottom: 11px !important; }
-html body table.tp-table thead th[style*="sticky"] { background: #f8fafc !important; box-shadow: 3px 0 5px -2px rgba(0,0,0,.08); }
-.theme-pink { --th-acc: #ec4899; } .theme-cat { --th-acc: #dc2626; } .theme-star { --th-acc: #d4a52c; } .theme-monet { --th-acc: #6f9c8a; } .theme-gold { --th-acc: #b8901f; }
-html body .vf-head { background: #f8fafc !important; border-bottom: 2px solid var(--th-acc, #6366f1); }
-html body .vf-head span { color: #64748b !important; font-size: 11.5px !important; letter-spacing: .06em; }
+  border: none !important; border-right: 1px solid rgba(255,255,255,.12) !important; padding-top: 13px !important; padding-bottom: 12px !important; }
+html body table.tp-table thead th[style*="sticky"] { box-shadow: 3px 0 6px -2px rgba(0,0,0,.18); }
+.theme-pink { --th-bg: #ec4899; } .theme-cat { --th-bg: #c81e1e; } .theme-star { --th-bg: #e9b949; --th-fg: #4a3610; } .theme-monet { --th-bg: #6f9c8a; } .theme-gold { --th-bg: #1a1610; --th-fg: #e8c96a; }
+html body .vf-head { background: var(--th-bg, #4f46e5) !important; }
+html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5px !important; letter-spacing: .06em; }
 .tp-table td { padding-top: 11px !important; padding-bottom: 11px !important; border-color: #eef0f6 !important; font-size: 13px; }
 .tp-table tbody td:nth-child(2) { font-weight: 800 !important; color: #1e1b4b !important; letter-spacing: .01em; }
 .tp-pp { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12px; color: hsl(var(--h),55%,32%); background: hsl(var(--h),90%,96%); border: 1px solid hsl(var(--h),70%,86%); padding: 2px 10px 2px 2px; border-radius: 999px; }
