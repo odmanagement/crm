@@ -511,10 +511,12 @@ const L = {
   Check: _icon(["M20 6 9 17l-5-5"]),
   CalendarDays: _icon([_r({ x: 3, y: 4, width: 18, height: 18, rx: 2 }), "M16 2v4", "M8 2v4", "M3 10h18", "M8 14h.01", "M12 14h.01", "M16 14h.01", "M8 18h.01", "M12 18h.01"]),
   Send: _icon(["m22 2-7 20-4-9-9-4Z", "M22 2 11 13"]),
+  MessageCircle: _icon(["M7.9 20A9 9 0 1 0 4 16.1L2 22Z"]),
   ListTodo: _icon(["m3 17 2 2 4-4", "m3 7 2 2 4-4", "M13 6h8", "M13 12h8", "M13 18h8"]),
   Folder: _icon(["M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"])
 };
 const {
+  MessageCircle,
   CalendarDays,
   Send,
   ListTodo,
@@ -574,11 +576,27 @@ function canSeeLucas() {
 let supa = null;
 const DB = {
   _init() {
-    if (!supa) supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // 默认用已登录的 session（配合 RLS）；如果资料库还是旧设定（只开放 anon），自动改用旧方式，不会坏掉
+    if (!supa) supa = authClient();
     return supa;
+  },
+  _picked: null,
+  _pick() {
+    if (this._picked) return this._picked;
+    this._picked = (async () => {
+      try {
+        const a = await authClient().from("crm_store").select("key").limit(1);
+        if (!a.error && a.data && a.data.length) { supa = authClient(); return; }
+        const anon = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+        const b = await anon.from("crm_store").select("key").limit(1);
+        supa = (!b.error && b.data && b.data.length) ? anon : authClient();
+      } catch (e) { supa = authClient(); }
+    })();
+    return this._picked;
   },
   async get(key) {
     if (useCloud) {
+      await this._pick();
       const s = this._init();
       const {
         data,
@@ -618,6 +636,7 @@ const DB = {
             const v = q.next; q.next = null;
             const ws = q.waiters.splice(0);
             try {
+              await this._pick();
               const s = this._init();
               const { error } = await s.from("crm_store").upsert({ key, value: v }, { onConflict: "key" });
               if (error) console.error(error);
@@ -722,6 +741,66 @@ const STAGES = [{
   color: "#dc2626"
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
+/* ===== Chat 资料（Supabase 表 chat_messages + RLS，永久保存） ===== */
+const chatApi = {
+  ok: null,
+  _ch: null,
+  _ls() { try { return JSON.parse(localStorage.getItem("crm_chatdb") || "[]"); } catch (e) { return []; } },
+  async recent(channels, limit = 400) {
+    if (!useCloud) return this._ls().filter(m => channels.includes(m.channel)).slice(-limit);
+    const { data, error } = await authClient().from("chat_messages").select("*").in("channel", channels).order("created_at", { ascending: false }).limit(limit);
+    if (error) { this.ok = false; throw error; }
+    this.ok = true;
+    return (data || []).reverse();
+  },
+  async older(channel, beforeIso, limit = 60) {
+    if (!useCloud) return this._ls().filter(m => m.channel === channel && m.created_at < beforeIso).slice(-limit);
+    const { data, error } = await authClient().from("chat_messages").select("*").eq("channel", channel).lt("created_at", beforeIso).order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    return (data || []).reverse();
+  },
+  async send(row) {
+    if (!useCloud) { const all = this._ls(); const r = { id: uid(), created_at: new Date().toISOString(), ...row }; all.push(r); localStorage.setItem("crm_chatdb", JSON.stringify(all)); return r; }
+    const { data, error } = await authClient().from("chat_messages").insert(row).select().single();
+    if (error) throw error;
+    return data;
+  },
+  subscribe(cb) {
+    if (!useCloud) return () => {};
+    const s = authClient();
+    const ch = s.channel("chat_messages_live").on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => { try { cb(p.new); } catch (e) {} }).subscribe();
+    return () => { try { s.removeChannel(ch); } catch (e) {} };
+  }
+};
+const CHAT_SETUP_SQL = `-- 在 Supabase → SQL Editor 贴上执行一次
+create table if not exists public.chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  channel text not null,
+  sender text not null,
+  recipient text,
+  body text,
+  img text,
+  created_at timestamptz not null default now()
+);
+create index if not exists chat_messages_channel_time on public.chat_messages (channel, created_at desc);
+
+create or replace function public.crm_me() returns text language sql stable as $$
+  select case lower(split_part(auth.jwt()->>'email','@',1))
+    when 'lucasgor' then 'lucas'
+    when 'lucasgor178' then 'lucas'
+    else lower(split_part(auth.jwt()->>'email','@',1)) end
+$$;
+
+alter table public.chat_messages enable row level security;
+drop policy if exists chat_read on public.chat_messages;
+drop policy if exists chat_send on public.chat_messages;
+create policy chat_read on public.chat_messages for select to authenticated
+  using (channel = 'general' or sender = public.crm_me() or recipient = public.crm_me());
+create policy chat_send on public.chat_messages for insert to authenticated
+  with check (sender = public.crm_me() and (channel = 'general' or recipient is not null));
+-- 没有 update / delete policy：讯息永久保存，谁都不能改或删
+
+alter publication supabase_realtime add table public.chat_messages;`;
 /* ===== 点击声音 ===== */
 let _sndCtx = null;
 const soundOn = () => { try { return localStorage.getItem("crm_sound") !== "off"; } catch (e) { return true; } };
@@ -904,7 +983,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { chat: "mesh", submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1059,6 +1138,10 @@ const NAV = [{
   id: "mission",
   label: "Mission",
   icon: CheckCircle2
+}, {
+  id: "chat",
+  label: "Chat",
+  icon: MessageCircle
 }, {
   id: "submission",
   label: "Closing",
@@ -2401,6 +2484,46 @@ function CRM({ onLogout, currentUser }) {
     if (!loading) ensureDailyBackup({ clients, missions, bankers, verifications });
   }, [loading]);
   const [showBackup, setShowBackup] = React.useState(false);
+  /* ---- Chat（安全版：Supabase RLS，永久保存） ---- */
+  const chatKeys = React.useMemo(() => chatChannelsFor(currentUser).map(c => c.key), [currentUser]);
+  const [chats, setChats] = React.useState({});
+  const [chatErr, setChatErr] = React.useState("");
+  const READ_KEY = "crm_chat_read_" + canonUser(currentUser);
+  const [chatRead, setChatRead] = React.useState(() => { try { return JSON.parse(localStorage.getItem(READ_KEY) || "{}"); } catch (e) { return {}; } });
+  const pageRef = React.useRef(page); pageRef.current = page;
+  const activeChatRef = React.useRef(null);
+  const addMsgs = (list, prepend) => setChats(prev => {
+    const n = { ...prev };
+    list.forEach(m => { const arr = n[m.channel] ? n[m.channel].slice() : []; if (!arr.some(x => x.id === m.id)) arr.push(m); n[m.channel] = arr; });
+    Object.keys(n).forEach(k => n[k].sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))));
+    return n;
+  });
+  React.useEffect(() => {
+    chatApi.recent(chatKeys).then(list => { setChatErr(""); addMsgs(list); }).catch(e => setChatErr(String(e && (e.message || e.code) || e)));
+    return chatApi.subscribe(m => {
+      if (!chatKeys.includes(m.channel)) return;
+      addMsgs([m]);
+      if (!sameUser(m.sender, currentUser) && !(pageRef.current === "chat" && activeChatRef.current === m.channel)) playClick("primary");
+    });
+  }, [chatKeys.join("|")]);
+  const tsOf = m => new Date(m.created_at).getTime();
+  const markChatRead = key => { activeChatRef.current = key; setChatRead(prev => { const n = { ...prev, [key]: Date.now() }; try { localStorage.setItem(READ_KEY, JSON.stringify(n)); } catch (e) {} return n; }); };
+  const chatUnreadOf = key => (chats[key] || []).filter(m => !sameUser(m.sender, currentUser) && tsOf(m) > (chatRead[key] || 0)).length;
+  const chatUnreadTotal = chatKeys.reduce((t, k) => t + chatUnreadOf(k), 0);
+  const sendChat = async (key, msg) => {
+    const ch = chatChannelsFor(currentUser).find(c => c.key === key);
+    try {
+      const row = await chatApi.send({ channel: key, sender: canonUser(currentUser), recipient: ch && ch.peer ? canonUser(ch.peer) : null, body: msg.text || null, img: msg.img || null });
+      addMsgs([row]);
+    } catch (e) { alert("讯息送不出去：" + (e.message || e)); }
+  };
+  const loadOlderChat = async key => {
+    const first = (chats[key] || [])[0];
+    const list = await chatApi.older(key, first ? first.created_at : new Date().toISOString());
+    addMsgs(list);
+    return list.length;
+  };
+  React.useEffect(() => { if (page !== "chat") activeChatRef.current = null; }, [page]);
   const [notices, setNotices] = React.useState([]);
   React.useEffect(() => { DB.get("mission_notices").then(v => { if (v) setNotices(JSON.parse(v)); }).catch(() => {}); }, []);
   React.useEffect(() => DB.subscribe(async (key, value) => {
@@ -2569,7 +2692,8 @@ function CRM({ onLogout, currentUser }) {
     setPage: setPage,
     openGroups: openGroups,
     setOpenGroups: setOpenGroups,
-    currentUser: currentUser
+    currentUser: currentUser,
+    badges: { chat: chatUnreadTotal }
   }), /*#__PURE__*/React.createElement("div", {
     style: S.main
   }, /*#__PURE__*/React.createElement("header", {
@@ -2650,6 +2774,15 @@ function CRM({ onLogout, currentUser }) {
   }) : page === "html_company" || page === "html_payslip" || page === "html_offer" ? /*#__PURE__*/React.createElement(CompanyFilesPage, null) : page === "banker" ? /*#__PURE__*/React.createElement(BankerPage, {
     bankers: bankers,
     onSave: persistBankers
+  }) : page === "chat" ? /*#__PURE__*/React.createElement(ChatPage, {
+    currentUser: currentUser,
+    chats: chats,
+    lastRead: chatRead,
+    onRead: markChatRead,
+    onSend: sendChat,
+    unreadOf: chatUnreadOf,
+    onOlder: loadOlderChat,
+    error: chatErr
   }) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
     currentUser: currentUser
   }) : page === "submission" ? /*#__PURE__*/React.createElement(SubmissionPage, {
@@ -2945,7 +3078,7 @@ function MissionPhotos({ mission, onChange, onClose }) {
 }
 /* ---------- 左边菜单（头像 + 职位 + 文字菜单） ---------- */
 const ROLE_LABELS = { lucas: "Boss", admin: "Admin" };
-function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser }) {
+function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges }) {
   const h = React.createElement;
   const me = canonUser(currentUser);
   const role = ROLE_LABELS[me] || "Staff";
@@ -2971,7 +3104,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser }) {
             })));
         }
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
-          h("span", { className: "sb-caret" }), h(Icon, { size: 18 }), h("span", { className: "sb-txt" }, n.label));
+          h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
     h("div", { className: "sb-ver" }, "v27"));
 }
@@ -3298,6 +3431,117 @@ function StageTimeline({ stage, onSet }) {
     .tl-rej:hover{color:#dc2626;border-color:#fecaca}
     .tl-rej.on{color:#dc2626;border-color:#fecaca;background:#fef2f2}
     `));
+}
+/* ---------- Chat（公司内部聊天） ---------- */
+const CHAT_PEOPLE = () => [...MISSION_PEOPLE, "admin"];
+function chatChannelsFor(me) {
+  const m = canonUser(me);
+  return [{ key: "general", name: "全部人", group: true }].concat(CHAT_PEOPLE().filter(p => !sameUser(p, m)).map(p => ({ key: "dm:" + [m, canonUser(p)].sort().join("__"), name: p, peer: p })));
+}
+function ChatPage({ currentUser, chats, lastRead, onRead, onSend, unreadOf, onOlder, error }) {
+  const h = React.createElement;
+  const chans = chatChannelsFor(currentUser);
+  const [active, setActive] = React.useState(chans[0].key);
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [big, setBig] = React.useState(null);
+  const [moreBusy, setMoreBusy] = React.useState(false);
+  const [noMore, setNoMore] = React.useState({});
+  const [showSql, setShowSql] = React.useState(false);
+  const listRef = React.useRef(null);
+  const ch = chans.find(c => c.key === active) || chans[0];
+  const msgs = chats[active] || [];
+  React.useEffect(() => { onRead(active); }, [active, msgs.length]);
+  const lastId = (msgs[msgs.length - 1] || {}).id;
+  React.useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [active, lastId]);
+  const loadMore = async () => { setMoreBusy(true); const el = listRef.current, h0 = el ? el.scrollHeight : 0; try { const n = await onOlder(active); if (!n) setNoMore(p => ({ ...p, [active]: true })); } catch (e) {} setMoreBusy(false); setTimeout(() => { if (el) el.scrollTop = el.scrollHeight - h0; }, 30); };
+  const lastOf = k => { const l = chats[k] || []; return l[l.length - 1]; };
+  const sorted = chans.slice().sort((a, b) => a.group ? -1 : b.group ? 1 : String((lastOf(b.key) || {}).created_at || "").localeCompare(String((lastOf(a.key) || {}).created_at || "")));
+  const send = () => { const t = text.trim(); if (!t) return; onSend(active, { text: t }); setText(""); };
+  const sendImg = async files => {
+    const f = files && files[0]; if (!f || !f.type.startsWith("image/")) return;
+    setBusy(true);
+    try { const data = await compressImage(f, 1000, .68); onSend(active, { img: data }); } catch (e) { alert("图片上传失败"); }
+    setBusy(false);
+  };
+  const tm = t => { const d = new Date(t), n = new Date(); const hm = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); return d.toDateString() === n.toDateString() ? hm : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " " + hm; };
+  const dayOf = t => new Date(t).toDateString();
+  const css = `
+  .ct{display:grid;grid-template-columns:260px 1fr;height:calc(100vh - 67px - 56px);min-height:460px;background:#fff;border-radius:20px;overflow:hidden;border:1px solid #e9eaf3;box-shadow:0 18px 40px -22px rgba(30,27,75,.35);--cc:var(--th-bg,#4f46e5)}
+  @media(max-width:800px){.ct{grid-template-columns:76px 1fr}.ct-cn,.ct-cl small,.ct-search{display:none!important}}
+  .ct-side{border-right:1px solid #eef0f6;display:flex;flex-direction:column;background:#fafbff;min-height:0}
+  .ct-sh{padding:16px 16px 10px;font-weight:900;font-size:16px;color:#1e1b4b}
+  .ct-list{overflow-y:auto;flex:1;padding:0 8px 10px}
+  .ct-ch{width:100%;display:flex;align-items:center;gap:10px;padding:10px;border:none;background:none;border-radius:14px;cursor:pointer;text-align:left;font-family:inherit;margin-bottom:2px;position:relative}
+  .ct-ch:hover{background:#f1f2fb}
+  .ct-ch.on{background:color-mix(in srgb,var(--cc) 12%,#fff)}
+  .ct-cl{flex:1;min-width:0}
+  .ct-cn{font-weight:800;font-size:13.5px;color:#1e293b;display:flex;justify-content:space-between;gap:6px}
+  .ct-cl small{display:block;color:#94a3b8;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;font-weight:600}
+  .ct-un{min-width:18px;height:18px;border-radius:999px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 5px}
+  .ct-grp{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--cc),color-mix(in srgb,var(--cc) 60%,#fff));color:#fff;font-size:18px;flex-shrink:0}
+  .ct-main{display:flex;flex-direction:column;min-height:0;background:linear-gradient(180deg,#fff,#fbfbff)}
+  .ct-top{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #eef0f6;background:#fff}
+  .ct-msgs{flex:1;overflow-y:auto;padding:18px 18px 8px;display:flex;flex-direction:column;gap:4px}
+  .ct-day{align-self:center;font-size:11px;font-weight:800;color:#94a3b8;background:#f1f5f9;border-radius:999px;padding:3px 10px;margin:10px 0 6px}
+  .ct-m{display:flex;gap:8px;align-items:flex-end;max-width:76%}
+  .ct-m.me{align-self:flex-end;flex-direction:row-reverse}
+  .ct-b{padding:9px 13px;border-radius:18px 18px 18px 6px;background:#f1f2f7;color:#1e293b;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word;text-transform:none!important}
+  .ct-m.me .ct-b{background:var(--cc);color:#fff;border-radius:18px 18px 6px 18px}
+  .ct-b img{display:block;max-width:240px;max-height:240px;border-radius:12px;cursor:zoom-in}
+  .ct-meta{font-size:10.5px;color:#a3aec2;font-weight:700;margin:0 4px 2px;white-space:nowrap}
+  .ct-who{font-size:11px;font-weight:900;margin:6px 0 2px 40px}
+  .ct-in{display:flex;gap:8px;align-items:flex-end;padding:12px 14px;border-top:1px solid #eef0f6;background:#fff}
+  .ct-in textarea{flex:1;resize:none;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;max-height:120px;min-height:22px;text-transform:none!important}
+  .ct-in textarea:focus{border-color:var(--cc)}
+  .ct-send{width:44px;height:44px;border-radius:14px;border:none;background:var(--cc);color:#fff;font-size:18px;cursor:pointer;flex-shrink:0;box-shadow:0 6px 16px -6px var(--cc)}
+  .ct-att{width:44px;height:44px;border-radius:14px;border:1.5px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:18px}
+  .ct-empty{margin:auto;text-align:center;color:#94a3b8;font-size:13.5px;font-weight:600}
+  `;
+  let lastDay = "", lastFrom = "";
+  return h("div", { className: "ct" }, h("style", null, css),
+    h("div", { className: "ct-side" },
+      h("div", { className: "ct-sh" }, "💬 Chat"),
+      h("div", { className: "ct-list" }, sorted.map(c => {
+        const last = lastOf(c.key), un = c.key === active ? 0 : unreadOf(c.key);
+        return h("button", { key: c.key, className: "ct-ch" + (c.key === active ? " on" : ""), onClick: () => setActive(c.key) },
+          c.group ? h("span", { className: "ct-grp" }, "👥") : czAvatar(c.peer, 38),
+          h("div", { className: "ct-cl" },
+            h("div", { className: "ct-cn" }, h("span", null, c.group ? "全部人 · GROUP" : String(c.name).toUpperCase()), last && h("span", { style: { fontSize: 10.5, color: "#a3aec2", fontWeight: 700 } }, tm(last.created_at).split(" ").pop())),
+            h("small", null, last ? (sameUser(last.sender, currentUser) ? "你：" : c.group ? String(last.sender).toUpperCase() + "：" : "") + (last.img ? "📷 图片" : last.body) : "还没有讯息")),
+          un ? h("span", { className: "ct-un" }, un) : null);
+      }))),
+    h("div", { className: "ct-main" },
+      h("div", { className: "ct-top" },
+        ch.group ? h("span", { className: "ct-grp" }, "👥") : czAvatar(ch.peer, 38),
+        h("div", null, h("div", { style: { fontWeight: 900, fontSize: 15, color: "#1e1b4b" } }, ch.group ? "全部人" : String(ch.name).toUpperCase()), h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, ch.group ? "公司所有同事都看得到 · 永久保存" : "🔒 私人聊天，只有你们两个看得到 · 永久保存"))),
+      error ? h("div", { style: { margin: 18, padding: 16, borderRadius: 14, background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13.5, lineHeight: 1.6 } },
+        h("div", { style: { fontWeight: 900, fontSize: 15, marginBottom: 6 } }, "⚙️ Chat 还没设定好"),
+        h("div", null, "需要在 Supabase 建立一个加密权限的聊天表（只要做一次）。请把下面的 SQL 复制，到 Supabase → SQL Editor 贴上，按 Run。"),
+        h("div", { style: { display: "flex", gap: 8, margin: "10px 0" } },
+          h("button", { onClick: () => { try { navigator.clipboard.writeText(CHAT_SETUP_SQL); alert("已复制 SQL"); } catch (e) {} }, style: { border: "none", background: "#ea580c", color: "#fff", fontWeight: 800, borderRadius: 10, padding: "8px 14px", cursor: "pointer" } }, "📋 复制 SQL"),
+          h("button", { onClick: () => setShowSql(!showSql), style: { border: "1px solid #fdba74", background: "#fff", color: "#9a3412", fontWeight: 800, borderRadius: 10, padding: "8px 14px", cursor: "pointer" } }, showSql ? "收起" : "看 SQL")),
+        showSql && h("pre", { style: { background: "#1e1b4b", color: "#e0e7ff", padding: 12, borderRadius: 10, fontSize: 11.5, overflowX: "auto", textTransform: "none", whiteSpace: "pre" } }, CHAT_SETUP_SQL),
+        h("div", { style: { fontSize: 12, opacity: .8 } }, "错误讯息：" + error)) : null,
+      h("div", { className: "ct-msgs", ref: listRef },
+        msgs.length >= 1 && !noMore[active] && h("button", { onClick: loadMore, disabled: moreBusy, style: { alignSelf: "center", border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 800, fontSize: 12, borderRadius: 999, padding: "5px 14px", cursor: "pointer", marginBottom: 6 } }, moreBusy ? "载入中…" : "↑ 载入更早的讯息"),
+        msgs.length === 0 ? h("div", { className: "ct-empty" }, "👋 说点什么吧") :
+        msgs.map(m => {
+          const me = sameUser(m.sender, currentUser), d = dayOf(m.created_at), out = [];
+          if (d !== lastDay) { out.push(h("div", { key: "d" + m.id, className: "ct-day" }, new Date(m.created_at).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" }))); lastDay = d; lastFrom = ""; }
+          if (ch.group && !me && lastFrom !== m.sender) out.push(h("div", { key: "w" + m.id, className: "ct-who", style: { color: "hsl(" + czHue(m.sender) + ",60%,40%)" } }, String(m.sender).toUpperCase()));
+          lastFrom = m.sender;
+          out.push(h("div", { key: m.id, className: "ct-m" + (me ? " me" : "") },
+            !me && h("div", { style: { flexShrink: 0 } }, czAvatar(m.sender, 30)),
+            h("div", { className: "ct-b" }, m.img ? h("img", { src: m.img, onClick: () => setBig(m.img), alt: "" }) : m.body),
+            h("span", { className: "ct-meta" }, tm(m.created_at))));
+          return out;
+        })),
+      h("div", { className: "ct-in" },
+        h("label", { className: "ct-att", title: "传图片" }, busy ? "⏳" : "📷", h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { sendImg(e.target.files); e.target.value = ""; } })),
+        h("textarea", { rows: 1, value: text, placeholder: "输入讯息… (Enter 送出，Shift+Enter 换行)", onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) { e.preventDefault(); send(); } } }),
+        h("button", { className: "ct-send", onClick: send, title: "送出" }, "➤"))),
+    big && h("div", { onClick: () => setBig(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" } }, h("img", { src: big, alt: "", style: { maxWidth: "100%", maxHeight: "100%", borderRadius: 8 } })));
 }
 /* ---------- 个人 To Do List（每个人自己的，admin 没有） ---------- */
 function TodoPage({ currentUser }) {
@@ -6930,6 +7174,7 @@ button:active, a:active { transform: scale(.97); }
 .sb-sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px 18px; padding-left: 8px; border-left: 1px dashed rgba(255,255,255,.15); }
 .sb-child { padding: 8px 10px; font-size: 13px; }
 .sb-txt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-badge { position: absolute; top: -7px; right: -9px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-sizing: content-box; animation: mhPop .3s; }
 .sb-ver { margin-top: auto; padding-top: 12px; text-align: center; font-size: 10px; color: rgba(255,255,255,.3); }
 .pfx { left: var(--sbw) !important; }
 @media (max-width: 900px) {
