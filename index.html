@@ -3768,24 +3768,25 @@ function CompanyFilesPage() {
     const base = COMPANY_FILES.map(c => ({ name: c.name, pUrl: urlOf(PAYSLIP_TOOLS, c.payslip), cUrl: urlOf(OFFER_TOOLS, c.cl), builtin: true }));
     custom.forEach(x => {
       const b = base.find(c => keyOf(c.name) === keyOf(x.name));
-      if (b) { if (x.payslip) b.pUrl = x.payslip; if (x.cl) b.cUrl = x.cl; if (x.of) b.oUrl = x.of; if (x.bao) b.aUrl = x.bao; b.customId = x.id; }
-      else base.push({ name: x.name, pUrl: x.payslip || null, cUrl: x.cl || null, oUrl: x.of || null, aUrl: x.bao || null, customId: x.id, by: x.by });
+      if (b) { if (x.payslip) b.pUrl = x.payslip; if (x.cl) b.cUrl = x.cl; if (x.of) b.oUrl = x.of; if (x.bao) b.aUrl = x.bao; if (x.full) b.full = x.full; b.customId = x.id; }
+      else base.push({ name: x.name, pUrl: x.payslip || null, cUrl: x.cl || null, oUrl: x.of || null, aUrl: x.bao || null, full: x.full || "", customId: x.id, by: x.by });
     });
     return base.sort((a, b) => a.name.localeCompare(b.name));
   })();
-  const openEdit = c => setEdit(c ? { name: c.name, payslip: c.pUrl || "", cl: c.cUrl || "", of: c.oUrl || "", bao: c.aUrl || "", locked: true } : { name: "", payslip: "", cl: "", of: "", bao: "", locked: false });
+  const openEdit = c => setEdit(c ? { name: c.name, full: c.full || "", payslip: c.pUrl || "", cl: c.cUrl || "", of: c.oUrl || "", bao: c.aUrl || "", locked: true } : { name: "", full: "", payslip: "", cl: "", of: "", bao: "", locked: false });
   const fixUrl = u => { u = String(u || "").trim(); if (!u) return ""; return /^https?:\/\//i.test(u) ? u : "https://" + u; };
   const submitEdit = async () => {
     const name = edit.name.trim(), payslip = fixUrl(edit.payslip), cl = fixUrl(edit.cl), of = fixUrl(edit.of), bao = fixUrl(edit.bao);
     if (!name) { alert("请填公司名字"); return; }
-    if (!payslip && !cl && !of && !bao) { alert("至少要填一个链接"); return; }
+    const full = String(edit.full || "").trim();
+    if (!payslip && !cl && !of && !bao && !full) { alert("至少要填一个链接"); return; }
     setSaving(true);
     const ex = custom.find(x => keyOf(x.name) === keyOf(name));
-    const item = { id: ex ? ex.id : uid(), name, payslip, cl, of, bao, by: window.__crmUser || "", at: Date.now() };
+    const item = { id: ex ? ex.id : uid(), name, full, payslip, cl, of, bao, by: window.__crmUser || "", at: Date.now() };
     await saveCustom(ex ? custom.map(x => x.id === ex.id ? item : x) : [...custom, item]);
     setSaving(false); setEdit(null); setOpenName(name);
   };
-  const rows = all.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase()))
+  const rows = all.filter(c => (c.name + " " + (c.full || "")).toLowerCase().includes(q.trim().toLowerCase()))
     .filter(c => filter === "all" || (filter === "p" && c.pUrl) || (filter === "c" && c.cUrl) || (filter === "o" && c.oUrl) || (filter === "a" && c.aUrl));
   const hues = [262, 199, 330, 152, 24, 222, 285, 174, 350, 45];
   const hueOf = n => hues[n.split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % hues.length];
@@ -3857,7 +3858,7 @@ function CompanyFilesPage() {
         h("div", { className: "co-head" },
           h("div", { className: "co-mono" }, initials(c.name)),
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { className: "co-name" }, c.name),
+            h("div", { className: "co-name", title: c.full || c.name }, c.full || c.name),
             h("div", { className: "co-sub" }, [c.pUrl && "Payslip", c.cUrl && "CL", c.oUrl && "OF", c.aUrl && "Bank Acc"].filter(Boolean).join(" · ") || "还没有文件", c.by ? " · 由 " + String(c.by).toUpperCase() + " 添加" : "")),
           h("button", { className: "co-more", title: "改链接", onClick: () => openEdit(c) }, "⋯"),
           c.customId && !c.builtin && h("button", { className: "co-more", title: "删除", onClick: () => setDelItem(c), style: { color: "#ef4444" } }, "×")),
@@ -3869,7 +3870,7 @@ function CompanyFilesPage() {
           h("div", { style: { flex: 1, fontSize: 16, fontWeight: 800 } }, edit.locked ? "改链接 · " + edit.name : "添加公司 / 文件"),
           h("button", { onClick: () => setEdit(null), style: { background: "rgba(255,255,255,.2)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
         h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
-          [["name", "公司名字", "例如 ABC SDN BHD", edit.locked], ["payslip", "Payslip 链接", "贴上 Google Sheet / Drive 链接", false], ["cl", "CL 链接", "贴上 Google Sheet / Drive 链接", false], ["of", "OF 链接", "贴上 Google Sheet / Drive 链接", false], ["bao", "Bank Acc Opening Letter 链接", "贴上 Google Sheet / Drive 链接", false]].map(([k, label, ph, dis]) => h("label", { key: k, style: { display: "block" } },
+          [["name", "公司简称", "例如 ABC", edit.locked], ["full", "公司全名", "例如 ABC SDN BHD", false], ["payslip", "Payslip 链接", "贴上 Google Sheet / Drive 链接", false], ["cl", "CL 链接", "贴上 Google Sheet / Drive 链接", false], ["of", "OF 链接", "贴上 Google Sheet / Drive 链接", false], ["bao", "Bank Acc Opening Letter 链接", "贴上 Google Sheet / Drive 链接", false]].map(([k, label, ph, dis]) => h("label", { key: k, style: { display: "block" } },
             h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, label),
             h("input", { value: edit[k], disabled: dis, placeholder: ph, list: k === "name" ? "co-names" : undefined, onChange: e => setEdit({ ...edit, [k]: e.target.value }),
               style: { width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 10, border: "1px solid #e0e7ff", background: dis ? "#f8fafc" : "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" } }))),
