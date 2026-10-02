@@ -4214,10 +4214,12 @@ function ClientsPage({
   value: q,
   onChange: e => setQ(e.target.value)
 })), /*#__PURE__*/React.createElement("div", {
+  className: "tp-wrap",
   style: S.tableWrap
 }, rows.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
   text: clients.length === 0 ? "No clients yet" : "No matching clients"
 }) : /*#__PURE__*/React.createElement("table", {
+  className: "cz-table tp-table",
   style: S.dataTable
 }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
   style: {
@@ -4312,15 +4314,15 @@ function ClientsPage({
     style: S.linkCell
   }, "Open", linkCountOf(l, c) > 1 ? " (" + linkCountOf(l, c) + ")" : "") : ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.agent || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpPerson(l.agent)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.date || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpDate(l.date)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.lawyer || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.lawyer, "⚖", 265)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.supplies || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.supplies, "", 175)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.banker || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.banker, "", 215)), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, l.subject || ""), /*#__PURE__*/React.createElement("td", {
     style: {
@@ -4349,14 +4351,13 @@ function ClientsPage({
       style: S.td
     });
     const isRej = b.status === "rejected";
-    const disp = b.amount ? money(b.amount) : b.officer || (isRej ? "REJECT" : "");
     return /*#__PURE__*/React.createElement("td", {
       key: bk,
-      style: {
-        ...S.td,
-        ...(isRej ? S.cellReject : b.amount ? S.cellApproved : {})
-      }
-    }, isRej && b.officer ? "REJECT " + b.officer : disp);
+      style: S.td
+    }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
+      : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
   }), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("span", {
@@ -4369,6 +4370,11 @@ function ClientsPage({
 })))));
 }
 
+/* ---------- 表格美化小工具 ---------- */
+const tpHue = n => { const k = String(n || "").trim().toLowerCase(); const i = (typeof CLOSING_AGENTS !== "undefined" ? CLOSING_AGENTS : []).indexOf(k); return i >= 0 ? [262, 199, 330, 152, 24, 222, 285, 174, 350, 45, 120, 300, 190, 15, 240, 60, 160, 340][i % 18] : czHue(k); };
+const tpPerson = v => v ? React.createElement("span", { className: "tp-pp", style: { "--h": tpHue(v) } }, React.createElement("i", null, String(v).trim().charAt(0)), String(v)) : "";
+const tpTag = (v, icon, hue) => v ? React.createElement("span", { className: "tp-tag", style: { "--h": hue } }, icon ? React.createElement("em", null, icon) : null, String(v)) : "";
+const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, String(v)) : "";
 /* ---------- Type page ---------- */
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB","MICHELLE"];
 const BANK_ALIAS = { "HONG LEONG": "HLB", "HONG LEONG BANK": "HLB", "BANK RAKYAT": "B.RAKYAT", "RAKYAT": "B.RAKYAT", "PUBLIC BANK": "PBB", "PUBLIC": "PBB", "AL RAJHI": "ALRAJHI", "AL-RAJHI": "ALRAJHI" };
@@ -4433,10 +4439,12 @@ function TypePage({
     color: s.color
   });
 })), /*#__PURE__*/React.createElement("div", {
+  className: "tp-wrap",
   style: S.tableWrap
 }, rows.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
   text: clients.length === 0 ? "No clients yet" : "No matching clients"
 }) : /*#__PURE__*/React.createElement("table", {
+  className: "cz-table tp-table",
   style: S.dataTable
 }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
   style: {
@@ -4518,7 +4526,7 @@ function TypePage({
     style: S.linkCell
   }, "Open", linkCountOf(l, c) > 1 ? " (" + linkCountOf(l, c) + ")" : "") : ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.agent || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpPerson(l.agent)), /*#__PURE__*/React.createElement("td", {
     style: c.flag ? {
       ...S.td,
       ...S.tdName,
@@ -4531,13 +4539,13 @@ function TypePage({
     }
   }, c.name), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.date || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpDate(l.date)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.lawyer || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.lawyer, "⚖", 265)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.supplies || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.supplies, "", 175)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.banker || ""), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.banker, "", 215)), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, l.subject || ""), /*#__PURE__*/React.createElement("td", {
     style: {
@@ -4566,14 +4574,13 @@ function TypePage({
       style: S.td
     });
     const isRej = b.status === "rejected";
-    const disp = b.amount ? money(b.amount) : b.officer || (isRej ? "REJECT" : "");
     return /*#__PURE__*/React.createElement("td", {
       key: bk,
-      style: {
-        ...S.td,
-        ...(isRej ? S.cellReject : b.amount ? S.cellApproved : {})
-      }
-    }, isRej && b.officer ? "REJECT " + b.officer : disp);
+      style: S.td
+    }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
+      : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
   }), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("span", {
@@ -4883,90 +4890,55 @@ function VerifyPage({
     value: q,
     onChange: e => setQ(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
-    style: S.vTableWrap
+    className: "vf-wrap"
   }, /*#__PURE__*/React.createElement("div", {
-    style: S.vTableHead
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 30
-    }
-  }, "#"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 90
-    }
-  }, "Submit"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 90
-    }
-  }, "Status"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 2
-    }
-  }, "Customer"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1.5
-    }
-  }, "IC Number"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 2
-    }
-  }, "Company"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 90
-    }
-  }, "Staff")), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: S.empty
+    className: "vf-head"
+  }, ["#", "Submit", "Status", "Customer", "IC Number", "Company", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: "vf-c" + k }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: { ...S.empty, padding: 40 }
   }, "No records"), shown.map((v, i) => {
     const st = V_STATUS[v.status];
-    return /*#__PURE__*/React.createElement("button", {
+    return /*#__PURE__*/React.createElement("div", {
       key: v.id,
-      style: S.vRow,
+      className: "vf-row",
+      style: { "--st": st.color },
       onClick: () => setOpenId(v.id)
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        width: 30,
-        color: "#94a3b8"
-      }
-    }, i + 1), /*#__PURE__*/React.createElement("span", {
-      style: {
-        width: 90,
-        color: "#64748b",
-        fontSize: 12.5
-      }
-    }, v.submitDate || "—"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        width: 90
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        ...S.vStatusTag,
-        background: st.bg,
-        color: st.color
-      }
-    }, st.label)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        flex: 2,
-        fontWeight: 600
-      }
-    }, v.customerName || "—"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        flex: 1.5,
-        fontFamily: "monospace",
-        fontSize: 12.5
-      }
-    }, v.icNumber || "—"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        flex: 2,
-        fontSize: 13
-      }
-    }, v.companyName || "—"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        width: 90,
-        fontSize: 12.5,
-        color: "#64748b"
-      }
-    }, v.staff || "—"));
-  })), open && /*#__PURE__*/React.createElement(VerifyDetail, {
+    }, /*#__PURE__*/React.createElement("span", { className: "vf-c0" }, i + 1),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c1" }, v.submitDate ? v.submitDate.split("-").reverse().join("/") : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c2" }, /*#__PURE__*/React.createElement("span", { style: { ...S.vStatusTag, background: st.bg, color: st.color, border: "1px solid " + st.color + "33", padding: "4px 10px", borderRadius: 999 } }, st.label)),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c6" }, v.staff ? [/*#__PURE__*/React.createElement(React.Fragment, { key: "a" }, czAvatar(v.staff, 22)), " ", String(v.staff).toUpperCase()] : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c7" }, /*#__PURE__*/React.createElement("button", {
+        className: "vf-del",
+        title: "删除",
+        onClick: e => { e.stopPropagation(); if (window.confirm("删除「" + (v.customerName || "这笔记录") + "」？")) remove(v.id); }
+      }, /*#__PURE__*/React.createElement(Trash2, { size: 15, color: "#ef4444" }))));
+  }), /*#__PURE__*/React.createElement("style", null, `
+  .vf-wrap{background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e0e7ff;box-shadow:0 12px 34px -14px rgba(79,70,229,.3)}
+  .vf-head,.vf-row{display:flex;align-items:center;gap:12px;padding:0 16px}
+  .vf-head{height:44px;background:linear-gradient(90deg,#7c3aed,#4f46e5 45%,#0ea5e9);color:#fff;font-size:12px;font-weight:800;letter-spacing:.05em}
+  .vf-row{min-height:54px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;position:relative;font-size:13.5px;color:#334155}
+  .vf-row:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--st)}
+  .vf-row:nth-child(odd){background:#fbfaff}
+  .vf-row:hover{background:#f3f0ff}
+  .vf-c0{width:28px;color:#94a3b8;font-size:12.5px}
+  .vf-c1{width:92px;color:#64748b;font-size:12.5px}
+  .vf-c2{width:96px}
+  .vf-c3{flex:2;min-width:160px;display:flex;align-items:center;gap:10px}
+  .vf-c3 b{font-weight:700;color:#1e1b4b}
+  .vf-ini{width:30px;height:30px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:900;color:#4f46e5;background:#eef2ff}
+  .vf-c4{flex:1.4;min-width:130px}
+  .vf-ic{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:3px 8px;letter-spacing:.04em}
+  .vf-c5{flex:2;min-width:150px;font-size:13px}
+  .vf-c6{width:110px;display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px}
+  .vf-c7{width:36px;display:flex;justify-content:flex-end}
+  .vf-head span{color:#fff!important;font-size:12px!important;font-weight:800}
+  .vf-head .vf-c3,.vf-head .vf-c6{display:block}
+  .vf-del{border:none;background:#fff1f2;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;opacity:.55;transition:all .15s}
+  .vf-row:hover .vf-del{opacity:1}
+  .vf-del:hover{background:#fee2e2;transform:scale(1.08)}
+  `)), open && /*#__PURE__*/React.createElement(VerifyDetail, {
     v: open,
     clients: clients,
     onClose: () => setOpenId(null),
@@ -7052,6 +7024,31 @@ button:active, a:active { transform: scale(.97); }
 .cz-table tbody tr:nth-child(even) td { background: #fbfaff; }
 .cz-table tbody tr:hover td { background: #f3f0ff !important; }
 .cz-table select, .cz-table input { cursor: pointer; }
+.tp-wrap { border-radius: 16px !important; overflow: auto !important; box-shadow: 0 12px 34px -14px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
+.tp-table tbody tr { cursor: pointer; }
+.tp-table td { padding-top: 11px !important; padding-bottom: 11px !important; border-color: #eef0f6 !important; font-size: 13px; }
+.tp-table tbody td:nth-child(2) { font-weight: 800 !important; color: #1e1b4b !important; letter-spacing: .01em; }
+.tp-pp { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12px; color: hsl(var(--h),55%,32%); background: hsl(var(--h),90%,96%); border: 1px solid hsl(var(--h),70%,86%); padding: 2px 10px 2px 2px; border-radius: 999px; }
+.tp-pp i { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 10.5px; color: #fff; background: linear-gradient(135deg,hsl(var(--h),80%,62%),hsl(var(--h),75%,45%)); }
+.tp-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: hsl(var(--h),45%,35%); background: hsl(var(--h),60%,97%); border-radius: 8px; padding: 3px 9px; }
+.tp-tag em { font-style: normal; opacity: .7; }
+.tp-date { font-size: 12px; font-weight: 700; color: #475569; background: #f1f5f9; border-radius: 8px; padding: 3px 9px; white-space: nowrap; }
+.tp-bk { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; line-height: 1.2; font-weight: 800; font-size: 12px; padding: 4px 10px; border-radius: 10px; white-space: nowrap; }
+.tp-bk small { font-size: 10px; font-weight: 700; opacity: .7; padding-left: 6px; border-left: 1px solid currentColor; }
+.tp-bk.ok { color: #047857; background: linear-gradient(135deg,#ecfdf5,#d1fae5); border: 1px solid #a7f3d0; }
+.tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
+.tp-bk.pend { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; flex-direction: row; }
+.tp-bk.sub { color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 700; }
+.tp-table td[style*="text-align: right"] { font-variant-numeric: tabular-nums; font-weight: 700; color: #1e293b; }
+
+.tp-table tbody tr:hover td { background: #f3f0ff !important; }
+.tp-table tbody tr:hover td[style*="253, 230, 138"] { background: #fcd34d !important; }
+.tp-table thead th { position: sticky; top: 0; z-index: 2; }
+.tp-table thead th:first-child { left: 0; }
+.tp-table thead th[style*="left: 0"], .tp-table thead th[style*="left:0"] { z-index: 5 !important; }
+.tp-table tbody td[style*="sticky"] { z-index: 3 !important; }
+.theme-pink .cz-table.tp-table thead th { background: linear-gradient(90deg,#f472b6,#f9a8d4 50%,#e879f9) fixed !important; }
+.cz-table.tp-table thead th { background: linear-gradient(90deg,#7c3aed,#4f46e5 45%,#0ea5e9) fixed !important; }
 .cz-table select:disabled, .cz-table input:disabled { cursor: default; opacity: 1; color: inherit; -webkit-text-fill-color: currentColor; }
 .stat-card:nth-child(2) { animation-delay: .06s; } .stat-card:nth-child(3) { animation-delay: .12s; } .stat-card:nth-child(4) { animation-delay: .18s; }
 `;
@@ -7519,10 +7516,17 @@ const S = {
     whiteSpace: "nowrap"
   },
   linkCell: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
     color: "#4f46e5",
-    textDecoration: "underline",
-    fontWeight: 600,
-    fontSize: 12
+    background: "#eef2ff",
+    border: "1px solid #c7d2fe",
+    textDecoration: "none",
+    fontWeight: 800,
+    fontSize: 11.5,
+    padding: "3px 10px",
+    borderRadius: 999
   },
   cellReject: {
     background: "#fee2e2",
