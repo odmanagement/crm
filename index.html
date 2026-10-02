@@ -2624,7 +2624,7 @@ function CRM({ onLogout, currentUser }) {
   })), /*#__PURE__*/React.createElement("div", {
     key: page,
     className: "pg-anim pg-" + page,
-    style: { ...S.content, position: "relative", zIndex: 1 }
+    style: { ...S.content, position: "relative" }
   }, loading ? /*#__PURE__*/React.createElement(Empty, {
     text: "Loading…"
   }) : page === "dashboard" ? /*#__PURE__*/React.createElement(Dashboard, {
@@ -2994,7 +2994,7 @@ function leaveDays(from, to, type) {
   const a = new Date(from), b = new Date(to || from);
   if (b < a) return 0;
   let n = 0;
-  for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0) n++;
+  for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0 && d.getDay() !== 6) n++;
   return n;
 }
 function LeavePage({ currentUser }) {
@@ -3071,7 +3071,7 @@ function LeavePage({ currentUser }) {
             h("input", { type: "date", value: form.from, onChange: e => setForm({ ...form, from: e.target.value, to: form.to < e.target.value || form.type === "half" ? e.target.value : form.to }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 } })),
           h("label", { style: { flex: 1 } }, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "结束"),
             h("input", { type: "date", value: form.to, min: form.from, disabled: form.type === "half", onChange: e => setForm({ ...form, to: e.target.value }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14 } }))),
-        h("div", { style: { fontSize: 12.5, color: "#64748b" } }, "共 ", h("b", null, leaveDays(form.from, form.to, form.type)), " 天（星期日不算）"),
+        h("div", { style: { fontSize: 12.5, color: "#64748b" } }, "共 ", h("b", null, leaveDays(form.from, form.to, form.type)), " 天（星期六、日不算）"),
         h("label", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "原因"),
           h("textarea", { value: form.reason, rows: 3, placeholder: "请填写原因…", onChange: e => setForm({ ...form, reason: e.target.value }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", resize: "vertical" } })),
         h("div", { style: { fontSize: 12, color: "#f59e0b", fontWeight: 600 } }, "⚠️ 提交后，假别和原因都不能再更改。"),
@@ -5020,46 +5020,63 @@ function VerifyPage({
   }));
 }
 function printVerification(v, client) {
-  const esc = s => String(s || "—").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const stat = v.statutory || {};
-  const sectionHtml = V_SECTIONS.map(sec => {
-    if (sec.key === "spouse" && v.marital === "single") return `<h3>${sec.emoji} ${sec.title}</h3><p>Single</p>`;
-    const rows = (sec.key === "spouse" && v.marital ? `<tr><td class="lbl">Status</td><td>${v.marital === "married" ? "Married" : "Single"}</td></tr>` : "") + sec.fields.map(([f, label]) => `<tr><td class="lbl">${label}</td><td>${esc(v[f])}</td></tr>`).join("");
-    return `<h3>${sec.emoji} ${sec.title}</h3><table>${rows}</table>`;
-  }).join("");
-  const statRows = V_STATUTORY.map(([k, label]) => {
-    const r = stat[k] || {};
-    return `<tr><td class="lbl">${label}</td><td>${esc(r.employer)}</td><td>${esc(r.employee)}</td><td>${esc(r.subtotal)}</td></tr>`;
-  }).join("");
-  const statTotal = ["employer", "employee", "subtotal"].map(col => {
-    const sum = V_STATUTORY.reduce((acc, [rk]) => acc + (parseFloat(String(stat[rk] && stat[rk][col] || "").replace(/[^0-9.]/g, "")) || 0), 0);
-    return `<td><b>${sum ? "RM " + sum.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }) : "—"}</b></td>`;
-  }).join("");
-  const salRows = vSalaryItems(v).map(it => `<tr><td class="lbl">${it.sign === "-" ? "− " : "+ "}${esc(it.name)}</td><td>${esc(it.amount)}</td></tr>`).join("");
-  const statTable = `<h3>💰 Salary</h3><table>${salRows}<tr><td class="lbl"><b>Nett Salary</b></td><td><b>${vMoney(vNett(v))}</b></td></tr></table>`;
-  const _oldStat = `<h3>📋 Statutory Deductions</h3><table><tr><th></th><th>Employer</th><th>Employee</th><th>Sub-Total</th></tr>${statRows}<tr><td class="lbl"><b>Total</b></td>${statTotal}</tr></table>`;
-  const statusLine = v.status !== "pending" ? `<p class="status">${V_STATUS[v.status].label} by ${esc(v.staff)} on ${esc(v.verifiedAt)}</p>` : "";
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(v.customerName)}</title>
+  const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const up = s => esc(String(s || "").toUpperCase());
+  const row = (label, val) => `<div class="r"><span class="l">${label}</span><span class="c">:</span><span class="v">${up(val)}</span></div>`;
+  const rowRaw = (label, val) => `<div class="r"><span class="l">${label}</span><span class="c">:</span><span class="v">${esc(val)}</span></div>`;
+  const bar = t => `<div class="bar">${t}</div>`;
+  const married = v.marital === "married", single = v.marital === "single";
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(v.customerName || "Verification")}</title>
   <style>
-    body { font-family: -apple-system, sans-serif; color: #1e293b; max-width: 760px; margin: 20px auto; padding: 0 20px; }
-    h1 { font-size: 20px; margin-bottom: 2px; }
-    .sub { color: #64748b; font-family: monospace; margin-bottom: 16px; }
-    .status { display: inline-block; background: #dcfce7; color: #16a34a; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; }
-    h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #475569; margin: 18px 0 6px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    td, th { border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 13px; text-align: left; }
-    th { background: #f8fafc; font-size: 11px; text-transform: uppercase; color: #64748b; }
-    td.lbl { color: #64748b; width: 200px; }
-    @media print { body { margin: 0; } }
+    @page { size: A4; margin: 14mm 12mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Arial, sans-serif; color: #111; margin: 0 auto; max-width: 760px; padding: 10px 6px; font-size: 12px; }
+    .bar { background: #fbe39b; color: #7c2d12; text-align: center; font-weight: 700; padding: 6px; margin: 16px 0 10px; font-size: 12.5px; }
+    .r { display: flex; align-items: flex-start; padding: 4px 6px; }
+    .l { width: 150px; flex-shrink: 0; color: #1e3a8a; font-weight: 700; font-size: 11.5px; }
+    .c { width: 16px; flex-shrink: 0; color: #1e3a8a; font-weight: 700; }
+    .v { flex: 1; font-weight: 700; font-size: 11.5px; line-height: 1.45; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
+    .two .l { width: 120px; }
+    .full { grid-column: 1 / -1; }
+    .chk { display: flex; gap: 60px; padding: 4px 6px 6px; color: #1e3a8a; font-weight: 700; font-size: 11.5px; }
+    .chk span { display: inline-flex; align-items: center; gap: 10px; }
+    .box { width: 30px; height: 13px; border: 1px solid #111; display: inline-block; }
+    .box.on { background: #c0392b; border-color: #c0392b; }
+    table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+    th { color: #1e3a8a; font-size: 11px; font-weight: 700; border: 1px solid #111; padding: 6px; }
+    td { border: 1px solid #111; padding: 10px 6px; text-align: center; font-weight: 700; font-size: 11.5px; }
+    @media print { body { padding: 0; } }
   </style></head><body>
-    <h1>Staff Verification</h1>
-    <div class="sub">${esc(v.customerName)} · ${esc(v.icNumber)}${client ? " · linked to " + esc(client.name) : ""}</div>
-    ${statusLine}
-    ${sectionHtml}
-    ${statTable}
+    ${bar("(a) Company's Details")}
+    ${row("NAME OF COMPANY", v.companyName)}
+    ${row("POSITION", v.position)}
+    ${row("YEAR OF SERVICE", v.lengthOfService)}
+    ${row("OFFICE ADDRESS", v.officeAddress)}
+    ${row("OFFICE NO", v.officeNumber)}
+    ${row("NATURE OF BUSINESS", v.natureOfBusiness)}
+    ${bar("(b) Applicant's Details")}
+    <div class="two">
+      ${row("FULL NAME AS IC", v.customerName)}${row("CONTACT NO", v.phone)}
+      ${row("IC NO.", v.icNumber)}${rowRaw("EMAIL ADDRESS", v.email)}
+      <div class="full">${row("RESIDENTIAL ADDRESS", v.resAddress)}</div>
+      <div class="full">${row("YEARS OF STAY", v.yearsOfStay)}</div>
+      <div class="full">${row("MOTHER FULL NAME", v.motherName)}</div>
+    </div>
+    ${bar("(c) Spouse's Details")}
+    <div class="chk"><span><i class="box ${single ? "on" : ""}"></i>SINGLE</span><span><i class="box ${married ? "on" : ""}"></i>MARRIED</span></div>
+    ${row("FULL NAME AS IC", married ? v.spouseName : "")}
+    ${row("IC NUMBER", married ? v.spouseIc : "")}
+    ${row("CONTACT NO", married ? v.spousePhone : "")}
+    ${bar("(d) Emergency's Contact")}
+    <table><tr><th>FULL NAME AS IC</th><th>RELATIONSHIP</th><th>CONTACT NO</th><th>RESIDENTIAL ADDRESS</th></tr>
+    <tr><td>${up(v.emName)}</td><td>${up(v.emRelation)}</td><td>${up(v.emPhone)}</td><td>${up(v.emAddress)}</td></tr></table>
+    ${bar("(e) Disbursement Details")}
+    <div class="two">${row("BANK", v.disburseBankName)}${row("BANK ACCOUNT NO.", v.disburseAccountNumber)}</div>
+    ${bar("(f) Previous Company's Details")}
+    ${row("PREVIOUS", v.prevCompany)}
+    ${row("POSITION", v.prevPosition)}
+    ${row("WORK HOW LONG", v.prevDuration)}
   </body></html>`;
   // 用隐藏 iframe 在当前页打印，不开新标签页
   const old = document.getElementById("__print_frame__");
@@ -5158,6 +5175,15 @@ function VField({
     title: "Tap to edit"
   }, value || "—");
 }
+function verifyCopyText(v) {
+  const U = x => String(x || "").toUpperCase();
+  const sec = (title, rows) => title + "\n" + rows.map(([l, k]) => l + " : " + (k === "email" ? (v[k] || "") : U(v[k]))).join("\n");
+  return [
+    sec("APPLICANT'S DETAILS", [["FULL NAME AS IC", "customerName"], ["IC NUMBER", "icNumber"], ["CONTACT NO", "phone"], ["EMAIL ADDRESS", "email"], ["RESIDENTIAL ADDRESS", "resAddress"], ["YEARS OF STAY", "yearsOfStay"], ["MOTHER FULL NAME", "motherName"]]),
+    sec("COMPANY'S DETAILS", [["NAME OF COMPANY", "companyName"], ["POSITION", "position"], ["YEAR OF SERVICE", "lengthOfService"], ["OFFICE ADDRESS", "officeAddress"], ["OFFICE NO", "officeNumber"], ["NATURE OF BUSINESS", "natureOfBusiness"]]),
+    sec("PREVIOUS COMPANY'S DETAILS", [["PREVIOUS", "prevCompany"], ["POSITION", "prevPosition"], ["WORK HOW LONG", "prevDuration"]])
+  ].join("\n\n");
+}
 function VSalaryBlock({ v, onSave }) {
   const h = React.createElement;
   const items = vSalaryItems(v);
@@ -5229,6 +5255,7 @@ function VerifyDetail({
     onClose();
   };
   const exportPdf = () => printVerification(v, client);
+  const [copiedV, setCopiedV] = useState(false);
   return /*#__PURE__*/React.createElement("div", {
     style: S.overlay,
     onClick: onClose
@@ -5244,12 +5271,14 @@ function VerifyDetail({
   }, v.icNumber, client ? ` · linked to ${client.name}` : "")), /*#__PURE__*/React.createElement("div", {
     style: S.panelActions
   }, /*#__PURE__*/React.createElement("button", {
-    style: S.iconBtn,
+    style: { ...S.iconBtn, width: "auto", padding: "0 12px", gap: 6, fontWeight: 800, fontSize: 12.5, color: copiedV ? "#16a34a" : "#4f46e5", borderColor: copiedV ? "#bbf7d0" : "#c7d2fe", background: copiedV ? "#f0fdf4" : "#eef2ff" },
+    onClick: () => { try { navigator.clipboard.writeText(verifyCopyText(v)); } catch (e) {} setCopiedV(true); setTimeout(() => setCopiedV(false), 1500); },
+    title: "复制 Applicant / Company / Previous Company"
+  }, copiedV ? "✓ 已复制" : "📋 Copy"), /*#__PURE__*/React.createElement("button", {
+    style: { ...S.iconBtn, width: "auto", padding: "0 12px", gap: 6, fontWeight: 800, fontSize: 12.5, color: "#b45309", borderColor: "#fde68a", background: "#fffbeb" },
     onClick: exportPdf,
-    title: "Export / Print"
-  }, /*#__PURE__*/React.createElement(ExternalLink, {
-    size: 16
-  })), /*#__PURE__*/React.createElement(ConfirmDelete, {
+    title: "Save PDF"
+  }, "📄 Save PDF"), /*#__PURE__*/React.createElement(ConfirmDelete, {
     onConfirm: onDelete
   }), /*#__PURE__*/React.createElement("button", {
     style: S.iconBtn,
