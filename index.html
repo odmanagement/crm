@@ -5176,13 +5176,42 @@ function VField({
   }, value || "—");
 }
 function verifyCopyText(v) {
-  const U = x => String(x || "").toUpperCase();
-  const sec = (title, rows) => title + "\n" + rows.map(([l, k]) => l + " : " + (k === "email" ? (v[k] || "") : U(v[k]))).join("\n");
-  return [
-    sec("APPLICANT'S DETAILS", [["FULL NAME AS IC", "customerName"], ["IC NUMBER", "icNumber"], ["CONTACT NO", "phone"], ["EMAIL ADDRESS", "email"], ["RESIDENTIAL ADDRESS", "resAddress"], ["YEARS OF STAY", "yearsOfStay"], ["MOTHER FULL NAME", "motherName"]]),
-    sec("COMPANY'S DETAILS", [["NAME OF COMPANY", "companyName"], ["POSITION", "position"], ["YEAR OF SERVICE", "lengthOfService"], ["OFFICE ADDRESS", "officeAddress"], ["OFFICE NO", "officeNumber"], ["NATURE OF BUSINESS", "natureOfBusiness"]]),
-    sec("PREVIOUS COMPANY'S DETAILS", [["PREVIOUS", "prevCompany"], ["POSITION", "prevPosition"], ["WORK HOW LONG", "prevDuration"]])
-  ].join("\n\n");
+  const U = x => String(x || "").toUpperCase().trim();
+  const items = vSalaryItems(v);
+  const money = (n, dec) => "RM " + Number(n).toLocaleString("en-US", dec ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 2 });
+  const plus = items.filter(it => it.sign !== "-"), minus = items.filter(it => it.sign === "-");
+  const basic = vNum((plus[0] || {}).amount);
+  const lbl = it => { const n = U(it.name); if (n === "EPF" && basic && vNum(it.amount)) return "EPF(" + Math.round(vNum(it.amount) / basic * 100) + "%)"; return n; };
+  const L = [];
+  L.push("NAME : " + U(v.customerName));
+  L.push("I/C NO. : " + U(v.icNumber));
+  L.push("CONTACT NO. : " + U(v.phone));
+  L.push("EMAIL ADDRESS : " + (v.email || ""));
+  L.push("RESIDENTIAL ADDRESS : " + U(v.resAddress));
+  L.push("");
+  L.push("COMPANY NAME : " + U(v.companyName));
+  L.push("ADDRESS : " + U(v.officeAddress));
+  L.push("OFFICE TEL : " + U(v.officeNumber));
+  L.push("POSITION : " + U(v.position));
+  L.push("NATURE OF BUSINESS : " + U(v.natureOfBusiness));
+  L.push("");
+  L.push("DATE JOINED : 🚨 " + U(v.lengthOfService));
+  L.push("");
+  L.push("SALARY");
+  L.push("");
+  plus.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount), false)));
+  L.push("");
+  minus.forEach(it => L.push(lbl(it) + " : " + money(vNum(it.amount), true)));
+  L.push("");
+  L.push("NETT SALARY : " + money(vNett(v), true));
+  L.push("");
+  L.push("SALARY TRANSFER TO " + U(v.salaryTransfer));
+  L.push("");
+  L.push("⭐PREVIOUS COMPANY ⭐");
+  L.push("PREVIOUS : " + U(v.prevCompany));
+  L.push("POSITION : " + U(v.prevPosition));
+  L.push("WORK HOW LONG : " + U(v.prevDuration));
+  return L.join("\n");
 }
 function VSalaryBlock({ v, onSave }) {
   const h = React.createElement;
@@ -5194,8 +5223,11 @@ function VSalaryBlock({ v, onSave }) {
   return h("div", { style: { ...S.vSection } },
     h("div", { style: S.vSectionHead }, "💰 Salary"),
     h("div", { style: { padding: "10px 12px 12px" } },
-    h("div", { style: { fontSize: 12, color: "#64748b", margin: "-2px 0 10px", fontWeight: 600 } }, items.map(x => (x.sign === "-" ? "− " : items[0] === x ? "" : "+ ") + x.name).join(" ") + " = Nett Salary"),
+    h("div", { style: { fontSize: 12, color: "#64748b", margin: "-2px 0 10px", fontWeight: 600 } }, items.filter(x => x.name).map((x, i) => (x.sign === "-" ? "− " : i === 0 ? "" : "+ ") + x.name).join(" ") + " = Nett Salary"),
     items.map((it, i) => h("div", { key: it.id || i, style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 6 } },
+      h("div", { style: { display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 } },
+        h("button", { title: "往上移", disabled: i === 0, onClick: () => { const l = items.slice(); [l[i - 1], l[i]] = [l[i], l[i - 1]]; save(l); }, style: { width: 22, height: 15, border: "1px solid #e2e8f0", borderRadius: 4, background: "#fff", color: i === 0 ? "#e2e8f0" : "#64748b", fontSize: 9, lineHeight: 1, padding: 0, cursor: i === 0 ? "default" : "pointer" } }, "▲"),
+        h("button", { title: "往下移", disabled: i === items.length - 1, onClick: () => { const l = items.slice(); [l[i + 1], l[i]] = [l[i], l[i + 1]]; save(l); }, style: { width: 22, height: 15, border: "1px solid #e2e8f0", borderRadius: 4, background: "#fff", color: i === items.length - 1 ? "#e2e8f0" : "#64748b", fontSize: 9, lineHeight: 1, padding: 0, cursor: i === items.length - 1 ? "default" : "pointer" } }, "▼")),
       h("button", { title: "切换 + / −", onClick: () => upd(i, "sign", it.sign === "-" ? "+" : "-"), style: { width: 30, height: 32, borderRadius: 8, border: "1px solid " + (it.sign === "-" ? "#fecaca" : "#bbf7d0"), background: it.sign === "-" ? "#fef2f2" : "#f0fdf4", color: it.sign === "-" ? "#dc2626" : "#16a34a", fontWeight: 900, fontSize: 15, flexShrink: 0, cursor: "pointer" } }, it.sign === "-" ? "−" : "+"),
       h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: it.name, placeholder: "项目", onCommit: val => upd(i, "name", val) }),
       h(DebouncedInput, { style: { ...inp, width: 130, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: it.amount, placeholder: "0.00", onCommit: val => upd(i, "amount", val) }),
@@ -5203,7 +5235,10 @@ function VSalaryBlock({ v, onSave }) {
     h("button", { onClick: () => save([...items, { id: uid(), name: "", sign: "-", amount: "" }]), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer", marginTop: 2 } }, "+ Add Item"),
     h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "10px 14px", borderRadius: 12, background: "#fff", border: "1.5px solid #c7d2fe" } },
       h("span", { style: { fontWeight: 900, color: "#312e81", fontSize: 13.5 } }, "NETT SALARY"),
-      h("span", { style: { fontWeight: 900, fontSize: 18, color: nett < 0 ? "#dc2626" : "#16a34a", fontVariantNumeric: "tabular-nums" } }, vMoney(nett)))));
+      h("span", { style: { fontWeight: 900, fontSize: 18, color: nett < 0 ? "#dc2626" : "#16a34a", fontVariantNumeric: "tabular-nums" } }, vMoney(nett))),
+    h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
+      h("span", { style: { fontWeight: 800, fontSize: 13, color: "#334155", whiteSpace: "nowrap" } }, "SALARY TRANSFER TO"),
+      h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: v.salaryTransfer, placeholder: "银行，例如 UOB", onCommit: val => onSave({ ...v, salaryTransfer: val }) }))));
 }
 function VerifyDetail({
   v,
