@@ -741,6 +741,38 @@ const STAGES = [{
   color: "#dc2626"
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
+/* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
+const APP_BUILD = "20261002093026";
+(function autoUpdate() {
+  if (!/^https?:/.test(location.protocol)) return;
+  let reloading = false;
+  const busy = () => {
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== "checkbox" && a.type !== "radio") return true;
+    try { if (Object.values(DB._queue || {}).some(q => q.running || q.next !== null)) return true; } catch (e) {}
+    return false;
+  };
+  const doReload = () => {
+    if (reloading) return;
+    if (busy()) { setTimeout(doReload, 3000); return; }
+    reloading = true;
+    location.reload();
+  };
+  const check = async () => {
+    try {
+      const url = location.href.split("#")[0];
+      const r = await fetch(url + (url.includes("?") ? "&" : "?") + "_v=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) return;
+      const t = await r.text();
+      const m = t.match(/const APP_BUILD = "(\d+)"/);
+      if (m && m[1] !== APP_BUILD) doReload();
+    } catch (e) {}
+  };
+  setInterval(check, 60000);
+  window.addEventListener("focus", check);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
+  setTimeout(check, 15000);
+})();
 /* ===== 点击声音 ===== */
 let _sndCtx = null;
 const soundOn = () => { try { return localStorage.getItem("crm_sound") !== "off"; } catch (e) { return true; } };
