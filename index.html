@@ -624,6 +624,7 @@ const DB = {
     return (this._sent[key] || []).some(x => now - x.t < 20000 && x.v === value);
   },
   async set(key, value) {
+    if (isReadOnlyUser()) { roToast(); return; }
     if (useCloud) {
       this._noteSent(key, value);
       // 同一个 key 的写入排队，只写最新的一份，避免旧资料盖掉新资料
@@ -652,6 +653,7 @@ const DB = {
     localStorage.setItem("crm_" + key, value);
   },
   async del(key) {
+    if (isReadOnlyUser()) { roToast(); return; }
     if (useCloud) {
       const s = this._init();
       await s.from("crm_store").delete().eq("key", key);
@@ -743,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261002100602";
+const APP_BUILD = "20261002101244";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -773,6 +775,46 @@ const APP_BUILD = "20261002100602";
   window.addEventListener("focus", check);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
   setTimeout(check, 15000);
+})();
+/* ===== 只读账号（只能看，不能改） ===== */
+const READONLY_USERS = ["admin"];
+function isReadOnlyUser() { return READONLY_USERS.includes(canonUser(window.__crmUser)); }
+let _roT = 0;
+function roToast() {
+  if (Date.now() - _roT < 1500) return; _roT = Date.now();
+  let el = document.getElementById("__ro_toast__");
+  if (!el) { el = document.createElement("div"); el.id = "__ro_toast__"; document.body.appendChild(el); }
+  el.textContent = "👁 这个账号只能观看，不能修改";
+  el.style.cssText = "position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:99999;background:#1e1b4b;color:#fff;padding:10px 18px;border-radius:999px;font-weight:800;font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.25);transition:opacity .3s;opacity:1;pointer-events:none;text-transform:none";
+  clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = "0"; }, 1600);
+}
+(function roGuard() {
+  const okInput = el => /search|搜索|搜寻/i.test(el.getAttribute("placeholder") || "") || el.closest("nav") || el.closest(".lg-wrap");
+  const TRASH = "M3 6h18";
+  const editBtn = el => {
+    if (el.closest("nav") || el.closest(".app-header") || el.closest(".lg-wrap")) return false;
+    if (el.classList.contains("tl-step") || el.classList.contains("tl-rej") || el.classList.contains("vf-del") || el.classList.contains("td-chk") || el.classList.contains("td-del") || el.classList.contains("co-addbtn") || el.classList.contains("co-more") || el.classList.contains("co-doc") && el.tagName === "BUTTON") return true;
+    if ((el.innerHTML || "").includes(TRASH)) return true;
+    const t = ((el.textContent || "") + " " + (el.getAttribute("title") || "")).trim();
+    return /^\+|add|new client|添加|删除|delete|标为|取消 rejected|done|submit|提交|申请|保存|save(?! pdf)|mark|reopen|还原|import|加一项|加 \/ 改|改链接|切换|往上|往下|copy\b(?!.*applicant)/i.test(t) && !/save pdf|📋 copy/i.test(t);
+  };
+  const block = e => { e.preventDefault(); e.stopPropagation(); roToast(); };
+  document.addEventListener("click", e => {
+    if (!isReadOnlyUser()) return;
+    const b = e.target.closest && e.target.closest("button, label");
+    if (b && editBtn(b)) block(e);
+  }, true);
+  document.addEventListener("focusin", e => {
+    if (!isReadOnlyUser()) return;
+    const el = e.target;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !okInput(el)) { el.blur(); roToast(); }
+  }, true);
+  document.addEventListener("mousedown", e => {
+    if (!isReadOnlyUser()) return;
+    const el = e.target;
+    if (/^(SELECT|INPUT|TEXTAREA)$/.test(el.tagName) && !okInput(el)) block(e);
+  }, true);
+  document.addEventListener("change", e => { if (isReadOnlyUser() && !okInput(e.target)) block(e); }, true);
 })();
 /* ===== 点击声音 ===== */
 let _sndCtx = null;
@@ -2659,7 +2701,7 @@ function CRM({ onLogout, currentUser }) {
   }, saving ? "Saving…" : "Synced"), currentUser && /*#__PURE__*/React.createElement("span", {
     title: "登录邮箱：" + (window.__crmLogin || ""),
     style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px 3px 3px", borderRadius: 999, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "#e0e7ff", fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }
-  }, czAvatar(currentUser, 22), String(currentUser).toUpperCase(), isMissionBoss(currentUser) ? /*#__PURE__*/React.createElement("span", { style: { background: "linear-gradient(120deg,#f59e0b,#ef4444)", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5 } }, "BOSS") : null), canSeeLucas() && /*#__PURE__*/React.createElement("button", {
+  }, czAvatar(currentUser, 22), String(currentUser).toUpperCase(), isMissionBoss(currentUser) ? /*#__PURE__*/React.createElement("span", { style: { background: "linear-gradient(120deg,#f59e0b,#ef4444)", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5 } }, "BOSS") : isReadOnlyUser() ? /*#__PURE__*/React.createElement("span", { style: { background: "#64748b", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5 } }, "👁 只读") : null), canSeeLucas() && /*#__PURE__*/React.createElement("button", {
     style: S.logoutBtn,
     onClick: () => setShowBackup(true),
     title: "备份 / Backups"
@@ -4531,7 +4573,7 @@ function TypePage({
   placeholder: "Search name / bank / subject",
   value: q,
   onChange: e => setQ(e.target.value)
-})), onNew && /*#__PURE__*/React.createElement("button", {
+})), onNew && !isReadOnlyUser() && /*#__PURE__*/React.createElement("button", {
   style: S.addBtn,
   onClick: onNew
 }, /*#__PURE__*/React.createElement(Plus, {
