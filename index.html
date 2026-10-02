@@ -14,10 +14,11 @@
   .calc-in::placeholder { color: #cbd5e1; }
   .bank-row-p { flex-wrap: nowrap; gap: 4px !important; }
   .bank-row-p > * { font-size: 12px !important; padding-left: 6px !important; padding-right: 4px !important; }
-  .bank-row-p > input:nth-child(1), .bank-row-p > input:nth-child(2) { flex: 1 1 70px !important; }
-  .bank-row-p > select:nth-of-type(1) { flex: 0 0 100px !important; }
-  .bank-row-p > input:nth-child(4) { flex: 0 0 76px !important; width: 76px !important; }
-  .bank-row-p > select:nth-of-type(2) { flex: 0 0 132px !important; }
+  .bank-row-p > :nth-child(1) { flex: 0 0 104px !important; }
+  .bank-row-p > :nth-child(2) { flex: 1 1 70px !important; }
+  .bank-row-p > :nth-child(3) { flex: 0 0 100px !important; }
+  .bank-row-p > :nth-child(4) { flex: 0 0 76px !important; width: 76px !important; }
+  .bank-row-p > :nth-child(5) { flex: 0 0 132px !important; }
   .bank-row-p > input[type=date] { flex: 0 0 118px !important; width: 118px !important; }
   .bank-row-p > button { flex: 0 0 28px !important; padding: 0 !important; }
   .calc-in:disabled { color: #7c3aed !important; background: #f5f3ff !important; border-color: #ede9fe !important; cursor: help; -webkit-text-fill-color: #7c3aed; opacity: 1; }
@@ -742,7 +743,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261002093026";
+const APP_BUILD = "20261002094129";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2555,6 +2556,13 @@ function CRM({ onLogout, currentUser }) {
   const saveClient = c => {
     const exists = clients.some(x => x.id === c.id);
     persist(exists ? clients.map(x => x.id === c.id ? c : x) : [...clients, c]);
+    if (!exists) {
+      // 新客户自动加进 Verify
+      const nv = newVerification(c.id, c.name);
+      const ln = (c.loans || [])[0] || {};
+      Object.assign(nv, { icNumber: c.ic || "", phone: c.phone || "", agent: ln.agent || "", loanType: ln.type || "", staff: canonUser(currentUser), createdBy: canonUser(currentUser), links: [] });
+      persistVerifications([nv, ...verifications]);
+    }
     setEditing(null);
     if (!exists) setOpenId(c.id);
   };
@@ -2695,7 +2703,8 @@ function CRM({ onLogout, currentUser }) {
   }) : page === "verify" ? /*#__PURE__*/React.createElement(VerifyPage, {
     clients: clients,
     verifications: verifications,
-    onSave: persistVerifications
+    onSave: persistVerifications,
+    currentUser: currentUser
   }) : page === "html_forms" ? /*#__PURE__*/React.createElement(LinkListPage, {
     title: "Forms",
     tools: FORMS_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
@@ -4481,6 +4490,7 @@ function TypePage({
   onOpen,
   onNew
 }) {
+  const isP = type === "personal";
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const t = typeOf(type);
@@ -4556,32 +4566,32 @@ function TypePage({
     ...S.th,
     ...S.thSticky
   }
-}, "Customer"), /*#__PURE__*/React.createElement("th", {
+}, "Customer"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Date"), /*#__PURE__*/React.createElement("th", {
+}, "Date"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Lawyer"), /*#__PURE__*/React.createElement("th", {
+}, "Lawyer"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Supplies"), /*#__PURE__*/React.createElement("th", {
+}, "Supplies"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Banker"), /*#__PURE__*/React.createElement("th", {
+}, "Banker"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Project"), /*#__PURE__*/React.createElement("th", {
+}, "Project"), !isP && /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thNum
   }
-}, "Size"), /*#__PURE__*/React.createElement("th", {
+}, "Size"), !isP && /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thNum
   }
-}, "Cost"), canSeeLucas() && /*#__PURE__*/React.createElement("th", {
+}, "Cost"), !isP && canSeeLucas() && /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thNum
   }
-}, "Lucas Cost"), /*#__PURE__*/React.createElement("th", {
+}, "Lucas Cost"), !isP && /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thNum
@@ -4633,32 +4643,32 @@ function TypePage({
       ...S.tdName,
       ...S.tdSticky
     }
-  }, c.name), /*#__PURE__*/React.createElement("td", {
+  }, c.name), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, tpDate(l.date)), /*#__PURE__*/React.createElement("td", {
+  }, tpDate(l.date)), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, tpTag(l.lawyer, "⚖", 265)), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.lawyer, "⚖", 265)), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, tpTag(l.supplies, "", 175)), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.supplies, "", 175)), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, tpTag(l.banker, "", 215)), /*#__PURE__*/React.createElement("td", {
+  }, tpTag(l.banker, "", 215)), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, l.subject || ""), /*#__PURE__*/React.createElement("td", {
+  }, l.subject || ""), !isP && /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
       ...S.tdNum
     }
-  }, l.size || ""), /*#__PURE__*/React.createElement("td", {
+  }, l.size || ""), !isP && /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
       ...S.tdNum
     }
-  }, l.amount ? money(l.amount) : ""), canSeeLucas() && /*#__PURE__*/React.createElement("td", {
+  }, l.amount ? money(l.amount) : ""), !isP && canSeeLucas() && /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
       ...S.tdNum
     }
-  }, l.lucasCost ? money(l.lucasCost) : ""), /*#__PURE__*/React.createElement("td", {
+  }, l.lucasCost ? money(l.lucasCost) : ""), !isP && /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
       ...S.tdNum
@@ -4921,7 +4931,8 @@ function newVerification(clientId, clientName) {
 function VerifyPage({
   clients,
   verifications,
-  onSave
+  onSave,
+  currentUser
 }) {
   const [tab, setTab] = useState("progress"); // progress | completed
   const [q, setQ] = useState("");
@@ -5010,7 +5021,7 @@ function VerifyPage({
     className: "vf-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     className: "vf-head"
-  }, ["#", "Submit", "Status", "Customer", "IC Number", "Company", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: "vf-c" + k }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, ["#", "Submit", "Status", "Customer", "IC Number", "Company", "Agent", "Staff", "Link", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-c1", "vf-c2", "vf-c3", "vf-c4", "vf-c5", "vf-ag", "vf-c6", "vf-lk", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: { ...S.empty, padding: 40 }
   }, "No records"), shown.map((v, i) => {
     const st = V_STATUS[v.status];
@@ -5025,7 +5036,9 @@ function VerifyPage({
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
       /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-ag" }, v.agent ? tpPerson(String(v.agent).toUpperCase()) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c6" }, v.staff ? [/*#__PURE__*/React.createElement(React.Fragment, { key: "a" }, czAvatar(v.staff, 22)), " ", String(v.staff).toUpperCase()] : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-lk", onClick: e => e.stopPropagation() }, (v.links || []).filter(x => x && x.url).length ? /*#__PURE__*/React.createElement("a", { href: _fixUrl(v.links.find(x => x && x.url).url), target: "_blank", rel: "noopener", style: S.linkCell }, "OPEN") : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c7" }, /*#__PURE__*/React.createElement("button", {
         className: "vf-del",
         title: "删除",
@@ -5050,6 +5063,8 @@ function VerifyPage({
   .vf-c5{flex:2;min-width:150px;font-size:13px}
   .vf-c6{width:110px;display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px}
   .vf-c7{width:36px;display:flex;justify-content:flex-end}
+  .vf-ag{width:110px}
+  .vf-lk{width:64px}
   .vf-head span{color:#fff!important;font-size:12px!important;font-weight:800}
   .vf-head .vf-c3,.vf-head .vf-c6{display:block}
   .vf-del{border:none;background:#fff1f2;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;opacity:.55;transition:all .15s}
@@ -5065,9 +5080,10 @@ function VerifyPage({
     clients: clients,
     onClose: () => setAdding(false),
     onSave: v => {
-      save(v);
+      const nv = { ...v, staff: v.staff || canonUser(currentUser), createdBy: canonUser(currentUser) };
+      save(nv);
       setAdding(false);
-      setOpenId(v.id);
+      setOpenId(nv.id);
     }
   }));
 }
@@ -5265,6 +5281,31 @@ function verifyCopyText(v) {
   L.push("WORK HOW LONG : " + U(v.prevDuration));
   return L.join("\n");
 }
+function VCaseInfo({ v, onSave }) {
+  const h = React.createElement;
+  const links = v.links || [];
+  const setLinks = l => onSave({ ...v, links: l });
+  const inp = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", minWidth: 0, background: "#fff" };
+  return h("div", { style: S.vSection },
+    h("div", { style: S.vSectionHead }, "📌 Case Info"),
+    h("div", { style: { padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 10 } },
+      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
+        h("label", { style: { flex: "1 1 200px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "AGENT"),
+          h("select", { value: String(v.agent || "").toLowerCase(), onChange: e => onSave({ ...v, agent: e.target.value }), style: { ...inp, width: "100%", fontWeight: 700 } },
+            h("option", { value: "" }, "— 选择 Agent —"),
+            (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => h("option", { key: a, value: a }, a.toUpperCase())))),
+        h("div", { style: { flex: "1 1 160px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "STAFF（自动 · 谁建立）"),
+          h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0" } }, v.staff ? [h(React.Fragment, { key: "a" }, czAvatar(v.staff, 26)), h("b", { key: "n", style: { color: "#334155" } }, String(v.staff).toUpperCase())] : "—"))),
+      h("div", null,
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
+          h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "LINKS"),
+          h("button", { onClick: () => setLinks([...links, { id: uid(), url: "" }]), style: { ...S.addLinkBtn, cursor: "pointer" } }, "+ Add Link")),
+        links.length === 0 && h("div", { style: { fontSize: 12.5, color: "#94a3b8" } }, "还没有链接"),
+        links.map((lk, i) => h("div", { key: lk.id || i, style: { display: "flex", gap: 6, marginBottom: 6 } },
+          h(DebouncedInput, { style: { ...inp, flex: 1, textTransform: "none" }, value: lk.url, placeholder: "贴上链接 / URL", onCommit: val => setLinks(links.map((x, j) => j === i ? { ...x, url: val } : x)) }),
+          lk.url && h("a", { href: _fixUrl(lk.url), target: "_blank", rel: "noopener", style: { ...S.linkOpenBtn, display: "flex", alignItems: "center", justifyContent: "center" } }, h(ExternalLink, { size: 14 })),
+          h("button", { onClick: () => setLinks(links.filter((_, j) => j !== i)), style: { ...S.bankDelBtn, cursor: "pointer" } }, h(Trash2, { size: 14, color: "#ef4444" })))))));
+}
 function VSalaryBlock({ v, onSave }) {
   const h = React.createElement;
   const items = vSalaryItems(v);
@@ -5374,7 +5415,10 @@ function VerifyDetail({
     size: 16
   })))), /*#__PURE__*/React.createElement("div", {
     style: S.panelBody
-  }, V_SECTIONS.map(sec => {
+  }, /*#__PURE__*/React.createElement(VCaseInfo, {
+    v: v,
+    onSave: onSave
+  }), V_SECTIONS.map(sec => {
     return /*#__PURE__*/React.createElement("div", {
       key: sec.key
     }, /*#__PURE__*/React.createElement("div", {
@@ -6274,12 +6318,11 @@ function LoanBlock({
     key: i,
     className: loan.type === "personal" ? "bank-row-p" : "",
     style: S.bankInlineRow
-  }, /*#__PURE__*/React.createElement("input", {
-    style: S.bankInput,
-    placeholder: "Bank",
-    value: b.bank,
+  }, /*#__PURE__*/React.createElement("select", {
+    style: { ...S.bankInput, fontWeight: 700, ...(b.bank ? czPill(czBankHue(b.bank), { borderRadius: 8, padding: "6px 8px" }) : { color: "#94a3b8" }) },
+    value: b.bank ? bankKey(b.bank) : "",
     onChange: e => setBank(i, "bank", e.target.value)
-  }), /*#__PURE__*/React.createElement(DebouncedInput, {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (BANK_COLS.includes(bankKey(b.bank)) || !b.bank ? BANK_COLS : [bankKey(b.bank), ...BANK_COLS]).map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, bk))), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
     placeholder: "Banker",
     value: b.officer,
