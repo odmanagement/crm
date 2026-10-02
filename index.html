@@ -561,6 +561,8 @@ function authClient() {
   }
   return _authClient;
 }
+/* 顶部的 New Client 按钮：所有账号都不显示（要恢复就改成 true） */
+const SHOW_NEW_CLIENT = false;
 /* ===== 同一个人的不同登录名（左边的登录名 → 当成右边这个人） ===== */
 const USER_ALIASES = { lucasgor: "lucas", lucasgor178: "lucas" };
 function canonUser(u) { const k = String(u || "").trim().toLowerCase(); return USER_ALIASES[k] || k; }
@@ -2605,7 +2607,7 @@ function CRM({ onLogout, currentUser }) {
     style: { ...S.logoutBtn, padding: "9px 11px" },
     title: sound ? "点击声音：开" : "点击声音：关",
     onClick: () => { const v = !sound; try { localStorage.setItem("crm_sound", v ? "on" : "off"); } catch (e) {} setSound(v); if (v) setTimeout(() => playClick("tap"), 30); }
-  }, sound ? "🔊" : "🔇"), page !== "verify" && /*#__PURE__*/React.createElement("button", {
+  }, sound ? "🔊" : "🔇"), SHOW_NEW_CLIENT && page !== "verify" && /*#__PURE__*/React.createElement("button", {
     style: S.addBtn,
     onClick: () => setEditing("new")
   }, /*#__PURE__*/React.createElement(Plus, {
@@ -2662,7 +2664,8 @@ function CRM({ onLogout, currentUser }) {
   }) : /*#__PURE__*/React.createElement(TypePage, {
     type: page,
     clients: clients,
-    onOpen: setOpenId
+    onOpen: setOpenId,
+    onNew: () => setEditing("new")
   }))), open && /*#__PURE__*/React.createElement(Detail, {
     client: open,
     onClose: () => setOpenId(null),
@@ -4190,7 +4193,7 @@ function ClientsPage({
 })), /*#__PURE__*/React.createElement("div", {
   style: S.tableWrap
 }, rows.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
-  text: clients.length === 0 ? "No clients yet — tap New Client" : "No matching clients"
+  text: clients.length === 0 ? "No clients yet" : "No matching clients"
 }) : /*#__PURE__*/React.createElement("table", {
   style: S.dataTable
 }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
@@ -4350,7 +4353,8 @@ const bankKey = b => { const k = String(b || "").trim().toUpperCase().replace(/\
 function TypePage({
   type,
   clients,
-  onOpen
+  onOpen,
+  onNew
 }) {
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
@@ -4374,7 +4378,9 @@ function TypePage({
   size: 20,
   color: t.color
 }), /*#__PURE__*/React.createElement("span", null, rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), /*#__PURE__*/React.createElement("div", {
-  style: S.searchWrap
+  style: { display: "flex", gap: 10, alignItems: "center", marginBottom: S.searchWrap.marginBottom || 12 }
+}, /*#__PURE__*/React.createElement("div", {
+  style: { ...S.searchWrap, flex: 1, marginBottom: 0 }
 }, /*#__PURE__*/React.createElement(Search, {
   size: 16,
   color: "#94a3b8"
@@ -4383,7 +4389,12 @@ function TypePage({
   placeholder: "Search name / bank / subject",
   value: q,
   onChange: e => setQ(e.target.value)
-})), /*#__PURE__*/React.createElement("div", {
+})), onNew && /*#__PURE__*/React.createElement("button", {
+  style: S.addBtn,
+  onClick: onNew
+}, /*#__PURE__*/React.createElement(Plus, {
+  size: 16
+}), " New Client")), /*#__PURE__*/React.createElement("div", {
   style: S.filters
 }, /*#__PURE__*/React.createElement(Chip, {
   active: stageFilter === "all",
@@ -4401,7 +4412,7 @@ function TypePage({
 })), /*#__PURE__*/React.createElement("div", {
   style: S.tableWrap
 }, rows.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
-  text: clients.length === 0 ? "No clients yet — tap New Client" : "No matching clients"
+  text: clients.length === 0 ? "No clients yet" : "No matching clients"
 }) : /*#__PURE__*/React.createElement("table", {
   style: S.dataTable
 }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
@@ -6160,7 +6171,7 @@ function LoanBlock({
         borderColor: s.color
       } : {})
     }
-  }, s.label))), loan.type !== "personal" && /*#__PURE__*/React.createElement(CalcSection, {
+  }, s.label))), loan.type !== "personal" && canonUser(window.__crmUser) !== "admin" && /*#__PURE__*/React.createElement(CalcSection, {
     loan: loan,
     onUpdate: onUpdate,
     clientName: clientName
