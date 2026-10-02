@@ -3088,11 +3088,11 @@ function AutoTextarea({ value, onCommit, placeholder, style, readOnly }) {
   React.useEffect(() => { setDraft(value || ""); }, [value]);
   const fit = () => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
   React.useEffect(fit, [draft]);
-  return React.createElement("textarea", { ref, rows: 1, value: draft, placeholder, readOnly,
+  return React.createElement("textarea", { ref, rows: 1, value: draft, placeholder, readOnly, title: readOnly ? "🔒 只有自己可以更改" : "",
     onChange: e => setDraft(e.target.value),
     onBlur: () => { if ((draft || "") !== (value || "")) onCommit(draft); },
-    style: { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "1px solid transparent", background: "transparent", borderRadius: 8, padding: "6px 8px", fontSize: 13.5, lineHeight: 1.45, fontFamily: "inherit", color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", outline: "none", ...(style || {}) },
-    onFocus: e => { e.target.style.borderColor = "#c4b5fd"; e.target.style.background = "#fff"; },
+    style: { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "1px solid transparent", background: "transparent", borderRadius: 8, padding: "6px 8px", fontSize: 13.5, lineHeight: 1.45, fontFamily: "inherit", color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", outline: "none", ...(readOnly ? { cursor: "not-allowed", color: "#64748b" } : {}), ...(style || {}) },
+    onFocus: e => { if (readOnly) return; e.target.style.borderColor = "#c4b5fd"; e.target.style.background = "#fff"; },
     onBlurCapture: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } });
 }
 /* ---------- Closing 排行榜（每月 + 每个星期五） ---------- */
