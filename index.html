@@ -3082,13 +3082,13 @@ function LeavePage({ currentUser }) {
 const SUB_TYPES = [["build", "Build", 262], ["ori", "Ori", 199], ["special", "Special Case", 25], ["cancel", "Cancel", 0], ["rencai", "Rencai", 150]];
 const SUB_STATUS = [["submitted", "Submitted", "#3b82f6"], ["pending", "Pending", "#f59e0b"], ["approved", "Approved", "#16a34a"], ["rejected", "Rejected", "#dc2626"]];
 const CLOSING_AGENTS = ["alex", "steven", "vick", "fin", "candy", "edward", "nico", "anna", "gary", "darren", "davis", "celement", "br", "ivan", "kelvin", "lee", "nick", "william"];
-function AutoTextarea({ value, onCommit, placeholder, style }) {
+function AutoTextarea({ value, onCommit, placeholder, style, readOnly }) {
   const [draft, setDraft] = React.useState(value || "");
   const ref = React.useRef(null);
   React.useEffect(() => { setDraft(value || ""); }, [value]);
   const fit = () => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
   React.useEffect(fit, [draft]);
-  return React.createElement("textarea", { ref, rows: 1, value: draft, placeholder,
+  return React.createElement("textarea", { ref, rows: 1, value: draft, placeholder, readOnly,
     onChange: e => setDraft(e.target.value),
     onBlur: () => { if ((draft || "") !== (value || "")) onCommit(draft); },
     style: { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "1px solid transparent", background: "transparent", borderRadius: 8, padding: "6px 8px", fontSize: 13.5, lineHeight: 1.45, fontFamily: "inherit", color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", outline: "none", ...(style || {}) },
@@ -3196,7 +3196,8 @@ function SubmissionPage({ currentUser }) {
   // 旧资料：以前的 agent 其实是 staff
   const staffOf = x => x.staff !== undefined ? x.staff : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? x.agent : "");
   const agentOf = x => x.staff !== undefined ? (x.agent || "") : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? "" : (x.agent || ""));
-  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, staff: staffOf(x), agent: agentOf(x), [k]: v } : x));
+  const canEdit = x => sameUser(x.by, currentUser) || sameUser(staffOf(x), currentUser);
+  const upd = (id, k, v) => save(items.map(x => x.id === id && canEdit(x) ? { ...x, staff: staffOf(x), agent: agentOf(x), [k]: v } : x));
   const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", staff: canonUser(currentUser), agent: "", status: "submitted", remark: "", by: currentUser, at: Date.now() }, ...items]);
   const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => tab === "all" || x.cat === tab)
@@ -3221,16 +3222,16 @@ function SubmissionPage({ currentUser }) {
         shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
-          const sf = staffOf(x), ag = agentOf(x);
+          const sf = staffOf(x), ag = agentOf(x), ed = canEdit(x), lockT = ed ? "" : "🔒 只有自己可以更改";
           return h("tr", { key: x.id },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 hsl(" + ty[2] + ",70%,55%)" } }, i + 1),
-            h("td", { style: S.td }, h("input", { type: "date", style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
-            h("td", { style: S.td }, h("select", { style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
-            h("td", { style: { ...S.td, minWidth: 140 } }, h(DebouncedInput, { style: { ...S.bankerInput, fontWeight: 700 }, value: x.client, placeholder: "Client", onCommit: v => upd(x.id, "client", v) })),
-            h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
-            h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
-            h("td", { style: { ...S.td, minWidth: 220, maxWidth: 340, width: 280, verticalAlign: "top" } }, h(AutoTextarea, { value: x.remark, placeholder: "Remark", onCommit: v => upd(x.id, "remark", v) })),
-            h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
+            h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, title: lockT, style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
+            h("td", { style: S.td }, h("select", { disabled: !ed, title: lockT, style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
+            h("td", { style: { ...S.td, minWidth: 140 } }, h(DebouncedInput, { disabled: !ed, title: lockT, style: { ...S.bankerInput, fontWeight: 700 }, value: x.client, placeholder: ed ? "Client" : "", onCommit: v => upd(x.id, "client", v) })),
+            h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
+            h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
+            h("td", { style: { ...S.td, minWidth: 220, maxWidth: 340, width: 280, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
+            h("td", { style: S.td }, ed ? h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" })) : h("span", { title: lockT, style: { opacity: .45, cursor: "not-allowed" } }, "🔒")));
         })))));
 }
 /* ---------- 个人 To Do List（每个人自己的，admin 没有） ---------- */
@@ -6452,7 +6453,9 @@ function DebouncedInput({
   style,
   placeholder,
   type,
-  className
+  className,
+  disabled,
+  title
 }) {
   const [draft, setDraft] = React.useState(value || "");
   React.useEffect(() => {
@@ -6461,6 +6464,8 @@ function DebouncedInput({
   return React.createElement("input", {
     style: style,
     className: className,
+    disabled: disabled,
+    title: title,
     type: type || "text",
     placeholder: placeholder || "",
     value: draft,
