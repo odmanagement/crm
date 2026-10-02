@@ -3088,10 +3088,10 @@ function AutoTextarea({ value, onCommit, placeholder, style, readOnly }) {
   React.useEffect(() => { setDraft(value || ""); }, [value]);
   const fit = () => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
   React.useEffect(fit, [draft]);
-  return React.createElement("textarea", { ref, rows: 1, value: draft, placeholder, readOnly, title: readOnly ? "🔒 只有自己可以更改" : "",
+  return React.createElement("textarea", { ref, rows: 1, value: draft, placeholder, readOnly, title: "",
     onChange: e => setDraft(e.target.value),
     onBlur: () => { if ((draft || "") !== (value || "")) onCommit(draft); },
-    style: { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "1px solid transparent", background: "transparent", borderRadius: 8, padding: "6px 8px", fontSize: 13.5, lineHeight: 1.45, fontFamily: "inherit", color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", outline: "none", ...(readOnly ? { cursor: "not-allowed", color: "#64748b" } : {}), ...(style || {}) },
+    style: { width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "1px solid transparent", background: "transparent", borderRadius: 8, padding: "6px 8px", fontSize: 13.5, lineHeight: 1.45, fontFamily: "inherit", color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", outline: "none", ...(readOnly ? { cursor: "default" } : {}), ...(style || {}) },
     onFocus: e => { if (readOnly) return; e.target.style.borderColor = "#c4b5fd"; e.target.style.background = "#fff"; },
     onBlurCapture: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } });
 }
@@ -3243,7 +3243,7 @@ function SubmissionPage({ currentUser }) {
         shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
-          const sf = staffOf(x), ag = agentOf(x), ed = canEdit(x), lockT = ed ? "" : "🔒 只有自己可以更改";
+          const sf = staffOf(x), ag = agentOf(x), ed = canEdit(x), lockT = "";
           return h("tr", { key: x.id },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 hsl(" + ty[2] + ",70%,55%)" } }, i + 1),
             h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, title: lockT, style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
@@ -3252,7 +3252,7 @@ function SubmissionPage({ currentUser }) {
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
             h("td", { style: { ...S.td, minWidth: 220, maxWidth: 340, width: 280, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
-            h("td", { style: S.td }, ed ? h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" })) : h("span", { title: lockT, style: { opacity: .45, cursor: "not-allowed" } }, "🔒")));
+            h("td", { style: S.td }, h("button", { style: { ...S.fuDel, ...(ed ? {} : { opacity: .3, cursor: "default", pointerEvents: "none" }) }, title: ed ? "Delete" : "", disabled: !ed, onClick: () => ed && del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))));
 }
 /* ---------- 个人 To Do List（每个人自己的，admin 没有） ---------- */
@@ -7052,7 +7052,7 @@ button:active, a:active { transform: scale(.97); }
 .cz-table tbody tr:nth-child(even) td { background: #fbfaff; }
 .cz-table tbody tr:hover td { background: #f3f0ff !important; }
 .cz-table select, .cz-table input { cursor: pointer; }
-.cz-table select:disabled, .cz-table input:disabled { cursor: not-allowed; opacity: .85; filter: saturate(.7); }
+.cz-table select:disabled, .cz-table input:disabled { cursor: default; opacity: 1; color: inherit; -webkit-text-fill-color: currentColor; }
 .stat-card:nth-child(2) { animation-delay: .06s; } .stat-card:nth-child(3) { animation-delay: .12s; } .stat-card:nth-child(4) { animation-delay: .18s; }
 `;
 const S = {
