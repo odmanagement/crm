@@ -4781,30 +4781,48 @@ function Reports({
 
 // 核实资料字段定义（分组）
 const V_SECTIONS = [{
-  key: "personal",
-  title: "Personal Info",
+  key: "applicant",
+  title: "1. Applicant's Details",
   emoji: "👤",
   icon: Users,
-  fields: [["submitDate", "Submit Date"], ["customerName", "Customer Name"], ["icNumber", "IC Number"]]
+  fields: [["customerName", "Full Name as IC"], ["icNumber", "IC Number"], ["phone", "Contact No"], ["email", "Email Address"], ["resAddress", "Residential Address"], ["yearsOfStay", "Years of Stay"], ["motherName", "Mother Full Name"]]
 }, {
   key: "company",
-  title: "Company",
+  title: "2. Company's Details",
   emoji: "🏢",
   icon: Home,
-  fields: [["companyName", "Company Name"], ["officeNumber", "Office Number"], ["natureOfBusiness", "Nature Of Business"], ["position", "Position"], ["lengthOfService", "Length Of Service"], ["dateOfJoin", "Date Of Join"]]
-}, {
-  key: "salary",
-  title: "Salary",
-  emoji: "💰",
-  icon: Wallet,
-  fields: [["grossIncome", "Gross Income"], ["netIncome", "Net Income"], ["basicSalary", "Basic Salary"], ["fixedAllowance", "Fixed Allowance"], ["transportAllowance", "Transport Allowance"], ["phoneAllowance", "Phone Allowance"], ["salaryBankName", "Salary Bank Name"], ["salaryAccountNumber", "Salary Account Number"], ["buildBankName", "Build Account Bank Name"], ["buildAccountNumber", "Build Account Number"], ["disburseBankName", "Disbursement Bank Name"], ["disburseAccountNumber", "Disbursement Account Number"]]
+  fields: [["companyName", "Name of Company"], ["position", "Position"], ["lengthOfService", "Year of Service"], ["officeAddress", "Office Address"], ["officeNumber", "Office No"], ["natureOfBusiness", "Nature of Business"]]
 }, {
   key: "spouse",
-  title: "Spouse",
+  title: "3. Spouse's Details",
   emoji: "💑",
   icon: Users,
-  fields: [["spouseName", "Spouse Full Name"], ["spouseIc", "Spouse IC"], ["spousePhone", "Spouse Phone"], ["spouseCompany", "Spouse Company"], ["spouseNature", "Spouse Nature of Business"], ["spouseOffice", "Spouse Office Number"], ["spousePosition", "Spouse Position"], ["spouseGross", "Spouse Gross Income"], ["spouseNet", "Spouse Net Income"], ["spouseAddress", "Spouse Office Address"]]
+  fields: [["spouseName", "Full Name as IC"], ["spouseIc", "IC Number"], ["spousePhone", "Contact No"]]
+}, {
+  key: "emergency",
+  title: "4. Emergency Contact",
+  emoji: "🆘",
+  icon: Users,
+  fields: [["emName", "Full Name as IC"], ["emRelation", "Relationship"], ["emPhone", "Contact No"], ["emAddress", "Residential Address"]]
+}, {
+  key: "disburse",
+  title: "5. Disbursement Details",
+  emoji: "🏦",
+  icon: Wallet,
+  fields: [["disburseBankName", "Bank"], ["disburseAccountNumber", "Bank Account No."]]
+}, {
+  key: "previous",
+  title: "6. Previous Company's Details",
+  emoji: "📁",
+  icon: Home,
+  fields: [["prevCompany", "Previous Company"], ["prevPosition", "Position"], ["prevDuration", "Work How Long"]]
 }];
+/* 工资：Basic − EPF − SOCSO − EIS − PCB = Nett Salary（可以加项目） */
+const V_SALARY_DEFAULT = [["basic", "Basic", "+"], ["epf", "EPF", "-"], ["socso", "SOCSO", "-"], ["eis", "EIS", "-"], ["pcb", "PCB", "-"]];
+const vSalaryItems = v => v.salaryItems && v.salaryItems.length ? v.salaryItems : V_SALARY_DEFAULT.map(([id, name, sign]) => ({ id, name, sign, amount: "" }));
+const vNum = x => parseFloat(String(x || "").replace(/[^0-9.-]/g, "")) || 0;
+const vNett = v => vSalaryItems(v).reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
+const vMoney = n => "RM " + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // 法定扣款表格行（每行有 employer/employee/subtotal 三个值）
 const V_STATUTORY = [["epf", "EPF"], ["socso", "SOCSO"], ["eis", "EIS"], ["pcb", "Tax (PCB)"]];
 const V_ALL_FIELDS = V_SECTIONS.flatMap(s => s.fields.map(f => f[0]));
@@ -4843,6 +4861,9 @@ function newVerification(clientId, clientName) {
     subtotal: ""
   });
   v.customerName = clientName || "";
+  v.submitDate = today();
+  v.marital = "";
+  v.salaryItems = V_SALARY_DEFAULT.map(([id, name, sign]) => ({ id, name, sign, amount: "" }));
   return v;
 }
 function VerifyPage({
@@ -4947,7 +4968,7 @@ function VerifyPage({
       style: { "--st": st.color },
       onClick: () => setOpenId(v.id)
     }, /*#__PURE__*/React.createElement("span", { className: "vf-c0" }, i + 1),
-      /*#__PURE__*/React.createElement("span", { className: "vf-c1" }, v.submitDate ? v.submitDate.split("-").reverse().join("/") : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c1" }, (v.submitDate || v.createdAt) ? (v.submitDate || v.createdAt).split("-").reverse().join("/") : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c2" }, /*#__PURE__*/React.createElement("span", { style: { ...S.vStatusTag, background: st.bg, color: st.color, border: "1px solid " + st.color + "33", padding: "4px 10px", borderRadius: 999 } }, st.label)),
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
       /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
@@ -5002,7 +5023,8 @@ function printVerification(v, client) {
   const esc = s => String(s || "—").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const stat = v.statutory || {};
   const sectionHtml = V_SECTIONS.map(sec => {
-    const rows = sec.fields.map(([f, label]) => `<tr><td class="lbl">${label}</td><td>${esc(v[f])}</td></tr>`).join("");
+    if (sec.key === "spouse" && v.marital === "single") return `<h3>${sec.emoji} ${sec.title}</h3><p>Single</p>`;
+    const rows = (sec.key === "spouse" && v.marital ? `<tr><td class="lbl">Status</td><td>${v.marital === "married" ? "Married" : "Single"}</td></tr>` : "") + sec.fields.map(([f, label]) => `<tr><td class="lbl">${label}</td><td>${esc(v[f])}</td></tr>`).join("");
     return `<h3>${sec.emoji} ${sec.title}</h3><table>${rows}</table>`;
   }).join("");
   const statRows = V_STATUTORY.map(([k, label]) => {
@@ -5016,7 +5038,9 @@ function printVerification(v, client) {
       maximumFractionDigits: 2
     }) : "—"}</b></td>`;
   }).join("");
-  const statTable = `<h3>📋 Statutory Deductions</h3><table><tr><th></th><th>Employer</th><th>Employee</th><th>Sub-Total</th></tr>${statRows}<tr><td class="lbl"><b>Total</b></td>${statTotal}</tr></table>`;
+  const salRows = vSalaryItems(v).map(it => `<tr><td class="lbl">${it.sign === "-" ? "− " : "+ "}${esc(it.name)}</td><td>${esc(it.amount)}</td></tr>`).join("");
+  const statTable = `<h3>💰 Salary</h3><table>${salRows}<tr><td class="lbl"><b>Nett Salary</b></td><td><b>${vMoney(vNett(v))}</b></td></tr></table>`;
+  const _oldStat = `<h3>📋 Statutory Deductions</h3><table><tr><th></th><th>Employer</th><th>Employee</th><th>Sub-Total</th></tr>${statRows}<tr><td class="lbl"><b>Total</b></td>${statTotal}</tr></table>`;
   const statusLine = v.status !== "pending" ? `<p class="status">${V_STATUS[v.status].label} by ${esc(v.staff)} on ${esc(v.verifiedAt)}</p>` : "";
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(v.customerName)}</title>
   <style>
@@ -5134,6 +5158,27 @@ function VField({
     title: "Tap to edit"
   }, value || "—");
 }
+function VSalaryBlock({ v, onSave }) {
+  const h = React.createElement;
+  const items = vSalaryItems(v);
+  const save = list => onSave({ ...v, salaryItems: list });
+  const upd = (i, k, val) => save(items.map((x, j) => j === i ? { ...x, [k]: val } : x));
+  const nett = vNett(v);
+  const inp = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", minWidth: 0, background: "#fff" };
+  return h("div", { style: { ...S.vSection } },
+    h("div", { style: S.vSectionHead }, "💰 Salary"),
+    h("div", { style: { padding: "10px 12px 12px" } },
+    h("div", { style: { fontSize: 12, color: "#64748b", margin: "-2px 0 10px", fontWeight: 600 } }, items.map(x => (x.sign === "-" ? "− " : items[0] === x ? "" : "+ ") + x.name).join(" ") + " = Nett Salary"),
+    items.map((it, i) => h("div", { key: it.id || i, style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 6 } },
+      h("button", { title: "切换 + / −", onClick: () => upd(i, "sign", it.sign === "-" ? "+" : "-"), style: { width: 30, height: 32, borderRadius: 8, border: "1px solid " + (it.sign === "-" ? "#fecaca" : "#bbf7d0"), background: it.sign === "-" ? "#fef2f2" : "#f0fdf4", color: it.sign === "-" ? "#dc2626" : "#16a34a", fontWeight: 900, fontSize: 15, flexShrink: 0, cursor: "pointer" } }, it.sign === "-" ? "−" : "+"),
+      h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: it.name, placeholder: "项目", onCommit: val => upd(i, "name", val) }),
+      h(DebouncedInput, { style: { ...inp, width: 130, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: it.amount, placeholder: "0.00", onCommit: val => upd(i, "amount", val) }),
+      h("button", { title: "删除", onClick: () => save(items.filter((_, j) => j !== i)), style: { border: "none", background: "none", color: "#cbd5e1", width: 24, cursor: "pointer", fontSize: 16 } }, "×"))),
+    h("button", { onClick: () => save([...items, { id: uid(), name: "", sign: "-", amount: "" }]), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer", marginTop: 2 } }, "+ Add Item"),
+    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "10px 14px", borderRadius: 12, background: "#fff", border: "1.5px solid #c7d2fe" } },
+      h("span", { style: { fontWeight: 900, color: "#312e81", fontSize: 13.5 } }, "NETT SALARY"),
+      h("span", { style: { fontWeight: 900, fontSize: 18, color: nett < 0 ? "#dc2626" : "#16a34a", fontVariantNumeric: "tabular-nums" } }, vMoney(nett)))));
+}
 function VerifyDetail({
   v,
   clients,
@@ -5224,7 +5269,13 @@ function VerifyDetail({
       style: {
         fontSize: 15
       }
-    }, sec.emoji), " ", sec.title), sec.fields.map(([field, label]) => /*#__PURE__*/React.createElement("div", {
+    }, sec.emoji), " ", sec.title), sec.key === "spouse" && /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", gap: 8, padding: "10px 12px", borderBottom: "1px solid #f1f5f9" }
+    }, [["single", "Single"], ["married", "Married"]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
+      key: k,
+      onClick: () => setField("marital", v.marital === k ? "" : k),
+      style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", borderRadius: 999, border: "1.5px solid " + (v.marital === k ? "#6366f1" : "#e2e8f0"), background: v.marital === k ? "#eef2ff" : "#fff", color: v.marital === k ? "#4338ca" : "#64748b", fontWeight: 800, fontSize: 13, cursor: "pointer" }
+    }, /*#__PURE__*/React.createElement("span", { style: { width: 14, height: 14, borderRadius: "50%", border: "2px solid " + (v.marital === k ? "#6366f1" : "#cbd5e1"), boxShadow: v.marital === k ? "inset 0 0 0 3px #fff" : "none", background: v.marital === k ? "#6366f1" : "#fff" } }), l))), (sec.key !== "spouse" || v.marital !== "single") && sec.fields.map(([field, label]) => /*#__PURE__*/React.createElement("div", {
       key: field,
       style: S.vFieldRow
     }, /*#__PURE__*/React.createElement("span", {
@@ -5232,48 +5283,10 @@ function VerifyDetail({
     }, label), /*#__PURE__*/React.createElement(VField, {
       value: v[field],
       onChange: val => setField(field, val)
-    })))), sec.key === "salary" && /*#__PURE__*/React.createElement("div", {
-      style: S.vSection
-    }, /*#__PURE__*/React.createElement("div", {
-      style: S.vSectionHead
-    }, "📋 Statutory Deductions"), /*#__PURE__*/React.createElement("div", {
-      style: S.statHeadRow
-    }, /*#__PURE__*/React.createElement("span", {
-      style: S.statLabelCol
-    }), /*#__PURE__*/React.createElement("span", {
-      style: S.statCol
-    }, "Employer"), /*#__PURE__*/React.createElement("span", {
-      style: S.statCol
-    }, "Employee"), /*#__PURE__*/React.createElement("span", {
-      style: S.statCol
-    }, "Sub-Total")), V_STATUTORY.map(([rk, rlabel]) => /*#__PURE__*/React.createElement("div", {
-      key: rk,
-      style: S.statRow
-    }, /*#__PURE__*/React.createElement("span", {
-      style: S.statLabelCol
-    }, rlabel), ["employer", "employee", "subtotal"].map(col => /*#__PURE__*/React.createElement("input", {
-      key: col,
-      style: S.statInput,
-      placeholder: "—",
-      value: stat[rk] && stat[rk][col] || "",
-      onChange: e => setStat(rk, col, e.target.value)
-    })))), /*#__PURE__*/React.createElement("div", {
-      style: S.statTotalRow
-    }, /*#__PURE__*/React.createElement("span", {
-      style: S.statLabelCol
-    }, "Total"), ["employer", "employee", "subtotal"].map(col => {
-      const sum = V_STATUTORY.reduce((acc, [rk]) => {
-        const raw = String(stat[rk] && stat[rk][col] || "").replace(/[^0-9.]/g, "");
-        return acc + (parseFloat(raw) || 0);
-      }, 0);
-      return /*#__PURE__*/React.createElement("span", {
-        key: col,
-        style: S.statTotalCell
-      }, sum ? "RM " + sum.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }) : "—");
-    }))));
+    })))), sec.key === "company" && /*#__PURE__*/React.createElement(VSalaryBlock, {
+      v: v,
+      onSave: onSave
+    }));
   }), /*#__PURE__*/React.createElement("div", {
     style: S.vFinalize
   }, /*#__PURE__*/React.createElement("input", {
