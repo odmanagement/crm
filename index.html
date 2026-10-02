@@ -743,7 +743,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261002095158";
+const APP_BUILD = "20261002100602";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4482,9 +4482,12 @@ const tpTag = (v, icon, hue) => v ? React.createElement("span", { className: "tp
 const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, String(v)) : "";
 /* ---------- Type page ---------- */
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
+/* Personal 表格固定显示的银行（顺序 + 显示名） */
+const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
+const bankLabel = k => (PERSONAL_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
 const BANK_LIST = ["MAYBANK","CIMB","PBB","RHB","HLB","AMBANK","UOB","OCBC","HSBC","STANDARD CHARTERED","AFFIN","ALLIANCE","B.RAKYAT","BSN","BANK ISLAM","MUAMALAT","ALRAJHI","MBSB","AGROBANK","KFH","CITIBANK","GX BANK","AEON BANK","BOOST BANK","AEON CREDIT"];
-const BANK_ALIAS = { "GXBANK": "GX BANK", "GX": "GX BANK", "AEON": "AEON BANK", "MAY BANK": "MAYBANK", "MBB": "MAYBANK", "AM BANK": "AMBANK", "AGRO BANK": "AGROBANK", "KUWAIT FINANCE HOUSE": "KFH", "SCB": "STANDARD CHARTERED", "HONG LEONG": "HLB", "HONG LEONG BANK": "HLB", "BANK RAKYAT": "B.RAKYAT", "RAKYAT": "B.RAKYAT", "PUBLIC BANK": "PBB", "PUBLIC": "PBB", "AL RAJHI": "ALRAJHI", "AL-RAJHI": "ALRAJHI" };
+const BANK_ALIAS = { "ALB": "ALLIANCE", "ALLIANCE BANK": "ALLIANCE", "AEON .C": "AEON CREDIT", "AEON.C": "AEON CREDIT", "AEON.B": "AEON BANK", "AMB": "AMBANK", "ALRAHJI": "ALRAJHI", "GXBANK": "GX BANK", "GX": "GX BANK", "AEON": "AEON BANK", "MAY BANK": "MAYBANK", "MBB": "MAYBANK", "AM BANK": "AMBANK", "AGRO BANK": "AGROBANK", "KUWAIT FINANCE HOUSE": "KFH", "SCB": "STANDARD CHARTERED", "HONG LEONG": "HLB", "HONG LEONG BANK": "HLB", "BANK RAKYAT": "B.RAKYAT", "RAKYAT": "B.RAKYAT", "PUBLIC BANK": "PBB", "PUBLIC": "PBB", "AL RAJHI": "ALRAJHI", "AL-RAJHI": "ALRAJHI" };
 const bankKey = b => { const k = String(b || "").trim().toUpperCase().replace(/\s+/g, " "); return BANK_ALIAS[k] || k; };
 function TypePage({
   type,
@@ -4506,7 +4509,7 @@ function TypePage({
   });
   const total = rows.reduce((s, r) => s + Number(r.loan.amount || 0), 0);
   const usedBanks = Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type).flatMap(l => (l.banks || []).map(b => bankKey(b.bank)))).filter(Boolean)));
-  const COLS = isP ? BANK_LIST.filter(bk => usedBanks.includes(bk)).concat(usedBanks.filter(bk => !BANK_LIST.includes(bk))) : BANK_COLS.concat(usedBanks.filter(bk => !BANK_COLS.includes(bk)));
+  const COLS = isP ? PERSONAL_BANKS.map(x => x[0]).concat(usedBanks.filter(bk => !PERSONAL_BANKS.some(x => x[0] === bk))) : BANK_COLS.concat(usedBanks.filter(bk => !BANK_COLS.includes(bk)));
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
   style: {
     ...S.typeBanner,
@@ -4603,7 +4606,7 @@ function TypePage({
 }, "Approved"), COLS.map(bk => /*#__PURE__*/React.createElement("th", {
   key: bk,
   style: S.th
-}, bk)), !isP && /*#__PURE__*/React.createElement("th", {
+}, isP ? bankLabel(bk) : bk)), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
 }, "Stage"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((r, _i) => {
   const l = r.loan,
@@ -4851,7 +4854,7 @@ const V_SECTIONS = [{
   title: "1. Applicant's Details",
   emoji: "👤",
   icon: Users,
-  fields: [["customerName", "Full Name as IC"], ["icNumber", "IC Number"], ["phone", "Contact No"], ["email", "Email Address"], ["resAddress", "Residential Address"], ["yearsOfStay", "Years of Stay"], ["motherName", "Mother Full Name"]]
+  fields: [["customerName", "Full Name as IC"], ["agent", "Agent"], ["icNumber", "IC Number"], ["phone", "Contact No"], ["email", "Email Address"], ["resAddress", "Residential Address"], ["yearsOfStay", "Years of Stay"], ["motherName", "Mother Full Name"]]
 }, {
   key: "company",
   title: "2. Company's Details",
@@ -5028,7 +5031,7 @@ function VerifyPage({
     className: "vf-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     className: "vf-head"
-  }, ["#", "Link", "Customer", "IC Number", "Company", "Agent", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-lk", "vf-c3", "vf-c4", "vf-c5", "vf-ag", "vf-c6", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, ["#", "Link", "Customer", "Agent", "IC Number", "Company", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-lk", "vf-c3", "vf-ag", "vf-c4", "vf-c5", "vf-c6", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: { ...S.empty, padding: 40 }
   }, "No records"), shown.map((v, i) => {
     const st = V_STATUS[v.status];
@@ -5040,9 +5043,9 @@ function VerifyPage({
     }, /*#__PURE__*/React.createElement("span", { className: "vf-c0" }, i + 1),
       /*#__PURE__*/React.createElement("span", { className: "vf-lk", onClick: e => e.stopPropagation() }, (v.links || []).filter(x => x && x.url).length ? /*#__PURE__*/React.createElement("a", { href: _fixUrl(v.links.find(x => x && x.url).url), target: "_blank", rel: "noopener", style: S.linkCell }, "OPEN") : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
+      /*#__PURE__*/React.createElement("span", { className: "vf-ag" }, v.agent ? tpPerson(String(v.agent).toUpperCase()) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
-      /*#__PURE__*/React.createElement("span", { className: "vf-ag" }, v.agent ? tpPerson(String(v.agent).toUpperCase()) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c6" }, v.staff ? [/*#__PURE__*/React.createElement(React.Fragment, { key: "a" }, czAvatar(v.staff, 22)), " ", String(v.staff).toUpperCase()] : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c7" }, /*#__PURE__*/React.createElement("button", {
         className: "vf-del",
@@ -5295,7 +5298,7 @@ function VCaseInfo({ v, onSave }) {
     h("div", { style: S.vSectionHead }, "📌 Case Info"),
     h("div", { style: { padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
-        h("label", { style: { flex: "1 1 200px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "AGENT"),
+        false && h("label", { style: { flex: "1 1 200px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "AGENT"),
           h("select", { value: String(v.agent || "").toLowerCase(), onChange: e => onSave({ ...v, agent: e.target.value }), style: { ...inp, width: "100%", fontWeight: 700 } },
             h("option", { value: "" }, "— 选择 Agent —"),
             (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => h("option", { key: a, value: a }, a.toUpperCase())))),
@@ -5445,7 +5448,11 @@ function VerifyDetail({
       style: S.vFieldRow
     }, /*#__PURE__*/React.createElement("span", {
       style: S.vFieldLabel
-    }, label), /*#__PURE__*/React.createElement(VField, {
+    }, label), field === "agent" ? /*#__PURE__*/React.createElement("select", {
+      value: String(v.agent || "").toLowerCase(),
+      onChange: e => setField("agent", e.target.value),
+      style: { flex: 1, border: "none", background: "transparent", padding: "8px 12px", fontSize: 14, fontWeight: 700, fontFamily: "inherit", outline: "none", cursor: "pointer" }
+    }, /*#__PURE__*/React.createElement("option", { value: "" }, "— 选择 Agent —"), (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => /*#__PURE__*/React.createElement("option", { key: a, value: a }, a.toUpperCase()))) : /*#__PURE__*/React.createElement(VField, {
       value: v[field],
       onChange: val => setField(field, val)
     })))), sec.key === "company" && /*#__PURE__*/React.createElement(VSalaryBlock, {
@@ -5855,7 +5862,7 @@ function Detail({
     title: "Notes"
   }, /*#__PURE__*/React.createElement("div", {
     style: S.noteText
-  }, client.note)), /*#__PURE__*/React.createElement("div", {
+  }, client.note)), false && /*#__PURE__*/React.createElement("div", {
     style: S.loanHeadRow
   }, /*#__PURE__*/React.createElement("div", {
     style: S.sectionTitle
@@ -6327,7 +6334,7 @@ function LoanBlock({
     style: { ...S.bankInput, fontWeight: 700, ...(b.bank ? czPill(czBankHue(b.bank), { borderRadius: 8, padding: "6px 8px" }) : { color: "#94a3b8" }) },
     value: b.bank ? bankKey(b.bank) : "",
     onChange: e => setBank(i, "bank", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (BANK_LIST.includes(bankKey(b.bank)) || !b.bank ? BANK_LIST : [bankKey(b.bank), ...BANK_LIST]).map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, bk))), /*#__PURE__*/React.createElement(DebouncedInput, {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = loan.type === "personal" ? PERSONAL_BANKS.map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, loan.type === "personal" ? bankLabel(bk) : bk))), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
     placeholder: "Banker",
     value: b.officer,
