@@ -800,7 +800,7 @@ function CountUp({ value }) {
   return m[1] + Math.round(n).toLocaleString() + m[3];
 }
 /* ===== 个人主题（登录名 → 主题） ===== */
-const USER_THEMES = { vv: "pink", money: "star", joey: "cat" };
+const USER_THEMES = { vv: "pink", money: "star", joey: "cat", alice: "monet" };
 const CatSvg = ({ c = "#f97316", size = 60 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
   React.createElement("path", { d: "M10 22 L14 6 L24 16 Q30 14 36 16 L46 6 L50 22 Q54 30 50 40 Q44 52 30 52 Q16 52 10 40 Q6 30 10 22Z", fill: c }),
   React.createElement("path", { d: "M15 12 L20 18 L16 20Z M45 12 L40 18 L44 20Z", fill: "#fff", opacity: .55 }),
@@ -843,6 +843,12 @@ const LuckyCoin = ({ size = 34, mark = "" }) => React.createElement("svg", { wid
   mark ? React.createElement("text", { x: 20, y: 25.5, textAnchor: "middle", fontSize: 15, fontWeight: 900, fill: "#b45309", fontFamily: "Arial" }, mark)
        : React.createElement("rect", { x: 15.5, y: 15.5, width: 9, height: 9, fill: "#fef3c7", stroke: "#d97706", strokeWidth: 1.5 }),
   React.createElement("ellipse", { cx: 13, cy: 11, rx: 4, ry: 2, fill: "#fff", opacity: .55, transform: "rotate(-30 13 11)" }));
+const LilyPad = ({ size = 60, c = "#7fb08a", flower }) => React.createElement("svg", { width: size, height: size * .7, viewBox: "0 0 60 42" },
+  React.createElement("path", { d: "M30 21 L56 15 A28 19 0 1 1 46 6 Z", fill: c, opacity: .85 }),
+  React.createElement("path", { d: "M30 21 L10 10 M30 21 L12 32 M30 21 L40 36 M30 21 L52 28", stroke: "rgba(255,255,255,.35)", strokeWidth: 1 }),
+  flower && React.createElement("g", { transform: "translate(28 15)" },
+    [0, 60, 120, 180, 240, 300].map(r => React.createElement("ellipse", { key: r, cx: 0, cy: -6, rx: 3.2, ry: 6.5, fill: flower, opacity: .92, transform: "rotate(" + r + ")" })),
+    React.createElement("circle", { r: 2.6, fill: "#f8d66d" })));
 const StarBuddy = ({ c = "#facc15", size = 50 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
   React.createElement("path", { d: "M30 4 Q33 4 35 10 L39 20 Q40 22 43 22 L53 23 Q58 24 56 28 L48 36 Q46 38 47 41 L50 51 Q51 57 46 55 L36 49 Q30 46 24 49 L14 55 Q9 57 10 51 L13 41 Q14 38 12 36 L4 28 Q2 24 7 23 L17 22 Q20 22 21 20 L25 10 Q27 4 30 4Z", fill: c, stroke: "#fff", strokeWidth: 2, strokeLinejoin: "round" }),
   React.createElement("ellipse", { cx: 24, cy: 31, rx: 2.4, ry: 3, fill: "#3b2f6b" }), React.createElement("ellipse", { cx: 36, cy: 31, rx: 2.4, ry: 3, fill: "#3b2f6b" }),
@@ -862,6 +868,13 @@ function ThemeFx({ theme, page }) {
     ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 12 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(StarBuddy, { c: ["#fde68a", "#fcd77f", "#fef3c7", "#f9e08e", "#fdeaa7"][i % 5], size: 30 + b * 38 }))
     : h("span", { key: i, className: "tf-twinkle", style: { left: a * 100 + "%", top: b * 100 + "%", fontSize: 8 + c * 16, animationDelay: -c * 3 + "s", animationDuration: 1.6 + b * 2.5 + "s" } }, i % 3 ? "✦" : "★"))
     .concat([h("span", { key: "s1", className: "tf-shoot" }), h("span", { key: "s2", className: "tf-shoot", style: { top: "35%", animationDelay: "3.5s" } })]);
+  if (theme === "monet") kids = make(30, (i, a, b, c) => i % 3 === 0
+    ? h("span", { key: i, className: "tf-lily", style: { left: a * 100 + "%", top: 20 + b * 75 + "%", animationDuration: 30 + c * 30 + "s", animationDelay: -c * 40 + "s" } }, h(LilyPad, { size: 44 + b * 40, c: ["#7fb08a", "#94c4a0", "#6fa38a", "#a6c9a0"][i % 4], flower: i % 2 ? ["#f4b8c8", "#e9d3f0", "#fbe0e8"][i % 3] : null }))
+    : h("span", { key: i, className: "tf-fall tf-petal", style: { left: a * 100 + "%", animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s" } }, h("i", { style: { background: ["#f4b8c8", "#cbb8e8", "#fde2e7", "#b9d8e8", "#f7d9a8"][i % 5], width: 8 + b * 8, height: 12 + b * 10 } })));
+  if (theme === "gold") kids = make(34, (i, a, b, c) => i % 4 === 0
+    ? h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 12 + b * 16, animationDuration: 14 + c * 12 + "s", animationDelay: -c * 22 + "s", color: "#c9a227", textShadow: "0 0 10px rgba(212,175,55,.6)" } }, ["◆", "✦", "◇"][i % 3])
+    : h("span", { key: i, className: "tf-glit", style: { left: a * 100 + "%", top: b * 100 + "%", width: 2 + c * 4, height: 2 + c * 4, animationDelay: -c * 4 + "s", animationDuration: 2 + b * 3 + "s" } }))
+    .concat([h("span", { key: "sh1", className: "tf-goldline" }), h("span", { key: "sh2", className: "tf-goldline", style: { top: "62%", animationDelay: "-4s" } })]);
   if (theme === "cat") kids = make(24, (i, a, b, c) => {
     const k = i % 4;
     if (k === 0) return h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 14 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, h(CatSvg, { c: ["#fbbf24", "#f97316", "#fde68a"][i % 3], size: 36 + b * 28 }));
@@ -2593,7 +2606,7 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
+  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star", "monet"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
     theme: USER_THEMES[canonUser(currentUser)],
     page: page
   }) : /*#__PURE__*/React.createElement(PageFx, {
@@ -3221,7 +3234,7 @@ function TodoPage({ currentUser }) {
   React.useEffect(() => DB.subscribe((k, v) => { if (k === KEY && v) { try { setItems(JSON.parse(v)); } catch (e) {} } }), [KEY]);
   const save = list => { setItems(list); DB.set(KEY, JSON.stringify(list)); };
   const theme = USER_THEMES[canonUser(currentUser)];
-  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#ca8a04", "#facc15"] }[theme] || ["#4f46e5", "#0ea5e9"];
+  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#ca8a04", "#facc15"], gold: ["#b8901f", "#e8c96a"], monet: ["#6f9c8a", "#9fb7d9"] }[theme] || ["#4f46e5", "#0ea5e9"];
   const list = items || [];
   const add = () => { const t = text.trim(); if (!t) return; save([{ id: uid(), text: t, done: false, at: Date.now() }, ...list]); setText(""); };
   const toggle = id => { const it = list.find(x => x.id === id); if (it && !it.done) { setJustDone(id); setTimeout(() => setJustDone(null), 700); } save(list.map(x => x.id === id ? { ...x, done: !x.done, doneAt: x.done ? null : Date.now() } : x)); };
@@ -3807,7 +3820,9 @@ function CompanyFilesPage() {
   const PAL = {
     cat: ["#dc2626", "#d97706", "#059669", "#e11d48", "#ca8a04", "#ea580c", "#0f766e", "#9f1239"],
     pink: ["#ec4899", "#a855f7", "#f43f5e", "#d946ef", "#fb7185", "#8b5cf6", "#f472b6"],
-    star: ["#d4a52c", "#e09f5a", "#a3b18a", "#c08552", "#e6b800", "#d08c60", "#b5a642"]
+    star: ["#d4a52c", "#e09f5a", "#a3b18a", "#c08552", "#e6b800", "#d08c60", "#b5a642"],
+    gold: ["#b8901f", "#3a3020", "#8a6d1c", "#1f1b14", "#c9a227", "#5c4a1f"],
+    monet: ["#6f9c8a", "#8c7cc4", "#6a9bbd", "#d0819b", "#c9a24f", "#5e8f6e", "#a07fb8"]
   }[USER_THEMES[canonUser(window.__crmUser)]] || ["#6366f1", "#0ea5e9", "#14b8a6", "#8b5cf6", "#f43f5e", "#f59e0b", "#10b981", "#ec4899"];
   const colorOf = (c, i) => PAL[i % PAL.length];
   const doc = (label, url, c) => url
@@ -6817,6 +6832,87 @@ button:active, a:active { transform: scale(.97); }
 .theme-pink .dk-dash .dash3d button { border-bottom-color: #fce7f3 !important; }
 .theme-pink .dk-dash button[style*="resetBtn"], .theme-pink .dk-dash > div > div > button { color: #9d174d !important; }
 .theme-pink .cz-table thead tr { background: linear-gradient(90deg,#f472b6,#f9a8d4 50%,#e879f9) !important; }
+/* monet：莫奈花园（ALICE） */
+.theme-monet { background: #f6f7f0 !important; }
+.tfx-monet { background:
+  radial-gradient(380px 220px at 12% 18%, rgba(185,216,232,.55), transparent 70%),
+  radial-gradient(420px 260px at 82% 12%, rgba(203,184,232,.45), transparent 70%),
+  radial-gradient(360px 240px at 70% 70%, rgba(148,196,160,.45), transparent 70%),
+  radial-gradient(300px 200px at 25% 80%, rgba(244,184,200,.40), transparent 70%),
+  radial-gradient(260px 180px at 50% 45%, rgba(247,217,168,.30), transparent 70%),
+  linear-gradient(180deg,#f7f8f2,#eef4ee 50%,#e9f1f4); }
+.tfx-monet:before { content: ""; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%2394c4a0' fill-opacity='.10'%3E%3Cellipse cx='20' cy='30' rx='14' ry='5' transform='rotate(-20 20 30)'/%3E%3Cellipse cx='80' cy='20' rx='10' ry='4' transform='rotate(15 80 20)'/%3E%3Cellipse cx='60' cy='85' rx='16' ry='5' transform='rotate(-8 60 85)'/%3E%3C/g%3E%3Cg fill='%23cbb8e8' fill-opacity='.12'%3E%3Cellipse cx='100' cy='70' rx='12' ry='4' transform='rotate(25 100 70)'/%3E%3Cellipse cx='35' cy='100' rx='9' ry='3.5'/%3E%3C/g%3E%3C/svg%3E"); }
+.tf-lily { position: absolute; animation: lilyDrift linear infinite alternate; filter: drop-shadow(0 6px 8px rgba(60,110,90,.18)); }
+@keyframes lilyDrift { from { transform: translateX(-30px) rotate(-6deg); } to { transform: translateX(60px) rotate(8deg); } }
+.tf-petal i { display: block; border-radius: 60% 40% 60% 40%; opacity: .8; animation: petalSpin 3s ease-in-out infinite alternate; }
+@keyframes petalSpin { from { transform: rotate(-30deg) translateX(-8px); } to { transform: rotate(40deg) translateX(10px); } }
+.theme-monet .app-sidebar, .theme-monet .sb { background: linear-gradient(180deg,#6f9c8a,#4e7a6e 55%,#3e6460) !important; border-right: 1px solid #a6c9a0 !important; }
+.theme-monet .sb-item, .theme-monet nav button { color: #f3f7ee !important; }
+.theme-monet .sb-item:hover { background: rgba(255,255,255,.14) !important; }
+.theme-monet .sb-item.on { background: linear-gradient(120deg,#f4c6d2,#d9c8f0 60%,#c3dceb) !important; color: #3e5a52 !important; box-shadow: 0 6px 18px rgba(30,60,50,.25) !important; }
+.theme-monet .sb-name { color: #fff !important; } .theme-monet .sb-role { color: #f8d9e2 !important; } .theme-monet .sb-prof { border-color: rgba(255,255,255,.2) !important; } .theme-monet .sb-sub { border-color: rgba(255,255,255,.3) !important; }
+.theme-monet .sb-ava { background: linear-gradient(135deg,#f4c6d2,#c3dceb) !important; }
+.theme-monet .app-header { background: linear-gradient(90deg,#d6e8d8,#e6dcf3 50%,#d4e7f0 80%,#f8dde5) !important; border-bottom: 1px solid #c8dccb !important; }
+.theme-monet .app-header > :first-child, .theme-monet .app-header > :first-child * { -webkit-text-fill-color: #3e6460 !important; color: #3e6460 !important; text-shadow: none !important; }
+.theme-monet .app-header button:not([style*="gradient"]), .theme-monet .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.75) !important; color: #3e6460 !important; border: 1px solid #c8dccb !important; }
+.theme-monet button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#7fb08a,#9fb7d9 60%,#c9a8d8) !important; color: #fff !important; box-shadow: 0 6px 16px -6px rgba(90,130,120,.5) !important; }
+.theme-monet .cz-table thead tr { background: linear-gradient(90deg,#7fa898,#9fb7d9 55%,#c9a8d8) !important; }
+.theme-monet table thead th { background: #6f9c8a !important; color: #fff !important; border-color: #8fb3a3 !important; }
+.theme-monet .cz-table thead th { background: transparent !important; }
+.theme-monet div[style*="237, 233, 254"] { background: linear-gradient(120deg,#eef6ee,#f3eefa) !important; border-color: #c8dccb !important; }
+.theme-monet div[style*="237, 233, 254"] span { color: #3e6460 !important; }
+.theme-monet div[style*="237, 233, 254"] span[style*="gradient"], .theme-monet div[style*="237, 233, 254"] span[style*="gradient"] span { color: #fff !important; }
+.theme-monet button[style*="rgb(30, 41, 59)"] { background: #6f9c8a !important; border-color: #6f9c8a !important; }
+.theme-monet .stat-card:nth-child(1) { background: linear-gradient(135deg,#a8d0b3,#6fa38a) !important; }
+.theme-monet .stat-card:nth-child(2) { background: linear-gradient(135deg,#d5c6f0,#9d87cf) !important; }
+.theme-monet .stat-card:nth-child(3) { background: linear-gradient(135deg,#bcdcec,#7aa9c9) !important; }
+.theme-monet .stat-card:nth-child(4) { background: linear-gradient(135deg,#f6c9d4,#d98aa3) !important; }
+.theme-monet .stat-card { box-shadow: 0 12px 30px -12px rgba(80,120,110,.45) !important; border: 1px solid rgba(255,255,255,.6) !important; }
+.theme-monet .dk-dash { background: transparent !important; }
+.theme-monet .dk-dash .fx3d .au { display: none; }
+.theme-monet .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(111,156,138,.22) 2px, transparent 2px), linear-gradient(90deg, rgba(111,156,138,.22) 2px, transparent 2px) !important; }
+.theme-monet .dk-dash .dash3d { background: rgba(255,255,255,.82) !important; border: 1px solid #d5e6d8 !important; box-shadow: 0 10px 28px rgba(80,120,110,.12) !important; }
+.theme-monet .dk-dash .dash3d, .theme-monet .dk-dash .dash3d button, .theme-monet .dk-dash .dash3d div { color: #34534c !important; }
+.theme-monet .dk-dash .dash3d button div:last-child, .theme-monet .dk-dash .dash3d span { color: #6b8f84 !important; }
+.theme-monet .dk-dash .dash3d button { border-bottom-color: #eef4ee !important; }
+.theme-monet .dk-dash .dash3d > div:first-child { border-left-color: #9fb7d9 !important; }
+.theme-monet .co-wrap { --a1: #6f9c8a; --a2: #9fb7d9; --ink: #34534c; --soft: #eef6f0; }
+.theme-monet .td-head, .theme-monet .td-add button { background: linear-gradient(120deg,#7fb08a,#9fb7d9 60%,#c9a8d8) !important; }
+/* gold：黑金色（ALICE） */
+.theme-gold { background: #f7f3ea !important; }
+.tfx-gold { background-color: #f8f4ea; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23c9a227' stroke-opacity='.22' stroke-width='1.2'%3E%3Cpath d='M40 4 L76 40 L40 76 L4 40 Z'/%3E%3Cpath d='M40 18 L62 40 L40 62 L18 40 Z'/%3E%3Cpath d='M40 0 V18 M40 62 V80 M0 40 H18 M62 40 H80'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg,#fbf8f1,#f1e9d6); }
+.tfx-gold .tf-glit { position: absolute; border-radius: 50%; background: radial-gradient(circle,#fff6d5,#d4af37 60%,transparent 70%); box-shadow: 0 0 8px #d4af37; animation: twinkle ease-in-out infinite; }
+.tf-goldline { position: absolute; top: 20%; left: -30%; width: 30%; height: 1.5px; background: linear-gradient(90deg,transparent,#d4af37,#fff6d5,transparent); animation: goldsweep 8s ease-in-out infinite; opacity: .8; }
+@keyframes goldsweep { 0% { left: -30%; } 60%, 100% { left: 110%; } }
+.theme-gold .app-sidebar, .theme-gold .sb { background: linear-gradient(180deg,#141210,#050505) !important; border-right: 1px solid #3a3020 !important; }
+.theme-gold .sb-item, .theme-gold nav button { color: #d9c48f !important; }
+.theme-gold .sb-item:hover { background: rgba(212,175,55,.1) !important; color: #f5e6b8 !important; }
+.theme-gold .sb-item.on { background: linear-gradient(120deg,#f3d98b,#c9a227 55%,#9c7a1c) !important; color: #120f08 !important; box-shadow: 0 6px 18px rgba(201,162,39,.35) !important; }
+.theme-gold .sb-name { color: #f3d98b !important; } .theme-gold .sb-role { color: #c9a227 !important; } .theme-gold .sb-prof { border-color: rgba(201,162,39,.25) !important; } .theme-gold .sb-sub { border-color: rgba(201,162,39,.3) !important; }
+.theme-gold .sb-ava { background: linear-gradient(135deg,#f3d98b,#9c7a1c) !important; }
+.theme-gold .app-header { background: linear-gradient(90deg,#0c0b09,#1a1610 60%,#2a2215) !important; border-bottom: 1.5px solid #c9a227 !important; }
+.theme-gold .app-header > :first-child, .theme-gold .app-header > :first-child * { background: linear-gradient(90deg,#f3d98b,#c9a227,#fff1c1) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; text-shadow: none !important; }
+.theme-gold .app-header button:not([style*="gradient"]), .theme-gold .app-header span[title^="登录邮箱"] { background: rgba(201,162,39,.08) !important; color: #e8d5a3 !important; border: 1px solid rgba(201,162,39,.45) !important; }
+.theme-gold button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#1a1610,#2c2416) !important; color: #f3d98b !important; border: 1px solid #c9a227 !important; box-shadow: 0 6px 16px -6px rgba(201,162,39,.5) !important; }
+.theme-gold .cz-table thead tr { background: linear-gradient(90deg,#0c0b09,#2a2215 60%,#3d3220) !important; }
+.theme-gold .cz-table thead th { color: #e8c96a !important; }
+.theme-gold table thead th { background: #14110c !important; color: #e8c96a !important; border-color: #2c2416 !important; }
+.theme-gold .cz-table thead th { background: transparent !important; }
+.theme-gold div[style*="237, 233, 254"] { background: linear-gradient(120deg,#1a1610,#2a2215) !important; border-color: #c9a227 !important; }
+.theme-gold div[style*="237, 233, 254"] span { color: #e8d5a3 !important; }
+.theme-gold button[style*="rgb(30, 41, 59)"] { background: #1a1610 !important; border-color: #c9a227 !important; color: #f3d98b !important; }
+.theme-gold .stat-card { background: linear-gradient(145deg,#1c1913,#0a0908) !important; border: 1px solid #c9a227 !important; box-shadow: 0 12px 30px -10px rgba(201,162,39,.4) !important; }
+.theme-gold .stat-card div { color: #f3d98b !important; text-shadow: 0 0 18px rgba(212,175,55,.35) !important; }
+.theme-gold .dk-dash { background: radial-gradient(700px 380px at 10% 0%, rgba(212,175,55,.22), transparent 70%), radial-gradient(700px 400px at 95% 100%, rgba(212,175,55,.14), transparent 70%), linear-gradient(160deg,#0b0a08,#17140f 55%,#0a0908) !important; }
+.theme-gold .dk-dash .fx3d .au { opacity: .15; filter: blur(90px) grayscale(1) sepia(1) saturate(4); }
+.theme-gold .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(212,175,55,.38) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(212,175,55,.38) 1.5px, transparent 1.5px) !important; }
+.theme-gold .dk-dash .dash3d { background: rgba(20,18,14,.75) !important; border: 1px solid rgba(201,162,39,.45) !important; }
+.theme-gold .dk-dash .dash3d > div:first-child { border-left-color: #c9a227 !important; color: #f3d98b !important; }
+.theme-gold .dk-dash .type-ic { background: linear-gradient(135deg,#f3d98b,#9c7a1c) !important; box-shadow: 0 3px 10px rgba(201,162,39,.4) !important; }
+.theme-gold .co-wrap { --a1: #b8901f; --a2: #e8c96a; --ink: #1a1610; --soft: #fbf3dc; }
+.theme-gold .td-head, .theme-gold .td-add button { background: linear-gradient(120deg,#0c0b09,#2a2215) !important; }
+.theme-gold .td-head * { color: #f3d98b !important; }
+.theme-gold .td-bar i { background: linear-gradient(90deg,#c9a227,#f3d98b) !important; }
 /* star：星星人（浅黄色，柔和统一） */
 .theme-star { background: #fffef8 !important; }
 .tfx-star { background: radial-gradient(700px 360px at 15% 0%, #ffffff, transparent 70%), radial-gradient(600px 320px at 90% 15%, rgba(254,243,199,.7), transparent 70%), linear-gradient(180deg,#fffef8,#fffbeb 60%,#fef9e7); }
