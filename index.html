@@ -12,6 +12,10 @@
   .calc-in:hover { background: #f8fafc; }
   .calc-in:focus { background: #fff; border-color: #c4b5fd; }
   .calc-in::placeholder { color: #cbd5e1; }
+  .bank-row-p { flex-wrap: wrap; padding: 8px; border-radius: 10px; background: rgba(255,255,255,.6); border: 1px solid #ede9fe; row-gap: 6px !important; }
+  .bank-row-p > * { flex: 1 1 22% !important; }
+  .bank-row-p > select:nth-of-type(2), .bank-row-p > input[type=date] { flex: 1 1 42% !important; width: auto !important; }
+  .bank-row-p > button { flex: 0 0 32px !important; }
   .calc-in:disabled { color: #7c3aed !important; background: #f5f3ff !important; border-color: #ede9fe !important; cursor: help; -webkit-text-fill-color: #7c3aed; opacity: 1; }
   .calc-in::-webkit-outer-spin-button, .calc-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .calc-in[type=number] { -moz-appearance: textfield; }
@@ -678,7 +682,7 @@ const TYPES = [{
 const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
 const subjectLabel = type => type === "car" ? "Vehicle" : type === "personal" ? "Purpose" : "Property";
 const bankStatusStyle = status => {
-  const c = status === "rejected" ? "#dc2626" : status === "approved" ? "#16a34a" : "#7c3aed";
+  const c = status === "rejected" ? "#dc2626" : status === "approved" ? "#16a34a" : status === "pending" ? "#d97706" : "#7c3aed";
   return {
     color: c,
     fontWeight: 700,
@@ -5939,7 +5943,9 @@ function LoanBlock({
       bank: "",
       officer: "",
       status: "submitted",
-      amount: ""
+      amount: "",
+      date: today(),
+      dis: ""
     }]
   });
   const setBank = (i, k, v) => onUpdate({
@@ -6076,6 +6082,7 @@ function LoanBlock({
     style: S.fuEmpty
   }, "No banks yet — tap Add Bank"), banks.map((b, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
+    className: loan.type === "personal" ? "bank-row-p" : "",
     style: S.bankInlineRow
   }, /*#__PURE__*/React.createElement("input", {
     style: S.bankInput,
@@ -6097,6 +6104,8 @@ function LoanBlock({
   }, /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
+    value: "pending"
+  }, "Pending"), /*#__PURE__*/React.createElement("option", {
     value: "approved"
   }, "Approved"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
@@ -6109,6 +6118,20 @@ function LoanBlock({
     placeholder: "Amount",
     value: b.amount || "",
     onCommit: v => setBank(i, "amount", v)
+  }), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
+    style: {
+      ...S.bankInput,
+      fontWeight: 700,
+      ...(b.dis === "dis" ? { color: "#059669", borderColor: "#05966955", background: "#0596690f" } : b.dis === "non" ? { color: "#64748b", borderColor: "#94a3b855", background: "#f8fafc" } : {})
+    },
+    value: b.dis || "",
+    onChange: e => setBank(i, "dis", e.target.value)
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "Dis / Non-Dis"), /*#__PURE__*/React.createElement("option", { value: "dis" }, "Disbursed"), /*#__PURE__*/React.createElement("option", { value: "non" }, "Non-Dis")), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    title: "日期（加银行时自动填当天）",
+    style: { ...S.bankInput, width: 140, flex: "0 0 140px" },
+    value: b.date || "",
+    onChange: e => setBank(i, "date", e.target.value)
   }), /*#__PURE__*/React.createElement("button", {
     style: S.bankDelBtn,
     onClick: () => removeBank(i)
@@ -6116,7 +6139,7 @@ function LoanBlock({
     size: 13
   }))))), loan.note && !/[\u4e00-\u9fff]/.test(loan.note) && /*#__PURE__*/React.createElement("div", {
     style: S.loanNote
-  }, loan.note), /*#__PURE__*/React.createElement("div", {
+  }, loan.note), loan.type !== "personal" && /*#__PURE__*/React.createElement("div", {
     style: S.stageRow
   }, STAGES.map(s => /*#__PURE__*/React.createElement("button", {
     key: s.id,
