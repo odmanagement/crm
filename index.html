@@ -12,10 +12,14 @@
   .calc-in:hover { background: #f8fafc; }
   .calc-in:focus { background: #fff; border-color: #c4b5fd; }
   .calc-in::placeholder { color: #cbd5e1; }
-  .bank-row-p { flex-wrap: wrap; padding: 8px; border-radius: 10px; background: rgba(255,255,255,.6); border: 1px solid #ede9fe; row-gap: 6px !important; }
-  .bank-row-p > * { flex: 1 1 22% !important; }
-  .bank-row-p > select:nth-of-type(2), .bank-row-p > input[type=date] { flex: 1 1 42% !important; width: auto !important; }
-  .bank-row-p > button { flex: 0 0 32px !important; }
+  .bank-row-p { flex-wrap: nowrap; gap: 4px !important; }
+  .bank-row-p > * { font-size: 12px !important; padding-left: 6px !important; padding-right: 4px !important; }
+  .bank-row-p > input:nth-child(1), .bank-row-p > input:nth-child(2) { flex: 1 1 70px !important; }
+  .bank-row-p > select:nth-of-type(1) { flex: 0 0 100px !important; }
+  .bank-row-p > input:nth-child(4) { flex: 0 0 76px !important; width: 76px !important; }
+  .bank-row-p > select:nth-of-type(2) { flex: 0 0 132px !important; }
+  .bank-row-p > input[type=date] { flex: 0 0 118px !important; width: 118px !important; }
+  .bank-row-p > button { flex: 0 0 28px !important; padding: 0 !important; }
   .calc-in:disabled { color: #7c3aed !important; background: #f5f3ff !important; border-color: #ede9fe !important; cursor: help; -webkit-text-fill-color: #7c3aed; opacity: 1; }
   .calc-in::-webkit-outer-spin-button, .calc-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .calc-in[type=number] { -moz-appearance: textfield; }
@@ -5945,9 +5949,13 @@ function LoanBlock({
       status: "submitted",
       amount: "",
       date: today(),
-      dis: ""
+      dis: "non"
     }]
   });
+  // Personal：没有日期的银行自动填当天
+  React.useEffect(() => {
+    if (loan.type === "personal" && banks.some(b => !b.date)) onUpdate({ ...loan, banks: banks.map(b => b.date ? b : { ...b, date: today() }) });
+  }, [loan.id, banks.length]);
   const setBank = (i, k, v) => onUpdate({
     ...loan,
     banks: banks.map((b, j) => j === i ? {
@@ -6122,11 +6130,11 @@ function LoanBlock({
     style: {
       ...S.bankInput,
       fontWeight: 700,
-      ...(b.dis === "dis" ? { color: "#059669", borderColor: "#05966955", background: "#0596690f" } : b.dis === "non" ? { color: "#64748b", borderColor: "#94a3b855", background: "#f8fafc" } : {})
+      ...(b.dis === "dis" ? { color: "#059669", borderColor: "#05966955", background: "#0596690f" } : { color: "#64748b", borderColor: "#94a3b855", background: "#f8fafc" })
     },
-    value: b.dis || "",
+    value: b.dis || "non",
     onChange: e => setBank(i, "dis", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "Dis / Non-Dis"), /*#__PURE__*/React.createElement("option", { value: "dis" }, "Disbursed"), /*#__PURE__*/React.createElement("option", { value: "non" }, "Non-Dis")), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("option", { value: "non" }, "Non Disbursed"), /*#__PURE__*/React.createElement("option", { value: "dis" }, "Disbursed")), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
     type: "date",
     title: "日期（加银行时自动填当天）",
     style: { ...S.bankInput, width: 140, flex: "0 0 140px" },
@@ -6246,7 +6254,9 @@ function LoanForm({
   const addBank = () => set("banks", [...banks, {
     bank: "",
     officer: "",
-    status: "submitted"
+    status: "submitted",
+    date: today(),
+    dis: "non"
   }]);
   const setBank = (i, k, v) => set("banks", banks.map((b, j) => j === i ? {
     ...b,
