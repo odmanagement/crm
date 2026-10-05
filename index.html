@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261002101244";
+const APP_BUILD = "20261005020914";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2747,8 +2747,8 @@ function CRM({ onLogout, currentUser }) {
     verifications: verifications,
     onSave: persistVerifications,
     currentUser: currentUser
-  }) : page === "html_forms" ? /*#__PURE__*/React.createElement(LinkListPage, {
-    title: "Forms",
+  }) : page === "html_forms" ? /*#__PURE__*/React.createElement(FormsPage, {
+    currentUser: currentUser,
     tools: FORMS_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
   }) : page === "html_company" || page === "html_payslip" || page === "html_offer" ? /*#__PURE__*/React.createElement(CompanyFilesPage, null) : page === "banker" ? /*#__PURE__*/React.createElement(BankerPage, {
     bankers: bankers,
@@ -4048,6 +4048,116 @@ function CompanyFilesPage() {
           h("button", { onClick: submitEdit, disabled: saving, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 800, fontSize: 14.5, boxShadow: "0 8px 20px rgba(79,70,229,.35)" } }, saving ? "保存中…" : "保存")))),
     delItem && h(PwDialog, { title: "删除公司", desc: "删除「" + delItem.name + "」和它的链接，不能复原。", confirmText: "删除", onCancel: () => setDelItem(null),
       onOk: async () => { const id = delItem.customId; setDelItem(null); setOpenName(null); await saveCustom(custom.filter(x => x.id !== id)); } }));
+}
+/* ---------- Forms：在 CRM 里打开，可以存档 ---------- */
+function formReadValues(doc) {
+  const els = Array.from(doc.querySelectorAll("input, textarea, select"));
+  return els.map((el, i) => {
+    const key = (el.name || el.id || "") + "#" + i;
+    if (el.type === "checkbox" || el.type === "radio") return [key, el.checked ? "1" : ""];
+    if (el.type === "file" || el.type === "button" || el.type === "submit") return [key, null];
+    return [key, el.value];
+  }).filter(x => x[1] !== null);
+}
+function formWriteValues(doc, values) {
+  const map = Object.fromEntries(values || []);
+  Array.from(doc.querySelectorAll("input, textarea, select")).forEach((el, i) => {
+    const key = (el.name || el.id || "") + "#" + i;
+    if (!(key in map)) return;
+    if (el.type === "checkbox" || el.type === "radio") el.checked = map[key] === "1";
+    else el.value = map[key];
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+function FormsPage({ currentUser, tools }) {
+  const h = React.createElement;
+  const [drafts, saveDrafts] = useCloudList("form_drafts");
+  const [open, setOpen] = React.useState(null); // { tool, draft }
+  const [ask, setAsk] = React.useState(false);
+  const [msg, setMsg] = React.useState("");
+  const [q, setQ] = React.useState("");
+  const frameRef = React.useRef(null);
+  const baseRef = React.useRef("[]");
+  const doc = () => { try { return frameRef.current && frameRef.current.contentWindow.document; } catch (e) { return null; } };
+  const currentVals = () => { const d = doc(); return d ? formReadValues(d) : []; };
+  const dirty = () => JSON.stringify(currentVals()) !== baseRef.current;
+  const onFrameLoad = () => {
+    const d = doc(); if (!d) return;
+    if (open && open.draft) formWriteValues(d, open.draft.values);
+    setTimeout(() => { baseRef.current = JSON.stringify(currentVals()); }, 150);
+  };
+  React.useEffect(() => {
+    const fn = e => { if (open && dirty()) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", fn);
+    return () => window.removeEventListener("beforeunload", fn);
+  }, [open]);
+  const guessTitle = vals => { const v = vals.map(x => x[1]).find(x => x && String(x).trim().length > 1 && !/^\d{4}-\d{2}-\d{2}$/.test(x)); return v ? String(v).trim().slice(0, 40) : ""; };
+  const doSave = () => {
+    const vals = currentVals();
+    const list = drafts || [];
+    const now = Date.now();
+    if (open.draft) {
+      const nd = { ...open.draft, values: vals, at: now, by: canonUser(currentUser), title: open.draft.title || guessTitle(vals) };
+      saveDrafts(list.map(x => x.id === nd.id ? nd : x));
+      setOpen({ ...open, draft: nd });
+    } else {
+      const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: guessTitle(vals), values: vals, by: canonUser(currentUser), at: now };
+      saveDrafts([nd, ...list]);
+      setOpen({ ...open, draft: nd });
+    }
+    baseRef.current = JSON.stringify(vals);
+    setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500);
+  };
+  const tryClose = () => { if (dirty()) setAsk(true); else setOpen(null); };
+  const delDraft = d => { if (window.confirm("删除这份存档？")) saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
+  const list = (drafts || []).filter(d => !q || (d.form + " " + (d.title || "") + " " + d.by).toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.at - a.at);
+  const fmtT = t => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const card = { display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, color: "#0f172a", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" };
+  const icon = (bg, c, ch) => h("div", { style: { width: 40, height: 40, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: c, fontSize: 18 } }, ch);
+  return h("div", { style: { padding: 4 } },
+    h("div", { style: { fontSize: 14, color: "#64748b", marginBottom: 14, fontWeight: 600 } }, "点击打开表格 · 填好后按 💾 存档，下次可以继续"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 } },
+      tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
+        icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
+        h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
+    h("div", { style: { display: "flex", alignItems: "center", gap: 10, margin: "26px 0 12px", flexWrap: "wrap" } },
+      h("div", { style: { fontSize: 16, fontWeight: 900, color: "#1e1b4b", flex: 1 } }, "📁 已存档 (" + (drafts || []).length + ")"),
+      h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "Search 存档", style: { padding: "9px 14px", borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 13.5, width: 240, fontFamily: "inherit", outline: "none" } })),
+    drafts === null ? h("div", { style: { color: "#94a3b8" } }, "载入中…") :
+    list.length === 0 ? h("div", { style: { color: "#94a3b8", fontSize: 13.5, padding: 20, textAlign: "center", background: "rgba(255,255,255,.7)", borderRadius: 14 } }, "还没有存档") :
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 } },
+      list.map(d => {
+        const tool = tools.find(t => t.file === d.file) || { name: d.form, file: d.file };
+        return h("div", { key: d.id, style: { ...card, cursor: "default", position: "relative" } },
+          icon("#fef3c7", "#b45309", "💾"),
+          h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => setOpen({ tool, draft: d }) },
+            h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, d.title || "(未命名)"),
+            h("div", { style: { fontSize: 12, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, d.form),
+            h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 2 } }, String(d.by || "").toUpperCase() + " · " + fmtT(d.at))),
+          (sameUser(d.by, currentUser) || isMissionBoss(currentUser)) && h("button", { title: "删除", onClick: () => delDraft(d), style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" })));
+      })),
+    open && h("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,15,40,.55)", display: "flex", alignItems: "stretch", justifyContent: "center", padding: "18px" } },
+      h("div", { style: { flex: 1, maxWidth: 1200, background: "#fff", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,.4)" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f6", background: "#fafbff" } },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontWeight: 900, fontSize: 15, color: "#1e1b4b" } }, open.tool.name),
+            h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, open.draft ? "存档：" + (open.draft.title || "(未命名)") + " · " + fmtT(open.draft.at) : "新的一份（还没存档）")),
+          msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
+          open.draft && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = { ...open.draft, title: t.trim() }; saveDrafts((drafts || []).map(x => x.id === nd.id ? nd : x)); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
+          h("button", { onClick: () => { try { frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "🖨 Print"),
+          h("button", { onClick: doSave, style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
+          h("button", { onClick: tryClose, title: "关闭", style: { border: "none", background: "#f1f5f9", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, h(X, { size: 18, color: "#475569" }))),
+        h("iframe", { ref: frameRef, src: open.tool.url || open.tool.file, onLoad: onFrameLoad, style: { flex: 1, border: "none", width: "100%", background: "#fff" } })),
+      ask && h("div", { style: { position: "fixed", inset: 0, zIndex: 210, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { style: { width: "100%", maxWidth: 360, background: "#fff", borderRadius: 18, padding: 22, textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
+          h("div", { style: { fontSize: 36 } }, "💾"),
+          h("div", { style: { fontSize: 17, fontWeight: 900, color: "#1e1b4b", margin: "6px 0" } }, "要存档吗？"),
+          h("div", { style: { fontSize: 13, color: "#64748b", marginBottom: 16 } }, "表格有改过的内容还没存档。"),
+          h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+            h("button", { onClick: () => { doSave(); setAsk(false); setOpen(null); }, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "💾 存档并关闭"),
+            h("button", { onClick: () => { setAsk(false); setOpen(null); }, style: { padding: 11, borderRadius: 12, border: "1px solid #fecaca", background: "#fff", color: "#dc2626", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "不存，直接关闭"),
+            h("button", { onClick: () => setAsk(false), style: { padding: 10, borderRadius: 12, border: "none", background: "#f1f5f9", color: "#475569", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "取消，继续填"))))));
 }
 function LinkListPage({
   title,
