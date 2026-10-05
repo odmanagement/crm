@@ -3250,7 +3250,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v40"));
+    h("div", { className: "sb-ver" }, "v41"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3276,6 +3276,8 @@ function leaveDays(from, to, type) {
   for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0 && d.getDay() !== 6) n++;
   return n;
 }
+const ANNUAL_LEAVE_DAYS = 14; // 每个人每年 Annual Leave 天数
+const ANNUAL_LEAVE_PEOPLE = () => MISSION_PEOPLE.filter(p => p !== "lucas");
 function LeavePage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("leaves");
@@ -3311,6 +3313,25 @@ function LeavePage({ currentUser }) {
         h("div", { style: { fontSize: 13, fontWeight: 800, color: "#475569", marginBottom: 8 } }, "📊 " + t.slice(0, 4) + " 已批准天数"),
         Object.keys(daysByPerson).length ? h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, Object.entries(daysByPerson).sort((a, b) => b[1] - a[1]).map(([n, d]) => h("span", { key: n, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "#f8fafc", borderRadius: 999, padding: "3px 10px 3px 3px", fontWeight: 700, fontSize: 12.5, color: "#334155", border: "1px solid #eef0f4" } }, czAvatar(n, 20), String(n).toUpperCase(), h("b", { style: { color: "hsl(" + czHue(n) + ",60%,40%)" } }, d + " 天"))))
           : h("div", { style: { color: "#94a3b8", fontSize: 13 } }, "还没有记录"))),
+    (() => {
+      const yr = t.slice(0, 4);
+      const used = (n, st) => items.filter(x => sameUser(x.name, n) && x.status === st && (x.type === "annual" || x.type === "half") && (x.from || "").slice(0, 4) === yr).reduce((a, x) => a + leaveDays(x.from, x.to, x.type), 0);
+      return h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 14 } },
+        h("div", { style: { fontSize: 13, fontWeight: 800, color: "#475569", marginBottom: 10 } }, "🌴 " + yr + " Annual Leave 剩余（每人 " + ANNUAL_LEAVE_DAYS + " 天）"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 10 } }, ANNUAL_LEAVE_PEOPLE().map(n => {
+          const u = used(n, "approved"), pend = used(n, "pending"), left = ANNUAL_LEAVE_DAYS - u;
+          const pct = Math.max(0, Math.min(100, left / ANNUAL_LEAVE_DAYS * 100));
+          const col = left <= 0 ? "#dc2626" : left <= 3 ? "#f59e0b" : "#16a34a";
+          return h("div", { key: n, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "#f8fafc", border: "1px solid #eef0f4" } },
+            czAvatar(n, 30),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } },
+                h("b", { style: { fontSize: 13, color: "hsl(" + czHue(n) + ",60%,35%)" } }, n.toUpperCase()),
+                h("span", { style: { marginLeft: "auto", fontSize: 13, fontWeight: 900, color: col } }, "剩 " + left + " 天")),
+              h("div", { style: { height: 6, borderRadius: 99, background: "#e2e8f0", margin: "5px 0 3px", overflow: "hidden" } }, h("div", { style: { width: pct + "%", height: "100%", background: col, borderRadius: 99 } })),
+              h("div", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 600 } }, "已用 " + u + " / " + ANNUAL_LEAVE_DAYS + (pend ? " · 待批 " + pend : ""))));
+        })));
+    })(),
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / reason", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 申请请假")),
