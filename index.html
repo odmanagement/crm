@@ -2611,6 +2611,8 @@ function CRM({ onLogout, currentUser }) {
       await DB.set("mission_done", JSON.stringify([...cur, entry].slice(-500)));
     } catch (e) { console.error(e); }
   };
+  window.__crmAddNotice = addNotice;
+  window.__crmOpenClient = (cid, type) => { if (["house", "car", "personal"].includes(type)) setPage(type); setOpenId(cid); };
   const noticeForDone = m => {
     if (m) addDoneLog(m);
     const to = m && (m.assignedBy || m.by);
@@ -3082,8 +3084,9 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
   ].sort((x, y) => (y.at || 0) - (x.at || 0));
   const prevCount = React.useRef(0);
   const up = s => String(s || "").toUpperCase();
-  const titleOf = it => it.kind === "n" ? up(it.n.from) + " 完成了任务 ✅" : (sameUser(it.m.assignedBy, currentUser) ? "你 指派了任务给自己" : up(it.m.assignedBy) + " 指派了任务给你");
-  const textOf = it => it.kind === "n" ? (it.n.task || "（没有任务内容）") : (it.m.task || "（任务内容还没填）");
+  const isFu = it => it.kind === "n" && it.n.kind === "fu";
+  const titleOf = it => isFu(it) ? up(it.n.from) + " 在跟进里 tag 了你 🏷" : it.kind === "n" ? up(it.n.from) + " 完成了任务 ✅" : (sameUser(it.m.assignedBy, currentUser) ? "你 指派了任务给自己" : up(it.m.assignedBy) + " 指派了任务给你");
+  const textOf = it => isFu(it) ? (it.n.client ? String(it.n.client).toUpperCase() + " · " : "") + (it.n.task || "") : it.kind === "n" ? (it.n.task || "（没有任务内容）") : (it.m.task || "（任务内容还没填）");
   React.useEffect(() => {
     if (items.length > prevCount.current) {
       setPeek(true);
@@ -3126,28 +3129,32 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
         h("button", { onClick: () => setOpen(false), title: "收起", style: { background: "#f0f2f5", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 14, color: "#65676b" }))),
       h("div", { style: { maxHeight: 380, overflowY: "auto", padding: 6 } },
         items.map(it => h("div", { key: it.key, style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start", background: it.kind === "n" ? "#f0fdf4" : "transparent", marginBottom: 2 } },
-          avatar(it.name, 40, it.kind === "n"),
+          avatar(it.name, 40, it.kind === "n" && !isFu(it)),
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: it.kind === "n" ? "#15803d" : "#050505" } }, titleOf(it)), " · " + ago(it.at)),
-            h("div", { style: { display: "inline-block", marginTop: 4, background: it.kind === "n" ? "#dcfce7" : "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word", textDecoration: it.kind === "n" ? "line-through" : "none" } }, textOf(it)),
+            h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: isFu(it) ? "#0369a1" : it.kind === "n" ? "#15803d" : "#050505" } }, titleOf(it)), " · " + ago(it.at)),
+            h("div", { style: { display: "inline-block", marginTop: 4, background: isFu(it) ? "#e0f2fe" : it.kind === "n" ? "#dcfce7" : "#f0f2f5", color: "#050505", borderRadius: 18, padding: "8px 12px", fontSize: 14, maxWidth: "100%", wordBreak: "break-word", textDecoration: it.kind === "n" && !isFu(it) ? "line-through" : "none" } }, textOf(it)),
+            isFu(it) && it.n.date && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "📅 " + String(it.n.date).split("-").reverse().join("/")),
             it.kind === "a" && it.m.date && h("div", { style: { fontSize: 12, color: "#65676b", marginTop: 4 } }, "📅 " + it.m.date.split("-").reverse().join("/")),
             h("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
               it.kind === "a" ? [
                 h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "d", onClick: () => onDone && onDone(it.m.id), style: btn("#16a34a", "#fff") }, h(Check, { size: 13 }), "Done")
-              ] : h("button", { onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了"))))))),
+              ] : [
+                isFu(it) && it.n.cid && h("button", { key: "v", onClick: () => { setOpen(false); window.__crmOpenClient && window.__crmOpenClient(it.n.cid, it.n.ltype); }, style: btn("#0084ff", "#fff") }, "查看"),
+                h("button", { key: "c", onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了")
+              ])))))),
     !open && peek && h("div", {
       onClick: () => { askNotify(); setOpen(true); setPeek(false); },
       style: { position: "absolute", right: 70, bottom: 6, width: 240, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
     },
-      h("div", { style: { fontSize: 13, fontWeight: 700, color: first.kind === "n" ? "#15803d" : "#050505" } }, titleOf(first)),
+      h("div", { style: { fontSize: 13, fontWeight: 700, color: isFu(first) ? "#0369a1" : first.kind === "n" ? "#15803d" : "#050505" } }, titleOf(first)),
       h("div", { style: { fontSize: 13, color: "#65676b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, textOf(first)),
       h("button", { onClick: e => { e.stopPropagation(); setPeek(false); }, style: { position: "absolute", top: 6, right: 6, background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" } }, h(X, { size: 13, color: "#94a3b8" }))),
     h("div", {
       onClick: () => { askNotify(); setOpen(!open); setPeek(false); },
       title: "通知",
       style: { position: "relative", cursor: "pointer", borderRadius: "50%", boxShadow: "0 4px 14px rgba(0,0,0,.25)", animation: "mhPop .35s ease-out" }
-    }, avatar(first.name, 58, first.kind === "n"),
+    }, avatar(first.name, 58, first.kind === "n" && !isFu(first)),
       h("div", { style: { position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 10, background: "#fa3e3e", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxSizing: "border-box" } }, items.length)));
 }
 /* Mission 权限：这些人是老板，可以看全部任务内容 */
@@ -3250,7 +3257,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v41"));
+    h("div", { className: "sb-ver" }, "v42"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6668,7 +6675,8 @@ function Detail({
     onUpdate: updateLoan,
     onRemove: () => removeLoan(l.id),
     currentUser: currentUser,
-    clientName: client.name
+    clientName: client.name,
+    clientId: client.id
   })), addingLoan && /*#__PURE__*/React.createElement(LoanForm, {
     onSave: saveLoan,
     onCancel: () => setAddingLoan(false)
@@ -6921,10 +6929,12 @@ function LoanBlock({
   onUpdate,
   onRemove,
   currentUser,
-  clientName
+  clientName,
+  clientId
 }) {
   const [expanded, setExpanded] = useState(true);
   const [fuText, setFuText] = useState("");
+  const [fuTags, setFuTags] = useState([]);
   const [fuDate, setFuDate] = useState(today());
   const [editingLoan, setEditingLoan] = useState(false);
   const t = typeOf(loan.type),
@@ -6940,10 +6950,14 @@ function LoanBlock({
         text: fuText.trim(),
         date: fuDate,
         done: false,
-        by: currentUser || ""
+        by: currentUser || "",
+        tags: fuTags
       }, ...(loan.followUps || [])]
     });
+    // 通知被 tag 的人
+    fuTags.filter(p => !sameUser(p, currentUser)).forEach(p => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "fu", to: canonUser(p), from: currentUser, task: fuText.trim(), client: clientName || "", cid: clientId || "", ltype: loan.type, date: fuDate, at: Date.now() }); } catch (e) {} });
     setFuText("");
+    setFuTags([]);
   };
   const toggleFu = fid => onUpdate({
     ...loan,
@@ -7225,7 +7239,12 @@ function LoanBlock({
     value: fuText,
     onChange: e => setFuText(e.target.value),
     onKeyDown: e => e.key === "Enter" && addFu()
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("select", {
+    title: "Tag 人（会通知他）",
+    value: "",
+    onChange: e => { const v = e.target.value; if (v && !fuTags.includes(v)) setFuTags([...fuTags, v]); },
+    style: { ...S.fuDate, width: 92, flex: "0 0 92px", fontWeight: 700, color: "#4f46e5", cursor: "pointer" }
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "@ Tag"), MISSION_PEOPLE.filter(p => !fuTags.includes(p)).map(p => /*#__PURE__*/React.createElement("option", { key: p, value: p }, "@" + p.toUpperCase()))), /*#__PURE__*/React.createElement("input", {
     type: "date",
     style: S.fuDate,
     value: fuDate,
@@ -7235,7 +7254,9 @@ function LoanBlock({
     onClick: addFu
   }, /*#__PURE__*/React.createElement(Plus, {
     size: 16
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), fuTags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0 2px" }
+  }, fuTags.map(p => /*#__PURE__*/React.createElement("span", { key: p, onClick: () => setFuTags(fuTags.filter(x => x !== p)), title: "按一下拿掉", style: { ...czPill(czHue(p), { padding: "3px 10px", fontSize: 12 }), cursor: "pointer" } }, "@" + p.toUpperCase() + " ✕"))), /*#__PURE__*/React.createElement("div", {
     style: S.fuList
   }, fus.map(f => {
     const overdue = !f.done && f.date && f.date < today();
@@ -7260,7 +7281,7 @@ function LoanBlock({
         ...S.fuTextItem,
         ...(f.done ? S.fuDone : {})
       }
-    }, f.text), f.date && /*#__PURE__*/React.createElement("div", {
+    }, (f.tags || []).map(p => /*#__PURE__*/React.createElement("span", { key: p, style: { ...czPill(czHue(p), { padding: "1px 8px", fontSize: 11.5 }), marginRight: 6, display: "inline-block" } }, "@" + String(p).toUpperCase())), f.text), f.date && /*#__PURE__*/React.createElement("div", {
       style: {
         ...S.fuDateItem,
         ...(overdue ? {
