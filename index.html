@@ -3250,7 +3250,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v39"));
+    h("div", { className: "sb-ver" }, "v40"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4381,7 +4381,7 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
           h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0f172a" } }, f.name),
           h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, (f.isDraft ? "📝 " + f.sub + " · " : "") + "📁 " + catName(f.cat)),
           h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 2 } }, String(f.by || "").toUpperCase() + " · " + new Date(f.at).toLocaleDateString("en-GB"))),
-        f.isDraft && h("button", { title: "改名", onClick: () => onRenameDraft && onRenameDraft(f), style: { border: "1px solid #e2e8f0", background: "#fff", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0, fontSize: 13 } }, "✎"),
+        false,
         false && h("select", { value: cats.some(c => c.id === f.cat) ? f.cat : "", title: "移到其他分类", onChange: e => f.isDraft ? onMoveDraft(f, e.target.value) : save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
         (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => f.isDraft ? onDelDraft(f) : delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
     adding && h("div", { onClick: () => !busy && setAdding(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
@@ -7158,10 +7158,10 @@ function LoanBlock({
       ...S.bankInput,
       width: 90
     },
-    type: "number",
+    type: "text",
     placeholder: "Amount",
-    value: b.amount || "",
-    onCommit: v => setBankV(i, b, "amount", v)
+    value: b.amount ? (isNaN(Number(String(b.amount).replace(/,/g, ""))) ? b.amount : Number(String(b.amount).replace(/,/g, "")).toLocaleString("en-US", { maximumFractionDigits: 2 })) : "",
+    onCommit: v => setBankV(i, b, "amount", String(v).replace(/[^\d.]/g, ""))
   }), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
     style: { ...S.bankInput, fontWeight: 700, ...pbStyle(b.dis) },
     value: PB_PROGRESS.some(x => x[0] === b.dis) ? b.dis : "",
