@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005040116";
+const APP_BUILD = "20261005040352";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4273,18 +4273,19 @@ function FormsPage({ currentUser, tools }) {
   const [drafts, saveDrafts] = useCloudList("form_drafts");
   const [libData, saveLib] = useCloudList("form_files");
   const libRef = React.useRef(null); libRef.current = libData;
-  /* 把表格自己存在浏览器里的存档，自动放进「我的文件库」 */
+  /* 表格自己存在浏览器里的存档 → 放进「我的文件库」
+     只抓「打开表格之后才被改动」的资料，不会误抓别的系统（例如 Payroll） */
   const hashStr = t => { let x = 0; for (let i = 0; i < t.length; i++) x = (x * 31 + t.charCodeAt(i)) | 0; return String(x); };
   const SKIP = /^(crm_|sb-|supabase|__|_v|debug|loglevel)/i;
-  const importLocalSaves = React.useCallback(async () => {
+  const snapRef = React.useRef(null);
+  const snapshotLS = () => { const m = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); m[k] = hashStr(localStorage.getItem(k) || ""); } } catch (e) {} return m; };
+  const storeLocalKeys = async (keys, label) => {
     const cur = libRef.current; if (cur === null) return;
     const lib = cur && !Array.isArray(cur) ? cur : { cats: [], files: [] };
-    let cats = lib.cats || [], files = (lib.files || []).slice(), changed = false;
     const me = canonUser(currentUser);
+    let cats = lib.cats || [], files = (lib.files || []).slice(), changed = false;
     let cat = cats.find(c => c.name === "表格存档" && sameUser(c.by, me));
-    const keys = []; try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) {}
     for (const k of keys) {
-      if (!k || SKIP.test(k)) continue;
       const val = localStorage.getItem(k); if (!val || val.length < 3) continue;
       const sig = hashStr(val);
       const ex = files.find(f => f.lsKey === k && sameUser(f.by, me));
@@ -4292,13 +4293,32 @@ function FormsPage({ currentUser, tools }) {
       if (!cat) { cat = { id: uid(), name: "表格存档", by: me }; cats = [...cats, cat]; }
       const bid = ex && ex.blob ? ex.blob : uid();
       await DB.set("ffile_" + bid, "data:application/json;charset=utf-8," + encodeURIComponent(val));
-      const rec = { ...(ex || { id: uid(), cat: cat.id }), name: ex ? ex.name : "表格存档 · " + k, blob: bid, fname: k + ".json", ftype: "application/json", lsKey: k, lsSig: sig, by: me, at: Date.now() };
+      const rec = { ...(ex || { id: uid(), cat: cat.id }), name: ex ? ex.name : (label ? label + " · " : "表格存档 · ") + k, blob: bid, fname: k + ".json", ftype: "application/json", lsKey: k, lsSig: sig, by: me, at: Date.now() };
       files = ex ? files.map(f => f.id === ex.id ? rec : f) : [rec, ...files];
       changed = true;
     }
     if (changed) saveLib({ ...lib, cats, files });
-  }, [currentUser]);
-  React.useEffect(() => { if (libData !== null) importLocalSaves(); }, [libData === null]);
+  };
+  const captureFormChanges = async () => {
+    const before = snapRef.current; if (!before) return;
+    const now = snapshotLS();
+    const keys = Object.keys(now).filter(k => !SKIP.test(k) && before[k] !== now[k]);
+    snapRef.current = now;
+    if (keys.length) await storeLocalKeys(keys, open ? open.tool.name : "");
+  };
+  /* 清掉之前误抓的 Payroll 资料 */
+  React.useEffect(() => {
+    if (!libData || Array.isArray(libData)) return;
+    const bad = (libData.files || []).filter(f => f.lsKey && /payr|payroll|salary|gaji/i.test(f.lsKey));
+    if (!bad.length) return;
+    bad.forEach(f => { if (f.blob) DB.del("ffile_" + f.blob).catch(() => {}); });
+    saveLib({ ...libData, files: (libData.files || []).filter(f => !bad.includes(f)) });
+  }, [libData]);
+  const [picker, setPicker] = React.useState(null);
+  const openPicker = () => {
+    const rows = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SKIP.test(k)) continue; const v = localStorage.getItem(k) || ""; if (v.length < 3) continue; rows.push({ k, size: v.length, sel: false }); } } catch (e) {}
+    setPicker(rows);
+  };
   /* 表格里按「存档」如果是下载文件，也顺便放进文件库 */
   const captureDownload = async (href, fname, formName) => {
     try {
@@ -4359,8 +4379,7 @@ function FormsPage({ currentUser, tools }) {
     baseRef.current = JSON.stringify(vals);
     setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500);
   };
-  React.useEffect(() => { if (!open) importLocalSaves(); }, [open]);
-  React.useEffect(() => { if (!open) return; const t = setInterval(importLocalSaves, 5000); return () => clearInterval(t); }, [open]);
+  React.useEffect(() => { if (open) { snapRef.current = snapshotLS(); const t = setInterval(captureFormChanges, 4000); return () => { clearInterval(t); captureFormChanges(); }; } }, [open]);
   const tryClose = () => { if (dirty()) setAsk(true); else setOpen(null); };
   const delDraft = d => { if (window.confirm("删除这份存档？")) saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
   const mine = (drafts || []).filter(d => sameUser(d.by, currentUser));
@@ -4390,7 +4409,19 @@ function FormsPage({ currentUser, tools }) {
             h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 2 } }, String(d.by || "").toUpperCase() + " · " + fmtT(d.at))),
           (sameUser(d.by, currentUser) || isMissionBoss(currentUser)) && h("button", { title: "删除", onClick: () => delDraft(d), style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" })));
       })),
+    h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 18 } }, h("button", { onClick: openPicker, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📥 导入这台电脑里的旧表格存档")),
     h(FileLibrary, { currentUser, data: libData, saveData: saveLib }),
+    picker && h("div", { onClick: () => setPicker(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 18, overflow: "hidden" } },
+        h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900 } }, "📥 选择要导入的旧存档"),
+        h("div", { style: { padding: "10px 20px", fontSize: 12.5, color: "#64748b" } }, "下面是这台电脑浏览器里存着的资料。只勾选「表格的存档」，其他系统的资料（例如 Payroll）不要勾。"),
+        h("div", { style: { overflowY: "auto", padding: "0 20px 10px" } }, picker.length ? picker.map((r, i) => h("label", { key: r.k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f1f5f9", cursor: "pointer", textTransform: "none" } },
+          h("input", { type: "checkbox", checked: r.sel, onChange: e => setPicker(picker.map((x, j) => j === i ? { ...x, sel: e.target.checked } : x)) }),
+          h("span", { style: { flex: 1, fontWeight: 700, fontSize: 13, wordBreak: "break-all" } }, r.k),
+          h("span", { style: { fontSize: 11, color: "#94a3b8" } }, Math.ceil(r.size / 1024) + " KB"))) : h("div", { style: { color: "#94a3b8", padding: 20, textAlign: "center" } }, "这台电脑没有找到旧存档")),
+        h("div", { style: { display: "flex", gap: 8, padding: 16, borderTop: "1px solid #f1f5f9" } },
+          h("button", { onClick: () => setPicker(null), style: { flex: 1, padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
+          h("button", { onClick: async () => { await storeLocalKeys(picker.filter(r => r.sel).map(r => r.k), ""); setPicker(null); }, style: { flex: 2, padding: 10, borderRadius: 10, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 800, cursor: "pointer" } }, "导入勾选的 (" + picker.filter(r => r.sel).length + ")")))),
     open && h("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,15,40,.55)", display: "flex", alignItems: "stretch", justifyContent: "center", padding: "18px" } },
       h("div", { style: { flex: 1, maxWidth: 1200, background: "#fff", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,.4)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f6", background: "#fafbff" } },
