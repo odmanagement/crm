@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005071751";
+const APP_BUILD = "20261005073609";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2693,6 +2693,24 @@ function CRM({ onLogout, currentUser }) {
     persist(clients.filter(x => x.id !== id));
     setOpenId(null);
   };
+  /* 从 Verify 选 Loan Type：自动建立 / 找到客户，跳去那一页并打开 */
+  const verifyToLoan = (v, type) => {
+    let c = clients.find(x => x.id === v.clientId) || clients.find(x => v.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(v.icNumber).replace(/\D/g, ""));
+    const agent = v.agent ? String(v.agent).toUpperCase() : "";
+    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [] });
+    let list = clients;
+    if (!c) {
+      c = { id: uid(), name: v.customerName || "", phone: v.phone || "", ic: v.icNumber || "", job: v.position || "", income: "", note: "", links: (v.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: [newLoan()] };
+      list = [...clients, c];
+    } else if (!(c.loans || []).some(l => l.type === type)) {
+      c = { ...c, loans: [...(c.loans || []), newLoan()] };
+      list = clients.map(x => x.id === c.id ? c : x);
+    }
+    if (list !== clients) persist(list);
+    persistVerifications(verifications.map(x => x.id === v.id ? { ...x, loanType: type, clientId: c.id } : x));
+    setPage(type);
+    setOpenId(c.id);
+  };
   const quickNewClient = pg => {
     const type = ["house", "car", "personal"].includes(pg) ? pg : "house";
     const c = { id: uid(), name: "", phone: "", ic: "", job: "", income: "", note: "", links: [], createdAt: today(), loans: [{ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] };
@@ -2857,7 +2875,8 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     verifications: verifications,
     onSave: persistVerifications,
-    currentUser: currentUser
+    currentUser: currentUser,
+    onToLoan: verifyToLoan
   }) : page === "html_forms" ? /*#__PURE__*/React.createElement(FormsPage, {
     currentUser: currentUser,
     tools: FORMS_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
@@ -5449,7 +5468,7 @@ const V_SECTIONS = [{
   title: "1. Applicant's Details",
   emoji: "👤",
   icon: Users,
-  fields: [["customerName", "Full Name as IC"], ["agent", "Agent"], ["icNumber", "IC Number"], ["phone", "Contact No"], ["email", "Email Address"], ["resAddress", "Residential Address"], ["yearsOfStay", "Years of Stay"], ["motherName", "Mother Full Name"]]
+  fields: [["customerName", "Full Name as IC"], ["icNumber", "IC Number"], ["phone", "Contact No"], ["email", "Email Address"], ["resAddress", "Residential Address"], ["yearsOfStay", "Years of Stay"], ["motherName", "Mother Full Name"]]
 }, {
   key: "company",
   title: "2. Company's Details",
@@ -5534,7 +5553,8 @@ function VerifyPage({
   clients,
   verifications,
   onSave,
-  currentUser
+  currentUser,
+  onToLoan
 }) {
   const [tab, setTab] = useState("progress"); // progress | completed
   const [q, setQ] = useState("");
@@ -5678,7 +5698,8 @@ function VerifyPage({
     clients: clients,
     onClose: () => setOpenId(null),
     onSave: save,
-    onDelete: () => remove(open.id)
+    onDelete: () => remove(open.id),
+    onToLoan: type => { setOpenId(null); onToLoan && onToLoan(open, type); }
   }), adding && /*#__PURE__*/React.createElement(VerifyForm, {
     clients: clients,
     onClose: () => setAdding(false),
@@ -5884,7 +5905,7 @@ function verifyCopyText(v) {
   L.push("WORK HOW LONG : " + U(v.prevDuration));
   return L.join("\n");
 }
-function VCaseInfo({ v, onSave }) {
+function VCaseInfo({ v, onSave, onToLoan }) {
   const h = React.createElement;
   const links = v.links || [];
   const setLinks = l => onSave({ ...v, links: l });
@@ -5893,12 +5914,16 @@ function VCaseInfo({ v, onSave }) {
     h("div", { style: S.vSectionHead }, "📌 Case Info"),
     h("div", { style: { padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
-        false && h("label", { style: { flex: "1 1 200px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "AGENT"),
+        h("label", { style: { flex: "1 1 200px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "AGENT"),
           h("select", { value: String(v.agent || "").toLowerCase(), onChange: e => onSave({ ...v, agent: e.target.value }), style: { ...inp, width: "100%", fontWeight: 700 } },
             h("option", { value: "" }, "— 选择 Agent —"),
             (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => h("option", { key: a, value: a }, a.toUpperCase())))),
         h("div", { style: { flex: "1 1 160px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "STAFF（自动 · 谁建立）"),
           h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0" } }, v.staff ? [h(React.Fragment, { key: "a" }, czAvatar(v.staff, 26)), h("b", { key: "n", style: { color: "#334155" } }, String(v.staff).toUpperCase())] : "—"))),
+      h("div", null,
+        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "LOAN TYPE（选了会自动跳去那一页）"),
+        h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+          [["house", "🏠 House Loan", 262], ["car", "🚗 Car Loan", 190], ["personal", "💼 Personal Loan", 330]].map(([k, l, hue]) => h("button", { key: k, onClick: () => { onSave({ ...v, loanType: k }); onToLoan && onToLoan(k); }, style: { ...czPill(hue, { padding: "8px 14px", fontSize: 13 }), cursor: "pointer", opacity: v.loanType && v.loanType !== k ? .55 : 1, outline: v.loanType === k ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 } }, l + (v.loanType === k ? " ✓" : ""))))),
       h("div", null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
           h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "LINKS"),
@@ -5941,7 +5966,8 @@ function VerifyDetail({
   clients,
   onClose,
   onSave,
-  onDelete
+  onDelete,
+  onToLoan
 }) {
   const [staff, setStaff] = useState(v.staff || "");
   const client = clients.find(c => c.id === v.clientId);
@@ -6020,7 +6046,8 @@ function VerifyDetail({
     style: S.panelBody
   }, /*#__PURE__*/React.createElement(VCaseInfo, {
     v: v,
-    onSave: onSave
+    onSave: onSave,
+    onToLoan: onToLoan
   }), V_SECTIONS.map(sec => {
     return /*#__PURE__*/React.createElement("div", {
       key: sec.key
