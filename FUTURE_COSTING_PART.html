@@ -128,7 +128,7 @@
       <tbody id="partAFoot"></tbody>
     </table>
     <button class="addrow" onclick="addRow('partABody','','',false,false,true)">+ Add item</button>
-    <div class="cfg">Lucas × <input id="aLucasPct" type="number" value="100" placeholder="%" oninput="calc()"> % &nbsp;&nbsp; Agent × <input id="aAgentPct" type="number" value="0" placeholder="%" oninput="calc()"> % &nbsp;&nbsp; Total × <input id="aFinalPct" type="number" value="30" placeholder="%" oninput="calc()"> %</div>
+    <div class="cfg"><span id="aSplitWarn" style="color:#dc2626;font-weight:700;margin-right:8px"></span>Lucas × <input id="aLucasPct" type="number" value="30" placeholder="%" oninput="calc()"> % &nbsp;&nbsp; Agent × <input id="aAgentPct" type="number" value="0" placeholder="%" oninput="syncLucasPct();calc()"> % &nbsp;&nbsp; Total × <input id="aFinalPct" type="number" value="30" placeholder="%" oninput="syncLucasPct();calc()"> %</div>
   </div>
 
   <div class="panel" id="chargesPanel">
@@ -309,14 +309,23 @@ function addRow(bodyId,name,amt,pinned,lockAmt,noMult){
   return tr;
 }
 // Part A: × rows → amount×mult; pinned rows → amount. Sum all → × final %
+// 改 Agent % 或 Total % 时，Lucas % 自动 = Total % − Agent %（之后还可以自己改）
+function syncLucasPct(){
+  const t=parseNum(document.getElementById('aFinalPct').value), a=parseNum(document.getElementById('aAgentPct').value);
+  document.getElementById('aLucasPct').value = Math.max(0, Math.round((t-a)*100)/100);
+}
 function calcPartA(){
   const rows=[...document.getElementById('partABody').querySelectorAll('tr')];
   const lRate=parseFloat(document.getElementById('lucasRate').value)/100||0;
   const aRate=parseFloat(document.getElementById('agentRate').value)/100||0;
   let resSum=0;
+  // Lucas 拿全部 Result；Total % 那份钱再由 Lucas % 和 Agent % 来分（两个加起来 = Total %）
+  const tpRaw=document.getElementById('aFinalPct').value;
   const lpRaw=document.getElementById('aLucasPct').value, apRaw=document.getElementById('aAgentPct').value;
-  const lp = lpRaw.trim()==='' ? 1 : parseNum(lpRaw)/100;
   const ap = parseNum(apRaw)/100;
+  const lp = lpRaw.trim()==='' ? Math.max(0, parseNum(tpRaw)/100 - ap) : parseNum(lpRaw)/100;
+  const warn=document.getElementById('aSplitWarn');
+  if(warn) warn.textContent = (tpRaw.trim()!=='' && Math.abs((lp+ap)*100 - parseNum(tpRaw)) > 0.0001) ? `⚠ Lucas + Agent 要等于 ${parseNum(tpRaw)}%` : '';
   rows.forEach(r=>{
     const amt=parseNum(r.querySelector('.amt-input').value);
     const multEl=r.querySelector('.mult-input');
@@ -324,8 +333,8 @@ function calcPartA(){
     const res = hasMult ? amt*parseNum(multEl.value) : amt;
     resSum+=res;
     r.querySelector('.resultCell').textContent=fmt(res);
-    r.querySelector('.lucasCell').textContent=fmt(res*lp);
-    r.querySelector('.agentCell').textContent=fmt(res*ap);
+    r.querySelector('.lucasCell').textContent=fmt(res);
+    r.querySelector('.agentCell').textContent=fmt(0);
   });
   const pctRaw = document.getElementById('aFinalPct').value;
   const finalPct=parseFloat(pctRaw)/100;
@@ -337,16 +346,16 @@ function calcPartA(){
       <td>Subtotal (Results)</td>
       <td colspan="2"></td>
       <td class="num">${fmt(resSum)} &nbsp;×&nbsp; ${pctShow}</td>
-      <td class="num lucas-col">= ${isNaN(finalPct)?'—':fmt(pctAmt*lp)}</td>
-      <td class="num agent-col">${isNaN(finalPct)?'—':fmt(pctAmt*ap)}</td>
+      <td class="num lucas-col">= ${fmt(resSum*lp)}</td>
+      <td class="num agent-col">${fmt(resSum*ap)}</td>
       <td></td>
     </tr>
     <tr class="grand">
       <td>TOTAL (Subtotal + ${pctShow})</td>
       <td colspan="2"></td>
       <td class="num">${fmt(grand)}</td>
-      <td class="num lucas-col">${fmt(grand*lp)}</td>
-      <td class="num agent-col">${fmt(grand*ap)}</td>
+      <td class="num lucas-col">${fmt(resSum + resSum*lp)}</td>
+      <td class="num agent-col">${fmt(resSum*ap)}</td>
       <td></td>
     </tr>`;
   return grand;
@@ -516,8 +525,9 @@ function restoreData(d){
   document.getElementById('lucasRate').value=d.lucasRate??'10';
   document.getElementById('agentRate').value=d.agentRate??'0';
   document.getElementById('aFinalPct').value=d.aFinalPct??'30';
-  document.getElementById('aLucasPct').value=d.aLucasPct??'100';
   document.getElementById('aAgentPct').value=d.aAgentPct??'0';
+  document.getElementById('aLucasPct').value=(d.aLucasPct==null||d.aLucasPct==='100')?'':d.aLucasPct;
+  if(document.getElementById('aLucasPct').value==='') syncLucasPct();
   document.getElementById('cMult').value=d.cMult??'20';
   BODIES.forEach(id=>document.getElementById(id).innerHTML='');
   BODIES.forEach(id=>{
