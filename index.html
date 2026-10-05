@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005034634";
+const APP_BUILD = "20261005035254";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4184,9 +4184,8 @@ function formWriteValues(doc, values) {
   });
 }
 /* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
-function FileLibrary({ currentUser }) {
+function FileLibrary({ currentUser, data, saveData }) {
   const h = React.createElement;
-  const [data, saveData] = useCloudList("form_files");
   const lib = data && !Array.isArray(data) ? data : { cats: [], files: [] };
   const save = d => saveData(d);
   const [cat, setCat] = React.useState("all");
@@ -4271,6 +4270,46 @@ function FileLibrary({ currentUser }) {
 function FormsPage({ currentUser, tools }) {
   const h = React.createElement;
   const [drafts, saveDrafts] = useCloudList("form_drafts");
+  const [libData, saveLib] = useCloudList("form_files");
+  const libRef = React.useRef(null); libRef.current = libData;
+  /* 把表格自己存在浏览器里的存档，自动放进「我的文件库」 */
+  const hashStr = t => { let x = 0; for (let i = 0; i < t.length; i++) x = (x * 31 + t.charCodeAt(i)) | 0; return String(x); };
+  const SKIP = /^(crm_|sb-|supabase|__|_v|debug|loglevel)/i;
+  const importLocalSaves = React.useCallback(async () => {
+    const cur = libRef.current; if (cur === null) return;
+    const lib = cur && !Array.isArray(cur) ? cur : { cats: [], files: [] };
+    let cats = lib.cats || [], files = (lib.files || []).slice(), changed = false;
+    let cat = cats.find(c => c.name === "表格存档");
+    const me = canonUser(currentUser);
+    const keys = []; try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) {}
+    for (const k of keys) {
+      if (!k || SKIP.test(k)) continue;
+      const val = localStorage.getItem(k); if (!val || val.length < 3) continue;
+      const sig = hashStr(val);
+      const ex = files.find(f => f.lsKey === k && sameUser(f.by, me));
+      if (ex && ex.lsSig === sig) continue;
+      if (!cat) { cat = { id: uid(), name: "表格存档" }; cats = [...cats, cat]; }
+      const bid = ex && ex.blob ? ex.blob : uid();
+      await DB.set("ffile_" + bid, "data:application/json;charset=utf-8," + encodeURIComponent(val));
+      const rec = { ...(ex || { id: uid(), cat: cat.id }), name: ex ? ex.name : "表格存档 · " + k, blob: bid, fname: k + ".json", ftype: "application/json", lsKey: k, lsSig: sig, by: me, at: Date.now() };
+      files = ex ? files.map(f => f.id === ex.id ? rec : f) : [rec, ...files];
+      changed = true;
+    }
+    if (changed) saveLib({ ...lib, cats, files });
+  }, [currentUser]);
+  React.useEffect(() => { if (libData !== null) importLocalSaves(); }, [libData === null]);
+  /* 表格里按「存档」如果是下载文件，也顺便放进文件库 */
+  const captureDownload = async (href, fname, formName) => {
+    try {
+      const blob = await (await fetch(href)).blob();
+      const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+      const cur = libRef.current; const lib = cur && !Array.isArray(cur) ? cur : { cats: [], files: [] };
+      let cats = lib.cats || []; let cat = cats.find(c => c.name === "表格存档");
+      if (!cat) { cat = { id: uid(), name: "表格存档" }; cats = [...cats, cat]; }
+      const bid = uid(); await DB.set("ffile_" + bid, dataUrl);
+      saveLib({ ...lib, cats, files: [{ id: uid(), name: formName + " · " + (fname || "存档"), cat: cat.id, blob: bid, fname: fname || "save", ftype: blob.type, by: canonUser(currentUser), at: Date.now() }, ...(lib.files || [])] });
+    } catch (e) { console.error(e); }
+  };
   const [open, setOpen] = React.useState(null); // { tool, draft }
   const [ask, setAsk] = React.useState(false);
   const [msg, setMsg] = React.useState("");
@@ -4288,6 +4327,12 @@ function FormsPage({ currentUser, tools }) {
   const onFrameLoad = () => {
     const d = doc(); if (!d) return;
     hideInnerSave(d);
+    try {
+      const w = frameRef.current.contentWindow, formName = open ? open.tool.name : "表格";
+      const origClick = w.HTMLAnchorElement.prototype.click;
+      w.HTMLAnchorElement.prototype.click = function () { try { if (this.hasAttribute("download") && this.href) captureDownload(this.href, this.getAttribute("download"), formName); } catch (e) {} return origClick.apply(this, arguments); };
+      d.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[download]"); if (a && a.href) captureDownload(a.href, a.getAttribute("download"), formName); }, true);
+    } catch (e) {}
     if (open && open.draft) formWriteValues(d, open.draft.values);
     setTimeout(() => { baseRef.current = JSON.stringify(currentVals()); }, 150);
   };
@@ -4313,6 +4358,8 @@ function FormsPage({ currentUser, tools }) {
     baseRef.current = JSON.stringify(vals);
     setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500);
   };
+  React.useEffect(() => { if (!open) importLocalSaves(); }, [open]);
+  React.useEffect(() => { if (!open) return; const t = setInterval(importLocalSaves, 5000); return () => clearInterval(t); }, [open]);
   const tryClose = () => { if (dirty()) setAsk(true); else setOpen(null); };
   const delDraft = d => { if (window.confirm("删除这份存档？")) saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
   const mine = (drafts || []).filter(d => sameUser(d.by, currentUser));
@@ -4342,7 +4389,7 @@ function FormsPage({ currentUser, tools }) {
             h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 2 } }, String(d.by || "").toUpperCase() + " · " + fmtT(d.at))),
           (sameUser(d.by, currentUser) || isMissionBoss(currentUser)) && h("button", { title: "删除", onClick: () => delDraft(d), style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" })));
       })),
-    h(FileLibrary, { currentUser }),
+    h(FileLibrary, { currentUser, data: libData, saveData: saveLib }),
     open && h("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,15,40,.55)", display: "flex", alignItems: "stretch", justifyContent: "center", padding: "18px" } },
       h("div", { style: { flex: 1, maxWidth: 1200, background: "#fff", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,.4)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f6", background: "#fafbff" } },
