@@ -513,10 +513,12 @@ const L = {
   CalendarDays: _icon([_r({ x: 3, y: 4, width: 18, height: 18, rx: 2 }), "M16 2v4", "M8 2v4", "M3 10h18", "M8 14h.01", "M12 14h.01", "M16 14h.01", "M8 18h.01", "M12 18h.01"]),
   Send: _icon(["m22 2-7 20-4-9-9-4Z", "M22 2 11 13"]),
   MessageCircle: _icon(["M7.9 20A9 9 0 1 0 4 16.1L2 22Z"]),
+  Smartphone: _icon([_r({ x: 5, y: 2, width: 14, height: 20, rx: 2 }), "M12 18h.01"]),
   ListTodo: _icon(["m3 17 2 2 4-4", "m3 7 2 2 4-4", "M13 6h8", "M13 12h8", "M13 18h8"]),
   Folder: _icon(["M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"])
 };
 const {
+  Smartphone,
   MessageCircle,
   CalendarDays,
   Send,
@@ -1077,7 +1079,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1244,6 +1246,10 @@ const NAV = [{
   id: "todo",
   label: "To Do",
   icon: ListTodo
+}, {
+  id: "phone",
+  label: "Phone",
+  icon: Smartphone
 }];
 /* 某些账号看不到的 Forms（填文件名） */
 const FORMS_HIDDEN = {
@@ -2885,6 +2891,8 @@ function CRM({ onLogout, currentUser }) {
     onSave: persistBankers
   }) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
     currentUser: currentUser
+  }) : page === "phone" ? /*#__PURE__*/React.createElement(PhonePage, {
+    currentUser: currentUser
   }) : page === "submission" ? /*#__PURE__*/React.createElement(SubmissionPage, {
     currentUser: currentUser
   }) : page === "todo" && canonUser(currentUser) !== "admin" ? /*#__PURE__*/React.createElement(TodoPage, {
@@ -3208,7 +3216,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v27"));
+    h("div", { className: "sb-ver" }, "v28"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3311,6 +3319,48 @@ function LeavePage({ currentUser }) {
           h("textarea", { value: form.reason, rows: 3, placeholder: "请填写原因…", onChange: e => setForm({ ...form, reason: e.target.value }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", resize: "vertical" } })),
         h("div", { style: { fontSize: 12, color: "#f59e0b", fontWeight: 600 } }, "⚠️ 提交后，假别和原因都不能再更改。"),
         h("button", { onClick: submitForm, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#0ea5e9,#6366f1)", color: "#fff", fontWeight: 800, fontSize: 14.5, boxShadow: "0 8px 20px rgba(79,70,229,.35)" } }, "提交 / Submit")))));
+}
+
+/* ---------- Phone 公司电话（Number / Who Take） ---------- */
+function PhonePage({ currentUser }) {
+  const h = React.createElement;
+  const [list, save] = useCloudList("phones");
+  const [q, setQ] = React.useState("");
+  const items = list || [];
+  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
+  const add = () => save([...items, { id: uid(), number: "", who: "", by: currentUser, at: Date.now() }]);
+  const del = x => { if (window.confirm("删除电话 " + (x.number || "(空)") + " ？")) save(items.filter(y => y.id !== x.id)); };
+  const shown = items.filter(x => !q || ((x.number || "") + " " + (x.who || "")).toLowerCase().includes(q.toLowerCase()));
+  const people = MISSION_PEOPLE.slice();
+  const inp = { ...S.bankerInput, fontWeight: 700, fontSize: 14, letterSpacing: .3 };
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search number / who take", value: q, onChange: e => setQ(e.target.value) })),
+      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 新增电话")),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Number", "Who Take", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有电话 — 按「新增电话」")) :
+        shown.map((x, i) => {
+          const w = x.who || "";
+          const known = !w || people.includes(w);
+          return h("tr", { key: x.id },
+            h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
+            h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: inp, type: "tel", placeholder: "e.g. 012-345 6789", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
+            h("td", { style: { ...S.td, minWidth: 200 } }, h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+              w ? czAvatar(w, 26) : h("span", { style: { width: 26, height: 26, borderRadius: "50%", background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "📱"),
+              h("select", { style: w ? pillSel(czHue(w)) : { ...S.bankerInput, width: "auto", color: "#94a3b8", fontWeight: 700 }, value: known ? w : "__other", onChange: e => {
+                  const v = e.target.value;
+                  if (v === "__other") { const t = window.prompt("输入名字：", known ? "" : w); if (t && t.trim()) upd(x.id, "who", t.trim().toLowerCase()); }
+                  else upd(x.id, "who", v);
+                } },
+                h("option", { value: "" }, "— 没人拿 —"),
+                people.map(p => h("option", { key: p, value: p }, p.toUpperCase())),
+                !known && h("option", { value: "__other" }, String(w).toUpperCase()),
+                known && h("option", { value: "__other" }, "其他（手打）…")))),
+            h("td", { style: { ...S.td, width: 40 } }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
+        })))),
+    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 10 } }, "共 " + items.length + " 支电话 · 有人拿 " + items.filter(x => x.who).length + " · 空着 " + items.filter(x => !x.who).length));
 }
 
 /* ---------- Closing List（Build / Ori / Special Case / Cancel / Rencai） ---------- */
