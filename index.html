@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005020914";
+const APP_BUILD = "20261005025701";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2612,8 +2612,38 @@ function CRM({ onLogout, currentUser }) {
     persist(clients.filter(x => x.id !== id));
     setOpenId(null);
   };
+  const quickNewClient = pg => {
+    const type = ["house", "car", "personal"].includes(pg) ? pg : "house";
+    const c = { id: uid(), name: "", phone: "", ic: "", job: "", income: "", note: "", links: [], createdAt: today(), loans: [{ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] };
+    saveClient(c);
+  };
+  const closeDetail = () => {
+    const c = clients.find(x => x.id === openId);
+    const empty = c && !String(c.name || "").trim() && !c.phone && !c.ic && !(c.links || []).length && !(c.loans || []).some(l => l.agent || l.amount || (l.banks || []).length || (l.followUps || []).length);
+    if (empty) {
+      persist(clients.filter(x => x.id !== c.id));
+      persistVerifications(verifications.filter(v => v.clientId !== c.id));
+    }
+    setOpenId(null);
+  };
   const updateClient = c => {
     const old = clients.find(x => x.id === c.id);
+    // 同步到 Verify（名字 / IC / 电话 还没填的话）
+    if (old) {
+      const vs = verifications.filter(v => v.clientId === c.id);
+      if (vs.length) {
+        let changed = false;
+        const next = verifications.map(v => {
+          if (v.clientId !== c.id) return v;
+          const nv = { ...v };
+          [["customerName", "name"], ["icNumber", "ic"], ["phone", "phone"]].forEach(([vk, ck]) => { if (c[ck] !== old[ck] && (!v[vk] || v[vk] === old[ck])) { nv[vk] = c[ck]; changed = true; } });
+          const la = ((c.loans || [])[0] || {}).agent, lo = ((old.loans || [])[0] || {}).agent;
+          if (la !== lo && (!v.agent || v.agent === lo)) { nv.agent = String(la || "").toLowerCase(); changed = true; }
+          return nv;
+        });
+        if (changed) persistVerifications(next);
+      }
+    }
     const entries = old ? diffClient(old, c, currentUser) : [];
     const withHist = entries.length ? { ...c, history: [...entries, ...(c.history || [])].slice(0, 300) } : c;
     persist(clients.map(x => x.id === c.id ? withHist : x));
@@ -2768,10 +2798,10 @@ function CRM({ onLogout, currentUser }) {
     type: page,
     clients: clients,
     onOpen: setOpenId,
-    onNew: () => setEditing("new")
+    onNew: () => quickNewClient(page)
   }))), open && /*#__PURE__*/React.createElement(Detail, {
     client: open,
-    onClose: () => setOpenId(null),
+    onClose: closeDetail,
     onEdit: () => setEditing(open),
     onDelete: () => removeClient(open.id),
     onUpdate: updateClient,
@@ -5922,7 +5952,7 @@ function Detail({
     style: S.panelHead
   }, /*#__PURE__*/React.createElement("div", {
     style: S.panelName
-  }, client.name), /*#__PURE__*/React.createElement("div", {
+  }, client.name || /*#__PURE__*/React.createElement("span", { style: { color: "#a5b4fc" } }, "新客户 · 先填名字")), /*#__PURE__*/React.createElement("div", {
     style: S.panelActions
   }, /*#__PURE__*/React.createElement("button", {
     style: {
@@ -5956,18 +5986,18 @@ function Detail({
     style: S.panelBody
   }, /*#__PURE__*/React.createElement(Section, {
     title: "Contact"
-  }, /*#__PURE__*/React.createElement(Row, {
+  }, /*#__PURE__*/React.createElement(EditRow, {
+    label: "Name",
+    value: client.name,
+    onChange: v => onUpdate({ ...client, name: v })
+  }), /*#__PURE__*/React.createElement(EditRow, {
     label: "Phone",
-    value: client.phone
-  }), /*#__PURE__*/React.createElement(Row, {
+    value: client.phone,
+    onChange: v => onUpdate({ ...client, phone: v })
+  }), /*#__PURE__*/React.createElement(EditRow, {
     label: "IC",
-    value: client.ic
-  }), /*#__PURE__*/React.createElement(Row, {
-    label: "Occupation",
-    value: client.job
-  }), /*#__PURE__*/React.createElement(Row, {
-    label: "Monthly Income",
-    value: client.income ? money(client.income) : ""
+    value: client.ic,
+    onChange: v => onUpdate({ ...client, ic: v })
   })), /*#__PURE__*/React.createElement("div", {
     style: S.linkHeadRow
   }, /*#__PURE__*/React.createElement("div", {
