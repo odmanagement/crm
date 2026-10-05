@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005031450";
+const APP_BUILD = "20261005033029";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4183,6 +4183,90 @@ function formWriteValues(doc, values) {
     el.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
+/* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
+function FileLibrary({ currentUser }) {
+  const h = React.createElement;
+  const [data, saveData] = useCloudList("form_files");
+  const lib = data && !Array.isArray(data) ? data : { cats: [], files: [] };
+  const save = d => saveData(d);
+  const [cat, setCat] = React.useState("all");
+  const [adding, setAdding] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [q, setQ] = React.useState("");
+  const cats = lib.cats || [], files = lib.files || [];
+  const addCat = () => { const n = window.prompt("新分类名字："); if (!n || !n.trim()) return null; const c = { id: uid(), name: n.trim() }; save({ ...lib, cats: [...cats, c] }); return c; };
+  const delCat = c => { if (files.some(f => f.cat === c.id)) { alert("这个分类里还有文件，请先移走或删除文件"); return; } if (window.confirm("删除分类「" + c.name + "」？")) { save({ ...lib, cats: cats.filter(x => x.id !== c.id) }); if (cat === c.id) setCat("all"); } };
+  const renameCat = c => { const n = window.prompt("分类名字：", c.name); if (n && n.trim()) save({ ...lib, cats: cats.map(x => x.id === c.id ? { ...x, name: n.trim() } : x) }); };
+  const openFile = async f => {
+    if (f.url) { window.open(_fixUrl(f.url), "_blank"); return; }
+    if (f.blob) { const d = await DB.get("ffile_" + f.blob); if (!d) { alert("找不到文件"); return; } const w = window.open(); if (w) { if (/^data:(image|application\/pdf)/.test(d)) w.document.write('<title>' + f.name + '</title><iframe src="' + d + '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>'); else { w.close(); const a = document.createElement("a"); a.href = d; a.download = f.fname || f.name; a.click(); } } }
+  };
+  const delFile = async f => { if (!window.confirm("删除「" + f.name + "」？")) return; save({ ...lib, files: files.filter(x => x.id !== f.id) }); if (f.blob) { try { await DB.del("ffile_" + f.blob); } catch (e) {} } };
+  const submit = async () => {
+    const a = adding;
+    if (!a.name.trim()) { alert("请填文件名字"); return; }
+    if (!a.cat) { alert("请选择分类"); return; }
+    if (a.mode === "link" && !a.url.trim()) { alert("请贴上链接"); return; }
+    if (a.mode === "upload" && !a.file) { alert("请选择文件"); return; }
+    setBusy(true);
+    let rec = { id: uid(), name: a.name.trim(), cat: a.cat, by: canonUser(currentUser), at: Date.now() };
+    try {
+      if (a.mode === "link") rec.url = a.url.trim();
+      else {
+        if (a.file.size > 4 * 1024 * 1024) { alert("文件太大（最多 4MB），请用链接的方式"); setBusy(false); return; }
+        const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(a.file); });
+        const bid = uid(); await DB.set("ffile_" + bid, dataUrl);
+        rec = { ...rec, blob: bid, fname: a.file.name, ftype: a.file.type };
+      }
+      save({ ...lib, files: [rec, ...files] });
+      setAdding(null);
+    } catch (e) { alert("上传失败：" + (e.message || e)); }
+    setBusy(false);
+  };
+  const shown = files.filter(f => (cat === "all" || f.cat === cat) && (!q || (f.name + " " + (f.fname || "")).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => b.at - a.at);
+  const iconOf = f => f.url ? "🔗" : /pdf/.test(f.ftype || "") ? "📕" : /image/.test(f.ftype || "") ? "🖼" : /sheet|excel|csv/.test(f.ftype || "") ? "📊" : /word|document/.test(f.ftype || "") ? "📘" : "📄";
+  const catName = id => (cats.find(c => c.id === id) || {}).name || "未分类";
+  const chip = (on) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999, border: on ? "none" : "1px solid #e2e8f0", background: on ? "#4f46e5" : "#fff", color: on ? "#fff" : "#475569", fontWeight: 800, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" });
+  const inp = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none" };
+  return h("div", { style: { marginTop: 28 } },
+    h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" } },
+      h("div", { style: { fontSize: 16, fontWeight: 900, color: "#1e1b4b", flex: 1 } }, "🗂 文件库 (" + files.length + ")"),
+      h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "Search 文件", style: { padding: "9px 14px", borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 13.5, width: 220, fontFamily: "inherit", outline: "none" } }),
+      h("button", { onClick: () => setAdding({ name: "", cat: cat !== "all" ? cat : (cats[0] || {}).id || "", mode: "upload", url: "", file: null }), style: { ...S.addBtn, cursor: "pointer" } }, h(Plus, { size: 16 }), " Add File")),
+    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 } },
+      h("button", { style: chip(cat === "all"), onClick: () => setCat("all") }, "全部 ", h("b", { style: { opacity: .8 } }, files.length)),
+      cats.map(c => h("span", { key: c.id, style: { ...chip(cat === c.id), paddingRight: 6 } },
+        h("span", { onClick: () => setCat(c.id), onDoubleClick: () => renameCat(c), title: "双击改名" }, "📁 " + c.name + " ", h("b", { style: { opacity: .8 } }, files.filter(f => f.cat === c.id).length)),
+        h("button", { onClick: () => delCat(c), title: "删除分类", style: { border: "none", background: "transparent", color: cat === c.id ? "#e0e7ff" : "#cbd5e1", cursor: "pointer", fontSize: 14, padding: "0 4px" } }, "×"))),
+      h("button", { style: { ...chip(false), borderStyle: "dashed", color: "#4f46e5" }, onClick: addCat }, "+ 新分类")),
+    shown.length === 0 ? h("div", { style: { color: "#94a3b8", fontSize: 13.5, padding: 20, textAlign: "center", background: "rgba(255,255,255,.7)", borderRadius: 14 } }, cats.length ? "这里还没有文件" : "先按「+ 新分类」建立分类，再按「Add File」加文件") :
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 } },
+      shown.map(f => h("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,.04)" } },
+        h("div", { style: { width: 40, height: 40, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 } }, iconOf(f)),
+        h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => openFile(f), title: "打开" },
+          h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0f172a" } }, f.name),
+          h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, "📁 " + catName(f.cat)),
+          h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 2 } }, String(f.by || "").toUpperCase() + " · " + new Date(f.at).toLocaleDateString("en-GB"))),
+        h("select", { value: f.cat, title: "移到其他分类", onChange: e => save({ ...lib, files: files.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
+        (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
+    adding && h("div", { onClick: () => !busy && setAdding(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
+        h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900, fontSize: 16 } }, "📎 Add File"),
+        h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
+          h("div", { style: { display: "flex", gap: 6 } }, [["upload", "⬆ 上传文件"], ["link", "🔗 贴链接"]].map(([k, l]) => h("button", { key: k, onClick: () => setAdding({ ...adding, mode: k }), style: { ...chip(adding.mode === k), flex: 1, justifyContent: "center" } }, l))),
+          adding.mode === "upload" ? h("label", { style: { display: "block", padding: 16, border: "2px dashed #c7d2fe", borderRadius: 12, textAlign: "center", cursor: "pointer", background: "#f8faff", color: "#4f46e5", fontWeight: 700, fontSize: 13.5 } },
+            adding.file ? "✓ " + adding.file.name : "点这里选择文件（PDF、图片、Word、Excel，最多 4MB）",
+            h("input", { type: "file", style: { display: "none" }, onChange: e => { const f = e.target.files[0]; if (f) setAdding({ ...adding, file: f, name: adding.name || f.name.replace(/\.[^.]+$/, "") }); } }))
+            : h("input", { value: adding.url, placeholder: "贴上 Google Drive / 网址", onChange: e => setAdding({ ...adding, url: e.target.value }), style: { ...inp, textTransform: "none" } }),
+          h("label", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "文件名字"), h("input", { value: adding.name, onChange: e => setAdding({ ...adding, name: e.target.value }), placeholder: "例如 2026 SSM Form", style: inp })),
+          h("div", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "放在哪个分类"),
+            h("div", { style: { display: "flex", gap: 8 } },
+              h("select", { value: adding.cat, onChange: e => setAdding({ ...adding, cat: e.target.value }), style: { ...inp, flex: 1 } }, h("option", { value: "" }, "— 选择分类 —"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
+              h("button", { onClick: () => { const c = addCat(); if (c) setAdding({ ...adding, cat: c.id }); }, style: { ...chip(false), borderStyle: "dashed", color: "#4f46e5", whiteSpace: "nowrap" } }, "+ 新分类"))),
+          h("div", { style: { display: "flex", gap: 8 } },
+            h("button", { onClick: () => setAdding(null), disabled: busy, style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
+            h("button", { onClick: submit, disabled: busy, style: { flex: 2, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 800, cursor: "pointer" } }, busy ? "上传中…" : "保存"))))));
+}
 function FormsPage({ currentUser, tools }) {
   const h = React.createElement;
   const [drafts, saveDrafts] = useCloudList("form_drafts");
@@ -4250,6 +4334,7 @@ function FormsPage({ currentUser, tools }) {
             h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 2 } }, String(d.by || "").toUpperCase() + " · " + fmtT(d.at))),
           (sameUser(d.by, currentUser) || isMissionBoss(currentUser)) && h("button", { title: "删除", onClick: () => delDraft(d), style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" })));
       })),
+    h(FileLibrary, { currentUser }),
     open && h("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,15,40,.55)", display: "flex", alignItems: "stretch", justifyContent: "center", padding: "18px" } },
       h("div", { style: { flex: 1, maxWidth: 1200, background: "#fff", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,.4)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f6", background: "#fafbff" } },
