@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005041015";
+const APP_BUILD = "20261005042214";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4371,7 +4371,21 @@ function FormsPage({ currentUser, tools }) {
   const [saveDlg, setSaveDlg] = React.useState(null);
   const myCats = () => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; return (lib.cats || []).filter(c => sameUser(c.by, currentUser)); };
   const newCat = name => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; const c = { id: uid(), name, by: canonUser(currentUser) }; saveLib({ ...lib, cats: [...(lib.cats || []), c] }); return c; };
+  /* 同时按一下表格自己的「存档」，这样表格里的「读取存档」也读得到 */
+  const triggerInnerSave = () => {
+    const d = doc(); if (!d) return;
+    try {
+      const w = frameRef.current.contentWindow;
+      const btn = Array.from(d.querySelectorAll("button, a, input[type=button], label")).find(b => { const t = (b.textContent || b.value || "").trim(); return /存档|save/i.test(t) && !/读取|载入|load|open/i.test(t); });
+      if (!btn) return;
+      const oa = w.alert; w.alert = () => {};  // 不要跳出「已存档」提示
+      btn.click();
+      snapRef.current = snapshotLS();
+      setTimeout(() => { w.alert = oa; snapRef.current = snapshotLS(); }, 300);
+    } catch (e) {}
+  };
   const confirmSave = (title, cat, closeAfter) => {
+    triggerInnerSave();
     const vals = currentVals();
     const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now() };
     saveDrafts([nd, ...(drafts || [])]);
@@ -4383,6 +4397,7 @@ function FormsPage({ currentUser, tools }) {
     const vals = currentVals();
     const list = drafts || [];
     const now = Date.now();
+    if (open.draft) triggerInnerSave();
     if (!open.draft) { const cs = myCats(); setSaveDlg({ title: guessTitle(vals), cat: (cs.find(c => c.name === open.tool.name) || cs[0] || {}).id || "", closeAfter: !!closeAfter }); return; }
     if (open.draft) {
       const nd = { ...open.draft, values: vals, at: now, by: canonUser(currentUser), title: open.draft.title || guessTitle(vals) };
@@ -4396,7 +4411,8 @@ function FormsPage({ currentUser, tools }) {
     baseRef.current = JSON.stringify(vals);
     setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500);
   };
-  React.useEffect(() => { if (open) { snapRef.current = snapshotLS(); const t = setInterval(captureFormChanges, 4000); return () => { clearInterval(t); captureFormChanges(); }; } }, [open]);
+  const openKeyFile = open ? open.tool.file : "";
+  React.useEffect(() => { if (openKeyFile) { snapRef.current = snapshotLS(); const t = setInterval(captureFormChanges, 4000); return () => { clearInterval(t); captureFormChanges(); }; } }, [openKeyFile]);
   const tryClose = () => { if (dirty()) setAsk(true); else setOpen(null); };
   const delDraft = d => { if (window.confirm("删除这份存档？")) saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
   const mine = (drafts || []).filter(d => sameUser(d.by, currentUser));
