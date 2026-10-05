@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005050917";
+const APP_BUILD = "20261005071751";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -3007,7 +3007,7 @@ const czAvatar = (n, size = 28) => React.createElement("span", { style: { width:
 const czPill = (hue, extra) => ({ background: "hsl(" + hue + ",90%,95%)", color: "hsl(" + hue + ",65%,38%)", border: "1px solid hsl(" + hue + ",80%,86%)", borderRadius: 999, fontWeight: 700, padding: "5px 12px", ...(extra || {}) });
 const CZ_BANK = { MUAMALAT: 340, BSN: 210, "BANK RAKYAT": 225, "B.RAKYAT": 225, RAKYAT: 225, PBB: 0, "PUBLIC BANK": 0, MAYBANK: 45, CIMB: 355, RHB: 200, "BANK ISLAM": 320, ALRAJHI: 190, "AL RAJHI": 190, HLB: 215, "HONG LEONG": 215, AMBANK: 5, MBSB: 160, AFFIN: 230, OCBC: 0, UOB: 230, AGRO: 120, "AGRO BANK": 120 };
 const czBankHue = b => { const k = String(b || "").trim().toUpperCase(); return k in CZ_BANK ? CZ_BANK[k] : czHue(k); };
-const CZ_TYPE = { house: 262, car: 190, personal: 330 };
+const CZ_TYPE = { house: 262, car: 190, personal: 330, companyacc: 35 };
 /* ---------- 指派任务弹窗（Messenger 聊天头像风格） ---------- */
 function MissionPopups({ missions, notices, currentUser, onView, onDone, onClearNotice }) {
   const h = React.createElement;
@@ -4021,7 +4021,9 @@ function BankerPage({
     value: "car"
   }, "Car Loan"), /*#__PURE__*/React.createElement("option", {
     value: "personal"
-  }, "Personal Loan"))), /*#__PURE__*/React.createElement("td", {
+  }, "Personal Loan"), /*#__PURE__*/React.createElement("option", {
+    value: "companyacc"
+  }, "Company Acc"))), /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("button", {
     style: S.fuDel,
@@ -4537,7 +4539,7 @@ function FormsPage({ currentUser, tools }) {
       tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
         icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
-    h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 18 } }, h("button", { onClick: openPicker, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📥 导入这台电脑里的旧表格存档"), h("button", { onClick: () => setPasteBox(""), style: { marginLeft: 8, border: "1px dashed #f59e0b", background: "#fff", color: "#b45309", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📋 从本地文件版搬存档过来")),
+
     pasteBox !== null && h("div", { onClick: () => setPasteBox(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 560, background: "#fff", borderRadius: 18, overflow: "hidden" } },
         h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#f59e0b,#d97706)", color: "#fff", fontWeight: 900 } }, "📋 从本地文件版搬存档过来"),
