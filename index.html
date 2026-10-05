@@ -3250,7 +3250,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v34"));
+    h("div", { className: "sb-ver" }, "v36"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5300,7 +5300,9 @@ function TypePage({
 }, "Submit Date"), COLS.map(bk => /*#__PURE__*/React.createElement("th", {
   key: bk,
   style: S.th
-}, isP ? bankLabel(bk) : bk)), !isP && /*#__PURE__*/React.createElement("th", {
+}, isP ? bankLabel(bk) : bk)), isP && /*#__PURE__*/React.createElement("th", {
+  style: { ...S.th, ...S.thNum }
+}, "Collect"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
 }, "Stage"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((r, _i) => {
   const l = r.loan,
@@ -5387,10 +5389,13 @@ function TypePage({
       key: bk,
       style: S.td
     }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.status === "disbursed" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk disb" }, "💰 " + (b.amount ? money(b.amount) : "DISBURSED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
       : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
-  }), !isP && /*#__PURE__*/React.createElement("td", {
+  }), isP && /*#__PURE__*/React.createElement("td", {
+    style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0891b2" }
+  }, (() => { const t = (l.banks || []).filter(b => b.status === "disbursed").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -6943,7 +6948,7 @@ function LoanBlock({
   // Personal：自动列出全部银行（没填过的是灰色空行，一填就变成真的记录）
   const bankView = (() => {
     const real = banks.map((b, i) => ({ b, i }));
-    if (loan.type !== "personal") return real;
+    return real; // 只显示自己 Add Bank 加的银行
     const out = [], used = new Set();
     PERSONAL_BANKS.forEach(([k]) => {
       const mine = real.filter(r => !used.has(r.i) && r.b.bank && bankKey(r.b.bank) === k);
@@ -8041,6 +8046,8 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; line-height: 1.2; font-weight: 800; font-size: 12px; padding: 4px 10px; border-radius: 10px; white-space: nowrap; }
 .tp-bk small { font-size: 10px; font-weight: 700; opacity: .7; padding-left: 6px; border-left: 1px solid currentColor; }
 .tp-bk.ok { color: #047857; background: linear-gradient(135deg,#ecfdf5,#d1fae5); border: 1px solid #a7f3d0; }
+.tp-bk.disb { color: #fff; background: linear-gradient(135deg,#ef4444,#dc2626); border: 1px solid #b91c1c; box-shadow: 0 3px 10px -3px rgba(220,38,38,.5); }
+.tp-bk.disb small { opacity: .9; }
 .tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
 .tp-bk.pend { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; flex-direction: row; }
 .tp-bk.sub { color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 700; }
