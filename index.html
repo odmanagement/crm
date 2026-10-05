@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005043244";
+const APP_BUILD = "20261005043806";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4320,6 +4320,30 @@ function FormsPage({ currentUser, tools }) {
     saveLib({ ...libData, files: (libData.files || []).filter(f => !bad.includes(f)) });
   }, [libData]);
   const [picker, setPicker] = React.useState(null);
+  const [pasteBox, setPasteBox] = React.useState(null);
+  /* 把「本地文件版」表格的存档搬进 CRM（合并，不会盖掉） */
+  const mergeLocalDump = text => {
+    let obj; try { obj = JSON.parse(text.trim()); } catch (e) { alert("贴上的内容不对，请再复制一次"); return; }
+    if (!obj || typeof obj !== "object") { alert("贴上的内容不对"); return; }
+    let n = 0;
+    Object.keys(obj).forEach(k => {
+      if (SKIP.test(k) || /payr|payroll|salary|gaji|epf|socso/i.test(k)) return;
+      const inc = obj[k]; if (typeof inc !== "string" || inc.length < 3) return;
+      const cur = localStorage.getItem(k);
+      let out = inc;
+      if (cur && cur !== inc) {
+        try {
+          const a = JSON.parse(cur), b = JSON.parse(inc);
+          if (Array.isArray(a) && Array.isArray(b)) { const seen = new Set(a.map(x => JSON.stringify(x))); out = JSON.stringify(a.concat(b.filter(x => !seen.has(JSON.stringify(x))))); }
+          else if (a && b && typeof a === "object" && typeof b === "object") out = JSON.stringify({ ...b, ...a });
+          else out = cur;
+        } catch (e) { out = cur; }
+      }
+      if (out !== cur) { localStorage.setItem(k, out); n++; }
+    });
+    alert(n ? "✓ 已搬进 " + n + " 组存档。现在在 CRM 里打开表格，按「读取存档」就看得到了。" : "没有新的存档需要搬");
+    setPasteBox(null);
+  };
   const openPicker = () => {
     const rows = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SKIP.test(k)) continue; const v = localStorage.getItem(k) || ""; if (v.length < 3) continue; rows.push({ k, size: v.length, sel: false }); } } catch (e) {}
     setPicker(rows);
@@ -4411,7 +4435,22 @@ function FormsPage({ currentUser, tools }) {
       tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
         icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
-    h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 18 } }, h("button", { onClick: openPicker, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📥 导入这台电脑里的旧表格存档")),
+    h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 18 } }, h("button", { onClick: openPicker, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📥 导入这台电脑里的旧表格存档"), h("button", { onClick: () => setPasteBox(""), style: { marginLeft: 8, border: "1px dashed #f59e0b", background: "#fff", color: "#b45309", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📋 从本地文件版搬存档过来")),
+    pasteBox !== null && h("div", { onClick: () => setPasteBox(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 560, background: "#fff", borderRadius: 18, overflow: "hidden" } },
+        h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#f59e0b,#d97706)", color: "#fff", fontWeight: 900 } }, "📋 从本地文件版搬存档过来"),
+        h("div", { style: { padding: 20, fontSize: 13.5, color: "#334155", lineHeight: 1.7, textTransform: "none" } },
+          h("div", null, "1. 在这台电脑打开以前用的本地表格（网址是 C:/... 开头的那个）"),
+          h("div", null, "2. 按键盘 F12 → 点上面的「Console」"),
+          h("div", null, "3. 复制下面这一行，贴进 Console，按 Enter："),
+          h("div", { style: { display: "flex", gap: 8, margin: "6px 0 10px" } },
+            h("code", { style: { flex: 1, background: "#1e1b4b", color: "#e0e7ff", padding: "8px 12px", borderRadius: 8, fontSize: 13, textTransform: "none" } }, "copy(JSON.stringify(localStorage))"),
+            h("button", { onClick: () => { try { navigator.clipboard.writeText("copy(JSON.stringify(localStorage))"); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, padding: "0 12px", fontWeight: 800, cursor: "pointer" } }, "复制")),
+          h("div", null, "4. 回来这里，在下面的框框按 Ctrl+V 贴上，再按「开始搬」"),
+          h("textarea", { value: pasteBox, onChange: e => setPasteBox(e.target.value), rows: 5, placeholder: "在这里贴上…", style: { width: "100%", boxSizing: "border-box", marginTop: 10, padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", fontFamily: "monospace", fontSize: 12, textTransform: "none" } }),
+          h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
+            h("button", { onClick: () => setPasteBox(null), style: { flex: 1, padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
+            h("button", { onClick: () => mergeLocalDump(pasteBox), disabled: !pasteBox.trim(), style: { flex: 2, padding: 10, borderRadius: 10, border: "none", background: "linear-gradient(120deg,#f59e0b,#d97706)", color: "#fff", fontWeight: 800, cursor: "pointer", opacity: pasteBox.trim() ? 1 : .5 } }, "开始搬"))))),
     h(FileLibrary, { currentUser, data: libData, saveData: saveLib, drafts: mine, onOpenDraft: d => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), onMoveDraft: (d, cat) => saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, cat } : x)), onDelDraft: delDraft, onRenameDraft: d => { const t = window.prompt("存档名字：", d.title || ""); if (t != null) saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, title: t.trim() } : x)); } }),
     picker && h("div", { onClick: () => setPicker(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 18, overflow: "hidden" } },
