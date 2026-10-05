@@ -143,7 +143,7 @@
         <tbody id="partCFoot"></tbody>
       </table>
       <button class="addrow" onclick="addRow('partCBody','',_='',_2='')">+ Add item</button>
-      <div class="cfg">Multiplier % <input id="cMult" type="number" value="20" oninput="calc()"></div>
+      <input id="cMult" type="hidden" value="20">
     </div>
   </div>
 
@@ -356,21 +356,33 @@ function calcPart(bodyId,footId,mult){
   });
   const m=parseFloat(mult)/100||0;
   const fVal=sum*(1+m);
-  document.getElementById(footId).innerHTML=`
+  const foot=document.getElementById(footId);
+  // % 直接在 Subtotal 这一行手动填（不再用下面的 Multiplier）
+  if(!foot.querySelector('.pctInline')){
+    foot.innerHTML=`
     <tr class="total">
       <td>Subtotal</td>
-      <td class="num">${fmt(sum)} &nbsp;×&nbsp; ${(m*100)}%</td>
-      <td class="num lucas-col">= ${fmt(sum*m)}</td>
-      <td class="num agent-col">${fmt(0)}</td>
+      <td class="num"><span class="pSum"></span> &nbsp;×&nbsp; <input class="pctInline mult-input num" type="number" style="width:60px" oninput="document.getElementById('cMult').value=this.value;calc()"> %</td>
+      <td class="num lucas-col pLucas"></td>
+      <td class="num agent-col pAg0"></td>
       <td></td>
     </tr>
     <tr class="grand">
       <td>TOTAL</td>
-      <td class="num">${fmt(fVal)}</td>
-      <td class="num lucas-col">${fmt(fVal)}</td>
-      <td class="num agent-col">${fmt(0)}</td>
+      <td class="num pTot"></td>
+      <td class="num lucas-col pTot2"></td>
+      <td class="num agent-col pAg1"></td>
       <td></td>
     </tr>`;
+  }
+  const inp=foot.querySelector('.pctInline');
+  if(document.activeElement!==inp) inp.value=mult;
+  foot.querySelector('.pSum').textContent=fmt(sum);
+  foot.querySelector('.pLucas').textContent='= '+fmt(sum*m);
+  foot.querySelector('.pAg0').textContent=fmt(0);
+  foot.querySelector('.pTot').textContent=fmt(fVal);
+  foot.querySelector('.pTot2').textContent=fmt(fVal);
+  foot.querySelector('.pAg1').textContent=fmt(0);
   return fVal;
 }
 function calcSalary(){
