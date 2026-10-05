@@ -105,14 +105,6 @@
     <div class="totrow" style="border:none; margin-top:10px;"><div class="tlbl" style="text-align:left; padding-left:0; font-weight:bold;">TOTAL TO BANK IN CLIENT'S ACCT</div><div class="pamt" id="tobank" style="font-weight:bold; color:#c00;">0.00</div></div>
   </div>
 
-  <div style="margin-top:20px; display:flex; justify-content:flex-end; margin-right:22px;">
-    <div style="display:inline-grid; grid-template-columns:auto auto; column-gap:40px; row-gap:12px; align-items:center; justify-items:start;">
-      <span><span class="chkbox" onclick="toggleChk(this,'married')" id="chk-single"></span><span class="blue" style="margin-left:8px">AGENT</span></span>
-      <span><span class="chkbox" onclick="toggleChk(this,'single')" id="chk-married"></span><span class="blue" style="margin-left:8px">CUSTOMER</span></span>
-      <span style="grid-column:1 / span 2; display:flex; align-items:center; gap:8px; white-space:nowrap;"><span class="blue" style="font-weight:bold;">DATE &amp; TIME:</span><input type="datetime-local" id="signDateTime" style="color:#2c6fbb; font-weight:bold; border:none; border-bottom:1px dashed #bbb; background:transparent; font-family:inherit; font-size:inherit;"></span>
-    </div>
-  </div>
-
   <table style="margin-top:60px;">
     <tr class="blue"><td class="lbl" style="width:150px">ACCOUNT RECORD:</td><td class="blue">&nbsp;&nbsp; <select id="bank" onchange="if(this.value==='__OTHER__'){this.style.display='none';var o=document.getElementById('bankOther');o.style.display='inline-block';o.focus();}" style="width:210px; color:#2c6fbb; font-weight:bold; text-transform:uppercase; border:none; border-bottom:1px dashed #bbb; background:transparent; font-family:inherit; font-size:inherit;">
       <option value="">— SELECT BANK —</option>
@@ -309,9 +301,6 @@ function snapshot(){
     fields,
     bankDisplay: document.getElementById('bank').style.display,
     bankOtherDisplay: document.getElementById('bankOther').style.display,
-    chkAgent: document.getElementById('chk-single').textContent,
-    chkCustomer: document.getElementById('chk-married').textContent,
-    signDateTime: document.getElementById('signDateTime').value,
     settlement: document.getElementById('settlement').innerHTML,
     chargesTop: document.getElementById('chargesTop').innerHTML,
     chargesBottom: document.getElementById('chargesBottom').innerHTML,
@@ -325,9 +314,6 @@ function restore(s){
   Object.keys(s.fields).forEach(id=>{ const el=document.getElementById(id); if(el) el.value=s.fields[id]; });
   document.getElementById('bank').style.display=s.bankDisplay||'inline-block';
   document.getElementById('bankOther').style.display=s.bankOtherDisplay||'none';
-  document.getElementById('chk-single').textContent=s.chkAgent||'';
-  document.getElementById('chk-married').textContent=s.chkCustomer||'';
-  document.getElementById('signDateTime').value=s.signDateTime||'';
   document.getElementById('settlement').innerHTML=s.settlement||'';
   document.getElementById('chargesTop').innerHTML=s.chargesTop||'';
   document.getElementById('chargesBottom').innerHTML=s.chargesBottom||'';
