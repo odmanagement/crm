@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005034016";
+const APP_BUILD = "20261005034634";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4282,7 +4282,7 @@ function FormsPage({ currentUser, tools }) {
   const dirty = () => JSON.stringify(currentVals()) !== baseRef.current;
   const hideInnerSave = d => {
     // 表格本身的「存档 / 读取存档」按钮不要了（CRM 外面已经有存档）
-    const kill = () => Array.from(d.querySelectorAll("button, a, input[type=button], label")).forEach(b => { const t = (b.textContent || b.value || "").trim(); if (/存档|读取存档|save\s*draft|load\s*draft|print|打印|列印/i.test(t)) b.style.display = "none"; });
+    const kill = () => Array.from(d.querySelectorAll("button, a, input[type=button], label")).forEach(b => { const t = (b.textContent || b.value || "").trim(); if (/print|打印|列印/i.test(t)) b.style.display = "none"; });
     kill(); setTimeout(kill, 500); setTimeout(kill, 1500);
   };
   const onFrameLoad = () => {
