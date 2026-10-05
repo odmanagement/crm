@@ -128,7 +128,7 @@
       <tbody id="partAFoot"></tbody>
     </table>
     <button class="addrow" onclick="addRow('partABody','','',false,false,true)">+ Add item</button>
-    <div class="cfg">Total × <input id="aFinalPct" type="number" value="30" placeholder="%" oninput="calc()"> %</div>
+    <div class="cfg">Lucas × <input id="aLucasPct" type="number" value="100" placeholder="%" oninput="calc()"> % &nbsp;&nbsp; Agent × <input id="aAgentPct" type="number" value="0" placeholder="%" oninput="calc()"> % &nbsp;&nbsp; Total × <input id="aFinalPct" type="number" value="30" placeholder="%" oninput="calc()"> %</div>
   </div>
 
   <div class="panel" id="chargesPanel">
@@ -314,6 +314,9 @@ function calcPartA(){
   const lRate=parseFloat(document.getElementById('lucasRate').value)/100||0;
   const aRate=parseFloat(document.getElementById('agentRate').value)/100||0;
   let resSum=0;
+  const lpRaw=document.getElementById('aLucasPct').value, apRaw=document.getElementById('aAgentPct').value;
+  const lp = lpRaw.trim()==='' ? 1 : parseNum(lpRaw)/100;
+  const ap = parseNum(apRaw)/100;
   rows.forEach(r=>{
     const amt=parseNum(r.querySelector('.amt-input').value);
     const multEl=r.querySelector('.mult-input');
@@ -321,8 +324,8 @@ function calcPartA(){
     const res = hasMult ? amt*parseNum(multEl.value) : amt;
     resSum+=res;
     r.querySelector('.resultCell').textContent=fmt(res);
-    r.querySelector('.lucasCell').textContent=fmt(res);
-    r.querySelector('.agentCell').textContent=fmt(0);
+    r.querySelector('.lucasCell').textContent=fmt(res*lp);
+    r.querySelector('.agentCell').textContent=fmt(res*ap);
   });
   const pctRaw = document.getElementById('aFinalPct').value;
   const finalPct=parseFloat(pctRaw)/100;
@@ -334,16 +337,16 @@ function calcPartA(){
       <td>Subtotal (Results)</td>
       <td colspan="2"></td>
       <td class="num">${fmt(resSum)} &nbsp;×&nbsp; ${pctShow}</td>
-      <td class="num lucas-col">= ${isNaN(finalPct)?'—':fmt(pctAmt)}</td>
-      <td class="num agent-col">${fmt(0)}</td>
+      <td class="num lucas-col">= ${isNaN(finalPct)?'—':fmt(pctAmt*lp)}</td>
+      <td class="num agent-col">${isNaN(finalPct)?'—':fmt(pctAmt*ap)}</td>
       <td></td>
     </tr>
     <tr class="grand">
       <td>TOTAL (Subtotal + ${pctShow})</td>
       <td colspan="2"></td>
       <td class="num">${fmt(grand)}</td>
-      <td class="num lucas-col">${fmt(grand)}</td>
-      <td class="num agent-col">${fmt(0)}</td>
+      <td class="num lucas-col">${fmt(grand*lp)}</td>
+      <td class="num agent-col">${fmt(grand*ap)}</td>
       <td></td>
     </tr>`;
   return grand;
@@ -481,6 +484,8 @@ function collectData(){
     lucasRate:document.getElementById('lucasRate').value,
     agentRate:document.getElementById('agentRate').value,
     aFinalPct:document.getElementById('aFinalPct').value,
+    aLucasPct:document.getElementById('aLucasPct').value,
+    aAgentPct:document.getElementById('aAgentPct').value,
     cMult:document.getElementById('cMult').value,
     balance:[...document.getElementById('balBody').querySelectorAll('tr')].map(r=>({
       date:r.querySelector('.bal-date').value,
@@ -511,6 +516,8 @@ function restoreData(d){
   document.getElementById('lucasRate').value=d.lucasRate??'10';
   document.getElementById('agentRate').value=d.agentRate??'0';
   document.getElementById('aFinalPct').value=d.aFinalPct??'30';
+  document.getElementById('aLucasPct').value=d.aLucasPct??'100';
+  document.getElementById('aAgentPct').value=d.aAgentPct??'0';
   document.getElementById('cMult').value=d.cMult??'20';
   BODIES.forEach(id=>document.getElementById(id).innerHTML='');
   BODIES.forEach(id=>{
