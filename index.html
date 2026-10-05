@@ -2920,6 +2920,7 @@ function CRM({ onLogout, currentUser }) {
     onOpen: setOpenId,
     onNew: () => quickNewClient(page)
   }))), open && /*#__PURE__*/React.createElement(Detail, {
+    onlyType: ["house", "car", "personal"].includes(page) ? page : null,
     client: open,
     onClose: closeDetail,
     onEdit: () => setEditing(open),
@@ -3228,7 +3229,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v32"));
+    h("div", { className: "sb-ver" }, "v33"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6416,7 +6417,8 @@ function Detail({
   onDelete,
   onUpdate,
   onSendVerify,
-  currentUser
+  currentUser,
+  onlyType
 }) {
   const [addingLoan, setAddingLoan] = useState(false);
   const [showHist, setShowHist] = useState(false);
@@ -6575,7 +6577,7 @@ function Detail({
     size: 14
   }), " Add Loan")), loans.length === 0 && !addingLoan && /*#__PURE__*/React.createElement("div", {
     style: S.fuEmpty
-  }, "No loans yet"), loans.map(l => /*#__PURE__*/React.createElement(LoanBlock, {
+  }, "No loans yet"), (onlyType ? loans.filter(l => l.type === onlyType) : loans).map(l => /*#__PURE__*/React.createElement(LoanBlock, {
     key: l.id,
     loan: l,
     onUpdate: updateLoan,
