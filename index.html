@@ -3250,7 +3250,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v37"));
+    h("div", { className: "sb-ver" }, "v38"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5327,8 +5327,15 @@ function TypePage({
     c = r.client,
     st = stageOf(l.stage);
   const bankMap = {};
+  // 同一家银行有几笔（例如 Personal Loan + Credit Card）→ 数目加在一起
+  const _rank = { disbursed: 5, approved: 4, pending: 3, submitted: 2, rejected: 1 };
   (l.banks || []).forEach(b => {
-    bankMap[bankKey(b.bank)] = b;
+    const k = bankKey(b.bank);
+    const ex = bankMap[k];
+    if (!ex) { bankMap[k] = b; return; }
+    const amt = Number(String(ex.amount || 0).replace(/,/g, "")) + Number(String(b.amount || 0).replace(/,/g, ""));
+    const offs = Array.from(new Set([ex.officer, b.officer].join("/").split("/").map(x => String(x || "").trim()).filter(Boolean)));
+    bankMap[k] = { ...ex, amount: amt ? String(amt) : "", officer: offs.join("/"), status: (_rank[b.status] || 0) > (_rank[ex.status] || 0) ? b.status : ex.status };
   });
   return /*#__PURE__*/React.createElement("tr", {
     key: l.id,
@@ -7115,11 +7122,11 @@ function LoanBlock({
     value: b.bank ? bankKey(b.bank) : "",
     onChange: e => setBankV(i, b, "bank", e.target.value)
   }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = loan.type === "personal" ? PERSONAL_BANKS.map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, loan.type === "personal" ? bankLabel(bk) : bk))), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
-    title: "P Loan / CC",
-    style: { ...S.bankInput, width: 92, flex: "0 0 92px", fontWeight: 700, ...(b.prod === "cc" ? { color: "#c2410c", borderColor: "#c2410c55", background: "#c2410c0f" } : b.prod === "ploan" ? { color: "#4f46e5", borderColor: "#4f46e555", background: "#4f46e50f" } : { color: "#94a3b8" }) },
+    title: "Personal Loan / Credit Card",
+    style: { ...S.bankInput, width: 140, flex: "0 0 140px", fontWeight: 700, ...(b.prod === "cc" ? { color: "#c2410c", borderColor: "#c2410c55", background: "#c2410c0f" } : b.prod === "ploan" ? { color: "#4f46e5", borderColor: "#4f46e555", background: "#4f46e50f" } : { color: "#94a3b8" }) },
     value: b.prod || "",
     onChange: e => setBankV(i, b, "prod", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", { value: "ploan" }, "P Loan"), /*#__PURE__*/React.createElement("option", { value: "cc" }, "CC")), /*#__PURE__*/React.createElement(DebouncedInput, {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", { value: "ploan" }, "Personal Loan"), /*#__PURE__*/React.createElement("option", { value: "cc" }, "Credit Card")), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
     placeholder: "Banker",
     value: b.officer,
