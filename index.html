@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005040352";
+const APP_BUILD = "20261005040638";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4184,7 +4184,7 @@ function formWriteValues(doc, values) {
   });
 }
 /* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
-function FileLibrary({ currentUser, data, saveData }) {
+function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, onMoveDraft, onDelDraft, onRenameDraft }) {
   const h = React.createElement;
   const lib = data && !Array.isArray(data) ? data : { cats: [], files: [] };
   const save = d => saveData(d);
@@ -4193,12 +4193,15 @@ function FileLibrary({ currentUser, data, saveData }) {
   const [busy, setBusy] = React.useState(false);
   const [q, setQ] = React.useState("");
   const allCats = lib.cats || [], allFiles = lib.files || [];
-  const files = allFiles.filter(f => sameUser(f.by, currentUser));
+  const realFiles = allFiles.filter(f => sameUser(f.by, currentUser));
+  const files = realFiles.concat(drafts.map(dr => ({ ...dr, isDraft: true, name: (dr.title || "(未命名)"), sub: dr.form })));
   const cats = allCats.filter(c => sameUser(c.by, currentUser) || (!c.by && files.some(f => f.cat === c.id)));
+  const uncats = files.filter(f => !cats.some(c => c.id === f.cat)).length;
   const addCat = () => { const n = window.prompt("新分类名字："); if (!n || !n.trim()) return null; const c = { id: uid(), name: n.trim(), by: canonUser(currentUser) }; save({ ...lib, cats: [...allCats, c] }); return c; };
   const delCat = c => { if (files.some(f => f.cat === c.id)) { alert("这个分类里还有文件，请先移走或删除文件"); return; } if (window.confirm("删除分类「" + c.name + "」？")) { save({ ...lib, cats: allCats.filter(x => x.id !== c.id) }); if (cat === c.id) setCat("all"); } };
   const renameCat = c => { const n = window.prompt("分类名字：", c.name); if (n && n.trim()) save({ ...lib, cats: allCats.map(x => x.id === c.id ? { ...x, name: n.trim(), by: x.by || canonUser(currentUser) } : x) }); };
   const openFile = async f => {
+    if (f.isDraft) { onOpenDraft && onOpenDraft(f); return; }
     if (f.url) { window.open(_fixUrl(f.url), "_blank"); return; }
     if (f.blob) { const d = await DB.get("ffile_" + f.blob); if (!d) { alert("找不到文件"); return; } const w = window.open(); if (w) { if (/^data:(image|application\/pdf)/.test(d)) w.document.write('<title>' + f.name + '</title><iframe src="' + d + '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>'); else { w.close(); const a = document.createElement("a"); a.href = d; a.download = f.fname || f.name; a.click(); } } }
   };
@@ -4224,8 +4227,8 @@ function FileLibrary({ currentUser, data, saveData }) {
     } catch (e) { alert("上传失败：" + (e.message || e)); }
     setBusy(false);
   };
-  const shown = files.filter(f => (cat === "all" || f.cat === cat) && (!q || (f.name + " " + (f.fname || "")).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => b.at - a.at);
-  const iconOf = f => f.url ? "🔗" : /pdf/.test(f.ftype || "") ? "📕" : /image/.test(f.ftype || "") ? "🖼" : /sheet|excel|csv/.test(f.ftype || "") ? "📊" : /word|document/.test(f.ftype || "") ? "📘" : "📄";
+  const shown = files.filter(f => (cat === "all" || f.cat === cat || (cat === "__none" && !cats.some(c => c.id === f.cat))) && (!q || (f.name + " " + (f.fname || "")).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => b.at - a.at);
+  const iconOf = f => f.isDraft ? "📝" : f.url ? "🔗" : /pdf/.test(f.ftype || "") ? "📕" : /image/.test(f.ftype || "") ? "🖼" : /sheet|excel|csv/.test(f.ftype || "") ? "📊" : /word|document/.test(f.ftype || "") ? "📘" : "📄";
   const catName = id => (cats.find(c => c.id === id) || {}).name || "未分类";
   const chip = (on) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999, border: on ? "none" : "1px solid #e2e8f0", background: on ? "#4f46e5" : "#fff", color: on ? "#fff" : "#475569", fontWeight: 800, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" });
   const inp = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none" };
@@ -4239,6 +4242,7 @@ function FileLibrary({ currentUser, data, saveData }) {
       cats.map(c => h("span", { key: c.id, style: { ...chip(cat === c.id), paddingRight: 6 } },
         h("span", { onClick: () => setCat(c.id), onDoubleClick: () => renameCat(c), title: "双击改名" }, "📁 " + c.name + " ", h("b", { style: { opacity: .8 } }, files.filter(f => f.cat === c.id).length)),
         h("button", { onClick: () => delCat(c), title: "删除分类", style: { border: "none", background: "transparent", color: cat === c.id ? "#e0e7ff" : "#cbd5e1", cursor: "pointer", fontSize: 14, padding: "0 4px" } }, "×"))),
+      uncats > 0 && h("button", { style: chip(cat === "__none"), onClick: () => setCat("__none") }, "未分类 ", h("b", { style: { opacity: .8 } }, uncats)),
       h("button", { style: { ...chip(false), borderStyle: "dashed", color: "#4f46e5" }, onClick: addCat }, "+ 新分类")),
     shown.length === 0 ? h("div", { style: { color: "#94a3b8", fontSize: 13.5, padding: 20, textAlign: "center", background: "rgba(255,255,255,.7)", borderRadius: 14 } }, cats.length ? "这里还没有文件" : "先按「+ 新分类」建立分类，再按「Add File」加文件") :
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 } },
@@ -4246,10 +4250,11 @@ function FileLibrary({ currentUser, data, saveData }) {
         h("div", { style: { width: 40, height: 40, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 } }, iconOf(f)),
         h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => openFile(f), title: "打开" },
           h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0f172a" } }, f.name),
-          h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, "📁 " + catName(f.cat)),
+          h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, (f.isDraft ? "📝 " + f.sub + " · " : "") + "📁 " + catName(f.cat)),
           h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 2 } }, String(f.by || "").toUpperCase() + " · " + new Date(f.at).toLocaleDateString("en-GB"))),
-        h("select", { value: f.cat, title: "移到其他分类", onChange: e => save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
-        (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
+        f.isDraft && h("button", { title: "改名", onClick: () => onRenameDraft && onRenameDraft(f), style: { border: "1px solid #e2e8f0", background: "#fff", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0, fontSize: 13 } }, "✎"),
+        h("select", { value: cats.some(c => c.id === f.cat) ? f.cat : "", title: "移到其他分类", onChange: e => f.isDraft ? onMoveDraft(f, e.target.value) : save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
+        (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => f.isDraft ? onDelDraft(f) : delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
     adding && h("div", { onClick: () => !busy && setAdding(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
         h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900, fontSize: 16 } }, "📎 Add File"),
@@ -4363,10 +4368,22 @@ function FormsPage({ currentUser, tools }) {
     return () => window.removeEventListener("beforeunload", fn);
   }, [open]);
   const guessTitle = vals => { const v = vals.map(x => x[1]).find(x => x && String(x).trim().length > 1 && !/^\d{4}-\d{2}-\d{2}$/.test(x)); return v ? String(v).trim().slice(0, 40) : ""; };
-  const doSave = () => {
+  const [saveDlg, setSaveDlg] = React.useState(null);
+  const myCats = () => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; return (lib.cats || []).filter(c => sameUser(c.by, currentUser)); };
+  const newCat = name => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; const c = { id: uid(), name, by: canonUser(currentUser) }; saveLib({ ...lib, cats: [...(lib.cats || []), c] }); return c; };
+  const confirmSave = (title, cat, closeAfter) => {
+    const vals = currentVals();
+    const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now() };
+    saveDrafts([nd, ...(drafts || [])]);
+    baseRef.current = JSON.stringify(vals);
+    setSaveDlg(null);
+    if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500); }
+  };
+  const doSave = closeAfter => {
     const vals = currentVals();
     const list = drafts || [];
     const now = Date.now();
+    if (!open.draft) { const cs = myCats(); setSaveDlg({ title: guessTitle(vals), cat: (cs.find(c => c.name === open.tool.name) || cs[0] || {}).id || "", closeAfter: !!closeAfter }); return; }
     if (open.draft) {
       const nd = { ...open.draft, values: vals, at: now, by: canonUser(currentUser), title: open.draft.title || guessTitle(vals) };
       saveDrafts(list.map(x => x.id === nd.id ? nd : x));
@@ -4393,24 +4410,8 @@ function FormsPage({ currentUser, tools }) {
       tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
         icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
-    h("div", { style: { display: "flex", alignItems: "center", gap: 10, margin: "26px 0 12px", flexWrap: "wrap" } },
-      h("div", { style: { fontSize: 16, fontWeight: 900, color: "#1e1b4b", flex: 1 } }, "📁 我的存档 (" + mine.length + ")"),
-      h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "Search 存档", style: { padding: "9px 14px", borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 13.5, width: 240, fontFamily: "inherit", outline: "none" } })),
-    drafts === null ? h("div", { style: { color: "#94a3b8" } }, "载入中…") :
-    list.length === 0 ? h("div", { style: { color: "#94a3b8", fontSize: 13.5, padding: 20, textAlign: "center", background: "rgba(255,255,255,.7)", borderRadius: 14 } }, "还没有存档") :
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 } },
-      list.map(d => {
-        const tool = tools.find(t => t.file === d.file) || { name: d.form, file: d.file };
-        return h("div", { key: d.id, style: { ...card, cursor: "default", position: "relative" } },
-          icon("#fef3c7", "#b45309", "💾"),
-          h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => setOpen({ tool, draft: d }) },
-            h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, d.title || "(未命名)"),
-            h("div", { style: { fontSize: 12, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, d.form),
-            h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 2 } }, String(d.by || "").toUpperCase() + " · " + fmtT(d.at))),
-          (sameUser(d.by, currentUser) || isMissionBoss(currentUser)) && h("button", { title: "删除", onClick: () => delDraft(d), style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" })));
-      })),
     h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 18 } }, h("button", { onClick: openPicker, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📥 导入这台电脑里的旧表格存档")),
-    h(FileLibrary, { currentUser, data: libData, saveData: saveLib }),
+    h(FileLibrary, { currentUser, data: libData, saveData: saveLib, drafts: mine, onOpenDraft: d => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), onMoveDraft: (d, cat) => saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, cat } : x)), onDelDraft: delDraft, onRenameDraft: d => { const t = window.prompt("存档名字：", d.title || ""); if (t != null) saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, title: t.trim() } : x)); } }),
     picker && h("div", { onClick: () => setPicker(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 18, overflow: "hidden" } },
         h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900 } }, "📥 选择要导入的旧存档"),
@@ -4431,7 +4432,7 @@ function FormsPage({ currentUser, tools }) {
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
           open.draft && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = { ...open.draft, title: t.trim() }; saveDrafts((drafts || []).map(x => x.id === nd.id ? nd : x)); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
-          h("button", { onClick: doSave, style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
+          h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
           h("button", { onClick: tryClose, title: "关闭", style: { border: "none", background: "#f1f5f9", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, h(X, { size: 18, color: "#475569" }))),
         h("iframe", { ref: frameRef, src: open.tool.url || open.tool.file, onLoad: onFrameLoad, style: { flex: 1, border: "none", width: "100%", background: "#fff" } })),
       ask && h("div", { style: { position: "fixed", inset: 0, zIndex: 210, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
@@ -4440,9 +4441,22 @@ function FormsPage({ currentUser, tools }) {
           h("div", { style: { fontSize: 17, fontWeight: 900, color: "#1e1b4b", margin: "6px 0" } }, "要存档吗？"),
           h("div", { style: { fontSize: 13, color: "#64748b", marginBottom: 16 } }, "表格有改过的内容还没存档。"),
           h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            h("button", { onClick: () => { doSave(); setAsk(false); setOpen(null); }, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "💾 存档并关闭"),
+            h("button", { onClick: () => { setAsk(false); if (open.draft) { doSave(); setOpen(null); } else doSave(true); }, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "💾 存档并关闭"),
             h("button", { onClick: () => { setAsk(false); setOpen(null); }, style: { padding: 11, borderRadius: 12, border: "1px solid #fecaca", background: "#fff", color: "#dc2626", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "不存，直接关闭"),
-            h("button", { onClick: () => setAsk(false), style: { padding: 10, borderRadius: 12, border: "none", background: "#f1f5f9", color: "#475569", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "取消，继续填"))))));
+            h("button", { onClick: () => setAsk(false), style: { padding: 10, borderRadius: 12, border: "none", background: "#f1f5f9", color: "#475569", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "取消，继续填")))),
+      saveDlg && h("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { style: { width: "100%", maxWidth: 400, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
+          h("div", { style: { padding: "14px 20px", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 900, fontSize: 15 } }, "💾 存档到我的文件库"),
+          h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
+            h("label", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "存档名字"),
+              h("input", { value: saveDlg.title, onChange: e => setSaveDlg({ ...saveDlg, title: e.target.value }), placeholder: "例如客户名字", style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none" } })),
+            h("div", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "放在哪个分类"),
+              h("div", { style: { display: "flex", gap: 8 } },
+                h("select", { value: saveDlg.cat, onChange: e => setSaveDlg({ ...saveDlg, cat: e.target.value }), style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit" } }, h("option", { value: "" }, "— 选择分类 —"), myCats().map(c => h("option", { key: c.id, value: c.id }, c.name))),
+                h("button", { onClick: () => { const n = window.prompt("新分类名字："); if (n && n.trim()) { const c = newCat(n.trim()); setSaveDlg({ ...saveDlg, cat: c.id }); } }, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "0 12px", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" } }, "+ 新分类"))),
+            h("div", { style: { display: "flex", gap: 8 } },
+              h("button", { onClick: () => setSaveDlg(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
+              h("button", { onClick: () => { if (!saveDlg.cat) { alert("请选择分类"); return; } confirmSave(saveDlg.title.trim(), saveDlg.cat, saveDlg.closeAfter); }, style: { flex: 2, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 800, cursor: "pointer" } }, "💾 存档")))))));
 }
 function LinkListPage({
   title,
