@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005043806";
+const APP_BUILD = "20261005045700";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4162,6 +4162,38 @@ function CompanyFilesPage() {
     delItem && h(PwDialog, { title: "删除公司", desc: "删除「" + delItem.name + "」和它的链接，不能复原。", confirmText: "删除", onCancel: () => setDelItem(null),
       onOk: async () => { const id = delItem.customId; setDelItem(null); setOpenName(null); await saveCustom(custom.filter(x => x.id !== id)); } }));
 }
+/* ---------- 每份表格自己的存档格式（直接用表格自己的存档 / 读取，资料一模一样） ---------- */
+const FORM_NATIVE = {
+  "APPLICATION_FORM.html": { key: "application_form_archives", type: "obj", apply: "applyData" },
+  "CAR_SALES_QUOTATION.html": { key: "car_quotation_archives", type: "obj", apply: "applyArchive" },
+  "FINPRO_COSTING_PART.html": { key: "finpro_costing_archives", type: "obj", apply: "restoreData", after: "autoSave" },
+  "FUTURE_COSTING_PART.html": { key: "future_costing_archives", type: "obj", apply: "restoreData", after: "autoSave" },
+  "LEANDING_SHEET.html": { key: "finpro_archives", type: "obj", apply: "restore" },
+  "PL_COSTING.html": { key: "plcosting_archives", type: "arr", apply: "applyState" }
+};
+const NATIVE_KEYS = Object.values(FORM_NATIVE).map(a => a.key);
+function nativeRead(file) {
+  const ad = FORM_NATIVE[file]; if (!ad) return [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(ad.key) || (ad.type === "arr" ? "[]" : "{}"));
+    if (ad.type === "arr") return (raw || []).filter(e => e && e.name).map(e => ({ label: e.name, entry: e, t: Date.parse(String(e.time).replace(" ", "T")) || 0 }));
+    return Object.keys(raw || {}).map(k => ({ label: k, entry: raw[k], t: Date.parse(raw[k] && raw[k].saved) || 0 }));
+  } catch (e) { return []; }
+}
+function nativeWrite(file, label, entry) {
+  const ad = FORM_NATIVE[file]; if (!ad) return;
+  try {
+    if (ad.type === "arr") { const a = JSON.parse(localStorage.getItem(ad.key) || "[]"); const i = a.findIndex(x => x && x.name === label); if (i >= 0) a[i] = entry; else a.unshift(entry); localStorage.setItem(ad.key, JSON.stringify(a)); }
+    else { const o = JSON.parse(localStorage.getItem(ad.key) || "{}"); o[label] = entry; localStorage.setItem(ad.key, JSON.stringify(o)); }
+  } catch (e) {}
+}
+function nativeDelete(file, label) {
+  const ad = FORM_NATIVE[file]; if (!ad) return;
+  try {
+    if (ad.type === "arr") { const a = JSON.parse(localStorage.getItem(ad.key) || "[]").filter(x => !(x && x.name === label)); localStorage.setItem(ad.key, JSON.stringify(a)); }
+    else { const o = JSON.parse(localStorage.getItem(ad.key) || "{}"); delete o[label]; localStorage.setItem(ad.key, JSON.stringify(o)); }
+  } catch (e) {}
+}
 /* ---------- Forms：在 CRM 里打开，可以存档 ---------- */
 function formReadValues(doc) {
   const els = Array.from(doc.querySelectorAll("input, textarea, select"));
@@ -4252,7 +4284,7 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
           h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0f172a" } }, f.name),
           h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, (f.isDraft ? "📝 " + f.sub + " · " : "") + "📁 " + catName(f.cat)),
           h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 2 } }, String(f.by || "").toUpperCase() + " · " + new Date(f.at).toLocaleDateString("en-GB"))),
-        f.isDraft && h("button", { title: "改名", onClick: () => onRenameDraft && onRenameDraft(f), style: { border: "1px solid #e2e8f0", background: "#fff", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0, fontSize: 13 } }, "✎"),
+        f.isDraft && !f.native && h("button", { title: "改名", onClick: () => onRenameDraft && onRenameDraft(f), style: { border: "1px solid #e2e8f0", background: "#fff", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0, fontSize: 13 } }, "✎"),
         h("select", { value: cats.some(c => c.id === f.cat) ? f.cat : "", title: "移到其他分类", onChange: e => f.isDraft ? onMoveDraft(f, e.target.value) : save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
         (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => f.isDraft ? onDelDraft(f) : delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
     adding && h("div", { onClick: () => !busy && setAdding(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
@@ -4307,7 +4339,7 @@ function FormsPage({ currentUser, tools }) {
   const captureFormChanges = async () => {
     const before = snapRef.current; if (!before) return;
     const now = snapshotLS();
-    const keys = Object.keys(now).filter(k => !SKIP.test(k) && before[k] !== now[k]);
+    const keys = Object.keys(now).filter(k => !SKIP.test(k) && !NATIVE_KEYS.includes(k) && before[k] !== now[k]);
     snapRef.current = now;
     if (keys.length) await storeLocalKeys(keys, open ? open.tool.name : "");
   };
@@ -4383,7 +4415,11 @@ function FormsPage({ currentUser, tools }) {
       w.HTMLAnchorElement.prototype.click = function () { try { if (this.hasAttribute("download") && this.href) captureDownload(this.href, this.getAttribute("download"), formName); } catch (e) {} return origClick.apply(this, arguments); };
       d.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[download]"); if (a && a.href) captureDownload(a.href, a.getAttribute("download"), formName); }, true);
     } catch (e) {}
-    if (open && open.draft) formWriteValues(d, open.draft.values);
+    if (open && open.draft && open.draft.native && FORM_NATIVE[open.tool.file]) {
+      const ad = FORM_NATIVE[open.tool.file], w = frameRef.current.contentWindow;
+      nativeWrite(open.tool.file, open.draft.title, open.draft.native);
+      try { const data = open.draft.native.data; if (typeof w[ad.apply] === "function") { w[ad.apply](data); if (ad.after && typeof w[ad.after] === "function") w[ad.after](); } } catch (e) { console.error(e); }
+    } else if (open && open.draft) formWriteValues(d, open.draft.values);
     setTimeout(() => { baseRef.current = JSON.stringify(currentVals()); }, 150);
   };
   React.useEffect(() => {
@@ -4395,7 +4431,71 @@ function FormsPage({ currentUser, tools }) {
   const [saveDlg, setSaveDlg] = React.useState(null);
   const myCats = () => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; return (lib.cats || []).filter(c => sameUser(c.by, currentUser)); };
   const newCat = name => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; const c = { id: uid(), name, by: canonUser(currentUser) }; saveLib({ ...lib, cats: [...(lib.cats || []), c] }); return c; };
+  /* ===== 和表格自己的存档双向同步 ===== */
+  const formCatId = (name, libObj, add) => {
+    const me = canonUser(currentUser);
+    let c = (libObj.cats || []).find(x => x.name === name && sameUser(x.by, me));
+    if (!c) { c = { id: uid(), name, by: me }; add.push(c); }
+    return c.id;
+  };
+  const syncingRef = React.useRef(false);
+  const syncNative = React.useCallback(() => {
+    if (drafts === null || libData === null || syncingRef.current) return;
+    syncingRef.current = true;
+    try {
+      const me = canonUser(currentUser);
+      const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] };
+      const newCats = [];
+      let list = (drafts || []).slice(), changed = false;
+      (tools || []).forEach(t => {
+        if (!FORM_NATIVE[t.file]) return;
+        const local = nativeRead(t.file);
+        const seenKey = "crm_nseen_" + me + "_" + t.file;
+        let seen = []; try { seen = JSON.parse(localStorage.getItem(seenKey) || "[]"); } catch (e) {}
+        const cloud = list.filter(d => d.native && d.file === t.file && sameUser(d.by, me));
+        local.forEach(({ label, entry, t: ts }) => {
+          const c = cloud.find(d => d.title === label);
+          if (!c) { list.unshift({ id: uid(), file: t.file, form: t.name, title: label, native: entry, cat: formCatId(t.name, { cats: (lib.cats || []).concat(newCats) }, newCats), by: me, at: ts || Date.now() }); changed = true; }
+          else if (JSON.stringify(c.native) !== JSON.stringify(entry) && (ts || 0) >= (c.at || 0)) { list = list.map(d => d.id === c.id ? { ...d, native: entry, at: ts || Date.now() } : d); changed = true; }
+        });
+        cloud.forEach(c => {
+          if (local.some(l => l.label === c.title)) return;
+          if (seen.includes(c.title)) { list = list.filter(d => d.id !== c.id); changed = true; }   // 在表格里删掉了
+          else nativeWrite(t.file, c.title, c.native);                                            // 别的电脑存的，放进这台电脑
+        });
+        try { localStorage.setItem(seenKey, JSON.stringify(nativeRead(t.file).map(x => x.label))); } catch (e) {}
+      });
+      if (newCats.length) saveLib({ ...lib, cats: [...(lib.cats || []), ...newCats] });
+      if (changed) saveDrafts(list);
+    } finally { syncingRef.current = false; }
+  }, [drafts, libData, currentUser]);
+  const syncedOnce = React.useRef(false);
+  React.useEffect(() => { if (!syncedOnce.current && drafts !== null && libData !== null) { syncedOnce.current = true; syncNative(); } }, [drafts, libData]);
+  /* 用表格自己的「存档」功能存，再把结果放进文件库 */
+  const nativeSave = (label, cat, closeAfter) => {
+    const d = doc(), w = frameRef.current && frameRef.current.contentWindow, ad = FORM_NATIVE[open.tool.file];
+    if (!d || !w || typeof w.saveArchive !== "function") return false;
+    const before = nativeRead(open.tool.file);
+    const oa = w.alert, op = w.prompt, oc = w.confirm;
+    w.alert = () => {}; w.prompt = () => label; w.confirm = () => true;
+    try { w.saveArchive(); } catch (e) {}
+    w.alert = oa; w.prompt = op; w.confirm = oc;
+    const after = nativeRead(open.tool.file);
+    const hit = after.find(x => x.label === label) || after.find(x => x.label === String(label).toUpperCase()) || after.filter(x => { const b = before.find(y => y.label === x.label); return !b || JSON.stringify(b.entry) !== JSON.stringify(x.entry); }).sort((a, b) => b.t - a.t)[0];
+    if (!hit) { alert(ad.type === "arr" ? "请先在表格里填写客户姓名再存档" : "存档失败"); return true; }
+    const me = canonUser(currentUser);
+    const list = (drafts || []).slice();
+    const ex = list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me)) || (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null);
+    const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: me, at: Date.now(), values: undefined };
+    saveDrafts(ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list]);
+    try { const sk = "crm_nseen_" + me + "_" + open.tool.file; localStorage.setItem(sk, JSON.stringify(after.map(x => x.label))); } catch (e) {}
+    baseRef.current = JSON.stringify(currentVals());
+    setSaveDlg(null);
+    if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500); }
+    return true;
+  };
   const confirmSave = (title, cat, closeAfter) => {
+    if (FORM_NATIVE[open.tool.file] && nativeSave(title, cat, closeAfter)) return;
     const vals = currentVals();
     const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now() };
     saveDrafts([nd, ...(drafts || [])]);
@@ -4407,6 +4507,7 @@ function FormsPage({ currentUser, tools }) {
     const vals = currentVals();
     const list = drafts || [];
     const now = Date.now();
+    if (open.draft && open.draft.native && FORM_NATIVE[open.tool.file]) { nativeSave(open.draft.title, open.draft.cat, !!closeAfter); return; }
     if (!open.draft) { const cs = myCats(); setSaveDlg({ title: guessTitle(vals), cat: (cs.find(c => c.name === open.tool.name) || cs[0] || {}).id || "", closeAfter: !!closeAfter }); return; }
     if (open.draft) {
       const nd = { ...open.draft, values: vals, at: now, by: canonUser(currentUser), title: open.draft.title || guessTitle(vals) };
@@ -4421,9 +4522,10 @@ function FormsPage({ currentUser, tools }) {
     setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500);
   };
   const openKeyFile = open ? open.tool.file : "";
+  React.useEffect(() => { if (!openKeyFile && syncedOnce.current) syncNative(); }, [openKeyFile]);
   React.useEffect(() => { if (openKeyFile) { snapRef.current = snapshotLS(); const t = setInterval(captureFormChanges, 4000); return () => { clearInterval(t); captureFormChanges(); }; } }, [openKeyFile]);
   const tryClose = () => { if (dirty()) setAsk(true); else setOpen(null); };
-  const delDraft = d => { if (window.confirm("删除这份存档？")) saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
+  const delDraft = d => { if (!window.confirm("删除这份存档？")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
   const mine = (drafts || []).filter(d => sameUser(d.by, currentUser));
   const list = mine.filter(d => !q || (d.form + " " + (d.title || "") + " " + d.by).toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.at - a.at);
   const fmtT = t => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
