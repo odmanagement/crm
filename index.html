@@ -3331,7 +3331,6 @@ function PhonePage({ currentUser }) {
   const add = () => save([...items, { id: uid(), number: "", who: "", by: currentUser, at: Date.now() }]);
   const del = x => { if (window.confirm("删除电话 " + (x.number || "(空)") + " ？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => !q || ((x.number || "") + " " + (x.who || "")).toLowerCase().includes(q.toLowerCase()));
-  const people = MISSION_PEOPLE.slice();
   const inp = { ...S.bankerInput, fontWeight: 700, fontSize: 14, letterSpacing: .3 };
   return h("div", { className: "cz-page" },
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
@@ -3343,21 +3342,12 @@ function PhonePage({ currentUser }) {
         shown.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有电话 — 按「新增电话」")) :
         shown.map((x, i) => {
           const w = x.who || "";
-          const known = !w || people.includes(w);
           return h("tr", { key: x.id },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
             h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: inp, type: "tel", placeholder: "e.g. 012-345 6789", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
             h("td", { style: { ...S.td, minWidth: 200 } }, h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
               w ? czAvatar(w, 26) : h("span", { style: { width: 26, height: 26, borderRadius: "50%", background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "📱"),
-              h("select", { style: w ? pillSel(czHue(w)) : { ...S.bankerInput, width: "auto", color: "#94a3b8", fontWeight: 700 }, value: known ? w : "__other", onChange: e => {
-                  const v = e.target.value;
-                  if (v === "__other") { const t = window.prompt("输入名字：", known ? "" : w); if (t && t.trim()) upd(x.id, "who", t.trim().toLowerCase()); }
-                  else upd(x.id, "who", v);
-                } },
-                h("option", { value: "" }, "— 没人拿 —"),
-                people.map(p => h("option", { key: p, value: p }, p.toUpperCase())),
-                !known && h("option", { value: "__other" }, String(w).toUpperCase()),
-                known && h("option", { value: "__other" }, "其他（手打）…")))),
+              h(DebouncedInput, { style: { ...inp, minWidth: 140 }, placeholder: "输入名字", value: w, onCommit: v => upd(x.id, "who", v.trim()) }))),
             h("td", { style: { ...S.td, width: 40 } }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))),
     h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 10 } }, "共 " + items.length + " 支电话 · 有人拿 " + items.filter(x => x.who).length + " · 空着 " + items.filter(x => !x.who).length));
