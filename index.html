@@ -2719,6 +2719,26 @@ function CRM({ onLogout, currentUser }) {
     setPage(type);
     setOpenId(c.id);
   };
+  /* Verify：Mark Verified 时才把选好的 Loan Type 建去对应的 Loan 页面（不跳页） */
+  const verifyFinalize = nv => {
+    let list = clients, cid = nv.clientId;
+    const types = _vTypes(nv);
+    if (nv.status === "verified" && types.length) {
+      let c = clients.find(x => x.id === nv.clientId) || clients.find(x => nv.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(nv.icNumber).replace(/\D/g, ""));
+      const agent = nv.agent ? String(nv.agent).toUpperCase() : "";
+      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [] });
+      if (!c) {
+        c = { id: uid(), name: nv.customerName || "", phone: nv.phone || "", ic: nv.icNumber || "", job: nv.position || "", income: "", note: "", links: (nv.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: types.map(mk) };
+        list = [...clients, c];
+      } else {
+        const add = types.filter(t => !(c.loans || []).some(l => l.type === t));
+        if (add.length) { c = { ...c, loans: [...(c.loans || []), ...add.map(mk)] }; list = clients.map(x => x.id === c.id ? c : x); }
+      }
+      cid = c.id;
+    }
+    if (list !== clients) persist(list);
+    persistVerifications(verifications.map(x => x.id === nv.id ? { ...nv, clientId: cid } : x));
+  };
   /* Verify 删除 / 取消 Loan Type：同步删除客户那边对应的 Loan（客户没剩 Loan 就一起删） */
   const verifyDropLoans = (v, types) => {
     if (!types || !types.length) return;
@@ -2894,7 +2914,8 @@ function CRM({ onLogout, currentUser }) {
     onSave: persistVerifications,
     currentUser: currentUser,
     onToLoan: verifyToLoan,
-    onDropLoans: verifyDropLoans
+    onDropLoans: verifyDropLoans,
+    onFinalize: verifyFinalize
   }) : page === "html_forms" ? /*#__PURE__*/React.createElement(FormsPage, {
     currentUser: currentUser,
     tools: FORMS_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
@@ -3229,7 +3250,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v33"));
+    h("div", { className: "sb-ver" }, "v34"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3241,6 +3262,7 @@ function useCloudList(key) {
 }
 const pillSel = (hue, extra) => ({ ...S.bankerInput, ...czPill(hue, { padding: "5px 10px", width: "auto", ...(extra || {}) }), fontWeight: 700 });
 
+const VERIFY_CHECKERS = ["money"]; // 除了建立的人，这些人也可以 Mark Verified / Failed
 const _vTypes = v => v.loanTypes || (v.loanType ? [v.loanType] : []);
 /* ---------- On Leave 请假表 ---------- */
 const LEAVE_TYPES = [["annual", "Annual Leave", 215], ["mc", "MC / Sick", 0], ["emergency", "Emergency", 25], ["unpaid", "Unpaid", 270], ["half", "Half Day", 175], ["other", "Other", 45]];
@@ -5615,7 +5637,8 @@ function VerifyPage({
   onSave,
   currentUser,
   onToLoan,
-  onDropLoans
+  onDropLoans,
+  onFinalize
 }) {
   const [tab, setTab] = useState("progress"); // progress | completed
   const [q, setQ] = useState("");
@@ -5623,6 +5646,7 @@ function VerifyPage({
   const [adding, setAdding] = useState(false);
   /* 只有建立的人（Staff）可以更改 */
   const canEditV = v => !!v && (sameUser(v.staff, currentUser) || sameUser(v.createdBy, currentUser));
+  const canVerifyV = v => !!v && (canEditV(v) || VERIFY_CHECKERS.includes(canonUser(currentUser)));
   const save = v => {
     const old = verifications.find(x => x.id === v.id);
     if (old && !canEditV(old)) return;
@@ -5771,8 +5795,11 @@ function VerifyPage({
     onSave: save,
     onDelete: () => remove(open.id),
     canEdit: canEditV(open),
+    canVerify: canVerifyV(open),
+    currentUser: currentUser,
+    onFinalize: nv => { if (!canVerifyV(open)) return; if (onFinalize) onFinalize(nv); else onSave(verifications.map(x => x.id === nv.id ? nv : x)); },
     delMsg: delMsg(open),
-    onDropLoan: type => { if (canEditV(open)) onDropLoans && onDropLoans(open, [type]); },
+    onDropLoan: type => { if (canEditV(open) && open.status === "verified") onDropLoans && onDropLoans(open, [type]); },
     onToLoan: type => { if (canEditV(open)) onToLoan && onToLoan(open, type, true); }
   }), adding && /*#__PURE__*/React.createElement(VerifyForm, {
     clients: clients,
@@ -5995,9 +6022,9 @@ function VCaseInfo({ v, onSave, onToLoan, onDropLoan }) {
         h("div", { style: { flex: "1 1 160px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "STAFF（自动 · 谁建立）"),
           h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0" } }, v.staff ? [h(React.Fragment, { key: "a" }, czAvatar(v.staff, 26)), h("b", { key: "n", style: { color: "#334155" } }, String(v.staff).toUpperCase())] : "—"))),
       h("div", null,
-        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "LOAN TYPE（可以选多个）"),
+        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "LOAN TYPE（可以选多个 · Mark Verified 后才会建去 Loan 页面）"),
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
-          [["house", "🏠 House Loan", 262], ["car", "🚗 Car Loan", 190], ["personal", "💼 Personal Loan", 330]].map(([k, l, hue]) => { const lts = v.loanTypes || (v.loanType ? [v.loanType] : []); const on = lts.includes(k); return h("button", { key: k, title: on ? "再按一次取消" : "加入 " + l, onClick: () => { if (on) { if (!window.confirm("取消 " + l.replace(/^\S+\s/, "") + "？\n\n客户那边的 " + l.replace(/^\S+\s/, "") + " 资料也会一起删除。")) return; const rest = lts.filter(t => t !== k); onSave({ ...v, loanTypes: rest, loanType: rest[0] || "" }); onDropLoan && onDropLoan(k); } else if (onToLoan) onToLoan(k); else onSave({ ...v, loanTypes: [...lts, k], loanType: v.loanType || k }); }, style: { ...czPill(hue, { padding: "8px 14px", fontSize: 13 }), cursor: "pointer", opacity: lts.length && !on ? .55 : 1, outline: on ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 } }, l + (on ? " ✓" : "")); }))),
+          [["house", "🏠 House Loan", 262], ["car", "🚗 Car Loan", 190], ["personal", "💼 Personal Loan", 330]].map(([k, l, hue]) => { const lts = v.loanTypes || (v.loanType ? [v.loanType] : []); const on = lts.includes(k); return h("button", { key: k, title: on ? "再按一次取消" : "加入 " + l, onClick: () => { if (on) { if (v.status === "verified" && !window.confirm("取消 " + l.replace(/^\S+\s/, "") + "？\n\n客户那边的 " + l.replace(/^\S+\s/, "") + " 资料也会一起删除。")) return; const rest = lts.filter(t => t !== k); onSave({ ...v, loanTypes: rest, loanType: rest[0] || "" }); onDropLoan && onDropLoan(k); } else if (onToLoan && v.status === "verified") onToLoan(k); else onSave({ ...v, loanTypes: [...lts, k], loanType: v.loanType || k }); }, style: { ...czPill(hue, { padding: "8px 14px", fontSize: 13 }), cursor: "pointer", opacity: lts.length && !on ? .55 : 1, outline: on ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 } }, l + (on ? " ✓" : "")); }))),
       h("div", null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
           h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "LINKS"),
@@ -6044,9 +6071,12 @@ function VerifyDetail({
   onToLoan,
   onDropLoan,
   canEdit = true,
+  canVerify = true,
+  currentUser,
+  onFinalize,
   delMsg
 }) {
-  const [staff, setStaff] = useState(v.staff || "");
+  const [staff, setStaff] = useState(v.verifiedBy || canonUser(currentUser || "") || v.staff || "");
   const client = clients.find(c => c.id === v.clientId);
   const checks = v.checks || {};
   const checkedCount = Object.values(checks).filter(Boolean).length;
@@ -6080,12 +6110,8 @@ function VerifyDetail({
       return;
     }
     setStaffError(false);
-    onSave({
-      ...v,
-      status,
-      staff: staff.trim(),
-      verifiedAt: today()
-    });
+    const nv = { ...v, status, verifiedBy: staff.trim(), verifiedAt: today() };
+    if (onFinalize) onFinalize(nv); else onSave(nv);
     onClose();
   };
   const exportPdf = () => printVerification(v, client);
@@ -6162,9 +6188,12 @@ function VerifyDetail({
       v: v,
       onSave: onSave
     }));
-  }), /*#__PURE__*/React.createElement("div", {
-    style: S.vFinalize
-  }, /*#__PURE__*/React.createElement("input", {
+  })), /*#__PURE__*/React.createElement("fieldset", {
+    disabled: !canVerify,
+    style: { ...S.vFinalize, margin: "0 22px 28px", border: 0, borderTop: "1px solid #e8eaf3", padding: "16px 0 0", minWidth: 0 }
+  }, _vTypes(v).length > 0 && v.status === "pending" && /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 12.5, color: "#475569", fontWeight: 600, marginBottom: 8 }
+  }, "按 Mark Verified 后会自动建去：" + _vTypes(v).map(t => ({ house: "House", car: "Car", personal: "Personal" })[t] + " Loan").join("、")), /*#__PURE__*/React.createElement("input", {
     style: {
       ...S.input,
       ...(staffError ? {
@@ -6190,13 +6219,13 @@ function VerifyDetail({
     onClick: () => finalize("verified")
   }, "✓ Mark Verified")), v.status !== "pending" && /*#__PURE__*/React.createElement("div", {
     style: S.vDoneNote
-  }, V_STATUS[v.status].label, " by ", v.staff, " on ", v.verifiedAt, /*#__PURE__*/React.createElement("button", {
+  }, V_STATUS[v.status].label, " by ", String(v.verifiedBy || v.staff || "").toUpperCase(), " on ", v.verifiedAt, /*#__PURE__*/React.createElement("button", {
     style: S.vReopenBtn,
-    onClick: () => onSave({
+    onClick: () => onFinalize ? onFinalize({
       ...v,
       status: "pending"
-    })
-  }, "Reopen"))))));
+    }) : onSave({ ...v, status: "pending" })
+  }, "Reopen")))));
 }
 function VerifyForm({
   clients,
