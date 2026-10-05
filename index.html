@@ -3257,7 +3257,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v44"));
+    h("div", { className: "sb-ver" }, "v45"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4893,7 +4893,8 @@ function Dashboard({
   const totalApproved = [...approved, ...disbursed].reduce((s, l) => s + Number(l.amount || 0), 0);
   // 每笔贷款只看「最新」那条还没完成的跟进（旧的会被新的取代），今天/之后的排前面，过期的按最近排
   const _td = today();
-  const dueList = allLoans.map(l => {
+  const [fuCat, setFuCat] = React.useState("all");
+  const dueAll = allLoans.map(l => {
     const fs = (l.followUps || []).filter(f => !f.done && f.date);
     if (!fs.length) return null;
     const f = fs.reduce((best, x) => (x.date > best.date ? x : best), fs[0]); // 新加的在前面，同一天取最新加的
@@ -4903,6 +4904,7 @@ function Dashboard({
     if (fa !== fb) return fa ? -1 : 1;
     return fa ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) : (a.date > b.date ? -1 : a.date < b.date ? 1 : 0);
   });
+  const dueList = fuCat === "all" ? dueAll : dueAll.filter(f => f.loan.type === fuCat);
   const DK = {
     wrap: { margin: -28, padding: 28, minHeight: "calc(100vh - 67px)", position: "relative", overflow: "hidden", background: "radial-gradient(900px 480px at 5% -5%, rgba(139,92,246,.45), transparent 65%), radial-gradient(800px 500px at 100% 105%, rgba(59,130,246,.40), transparent 65%), radial-gradient(600px 380px at 65% 35%, rgba(34,211,238,.16), transparent 70%), radial-gradient(500px 300px at 30% 90%, rgba(236,72,153,.14), transparent 70%), linear-gradient(160deg,#1a1b4b 0%,#141540 50%,#16235a 100%)" },
     grid: { display: "none", position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)", backgroundSize: "48px 48px", WebkitMaskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)", maskImage: "radial-gradient(ellipse at 50% 30%,#000 20%,transparent 80%)" },
@@ -4974,7 +4976,13 @@ function Dashboard({
     className: "tilt3d dash3d", "data-tilt": 4, "data-lift": 6, style: DK.card
   }, /*#__PURE__*/React.createElement("div", {
     style: DK.head
-  }, "Upcoming Follow-ups (" + dueList.length + ")"), dueList.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, "Upcoming Follow-ups (" + dueAll.length + ")"), /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }
+  }, [["all", "全部", 250], ["personal", "Personal", 330], ["house", "House", 262], ["car", "Car", 190]].map(([k, l, hue]) => {
+    const n = k === "all" ? dueAll.length : dueAll.filter(f => f.loan.type === k).length;
+    const on = fuCat === k;
+    return /*#__PURE__*/React.createElement("button", { key: k, onClick: () => setFuCat(k), style: { ...czPill(hue, { padding: "5px 12px", fontSize: 12 }), cursor: "pointer", opacity: on ? 1 : .55, outline: on ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 } }, l + " " + n);
+  })), dueList.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: DK.empty
   }, "No follow-ups"), dueList.map(f => {
     const overdue = f.date < today();
