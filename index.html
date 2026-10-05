@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005050123";
+const APP_BUILD = "20261005050917";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4285,7 +4285,7 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
           h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, (f.isDraft ? "📝 " + f.sub + " · " : "") + "📁 " + catName(f.cat)),
           h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 2 } }, String(f.by || "").toUpperCase() + " · " + new Date(f.at).toLocaleDateString("en-GB"))),
         f.isDraft && !f.native && h("button", { title: "改名", onClick: () => onRenameDraft && onRenameDraft(f), style: { border: "1px solid #e2e8f0", background: "#fff", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0, fontSize: 13 } }, "✎"),
-        h("select", { value: cats.some(c => c.id === f.cat) ? f.cat : "", title: "移到其他分类", onChange: e => f.isDraft ? onMoveDraft(f, e.target.value) : save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
+        false && h("select", { value: cats.some(c => c.id === f.cat) ? f.cat : "", title: "移到其他分类", onChange: e => f.isDraft ? onMoveDraft(f, e.target.value) : save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
         (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => f.isDraft ? onDelDraft(f) : delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
     adding && h("div", { onClick: () => !busy && setAdding(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
@@ -4403,7 +4403,7 @@ function FormsPage({ currentUser, tools }) {
   const dirty = () => JSON.stringify(currentVals()) !== baseRef.current;
   const hideInnerSave = d => {
     // 表格本身的「存档 / 读取存档」按钮不要了（CRM 外面已经有存档）
-    const kill = () => Array.from(d.querySelectorAll("button, a, input[type=button], label")).forEach(b => { const t = (b.textContent || b.value || "").trim(); if (/print|打印|列印/i.test(t)) b.style.display = "none"; });
+    const kill = () => Array.from(d.querySelectorAll("button, a, input[type=button], label")).forEach(b => { const t = (b.textContent || b.value || "").trim(); if (/print|打印|列印|存档|读取|^读入|save\s*draft|load\s*draft/i.test(t)) b.style.display = "none"; });
     kill(); setTimeout(kill, 500); setTimeout(kill, 1500);
   };
   const onFrameLoad = () => {
