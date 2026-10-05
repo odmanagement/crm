@@ -712,7 +712,7 @@ const TYPES = [{
 const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
 const subjectLabel = type => type === "car" ? "Vehicle" : type === "personal" ? "Purpose" : "Property";
 const bankStatusStyle = status => {
-  const c = status === "rejected" ? "#dc2626" : status === "approved" ? "#16a34a" : status === "pending" ? "#d97706" : "#7c3aed";
+  const c = status === "rejected" ? "#dc2626" : status === "disbursed" ? "#0891b2" : status === "approved" ? "#16a34a" : status === "pending" ? "#d97706" : status ? "#7c3aed" : "#94a3b8";
   return {
     color: c,
     fontWeight: 700,
@@ -3228,7 +3228,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v31"));
+    h("div", { className: "sb-ver" }, "v32"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5151,6 +5151,8 @@ const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, St
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
 /* Personal 表格固定显示的银行（顺序 + 显示名） */
 const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
+const PB_PROGRESS = [["collect", "Collect", "#0891b2"], ["noaccept", "No Accept", "#dc2626"], ["incomplete", "Incomplete", "#d97706"], ["run", "Run", "#16a34a"]];
+const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
 const bankLabel = k => (PERSONAL_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
 const BANK_LIST = ["MAYBANK","CIMB","PBB","RHB","HLB","AMBANK","UOB","OCBC","HSBC","STANDARD CHARTERED","AFFIN","ALLIANCE","B.RAKYAT","BSN","BANK ISLAM","MUAMALAT","ALRAJHI","MBSB","AGROBANK","KFH","CITIBANK","GX BANK","AEON BANK","BOOST BANK","AEON CREDIT"];
@@ -5270,7 +5272,9 @@ function TypePage({
     ...S.th,
     ...S.thNum
   }
-}, "Approved"), COLS.map(bk => /*#__PURE__*/React.createElement("th", {
+}, "Approved"), isP && /*#__PURE__*/React.createElement("th", {
+  style: S.th
+}, "Submit Date"), COLS.map(bk => /*#__PURE__*/React.createElement("th", {
   key: bk,
   style: S.th
 }, isP ? bankLabel(bk) : bk)), !isP && /*#__PURE__*/React.createElement("th", {
@@ -5347,7 +5351,9 @@ function TypePage({
       ...S.td,
       ...S.tdNum
     }
-  }, l.approved ? money(l.approved) : ""), COLS.map(bk => {
+  }, l.approved ? money(l.approved) : ""), isP && /*#__PURE__*/React.createElement("td", {
+    style: S.td
+  }, (() => { const ds = (l.banks || []).map(b => b.date).filter(Boolean).sort(); return ds.length ? tpDate(ds[0].split("-").reverse().join("/")) : ""; })()), COLS.map(bk => {
     const b = bankMap[bk];
     if (!b) return /*#__PURE__*/React.createElement("td", {
       key: bk,
@@ -5707,7 +5713,7 @@ function VerifyPage({
     className: "vf-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     className: "vf-head"
-  }, ["#", "Link", "Agent", "Customer", "IC Number", "Company", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-lk", "vf-ag", "vf-c3", "vf-c4", "vf-c5", "vf-c6", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, ["#", "Link", "Agent", "Customer", "IC Number", "Company", "Loan Type", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-lk", "vf-ag", "vf-c3", "vf-c4", "vf-c5", "vf-lt", "vf-c6", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: { ...S.empty, padding: 40 }
   }, "No records"), shown.map((v, i) => {
     const st = V_STATUS[v.status];
@@ -5722,6 +5728,7 @@ function VerifyPage({
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
       /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-lt" }, _vTypes(v).length ? _vTypes(v).map(t => { const tt = { house: ["House", 262], car: ["Car", 190], personal: ["Personal", 330] }[t] || [t, 220]; return /*#__PURE__*/React.createElement("span", { key: t, style: { ...czPill(tt[1], { padding: "2px 8px", fontSize: 11 }), whiteSpace: "nowrap" } }, tt[0]); }) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c6" }, v.staff ? [/*#__PURE__*/React.createElement(React.Fragment, { key: "a" }, czAvatar(v.staff, 22)), " ", String(v.staff).toUpperCase()] : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c7" }, /*#__PURE__*/React.createElement("button", {
         className: "vf-del",
@@ -5750,6 +5757,7 @@ function VerifyPage({
   .vf-c7{width:36px;display:flex;justify-content:flex-end}
   .vf-ag{width:110px}
   .vf-lk{width:64px}
+  .vf-lt{width:150px;display:flex;flex-wrap:wrap;gap:4px;font-size:12px;font-weight:700}
   .vf-head span{color:#fff!important;font-size:12px!important;font-weight:800}
   .vf-head .vf-c3,.vf-head .vf-c6{display:block}
   .vf-del{border:none;background:#fff1f2;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;opacity:.55;transition:all .15s}
@@ -6878,12 +6886,17 @@ function LoanBlock({
       status: "submitted",
       amount: "",
       date: today(),
-      dis: "non"
+      dis: ""
     }]
   });
   // Personal：没有日期的银行自动填当天
   React.useEffect(() => {
-    if (loan.type === "personal" && banks.some(b => !b.date)) onUpdate({ ...loan, banks: banks.map(b => b.date ? b : { ...b, date: today() }) });
+    if (loan.type === "personal" && banks.some(b => !b.date || b.dis === "dis" || b.dis === "non")) onUpdate({ ...loan, banks: banks.map(b => {
+      let x = b.date ? b : { ...b, date: today() };
+      if (x.dis === "dis") x = { ...x, status: "disbursed", dis: "" }; // 旧的 Disbursed → 状态改成 Disbursed
+      else if (x.dis === "non") x = { ...x, dis: "" };
+      return x;
+    }) });
   }, [loan.id, banks.length]);
   const setBank = (i, k, v) => onUpdate({
     ...loan,
@@ -6904,7 +6917,7 @@ function LoanBlock({
     PERSONAL_BANKS.forEach(([k]) => {
       const mine = real.filter(r => !used.has(r.i) && r.b.bank && bankKey(r.b.bank) === k);
       if (mine.length) mine.forEach(r => { used.add(r.i); out.push(r); });
-      else out.push({ b: { bank: k, officer: "", status: "", amount: "", date: "", dis: "non", _v: true }, i: -1 });
+      else out.push({ b: { bank: k, officer: "", status: "", amount: "", date: "", dis: "", prod: "", _v: true }, i: -1 });
     });
     real.forEach(r => { if (!used.has(r.i)) out.push(r); });
     return out;
@@ -6912,7 +6925,7 @@ function LoanBlock({
   const setBankV = (i, b, k, v) => {
     if (i >= 0) return setBank(i, k, v);
     if (v === "" || v == null) return;
-    onUpdate({ ...loan, banks: [...banks, { bank: b.bank, officer: "", status: "submitted", amount: "", date: today(), dis: "non", [k]: v }] });
+    onUpdate({ ...loan, banks: [...banks, { bank: b.bank, officer: "", status: "submitted", amount: "", date: today(), dis: "", [k]: v }] });
   };
   if (editingLoan) return /*#__PURE__*/React.createElement(LoanForm, {
     initial: loan,
@@ -7047,7 +7060,12 @@ function LoanBlock({
     style: { ...S.bankInput, fontWeight: 700, ...(b.bank ? czPill(czBankHue(b.bank), { borderRadius: 8, padding: "6px 8px" }) : { color: "#94a3b8" }) },
     value: b.bank ? bankKey(b.bank) : "",
     onChange: e => setBankV(i, b, "bank", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = loan.type === "personal" ? PERSONAL_BANKS.map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, loan.type === "personal" ? bankLabel(bk) : bk))), /*#__PURE__*/React.createElement(DebouncedInput, {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = loan.type === "personal" ? PERSONAL_BANKS.map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, loan.type === "personal" ? bankLabel(bk) : bk))), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
+    title: "P Loan / CC",
+    style: { ...S.bankInput, width: 92, flex: "0 0 92px", fontWeight: 700, ...(b.prod === "cc" ? { color: "#c2410c", borderColor: "#c2410c55", background: "#c2410c0f" } : b.prod === "ploan" ? { color: "#4f46e5", borderColor: "#4f46e555", background: "#4f46e50f" } : { color: "#94a3b8" }) },
+    value: b.prod || "",
+    onChange: e => setBankV(i, b, "prod", e.target.value)
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", { value: "ploan" }, "P Loan"), /*#__PURE__*/React.createElement("option", { value: "cc" }, "CC")), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
     placeholder: "Banker",
     value: b.officer,
@@ -7066,6 +7084,8 @@ function LoanBlock({
   }, "Pending"), /*#__PURE__*/React.createElement("option", {
     value: "approved"
   }, "Approved"), /*#__PURE__*/React.createElement("option", {
+    value: "disbursed"
+  }, "Disbursed"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
   }, "Rejected")), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: {
@@ -7077,14 +7097,10 @@ function LoanBlock({
     value: b.amount || "",
     onCommit: v => setBankV(i, b, "amount", v)
   }), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
-    style: {
-      ...S.bankInput,
-      fontWeight: 700,
-      ...(b.dis === "dis" ? { color: "#059669", borderColor: "#05966955", background: "#0596690f" } : { color: "#64748b", borderColor: "#94a3b855", background: "#f8fafc" })
-    },
-    value: b.dis || "non",
+    style: { ...S.bankInput, fontWeight: 700, ...pbStyle(b.dis) },
+    value: PB_PROGRESS.some(x => x[0] === b.dis) ? b.dis : "",
     onChange: e => setBankV(i, b, "dis", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "non" }, "Non Disbursed"), /*#__PURE__*/React.createElement("option", { value: "dis" }, "Disbursed")), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), PB_PROGRESS.map(([k, l]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, l))), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
     type: "date",
     title: "日期（加银行时自动填当天）",
     style: { ...S.bankInput, width: 140, flex: "0 0 140px" },
@@ -7328,6 +7344,8 @@ function LoanForm({
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
     value: "approved"
   }, "Approved"), /*#__PURE__*/React.createElement("option", {
+    value: "disbursed"
+  }, "Disbursed"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
   }, "Rejected")), /*#__PURE__*/React.createElement("input", {
     style: {
