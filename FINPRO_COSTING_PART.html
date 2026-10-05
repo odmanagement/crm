@@ -138,7 +138,7 @@
     </div>
     <div id="chargesBody" style="display:none">
       <table>
-        <thead><tr><th>Item</th><th>Amount</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
+        <thead><tr><th>Item</th><th>Amount</th><th>%</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
         <tbody id="partCBody"></tbody>
         <tbody id="partCFoot"></tbody>
       </table>
@@ -272,8 +272,11 @@ function updateTitle(){
   document.getElementById('printAgent').textContent = ag? ('Agent : '+ag) : '';
 }
 const PARTS_WITH_MULT = ['partABody'];
-function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA){
+function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
   let multCells='';
+  if(isPartC){
+    multCells = `<td style="white-space:nowrap"><input class="mult-input num" type="number" placeholder="%" style="width:60px" oninput="calc()"> %</td>`;
+  }
   if(isPartA){
     multCells = withMult
       ? `<td><input class="mult-input num" type="number" placeholder="×" oninput="calc()"></td>
@@ -297,7 +300,7 @@ function addRow(bodyId,name,amt,pinned,lockAmt,noMult){
   const withMult = isPartA && !pinned && !noMult;
   const tr=document.createElement('tr');
   if(pinned) tr.classList.add('pinned-row');
-  tr.innerHTML=rowHtml(name||"",amt||"",withMult,pinned,lockAmt,isPartA);
+  tr.innerHTML=rowHtml(name||"",amt||"",withMult,pinned,lockAmt,isPartA,bodyId==='partCBody');
   const body=document.getElementById(bodyId);
   const firstPinned = body.querySelector('.pinned-row');
   if(!pinned && firstPinned) body.insertBefore(tr,firstPinned);
@@ -385,6 +388,39 @@ function calcPart(bodyId,footId,mult){
   foot.querySelector('.pAg1').textContent=fmt(0);
   return fVal;
 }
+// Part A.A Charges：每一行自己填 %，该行 = Amount + Amount×%
+function calcPartC(){
+  const rows=[...document.getElementById('partCBody').querySelectorAll('tr')];
+  let sum=0,pctSum=0;
+  rows.forEach(r=>{
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    const pEl=r.querySelector('.mult-input');
+    const pct=pEl?parseNum(pEl.value)/100:0;
+    const add=amt*pct;
+    sum+=amt; pctSum+=add;
+    r.querySelector('.lucasCell').textContent=fmt(amt+add);
+    r.querySelector('.agentCell').textContent=fmt(0);
+  });
+  const tot=sum+pctSum;
+  document.getElementById('partCFoot').innerHTML=`
+    <tr class="total">
+      <td>Subtotal</td>
+      <td class="num">${fmt(sum)}</td>
+      <td class="num">+ ${fmt(pctSum)}</td>
+      <td class="num lucas-col">${fmt(tot)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>
+    <tr class="grand">
+      <td>TOTAL</td>
+      <td class="num">${fmt(tot)}</td>
+      <td></td>
+      <td class="num lucas-col">${fmt(tot)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>`;
+  return tot;
+}
 function calcSalary(){
   const rows=[...document.getElementById('partSalBody').querySelectorAll('tr')];
   let sum=0;
@@ -408,7 +444,7 @@ function calc(){
   const cShow=document.getElementById('cRateShow');
   if(cShow) cShow.textContent=document.getElementById('cRate').value||'—';
   const aT=calcPartA()||0;
-  const cT=calcPart('partCBody','partCFoot',document.getElementById('cMult').value)||0;
+  const cT=calcPartC()||0;
   const cEmpty=document.getElementById('partCBody').querySelectorAll('tr').length===0;
   document.getElementById('chargesPanel').classList.toggle('print-hide',cEmpty);
   const bT=calcPartB()||0;
@@ -483,7 +519,7 @@ function restoreData(d){
       const noMult = (id==='partABody' && !row.pinned && row.hasMult===false);
       const tr=addRow(id,row.name,row.amt,row.pinned,row.lock,noMult);
       const multEl=tr.querySelector('.mult-input');
-      if(multEl) multEl.value=row.mult||'';
+      if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
     });
   });
   document.getElementById('balBody').innerHTML='';
@@ -530,10 +566,19 @@ function copyAll(btn){
   const bTotal=grandNum('partBFoot');
   const cTotal=grandNum('partSalFoot');
   const aPct=document.getElementById('aFinalPct').value;
-  const aaPct=document.getElementById('cMult').value;
   const cPct=document.getElementById('cRate').value;
   const subRes=sumRes();
   const aaSum=sumAmt('partCBody');
+  let aaPctSum=0;
+  const partCRows=[...document.getElementById('partCBody').querySelectorAll('tr')].map(r=>{
+    const nm=(r.querySelector('.name-input').value||'-').toUpperCase();
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    const pv=(r.querySelector('.mult-input')||{}).value||'';
+    const pct=parseNum(pv);
+    if(!pct) return `${nm} - ${RM(amt)}`;
+    aaPctSum+=amt*pct/100;
+    return `${nm} - ${RM(amt)} + ${pct}% = ${RM(amt*(1+pct/100))}`;
+  }).join('\n');
   const bSum=sumAmt('partBBody');
   const costingAmt=partATotal+aaTotal+bTotal;
   const grandAll=partATotal+aaTotal+bTotal+cTotal;
@@ -544,7 +589,7 @@ function copyAll(btn){
   out+=`PART A ( ${RM(partATotal)} )\n\n${partARows()}\n\nTOTAL : ${RM(subRes)} + ${aPct}% = ${RM(partATotal)}\n`;
   out+='\n'+line+'\n\n';
   if(document.getElementById('partCBody').querySelectorAll('tr').length){
-    out+=`PART A.A ( ${RM(aaTotal)} )\n\n${simpleRows('partCBody',false)}\n\nTOTAL : ${RM(aaSum)} + ${aaPct}% = ${RM(aaTotal)}\n`+'\n'+line+'\n\n';
+    out+=`PART A.A ( ${RM(aaTotal)} )\n\n${partCRows}\n\nTOTAL : ${RM(aaSum)} + ${RM(aaPctSum)} = ${RM(aaTotal)}\n`+'\n'+line+'\n\n';
   }
   out+=`PART B ( ${RM(bTotal)} )\n\n${simpleRows('partBBody',true)}\n\nTOTAL : ${RM(bSum)} x ${cPct}% = ${RM(bTotal)}\n`;
   out+='\n-------------------------------\n\n';
