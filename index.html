@@ -3250,7 +3250,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v38"));
+    h("div", { className: "sb-ver" }, "v39"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5192,7 +5192,7 @@ const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, St
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
 /* Personal 表格固定显示的银行（顺序 + 显示名） */
 const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
-const PB_PROGRESS = [["collect", "Collect", "#0891b2"], ["noaccept", "No Accept", "#dc2626"], ["incomplete", "Incomplete", "#d97706"], ["run", "Run", "#16a34a"]];
+const PB_PROGRESS = [["collect", "Collect", "#06b6d4"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
 const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
 const bankLabel = k => (PERSONAL_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
@@ -5320,7 +5320,9 @@ function TypePage({
   style: S.th
 }, isP ? bankLabel(bk) : bk)), isP && /*#__PURE__*/React.createElement("th", {
   style: { ...S.th, ...S.thNum }
-}, "Collect"), !isP && /*#__PURE__*/React.createElement("th", {
+}, "Collect"), isP && /*#__PURE__*/React.createElement("th", {
+  style: { ...S.th, ...S.thNum }
+}, "Total"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
 }, "Stage"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((r, _i) => {
   const l = r.loan,
@@ -5335,7 +5337,7 @@ function TypePage({
     if (!ex) { bankMap[k] = b; return; }
     const amt = Number(String(ex.amount || 0).replace(/,/g, "")) + Number(String(b.amount || 0).replace(/,/g, ""));
     const offs = Array.from(new Set([ex.officer, b.officer].join("/").split("/").map(x => String(x || "").trim()).filter(Boolean)));
-    bankMap[k] = { ...ex, amount: amt ? String(amt) : "", officer: offs.join("/"), status: (_rank[b.status] || 0) > (_rank[ex.status] || 0) ? b.status : ex.status };
+    bankMap[k] = { ...ex, dis: ex.dis || b.dis || "", amount: amt ? String(amt) : "", officer: offs.join("/"), status: (_rank[b.status] || 0) > (_rank[ex.status] || 0) ? b.status : ex.status };
   });
   return /*#__PURE__*/React.createElement("tr", {
     key: l.id,
@@ -5414,13 +5416,16 @@ function TypePage({
       key: bk,
       style: S.td
     }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : PB_PROGRESS.some(x => x[0] === b.dis) ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pg-" + b.dis, title: (PB_PROGRESS.find(x => x[0] === b.dis) || [])[1] }, (b.amount ? money(b.amount) : String((PB_PROGRESS.find(x => x[0] === b.dis) || [])[1]).toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "disbursed" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk disb" }, "💰 " + (b.amount ? money(b.amount) : "DISBURSED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
       : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
   }), isP && /*#__PURE__*/React.createElement("td", {
     style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0891b2" }
-  }, (() => { const t = (l.banks || []).filter(b => b.status === "disbursed").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), !isP && /*#__PURE__*/React.createElement("td", {
+  }, (() => { const t = (l.banks || []).filter(b => b.status === "disbursed").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
+    style: { ...S.td, ...S.tdNum, fontWeight: 900, color: "#0f172a" }
+  }, (() => { const t = (l.banks || []).reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -8071,6 +8076,11 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; line-height: 1.2; font-weight: 800; font-size: 12px; padding: 4px 10px; border-radius: 10px; white-space: nowrap; }
 .tp-bk small { font-size: 10px; font-weight: 700; opacity: .7; padding-left: 6px; border-left: 1px solid currentColor; }
 .tp-bk.ok { color: #047857; background: linear-gradient(135deg,#ecfdf5,#d1fae5); border: 1px solid #a7f3d0; }
+.tp-bk.pg-collect { color: #083344; background: linear-gradient(135deg,#67e8f9,#22d3ee); border: 1px solid #06b6d4; box-shadow: 0 0 10px rgba(34,211,238,.75), 0 0 2px #22d3ee; }
+.tp-bk.pg-run { color: #fff; background: linear-gradient(135deg,#ef4444,#dc2626); border: 1px solid #b91c1c; box-shadow: 0 3px 10px -3px rgba(220,38,38,.5); }
+.tp-bk.pg-incomplete { color: #fff; background: linear-gradient(135deg,#7dd3fc,#38bdf8); border: 1px solid #0ea5e9; }
+.tp-bk.pg-noaccept { color: #fff; background: linear-gradient(135deg,#334155,#0f172a); border: 1px solid #000; }
+.tp-bk[class*="pg-"] small { opacity: .85; }
 .tp-bk.disb { color: #fff; background: linear-gradient(135deg,#ef4444,#dc2626); border: 1px solid #b91c1c; box-shadow: 0 3px 10px -3px rgba(220,38,38,.5); }
 .tp-bk.disb small { opacity: .9; }
 .tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
