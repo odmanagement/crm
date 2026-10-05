@@ -1256,9 +1256,6 @@ const FORMS_HIDDEN = {
   admin: ["CAR_SALES_QUOTATION.html"]
 };
 const FORMS_TOOLS = [{
-  name: "Application Form",
-  file: "APPLICATION_FORM.html"
-}, {
   name: "Car Sales Quotation",
   file: "CAR_SALES_QUOTATION.html"
 }, {
@@ -3221,7 +3218,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v29"));
+    h("div", { className: "sb-ver" }, "v30"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6869,6 +6866,24 @@ function LoanBlock({
     ...loan,
     banks: banks.filter((_, j) => j !== i)
   });
+  // Personal：自动列出全部银行（没填过的是灰色空行，一填就变成真的记录）
+  const bankView = (() => {
+    const real = banks.map((b, i) => ({ b, i }));
+    if (loan.type !== "personal") return real;
+    const out = [], used = new Set();
+    PERSONAL_BANKS.forEach(([k]) => {
+      const mine = real.filter(r => !used.has(r.i) && r.b.bank && bankKey(r.b.bank) === k);
+      if (mine.length) mine.forEach(r => { used.add(r.i); out.push(r); });
+      else out.push({ b: { bank: k, officer: "", status: "", amount: "", date: "", dis: "non", _v: true }, i: -1 });
+    });
+    real.forEach(r => { if (!used.has(r.i)) out.push(r); });
+    return out;
+  })();
+  const setBankV = (i, b, k, v) => {
+    if (i >= 0) return setBank(i, k, v);
+    if (v === "" || v == null) return;
+    onUpdate({ ...loan, banks: [...banks, { bank: b.bank, officer: "", status: "submitted", amount: "", date: today(), dis: "non", [k]: v }] });
+  };
   if (editingLoan) return /*#__PURE__*/React.createElement(LoanForm, {
     initial: loan,
     onSave: l => {
@@ -6991,29 +7006,30 @@ function LoanBlock({
     onClick: addBank
   }, /*#__PURE__*/React.createElement(Plus, {
     size: 13
-  }), " Add Bank")), banks.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }), " Add Bank")), bankView.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: S.fuEmpty
-  }, "No banks yet — tap Add Bank"), banks.map((b, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
+  }, "No banks yet — tap Add Bank"), bankView.map(({ b, i }, vi) => /*#__PURE__*/React.createElement("div", {
+    key: i >= 0 ? "r" + i : "v" + b.bank,
     className: loan.type === "personal" ? "bank-row-p" : "",
-    style: S.bankInlineRow
+    title: b._v ? "还没填 — 直接填就会记录" : undefined,
+    style: { ...S.bankInlineRow, ...(b._v ? { opacity: .5 } : {}) }
   }, /*#__PURE__*/React.createElement("select", {
     style: { ...S.bankInput, fontWeight: 700, ...(b.bank ? czPill(czBankHue(b.bank), { borderRadius: 8, padding: "6px 8px" }) : { color: "#94a3b8" }) },
     value: b.bank ? bankKey(b.bank) : "",
-    onChange: e => setBank(i, "bank", e.target.value)
+    onChange: e => setBankV(i, b, "bank", e.target.value)
   }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = loan.type === "personal" ? PERSONAL_BANKS.map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, loan.type === "personal" ? bankLabel(bk) : bk))), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: S.bankInput,
     placeholder: "Banker",
     value: b.officer,
-    onCommit: v => setBank(i, "officer", v)
+    onCommit: v => setBankV(i, b, "officer", v)
   }), /*#__PURE__*/React.createElement("select", {
     style: {
       ...S.bankInput,
       ...bankStatusStyle(b.status)
     },
     value: b.status,
-    onChange: e => setBank(i, "status", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+    onChange: e => setBankV(i, b, "status", e.target.value)
+  }, b._v && /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
     value: "pending"
@@ -7029,7 +7045,7 @@ function LoanBlock({
     type: "number",
     placeholder: "Amount",
     value: b.amount || "",
-    onCommit: v => setBank(i, "amount", v)
+    onCommit: v => setBankV(i, b, "amount", v)
   }), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
     style: {
       ...S.bankInput,
@@ -7037,16 +7053,16 @@ function LoanBlock({
       ...(b.dis === "dis" ? { color: "#059669", borderColor: "#05966955", background: "#0596690f" } : { color: "#64748b", borderColor: "#94a3b855", background: "#f8fafc" })
     },
     value: b.dis || "non",
-    onChange: e => setBank(i, "dis", e.target.value)
+    onChange: e => setBankV(i, b, "dis", e.target.value)
   }, /*#__PURE__*/React.createElement("option", { value: "non" }, "Non Disbursed"), /*#__PURE__*/React.createElement("option", { value: "dis" }, "Disbursed")), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
     type: "date",
     title: "日期（加银行时自动填当天）",
     style: { ...S.bankInput, width: 140, flex: "0 0 140px" },
     value: b.date || "",
-    onChange: e => setBank(i, "date", e.target.value)
+    onChange: e => setBankV(i, b, "date", e.target.value)
   }), /*#__PURE__*/React.createElement("button", {
-    style: S.bankDelBtn,
-    onClick: () => removeBank(i)
+    style: { ...S.bankDelBtn, ...(b._v ? { visibility: "hidden" } : {}) },
+    onClick: () => i >= 0 && removeBank(i)
   }, /*#__PURE__*/React.createElement(Trash2, {
     size: 13
   }))))), loan.note && !/[\u4e00-\u9fff]/.test(loan.note) && /*#__PURE__*/React.createElement("div", {
