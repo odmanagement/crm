@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005030740";
+const APP_BUILD = "20261005031450";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -817,38 +817,56 @@ function roToast() {
   document.addEventListener("change", e => { if (isReadOnlyUser() && !okInput(e.target)) block(e); }, true);
 })();
 /* ===== 登录欢迎（MONEY：财神到） ===== */
-function playFortuneJingle() {
-  // 原创的新春小曲：锣 + 五声音阶旋律 + 鞭炮声
+let _fortuneCtx = null;
+function fortuneJingle(ac) {
+  const t0 = ac.currentTime + 0.05, out = ac.createGain(); out.gain.value = 0.8; out.connect(ac.destination);
+  const note = (f, t, d, type, g) => { const o = ac.createOscillator(), v = ac.createGain(); o.type = type || "triangle"; o.frequency.value = f; v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g || 0.25, t + 0.02); v.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(v); v.connect(out); o.start(t); o.stop(t + d + 0.05); };
+  const gong = t => { [110, 165, 222, 297].forEach((f, i) => note(f, t, 1.6 - i * 0.2, "sine", 0.24 - i * 0.04)); };
+  const pop = t => { const len = 0.06, b = ac.createBuffer(1, Math.floor(ac.sampleRate * len), ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3); const src = ac.createBufferSource(), v = ac.createGain(); v.gain.value = 0.35; src.buffer = b; src.connect(v); v.connect(out); src.start(t); };
+  gong(t0);
+  const C = 523.25, D = 587.33, E = 659.25, G = 783.99, A = 880, C2 = 1046.5;
+  const mel = [[G, .2], [A, .2], [C2, .4], [A, .2], [G, .2], [E, .4], [G, .2], [E, .2], [D, .2], [C, .2], [D, .4], [E, .2], [G, .2], [A, .2], [C2, .6]];
+  let t = t0 + 0.6;
+  mel.forEach(([f, d]) => { note(f, t, d * 1.1, "triangle", 0.22); note(f / 2, t, d * 1.1, "sine", 0.09); t += d; });
+  gong(t);
+  for (let i = 0; i < 18; i++) pop(t + 0.15 + i * 0.07 + Math.random() * 0.04);
+}
+/* 能马上播就播，返回 true；浏览器挡住就返回 false（要等用户点一下） */
+function tryFortuneMusic() {
   try {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const go = () => {
-      const t0 = ac.currentTime + 0.05, out = ac.createGain(); out.gain.value = 0.7; out.connect(ac.destination);
-      const note = (f, t, d, type, g) => { const o = ac.createOscillator(), v = ac.createGain(); o.type = type || "triangle"; o.frequency.value = f; v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g || 0.25, t + 0.02); v.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(v); v.connect(out); o.start(t); o.stop(t + d + 0.05); };
-      const gong = t => { [110, 165, 222, 297].forEach((f, i) => note(f, t, 1.6 - i * 0.2, "sine", 0.22 - i * 0.04)); };
-      const pop = t => { const len = 0.06, b = ac.createBuffer(1, ac.sampleRate * len, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3); const src = ac.createBufferSource(), v = ac.createGain(); v.gain.value = 0.35; src.buffer = b; src.connect(v); v.connect(out); src.start(t); };
-      gong(t0);
-      const C = 523.25, D = 587.33, E = 659.25, G = 783.99, A = 880, C2 = 1046.5;
-      const mel = [[G, .2], [A, .2], [C2, .4], [A, .2], [G, .2], [E, .4], [G, .2], [E, .2], [D, .2], [C, .2], [D, .4], [E, .2], [G, .2], [A, .2], [C2, .6]];
-      let t = t0 + 0.6;
-      mel.forEach(([f, d]) => { note(f, t, d * 1.1, "triangle", 0.2); note(f / 2, t, d * 1.1, "sine", 0.08); t += d; });
-      gong(t);
-      for (let i = 0; i < 18; i++) pop(t + 0.15 + i * 0.07 + Math.random() * 0.04);
-    };
-    if (ac.state === "suspended") { const once = () => { ac.resume().then(go); document.removeEventListener("pointerdown", once, true); }; ac.resume().then(() => { if (ac.state === "running") go(); else document.addEventListener("pointerdown", once, true); }).catch(() => document.addEventListener("pointerdown", once, true)); }
-    else go();
+    _fortuneCtx = _fortuneCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_fortuneCtx.state === "running") { fortuneJingle(_fortuneCtx); return true; }
+    return false;
+  } catch (e) { return false; }
+}
+function playFortuneOnTap() {
+  try {
+    _fortuneCtx = _fortuneCtx || new (window.AudioContext || window.webkitAudioContext)();
+    _fortuneCtx.resume().then(() => fortuneJingle(_fortuneCtx)).catch(() => {});
   } catch (e) {}
 }
 function FortuneWelcome({ onDone }) {
   const h = React.createElement;
-  React.useEffect(() => { playFortuneJingle(); const t = setTimeout(onDone, 4200); return () => clearTimeout(t); }, []);
-  return h("div", { onClick: onDone, style: { position: "fixed", inset: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 50% 45%, rgba(254,243,199,.95), rgba(253,230,138,.85) 40%, rgba(180,83,9,.55))", animation: "fwIn .4s ease-out", cursor: "pointer" } },
-    h("style", null, "@keyframes fwIn{from{opacity:0}to{opacity:1}}@keyframes fwPop{0%{transform:scale(.2) rotate(-12deg)}60%{transform:scale(1.15) rotate(4deg)}100%{transform:scale(1)}}@keyframes fwFloat{50%{transform:translateY(-10px)}}@keyframes fwRain{from{transform:translateY(-10vh) rotate(0)}to{transform:translateY(110vh) rotate(540deg)}}"),
+  const [needTap, setNeedTap] = React.useState(false);
+  const timer = React.useRef(null);
+  React.useEffect(() => {
+    if (tryFortuneMusic()) timer.current = setTimeout(onDone, 4800);
+    else setNeedTap(true);
+    return () => clearTimeout(timer.current);
+  }, []);
+  const tap = () => {
+    if (needTap) { playFortuneOnTap(); setNeedTap(false); clearTimeout(timer.current); timer.current = setTimeout(onDone, 4800); }
+    else onDone();
+  };
+  return h("div", { onClick: tap, style: { position: "fixed", inset: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 50% 45%, rgba(254,243,199,.97), rgba(253,230,138,.9) 40%, rgba(180,83,9,.6))", animation: "fwIn .4s ease-out", cursor: "pointer" } },
+    h("style", null, "@keyframes fwIn{from{opacity:0}to{opacity:1}}@keyframes fwPop{0%{transform:scale(.2) rotate(-12deg)}60%{transform:scale(1.15) rotate(4deg)}100%{transform:scale(1)}}@keyframes fwFloat{50%{transform:translateY(-12px) rotate(3deg)}}@keyframes fwRain{from{transform:translateY(-10vh) rotate(0)}to{transform:translateY(110vh) rotate(540deg)}}@keyframes fwPulse{50%{transform:scale(1.08)}}"),
     Array.from({ length: 26 }, (_, i) => h("span", { key: i, style: { position: "absolute", top: 0, left: (i * 37 % 100) + "%", animation: "fwRain " + (2 + (i % 5) * .5) + "s linear " + (i % 7) * .2 + "s infinite", fontSize: 18 + (i % 4) * 6, color: "#f59e0b", textShadow: "0 0 8px rgba(251,191,36,.8)" } }, ["🪙", "✦", "★", "🧧"][i % 4])),
     h("div", { style: { textAlign: "center", animation: "fwPop .8s cubic-bezier(.2,1.4,.4,1)" } },
-      h("div", { style: { display: "inline-block", animation: "fwFloat 2s ease-in-out infinite" } }, h(CaishenSvg, { size: 170 })),
-      h("div", { style: { fontSize: 46, fontWeight: 900, color: "#b91c1c", textShadow: "0 3px 0 #fde68a, 0 8px 20px rgba(185,28,28,.35)", letterSpacing: ".08em", marginTop: 6 } }, "财神到！"),
+      h("div", { style: { display: "inline-block", animation: "fwFloat 1.8s ease-in-out infinite" } }, h(CaishenSvg, { size: 190 })),
+      h("div", { style: { fontSize: 48, fontWeight: 900, color: "#b91c1c", textShadow: "0 3px 0 #fde68a, 0 8px 20px rgba(185,28,28,.35)", letterSpacing: ".08em", marginTop: 4 } }, "财神到！"),
       h("div", { style: { fontSize: 18, fontWeight: 800, color: "#92400e", marginTop: 6 } }, "恭喜发财 · 欢迎回来 MONEY"),
-      h("div", { style: { fontSize: 12, color: "#92400e", opacity: .7, marginTop: 14 } }, "点一下继续")));
+      needTap ? h("div", { style: { display: "inline-block", marginTop: 18, padding: "10px 22px", borderRadius: 999, background: "linear-gradient(120deg,#dc2626,#f59e0b)", color: "#fff", fontWeight: 900, fontSize: 15, boxShadow: "0 8px 20px rgba(220,38,38,.35)", animation: "fwPulse 1.2s ease-in-out infinite" } }, "🔊 点一下迎财神")
+        : h("div", { style: { fontSize: 12, color: "#92400e", opacity: .7, marginTop: 14 } }, "点一下继续")));
 }
 /* ===== 点击声音 ===== */
 let _sndCtx = null;
@@ -988,21 +1006,32 @@ const LilyPad = ({ size = 60, c = "#7fb08a", flower }) => React.createElement("s
     [0, 60, 120, 180, 240, 300].map(r => React.createElement("ellipse", { key: r, cx: 0, cy: -6, rx: 3.2, ry: 6.5, fill: flower, opacity: .92, transform: "rotate(" + r + ")" })),
     React.createElement("circle", { r: 2.6, fill: "#f8d66d" })));
 const CaishenSvg = ({ size = 70 }) => React.createElement("svg", { width: size, height: size * 1.1, viewBox: "0 0 100 110" },
-  React.createElement("path", { d: "M18 108 Q16 70 50 66 Q84 70 82 108Z", fill: "#dc2626" }),
-  React.createElement("path", { d: "M40 70 L50 98 L60 70Z", fill: "#fbbf24" }),
-  React.createElement("circle", { cx: 50, cy: 46, r: 22, fill: "#fde4c8" }),
-  React.createElement("ellipse", { cx: 50, cy: 22, rx: 22, ry: 12, fill: "#b91c1c" }),
-  React.createElement("rect", { x: 30, y: 20, width: 40, height: 8, rx: 3, fill: "#dc2626" }),
-  React.createElement("ellipse", { cx: 22, cy: 23, rx: 11, ry: 4, fill: "#b91c1c", transform: "rotate(-15 22 23)" }),
-  React.createElement("ellipse", { cx: 78, cy: 23, rx: 11, ry: 4, fill: "#b91c1c", transform: "rotate(15 78 23)" }),
-  React.createElement("circle", { cx: 50, cy: 16, r: 4, fill: "#fbbf24" }),
-  React.createElement("path", { d: "M40 44 Q43 41 46 44", stroke: "#3f2a1d", strokeWidth: 2, fill: "none", strokeLinecap: "round" }),
-  React.createElement("path", { d: "M54 44 Q57 41 60 44", stroke: "#3f2a1d", strokeWidth: 2, fill: "none", strokeLinecap: "round" }),
-  React.createElement("ellipse", { cx: 38, cy: 51, rx: 4, ry: 2.5, fill: "#fb7185", opacity: .5 }), React.createElement("ellipse", { cx: 62, cy: 51, rx: 4, ry: 2.5, fill: "#fb7185", opacity: .5 }),
-  React.createElement("path", { d: "M42 55 Q50 62 58 55 Q57 74 50 80 Q43 74 42 55Z", fill: "#1f2937" }),
-  React.createElement("path", { d: "M45 55 Q50 59 55 55", stroke: "#dc2626", strokeWidth: 2, fill: "none", strokeLinecap: "round" }),
-  React.createElement("path", { d: "M30 92 Q34 84 44 86 L56 86 Q66 84 70 92 Q60 98 50 96 Q40 98 30 92Z", fill: "#fbbf24", stroke: "#b45309", strokeWidth: 1.5 }),
-  React.createElement("ellipse", { cx: 50, cy: 86, rx: 8, ry: 4, fill: "#fde68a", stroke: "#b45309", strokeWidth: 1.2 }));
+  /* 身体（Q 版小小的） */
+  React.createElement("path", { d: "M26 106 Q24 80 50 77 Q76 80 74 106Z", fill: "#ef4444" }),
+  React.createElement("path", { d: "M44 79 L50 96 L56 79Z", fill: "#fcd34d" }),
+  React.createElement("circle", { cx: 30, cy: 92, r: 6, fill: "#fde4c8" }), React.createElement("circle", { cx: 70, cy: 92, r: 6, fill: "#fde4c8" }),
+  /* 金元宝 */
+  React.createElement("path", { d: "M34 96 Q38 88 46 90 L54 90 Q62 88 66 96 Q58 102 50 100 Q42 102 34 96Z", fill: "#fbbf24", stroke: "#d97706", strokeWidth: 1.5 }),
+  React.createElement("ellipse", { cx: 50, cy: 90, rx: 6, ry: 3.5, fill: "#fef3c7", stroke: "#d97706", strokeWidth: 1 }),
+  /* 大头 */
+  React.createElement("circle", { cx: 50, cy: 50, r: 30, fill: "#ffe8d2" }),
+  /* 帽子 */
+  React.createElement("path", { d: "M22 38 Q24 14 50 12 Q76 14 78 38 Q64 32 50 32 Q36 32 22 38Z", fill: "#dc2626" }),
+  React.createElement("rect", { x: 23, y: 33, width: 54, height: 8, rx: 4, fill: "#f59e0b" }),
+  React.createElement("ellipse", { cx: 15, cy: 30, rx: 10, ry: 5, fill: "#dc2626", transform: "rotate(-25 15 30)" }),
+  React.createElement("ellipse", { cx: 85, cy: 30, rx: 10, ry: 5, fill: "#dc2626", transform: "rotate(25 85 30)" }),
+  React.createElement("circle", { cx: 50, cy: 22, r: 5, fill: "#fcd34d", stroke: "#d97706", strokeWidth: 1 }),
+  React.createElement("text", { x: 50, y: 24.6, textAnchor: "middle", fontSize: 6, fontWeight: 900, fill: "#b91c1c" }, "财"),
+  /* 大眼睛 */
+  React.createElement("ellipse", { cx: 39, cy: 53, rx: 5, ry: 6, fill: "#3b2414" }), React.createElement("ellipse", { cx: 61, cy: 53, rx: 5, ry: 6, fill: "#3b2414" }),
+  React.createElement("circle", { cx: 40.8, cy: 50.8, r: 2, fill: "#fff" }), React.createElement("circle", { cx: 62.8, cy: 50.8, r: 2, fill: "#fff" }),
+  React.createElement("circle", { cx: 37.6, cy: 55.6, r: .9, fill: "#fff" }), React.createElement("circle", { cx: 59.6, cy: 55.6, r: .9, fill: "#fff" }),
+  /* 腮红 */
+  React.createElement("ellipse", { cx: 31, cy: 62, rx: 5, ry: 3, fill: "#fb7185", opacity: .55 }), React.createElement("ellipse", { cx: 69, cy: 62, rx: 5, ry: 3, fill: "#fb7185", opacity: .55 }),
+  /* 小胡子 + 笑嘴 */
+  React.createElement("path", { d: "M50 63 Q44 60 40 64 Q45 66 50 64 Q55 66 60 64 Q56 60 50 63Z", fill: "#3b2414" }),
+  React.createElement("path", { d: "M45 68 Q50 73 55 68", stroke: "#b91c1c", strokeWidth: 2, fill: "#f87171", strokeLinecap: "round" }),
+  React.createElement("path", { d: "M47 74 Q50 82 53 74", fill: "#3b2414", opacity: .85 }));
 const StarBuddy = ({ c = "#facc15", size = 50 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
   React.createElement("path", { d: "M30 4 Q33 4 35 10 L39 20 Q40 22 43 22 L53 23 Q58 24 56 28 L48 36 Q46 38 47 41 L50 51 Q51 57 46 55 L36 49 Q30 46 24 49 L14 55 Q9 57 10 51 L13 41 Q14 38 12 36 L4 28 Q2 24 7 23 L17 22 Q20 22 21 20 L25 10 Q27 4 30 4Z", fill: c, stroke: "#fff", strokeWidth: 2, strokeLinejoin: "round" }),
   React.createElement("ellipse", { cx: 24, cy: 31, rx: 2.4, ry: 3, fill: "#3b2f6b" }), React.createElement("ellipse", { cx: 36, cy: 31, rx: 2.4, ry: 3, fill: "#3b2f6b" }),
@@ -2545,8 +2574,8 @@ function CRM({ onLogout, currentUser }) {
     if (!loading) ensureDailyBackup({ clients, missions, bankers, verifications });
   }, [loading]);
   const [showBackup, setShowBackup] = React.useState(false);
-  const [welcome, setWelcome] = React.useState(() => { try { return USER_THEMES[canonUser(currentUser)] === "star" && !sessionStorage.getItem("crm_welcomed_" + canonUser(currentUser)); } catch (e) { return false; } });
-  const endWelcome = () => { try { sessionStorage.setItem("crm_welcomed_" + canonUser(currentUser), "1"); } catch (e) {} setWelcome(false); };
+  const [welcome, setWelcome] = React.useState(() => USER_THEMES[canonUser(currentUser)] === "star");
+  const endWelcome = () => setWelcome(false);
 
   const [notices, setNotices] = React.useState([]);
   React.useEffect(() => { DB.get("mission_notices").then(v => { if (v) setNotices(JSON.parse(v)); }).catch(() => {}); }, []);
