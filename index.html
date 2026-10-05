@@ -2700,7 +2700,7 @@ function CRM({ onLogout, currentUser }) {
     setOpenId(null);
   };
   /* 从 Verify 选 Loan Type：自动建立 / 找到客户，跳去那一页并打开 */
-  const verifyToLoan = (v, type) => {
+  const verifyToLoan = (v, type, noJump) => {
     let c = clients.find(x => x.id === v.clientId) || clients.find(x => v.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(v.icNumber).replace(/\D/g, ""));
     const agent = v.agent ? String(v.agent).toUpperCase() : "";
     const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [] });
@@ -2713,7 +2713,12 @@ function CRM({ onLogout, currentUser }) {
       list = clients.map(x => x.id === c.id ? c : x);
     }
     if (list !== clients) persist(list);
-    persistVerifications(verifications.map(x => x.id === v.id ? { ...x, loanType: type, clientId: c.id } : x));
+    persistVerifications(verifications.map(x => {
+      if (x.id !== v.id) return x;
+      const cur = x.loanTypes || (x.loanType ? [x.loanType] : []);
+      return { ...x, loanTypes: cur.includes(type) ? cur : [...cur, type], loanType: x.loanType || type, clientId: c.id };
+    }));
+    if (noJump) return;
     setPage(type);
     setOpenId(c.id);
   };
@@ -3216,7 +3221,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v28"));
+    h("div", { className: "sb-ver" }, "v29"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5739,7 +5744,7 @@ function VerifyPage({
     onClose: () => setOpenId(null),
     onSave: save,
     onDelete: () => remove(open.id),
-    onToLoan: type => { setOpenId(null); onToLoan && onToLoan(open, type); }
+    onToLoan: type => { onToLoan && onToLoan(open, type, true); }
   }), adding && /*#__PURE__*/React.createElement(VerifyForm, {
     clients: clients,
     onClose: () => setAdding(false),
@@ -5961,9 +5966,9 @@ function VCaseInfo({ v, onSave, onToLoan }) {
         h("div", { style: { flex: "1 1 160px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "STAFF（自动 · 谁建立）"),
           h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0" } }, v.staff ? [h(React.Fragment, { key: "a" }, czAvatar(v.staff, 26)), h("b", { key: "n", style: { color: "#334155" } }, String(v.staff).toUpperCase())] : "—"))),
       h("div", null,
-        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "LOAN TYPE（选了会自动跳去那一页）"),
+        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "LOAN TYPE（可以选多个）"),
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
-          [["house", "🏠 House Loan", 262], ["car", "🚗 Car Loan", 190], ["personal", "💼 Personal Loan", 330]].map(([k, l, hue]) => h("button", { key: k, onClick: () => { onSave({ ...v, loanType: k }); onToLoan && onToLoan(k); }, style: { ...czPill(hue, { padding: "8px 14px", fontSize: 13 }), cursor: "pointer", opacity: v.loanType && v.loanType !== k ? .55 : 1, outline: v.loanType === k ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 } }, l + (v.loanType === k ? " ✓" : ""))))),
+          [["house", "🏠 House Loan", 262], ["car", "🚗 Car Loan", 190], ["personal", "💼 Personal Loan", 330]].map(([k, l, hue]) => { const lts = v.loanTypes || (v.loanType ? [v.loanType] : []); const on = lts.includes(k); return h("button", { key: k, title: on ? "再按一次取消" : "加入 " + l, onClick: () => { if (on) { const rest = lts.filter(t => t !== k); onSave({ ...v, loanTypes: rest, loanType: rest[0] || "" }); } else if (onToLoan) onToLoan(k); else onSave({ ...v, loanTypes: [...lts, k], loanType: v.loanType || k }); }, style: { ...czPill(hue, { padding: "8px 14px", fontSize: 13 }), cursor: "pointer", opacity: lts.length && !on ? .55 : 1, outline: on ? "2px solid hsl(" + hue + ",70%,55%)" : "none", outlineOffset: 1 } }, l + (on ? " ✓" : "")); }))),
       h("div", null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
           h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "LINKS"),
@@ -6074,8 +6079,8 @@ function VerifyDetail({
   }, copiedV ? "✓ 已复制" : "📋 Copy"), /*#__PURE__*/React.createElement("button", {
     style: { ...S.iconBtn, width: "auto", padding: "0 12px", gap: 6, fontWeight: 800, fontSize: 12.5, color: "#b45309", borderColor: "#fde68a", background: "#fffbeb" },
     onClick: exportPdf,
-    title: "Save PDF"
-  }, "📄 Save PDF"), /*#__PURE__*/React.createElement(ConfirmDelete, {
+    title: "Print"
+  }, "🖨 Print"), /*#__PURE__*/React.createElement(ConfirmDelete, {
     onConfirm: onDelete
   }), /*#__PURE__*/React.createElement("button", {
     style: S.iconBtn,
