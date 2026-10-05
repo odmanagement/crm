@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005035254";
+const APP_BUILD = "20261005040116";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4192,11 +4192,12 @@ function FileLibrary({ currentUser, data, saveData }) {
   const [adding, setAdding] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [q, setQ] = React.useState("");
-  const cats = lib.cats || [], allFiles = lib.files || [];
+  const allCats = lib.cats || [], allFiles = lib.files || [];
   const files = allFiles.filter(f => sameUser(f.by, currentUser));
-  const addCat = () => { const n = window.prompt("新分类名字："); if (!n || !n.trim()) return null; const c = { id: uid(), name: n.trim() }; save({ ...lib, cats: [...cats, c] }); return c; };
-  const delCat = c => { if (allFiles.some(f => f.cat === c.id)) { alert("这个分类里还有文件，请先移走或删除文件"); return; } if (window.confirm("删除分类「" + c.name + "」？")) { save({ ...lib, cats: cats.filter(x => x.id !== c.id) }); if (cat === c.id) setCat("all"); } };
-  const renameCat = c => { const n = window.prompt("分类名字：", c.name); if (n && n.trim()) save({ ...lib, cats: cats.map(x => x.id === c.id ? { ...x, name: n.trim() } : x) }); };
+  const cats = allCats.filter(c => sameUser(c.by, currentUser) || (!c.by && files.some(f => f.cat === c.id)));
+  const addCat = () => { const n = window.prompt("新分类名字："); if (!n || !n.trim()) return null; const c = { id: uid(), name: n.trim(), by: canonUser(currentUser) }; save({ ...lib, cats: [...allCats, c] }); return c; };
+  const delCat = c => { if (files.some(f => f.cat === c.id)) { alert("这个分类里还有文件，请先移走或删除文件"); return; } if (window.confirm("删除分类「" + c.name + "」？")) { save({ ...lib, cats: allCats.filter(x => x.id !== c.id) }); if (cat === c.id) setCat("all"); } };
+  const renameCat = c => { const n = window.prompt("分类名字：", c.name); if (n && n.trim()) save({ ...lib, cats: allCats.map(x => x.id === c.id ? { ...x, name: n.trim(), by: x.by || canonUser(currentUser) } : x) }); };
   const openFile = async f => {
     if (f.url) { window.open(_fixUrl(f.url), "_blank"); return; }
     if (f.blob) { const d = await DB.get("ffile_" + f.blob); if (!d) { alert("找不到文件"); return; } const w = window.open(); if (w) { if (/^data:(image|application\/pdf)/.test(d)) w.document.write('<title>' + f.name + '</title><iframe src="' + d + '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>'); else { w.close(); const a = document.createElement("a"); a.href = d; a.download = f.fname || f.name; a.click(); } } }
@@ -4279,8 +4280,8 @@ function FormsPage({ currentUser, tools }) {
     const cur = libRef.current; if (cur === null) return;
     const lib = cur && !Array.isArray(cur) ? cur : { cats: [], files: [] };
     let cats = lib.cats || [], files = (lib.files || []).slice(), changed = false;
-    let cat = cats.find(c => c.name === "表格存档");
     const me = canonUser(currentUser);
+    let cat = cats.find(c => c.name === "表格存档" && sameUser(c.by, me));
     const keys = []; try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) {}
     for (const k of keys) {
       if (!k || SKIP.test(k)) continue;
@@ -4288,7 +4289,7 @@ function FormsPage({ currentUser, tools }) {
       const sig = hashStr(val);
       const ex = files.find(f => f.lsKey === k && sameUser(f.by, me));
       if (ex && ex.lsSig === sig) continue;
-      if (!cat) { cat = { id: uid(), name: "表格存档" }; cats = [...cats, cat]; }
+      if (!cat) { cat = { id: uid(), name: "表格存档", by: me }; cats = [...cats, cat]; }
       const bid = ex && ex.blob ? ex.blob : uid();
       await DB.set("ffile_" + bid, "data:application/json;charset=utf-8," + encodeURIComponent(val));
       const rec = { ...(ex || { id: uid(), cat: cat.id }), name: ex ? ex.name : "表格存档 · " + k, blob: bid, fname: k + ".json", ftype: "application/json", lsKey: k, lsSig: sig, by: me, at: Date.now() };
@@ -4304,8 +4305,8 @@ function FormsPage({ currentUser, tools }) {
       const blob = await (await fetch(href)).blob();
       const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
       const cur = libRef.current; const lib = cur && !Array.isArray(cur) ? cur : { cats: [], files: [] };
-      let cats = lib.cats || []; let cat = cats.find(c => c.name === "表格存档");
-      if (!cat) { cat = { id: uid(), name: "表格存档" }; cats = [...cats, cat]; }
+      let cats = lib.cats || []; let cat = cats.find(c => c.name === "表格存档" && sameUser(c.by, currentUser));
+      if (!cat) { cat = { id: uid(), name: "表格存档", by: canonUser(currentUser) }; cats = [...cats, cat]; }
       const bid = uid(); await DB.set("ffile_" + bid, dataUrl);
       saveLib({ ...lib, cats, files: [{ id: uid(), name: formName + " · " + (fname || "存档"), cat: cat.id, blob: bid, fname: fname || "save", ftype: blob.type, by: canonUser(currentUser), at: Date.now() }, ...(lib.files || [])] });
     } catch (e) { console.error(e); }
