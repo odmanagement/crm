@@ -745,7 +745,7 @@ const STAGES = [{
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005042844";
+const APP_BUILD = "20261005043244";
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4445,15 +4445,19 @@ function FormsPage({ currentUser, tools }) {
             h("button", { onClick: () => { setAsk(false); if (open.draft) { doSave(); setOpen(null); } else doSave(true); }, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "💾 存档并关闭"),
             h("button", { onClick: () => { setAsk(false); setOpen(null); }, style: { padding: 11, borderRadius: 12, border: "1px solid #fecaca", background: "#fff", color: "#dc2626", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "不存，直接关闭"),
             h("button", { onClick: () => setAsk(false), style: { padding: 10, borderRadius: 12, border: "none", background: "#f1f5f9", color: "#475569", fontWeight: 700, fontSize: 13.5, cursor: "pointer" } }, "取消，继续填")))),
-      saveDlg && h("div", { onClick: () => setSaveDlg(null), style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
-        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 420, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
-          h("div", { style: { padding: "14px 20px", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 900, fontSize: 15 } }, "💾 存到哪个分类？"),
-          h("div", { style: { padding: 18 } },
-            h("div", { style: { fontSize: 12.5, color: "#64748b", marginBottom: 12 } }, "点一下分类就存好了"),
-            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
-              myCats().map(c => h("button", { key: c.id, onClick: () => confirmSave(saveDlg.title, c.id, saveDlg.closeAfter), style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 12, border: "1.5px solid #bbf7d0", background: "#f0fdf4", color: "#166534", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "📁 " + c.name)),
-              h("button", { onClick: () => { const n = window.prompt("新分类名字："); if (n && n.trim()) { const c = newCat(n.trim()); confirmSave(saveDlg.title, c.id, saveDlg.closeAfter); } }, style: { padding: "10px 16px", borderRadius: 12, border: "1.5px dashed #a5b4fc", background: "#fff", color: "#4f46e5", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "+ 新分类")),
-            h("button", { onClick: () => setSaveDlg(null), style: { width: "100%", marginTop: 16, padding: 10, borderRadius: 12, border: "none", background: "#f1f5f9", color: "#475569", fontWeight: 700, cursor: "pointer" } }, "取消"))))));
+      saveDlg && h("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { style: { width: "100%", maxWidth: 400, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
+          h("div", { style: { padding: "14px 20px", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 900, fontSize: 15 } }, "💾 存档到我的文件库"),
+          h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
+            h("label", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "存档名字"),
+              h("input", { value: saveDlg.title, onChange: e => setSaveDlg({ ...saveDlg, title: e.target.value }), placeholder: "例如客户名字", style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none" } })),
+            h("div", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "放在哪个分类"),
+              h("div", { style: { display: "flex", gap: 8 } },
+                h("select", { value: saveDlg.cat, onChange: e => setSaveDlg({ ...saveDlg, cat: e.target.value }), style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit" } }, h("option", { value: "" }, "— 选择分类 —"), myCats().map(c => h("option", { key: c.id, value: c.id }, c.name))),
+                h("button", { onClick: () => { const n = window.prompt("新分类名字："); if (n && n.trim()) { const c = newCat(n.trim()); setSaveDlg({ ...saveDlg, cat: c.id }); } }, style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "0 12px", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" } }, "+ 新分类"))),
+            h("div", { style: { display: "flex", gap: 8 } },
+              h("button", { onClick: () => setSaveDlg(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
+              h("button", { onClick: () => { if (!saveDlg.cat) { alert("请选择分类"); return; } confirmSave(saveDlg.title.trim(), saveDlg.cat, saveDlg.closeAfter); }, style: { flex: 2, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", fontWeight: 800, cursor: "pointer" } }, "💾 存档")))))));
 }
 function LinkListPage({
   title,
