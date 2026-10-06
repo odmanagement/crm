@@ -712,7 +712,7 @@ const TYPES = [{
 const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
 const subjectLabel = type => type === "car" ? "Vehicle" : type === "personal" ? "Purpose" : "Property";
 const bankStatusStyle = status => {
-  const c = status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : "#94a3b8";
+  const c = status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : status === "holdon" ? "#475569" : "#94a3b8";
   return {
     color: c,
     fontWeight: 700,
@@ -3279,7 +3279,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v52"));
+    h("div", { className: "sb-ver" }, "v53"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5415,7 +5415,7 @@ function TypePage({
     st = stageOf(l.stage);
   const bankMap = {};
   // 同一家银行有几笔（例如 Personal Loan + Credit Card）→ 数目加在一起
-  const _rank = { disbursed: 5, approved: 4, pending: 3, submitted: 2, rejected: 1 };
+  const _rank = { disbursed: 6, approved: 5, holdon: 4, pending: 3, submitted: 2, rejected: 1 };
   (l.banks || []).forEach(b => {
     const k = bankKey(b.bank);
     const ex = bankMap[k];
@@ -5511,6 +5511,7 @@ function TypePage({
     }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : PB_PROGRESS.some(x => x[0] === b.dis) ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pg-" + b.dis, title: (PB_PROGRESS.find(x => x[0] === b.dis) || [])[1] }, (b.amount ? money(b.amount) : String((PB_PROGRESS.find(x => x[0] === b.dis) || [])[1]).toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "disbursed" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk disb" }, "💰 " + (b.amount ? money(b.amount) : "DISBURSED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.status === "holdon" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk hold" }, "⏸ " + (b.amount ? money(b.amount) : "HOLD ON"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "approved" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk appr" }, "✓ " + (b.amount ? money(b.amount) : "APPROVED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : (b.amount || b.officer || b.status === "pending" || b.status === "submitted") ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, (b.status === "pending" ? "⏳ " : "") + (b.amount ? money(b.amount) : (b.status || "submitted").toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null) : "");
   }), isP && /*#__PURE__*/React.createElement("td", {
@@ -7254,6 +7255,8 @@ function LoanBlock({
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
     value: "pending"
   }, "Pending"), /*#__PURE__*/React.createElement("option", {
+    value: "holdon"
+  }, "Hold On"), /*#__PURE__*/React.createElement("option", {
     value: "approved"
   }, "Approved"), /*#__PURE__*/React.createElement("option", {
     value: "disbursed"
@@ -7532,6 +7535,8 @@ function LoanForm({
   }, "Approved"), /*#__PURE__*/React.createElement("option", {
     value: "disbursed"
   }, "Disbursed"), /*#__PURE__*/React.createElement("option", {
+    value: "holdon"
+  }, "Hold On"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
   }, "Rejected")), /*#__PURE__*/React.createElement("input", {
     style: {
@@ -8202,6 +8207,8 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk.pg-noaccept { color: #fff; background: linear-gradient(135deg,#334155,#0f172a); border: 1px solid #000; }
 .tp-bk[class*="pg-"] small { opacity: .85; }
 .tp-bk.disb { color: #fff; background: linear-gradient(135deg,#f472b6,#db2777); border: 1px solid #be185d; box-shadow: 0 3px 10px -3px rgba(219,39,119,.5); }
+.tp-bk.hold { color: #fff; background: linear-gradient(135deg,#94a3b8,#475569); border: 1px solid #334155; }
+.tp-bk.hold small { opacity: .9; }
 .tp-bk.appr { color: #fff; background: linear-gradient(135deg,#a78bfa,#7c3aed); border: 1px solid #6d28d9; }
 .tp-bk.appr small { opacity: .9; }
 .tp-bk.disb small { opacity: .9; }
