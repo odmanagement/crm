@@ -1368,7 +1368,7 @@ const COMPANY_FILES = [
   { name: "Veto Energy", payslip: "Veto Energy", cl: "Veto" }
 ];
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const money = n => n ? "RM " + Number(n).toLocaleString() : "—";
+const money = n => { if (!n) return "—"; const x = Number(String(n).replace(/,/g, "")); return isNaN(x) ? String(n) : "RM " + x.toLocaleString(); }; // 写文字的话照原样显示
 const num = n => "RM " + Number(n || 0).toLocaleString();
 const today = () => new Date().toISOString().slice(0, 10);
 const _now = () => {
@@ -3280,7 +3280,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v56"));
+    h("div", { className: "sb-ver" }, "v57"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5465,7 +5465,7 @@ function TypePage({
     const k = bankKey(b.bank);
     const ex = bankMap[k];
     if (!ex) { bankMap[k] = b; return; }
-    const amt = Number(String(ex.amount || 0).replace(/,/g, "")) + Number(String(b.amount || 0).replace(/,/g, ""));
+    const amt = (Number(String(ex.amount || 0).replace(/,/g, "")) || 0) + (Number(String(b.amount || 0).replace(/,/g, "")) || 0);
     const offs = Array.from(new Set([ex.officer, b.officer].join("/").split("/").map(x => String(x || "").trim()).filter(Boolean)));
     const _dr = { noaccept: 4, incomplete: 3, run: 2, collect: 1 }; // 同银行不同进度：Collect 最低，颜色跟其他那个
     bankMap[k] = { ...ex, dis: ((_dr[b.dis] || 0) > (_dr[ex.dis] || 0) ? b.dis : ex.dis) || "", amount: amt ? String(amt) : "", officer: offs.join("/"), status: (_rank[b.status] || 0) > (_rank[ex.status] || 0) ? b.status : ex.status };
@@ -5561,7 +5561,7 @@ function TypePage({
       : (b.amount || b.officer || b.status === "pending" || b.status === "submitted") ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, (b.status === "pending" ? "⏳ " : "") + (b.amount ? money(b.amount) : (b.status || "submitted").toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null) : "");
   }), isP && /*#__PURE__*/React.createElement("td", {
     style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0d9488" }
-  }, (() => { const t = (l.banks || []).filter(b => b.dis === "collect").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
+  }, (() => { const t = (l.banks || []).filter(b => b.dis === "collect").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
     style: { ...S.td, ...S.tdNum, fontWeight: 900, color: "#0f172a" }
   }, (() => { const t = (l.banks || []).reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
     style: S.td,
@@ -7318,7 +7318,7 @@ function LoanBlock({
     type: "text",
     placeholder: "Amount",
     value: b.amount ? (isNaN(Number(String(b.amount).replace(/,/g, ""))) ? b.amount : Number(String(b.amount).replace(/,/g, "")).toLocaleString("en-US", { maximumFractionDigits: 2 })) : "",
-    onCommit: v => setBankV(i, b, "amount", String(v).replace(/[^\d.]/g, ""))
+    onCommit: v => { const t = String(v).trim(); setBankV(i, b, "amount", /^[\d,.\s]+$/.test(t) ? t.replace(/[^\d.]/g, "") : t); } // 数目或文字都可以
   }), isPLike(loan.type) && /*#__PURE__*/React.createElement("select", {
     style: { ...S.bankInput, fontWeight: 700, ...pbStyle(b.dis) },
     value: PB_PROGRESS.some(x => x[0] === b.dis) ? b.dis : "",
