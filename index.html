@@ -3196,7 +3196,7 @@ function PhotoImg({ id, style, onClick }) {
   React.useEffect(() => { let on = true; if (!_photoCache[id]) DB.get("mphoto_" + id).then(v => { if (v) { _photoCache[id] = v; on && setSrc(v); } }).catch(() => {}); return () => { on = false; }; }, [id]);
   return src ? React.createElement("img", { src, style, onClick, alt: "" }) : React.createElement("div", { style: { ...style, background: "linear-gradient(90deg,#eef2ff,#f5f3ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc", fontSize: 12 } }, "…");
 }
-function MissionPhotos({ mission, onChange, onClose, onRemark }) {
+function MissionPhotos({ mission, onChange, onClose, onRemark, canManage = true }) {
   const h = React.createElement;
   const [busy, setBusy] = React.useState(false), [big, setBig] = React.useState(null), [delPhoto, setDelPhoto] = React.useState(null);
   const photos = mission.photos || [];
@@ -3225,7 +3225,7 @@ function MissionPhotos({ mission, onChange, onClose, onRemark }) {
   }, []);
   const [remark, setRemark] = React.useState(mission.remark || "");
   React.useEffect(() => { setRemark(mission.remark || ""); }, [mission.id]);
-  const saveRemark = () => { if ((mission.remark || "") !== remark.trim() && onRemark) onRemark(remark.trim()); };
+  const saveRemark = () => { if (canManage && (mission.remark || "") !== remark.trim() && onRemark) onRemark(remark.trim()); };
   return h("div", { onClick: () => { saveRemark(); onClose(); }, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.55)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
       h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#ec4899,#8b5cf6 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center", gap: 10 } },
@@ -3233,13 +3233,14 @@ function MissionPhotos({ mission, onChange, onClose, onRemark }) {
         h("button", { onClick: () => { saveRemark(); onClose(); }, style: { background: "rgba(255,255,255,.22)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
       h("div", { style: { padding: "14px 16px 0" } },
         h("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#6d28d9", marginBottom: 6 } }, "📝 Remark"),
-        h("textarea", { value: remark, onChange: e => setRemark(e.target.value), onBlur: saveRemark, placeholder: "写备注…（离开格子自动保存）", rows: 3,
-          style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e0e7ff", fontSize: 14, fontFamily: "inherit", outline: "none", resize: "vertical" } }),
+        canManage ? h("textarea", { value: remark, onChange: e => setRemark(e.target.value), onBlur: saveRemark, placeholder: "写备注…（离开格子自动保存）", rows: 3,
+          style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e0e7ff", fontSize: 14, fontFamily: "inherit", outline: "none", resize: "vertical" } })
+          : h("div", { style: { padding: "10px 12px", borderRadius: 10, background: "#f8fafc", border: "1px solid #eef0f4", fontSize: 14, color: mission.remark ? "#1e293b" : "#94a3b8", whiteSpace: "pre-wrap", minHeight: 20 } }, mission.remark || "（没有备注）· 只有 " + String(mission.assignedBy || mission.by || "").toUpperCase() + " 可以改"),
         h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 8 } }, "💡 截图后直接按 Ctrl+V（Mac：⌘V）就可以贴上照片")),
       h("div", { style: { padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 } },
         photos.map(id => h("div", { key: id, style: { position: "relative" } },
           h(PhotoImg, { id, onClick: () => setBig(id), style: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12, cursor: "zoom-in", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,.1)" } }),
-          h("button", { onClick: () => setDelPhoto(id), title: "删除照片", style: { position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 13, color: "#fff" })))),
+          canManage && h("button", { onClick: () => setDelPhoto(id), title: "删除照片", style: { position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 13, color: "#fff" })))),
         h("label", { style: { aspectRatio: "1", borderRadius: 12, border: "2px dashed #c4b5fd", background: "#faf5ff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: busy ? "default" : "pointer", color: "#7c3aed", fontWeight: 700, fontSize: 13 } },
           h("span", { style: { fontSize: 26, lineHeight: 1 } }, busy ? "⏳" : "+"), busy ? "上传中…" : "添加照片",
           h("input", { type: "file", accept: "image/*", multiple: true, disabled: busy, style: { display: "none" }, onChange: e => { addFiles(e.target.files); e.target.value = ""; } })))),
@@ -3278,7 +3279,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v51"));
+    h("div", { className: "sb-ver" }, "v52"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4044,6 +4045,7 @@ function MissionPage({
     mission: missions.find(x => x.id === photoId),
     onChange: ids => upd(photoId, "photos", ids),
     onRemark: v => upd(photoId, "remark", v),
+    canManage: canEditAssign(missions.find(x => x.id === photoId)),
     onClose: () => setPhotoId(null)
   }));
 }
