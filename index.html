@@ -3280,7 +3280,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v57"));
+    h("div", { className: "sb-ver" }, "v58"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -7591,7 +7591,7 @@ function LoanForm({
       ...S.input,
       flex: 2
     },
-    type: "number",
+    type: "text",
     placeholder: "Amount",
     value: b.amount || "",
     onChange: e => setBank(i, "amount", e.target.value)
