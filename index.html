@@ -3196,7 +3196,7 @@ function PhotoImg({ id, style, onClick }) {
   React.useEffect(() => { let on = true; if (!_photoCache[id]) DB.get("mphoto_" + id).then(v => { if (v) { _photoCache[id] = v; on && setSrc(v); } }).catch(() => {}); return () => { on = false; }; }, [id]);
   return src ? React.createElement("img", { src, style, onClick, alt: "" }) : React.createElement("div", { style: { ...style, background: "linear-gradient(90deg,#eef2ff,#f5f3ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc", fontSize: 12 } }, "…");
 }
-function MissionPhotos({ mission, onChange, onClose }) {
+function MissionPhotos({ mission, onChange, onClose, onRemark }) {
   const h = React.createElement;
   const [busy, setBusy] = React.useState(false), [big, setBig] = React.useState(null), [delPhoto, setDelPhoto] = React.useState(null);
   const photos = mission.photos || [];
@@ -3211,11 +3211,31 @@ function MissionPhotos({ mission, onChange, onClose }) {
     if (ids.length) onChange([...photos, ...ids]);
     setBusy(false);
   };
-  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.55)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+  // Ctrl+V / ⌘V 直接贴上截图
+  const addRef = React.useRef(addFiles); addRef.current = addFiles;
+  React.useEffect(() => {
+    const onPaste = e => {
+      const items = Array.from((e.clipboardData && e.clipboardData.items) || []).filter(it => it.kind === "file" && it.type.startsWith("image/"));
+      if (!items.length) return;
+      e.preventDefault();
+      addRef.current(items.map(it => it.getAsFile()).filter(Boolean));
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
+  const [remark, setRemark] = React.useState(mission.remark || "");
+  React.useEffect(() => { setRemark(mission.remark || ""); }, [mission.id]);
+  const saveRemark = () => { if ((mission.remark || "") !== remark.trim() && onRemark) onRemark(remark.trim()); };
+  return h("div", { onClick: () => { saveRemark(); onClose(); }, style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.55)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
       h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#ec4899,#8b5cf6 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center", gap: 10 } },
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontSize: 16, fontWeight: 800 } }, "📷 照片 (" + photos.length + ")"), h("div", { style: { fontSize: 12.5, opacity: .9, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, mission.task || "（任务内容还没填）")),
-        h("button", { onClick: onClose, style: { background: "rgba(255,255,255,.22)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
+        h("button", { onClick: () => { saveRemark(); onClose(); }, style: { background: "rgba(255,255,255,.22)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
+      h("div", { style: { padding: "14px 16px 0" } },
+        h("div", { style: { fontSize: 12.5, fontWeight: 800, color: "#6d28d9", marginBottom: 6 } }, "📝 Remark"),
+        h("textarea", { value: remark, onChange: e => setRemark(e.target.value), onBlur: saveRemark, placeholder: "写备注…（离开格子自动保存）", rows: 3,
+          style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e0e7ff", fontSize: 14, fontFamily: "inherit", outline: "none", resize: "vertical" } }),
+        h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 8 } }, "💡 截图后直接按 Ctrl+V（Mac：⌘V）就可以贴上照片")),
       h("div", { style: { padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 } },
         photos.map(id => h("div", { key: id, style: { position: "relative" } },
           h(PhotoImg, { id, onClick: () => setBig(id), style: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12, cursor: "zoom-in", display: "block", boxShadow: "0 4px 12px rgba(0,0,0,.1)" } }),
@@ -3258,7 +3278,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v49"));
+    h("div", { className: "sb-ver" }, "v50"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3898,7 +3918,7 @@ function MissionPage({
     style: S.th
   }, "Status"), /*#__PURE__*/React.createElement("th", {
     style: S.th
-  }, "Photos"), /*#__PURE__*/React.createElement("th", {
+  }, "Photos + Remark"), /*#__PURE__*/React.createElement("th", {
     style: {
       ...S.th,
       width: 50
@@ -3984,7 +4004,7 @@ function MissionPage({
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => setPhotoId(m.id),
       style: (m.photos || []).length ? { display: "inline-flex", alignItems: "center", gap: 6, border: "none", borderRadius: 999, padding: "5px 12px 5px 5px", background: "linear-gradient(120deg,#fce7f3,#ede9fe)", color: "#9d174d", fontWeight: 700, fontSize: 12.5 } : { border: "1px dashed #c4b5fd", borderRadius: 999, padding: "5px 12px", background: "#faf5ff", color: "#7c3aed", fontWeight: 700, fontSize: 12.5 }
-    }, (m.photos || []).length ? [/*#__PURE__*/React.createElement(PhotoImg, { key: "t", id: m.photos[0], style: { width: 24, height: 24, borderRadius: "50%", objectFit: "cover" } }), "📷 " + m.photos.length] : "+ 📷")), /*#__PURE__*/React.createElement("td", {
+    }, (m.photos || []).length ? [/*#__PURE__*/React.createElement(PhotoImg, { key: "t", id: m.photos[0], style: { width: 24, height: 24, borderRadius: "50%", objectFit: "cover" } }), "📷 " + m.photos.length] : "+ 📷"), m.remark && /*#__PURE__*/React.createElement("div", { onClick: () => setPhotoId(m.id), title: m.remark, style: { marginTop: 5, fontSize: 12, color: "#6d28d9", maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" } }, "📝 " + m.remark)), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, canEditAssign(m) ? /*#__PURE__*/React.createElement("button", {
       style: S.fuDel,
@@ -4023,6 +4043,7 @@ function MissionPage({
   }), photoId && missions.find(x => x.id === photoId) && /*#__PURE__*/React.createElement(MissionPhotos, {
     mission: missions.find(x => x.id === photoId),
     onChange: ids => upd(photoId, "photos", ids),
+    onRemark: v => upd(photoId, "remark", v),
     onClose: () => setPhotoId(null)
   }));
 }
