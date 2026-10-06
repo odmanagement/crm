@@ -2942,7 +2942,8 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     onOpen: setOpenId,
     onNew: () => quickNewClient(page),
-    onSetBase: (cid, lid, v) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, base: v } : l) } : c))
+    onSetBase: (cid, lid, v) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, base: v } : l) } : c)),
+    onPatchLoan: (cid, lid, patch) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, ...patch } : l) } : c))
   }))), open && /*#__PURE__*/React.createElement(Detail, {
     onlyType: ["house", "car", "personal"].includes(page) ? page : null,
     client: open,
@@ -3279,7 +3280,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v55"));
+    h("div", { className: "sb-ver" }, "v56"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5275,6 +5276,47 @@ const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#
 const CAR_BANKS = [["PBB", "PBB"], ["HLB", "HLB"], ["AMBANK", "AMB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON"], ["GFS", "GFS"], ["X STAR", "X STAR"], ["CHAILEASE", "CHAILEASE"], ["GENIE", "GENIE"], ["CARSOME", "CARSOME"], ["MUAMALAT", "MUAMALAT"]];
 const isPLike = t => t === "personal" || t === "car"; // Car 跟 Personal 一样的格式
 const bankListFor = t => t === "car" ? CAR_BANKS : PERSONAL_BANKS;
+/* Done PDF：每笔 Personal / Car Loan 可以上传一份完成的 PDF */
+const openDonePdf = async f => {
+  const w = window.open("", "_blank");
+  try {
+    const d = await DB.get("ffile_" + f.blob);
+    if (!d) { if (w) w.close(); alert("找不到这个 PDF"); return; }
+    if (w) { w.document.write('<title>' + String(f.name || "Done PDF").replace(/</g, "") + '</title><iframe src="' + d + '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>'); w.document.close(); }
+    else { const a = document.createElement("a"); a.href = d; a.download = f.name || "done.pdf"; a.click(); }
+  } catch (e) { if (w) w.close(); alert("打开失败：" + (e.message || e)); }
+};
+function DonePdfCell({ loan, onPatch }) {
+  const h = React.createElement;
+  const [busy, setBusy] = React.useState(false);
+  const f = loan.donePdf;
+  const up = async file => {
+    if (!file) return;
+    if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) { alert("请选择 PDF 文件"); return; }
+    if (file.size > 4 * 1024 * 1024) { alert("PDF 太大（最多 4MB）"); return; }
+    setBusy(true);
+    try {
+      const d = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+      const bid = uid(); await DB.set("ffile_" + bid, d);
+      const old = f && f.blob;
+      onPatch({ donePdf: { blob: bid, name: file.name, by: canonUser(window.__crmUser || ""), at: today() } });
+      if (old) { try { await DB.del("ffile_" + old); } catch (e) {} }
+    } catch (e) { alert("上传失败：" + (e.message || e)); }
+    setBusy(false);
+  };
+  const del = async () => {
+    if (!window.confirm("删除这个 PDF（" + (f.name || "") + "）？")) return;
+    onPatch({ donePdf: null });
+    try { await DB.del("ffile_" + f.blob); } catch (e) {}
+  };
+  const pick = h("input", { type: "file", accept: "application/pdf,.pdf", style: { display: "none" }, disabled: busy, onChange: e => { up(e.target.files && e.target.files[0]); e.target.value = ""; } });
+  if (busy) return h("span", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 700 } }, "⏳ 上传中…");
+  if (!f) return h("label", { title: "上传 PDF（最多 4MB）", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "1px dashed #f9a8d4", color: "#db2777", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", background: "#fff" } }, "+ PDF", pick);
+  return h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" } },
+    h("button", { onClick: () => openDonePdf(f), title: f.name + (f.by ? " · " + String(f.by).toUpperCase() : "") + (f.at ? " · " + f.at : ""), style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "none", background: "linear-gradient(135deg,#f472b6,#db2777)", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "📕 DONE"),
+    h("label", { title: "换一个 PDF", style: { cursor: "pointer", fontSize: 13, color: "#94a3b8", padding: "0 2px" } }, "↻", pick),
+    h("button", { onClick: del, title: "删除 PDF", style: { border: "none", background: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 14, padding: 0 } }, "×"));
+}
 const LOAN_BASES = ["ORI", "BUILD", "BD BUILD", "SPECIAL", "RENCAI"];
 const bankLabel = (k, t) => (bankListFor(t || "personal").find(x => x[0] === k) || PERSONAL_BANKS.find(x => x[0] === k) || CAR_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
@@ -5286,7 +5328,8 @@ function TypePage({
   clients,
   onOpen,
   onNew,
-  onSetBase
+  onSetBase,
+  onPatchLoan
 }) {
   const isP = isPLike(type);
   const [q, setQ] = useState("");
@@ -5407,7 +5450,9 @@ function TypePage({
   style: { ...S.th, ...S.thNum }
 }, "Collect"), isP && /*#__PURE__*/React.createElement("th", {
   style: { ...S.th, ...S.thNum }
-}, "Total"), !isP && /*#__PURE__*/React.createElement("th", {
+}, "Total"), isP && /*#__PURE__*/React.createElement("th", {
+  style: S.th
+}, "Done PDF"), !isP && /*#__PURE__*/React.createElement("th", {
   style: S.th
 }, "Stage"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((r, _i) => {
   const l = r.loan,
@@ -5518,7 +5563,10 @@ function TypePage({
     style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0d9488" }
   }, (() => { const t = (l.banks || []).filter(b => b.dis === "collect").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
     style: { ...S.td, ...S.tdNum, fontWeight: 900, color: "#0f172a" }
-  }, (() => { const t = (l.banks || []).reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), !isP && /*#__PURE__*/React.createElement("td", {
+  }, (() => { const t = (l.banks || []).reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
+    style: S.td,
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement(DonePdfCell, { loan: l, onPatch: patch => onPatchLoan && onPatchLoan(c.id, l.id, patch) })), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
   }, /*#__PURE__*/React.createElement("span", {
     style: {
