@@ -712,7 +712,7 @@ const TYPES = [{
 const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
 const subjectLabel = type => type === "car" ? "Vehicle" : type === "personal" ? "Purpose" : "Property";
 const bankStatusStyle = status => {
-  const c = status === "rejected" ? "#dc2626" : status === "disbursed" ? "#0891b2" : status === "approved" ? "#16a34a" : status === "pending" ? "#d97706" : status ? "#7c3aed" : "#94a3b8";
+  const c = status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : "#94a3b8";
   return {
     color: c,
     fontWeight: 700,
@@ -1189,6 +1189,14 @@ const NAV = [{
   label: "Dashboard",
   icon: LayoutDashboard
 }, {
+  id: "reports",
+  label: "Reports",
+  icon: BarChart3
+}, {
+  id: "verify",
+  label: "Verify",
+  icon: ShieldCheck
+}, {
   id: "loan",
   label: "Loan",
   icon: Wallet,
@@ -1206,14 +1214,6 @@ const NAV = [{
     icon: Wallet
   }]
 }, {
-  id: "verify",
-  label: "Verify",
-  icon: ShieldCheck
-}, {
-  id: "reports",
-  label: "Reports",
-  icon: BarChart3
-}, {
   id: "html",
   label: "HTML",
   icon: Folder,
@@ -1227,25 +1227,25 @@ const NAV = [{
     icon: Folder
   }]
 }, {
-  id: "banker",
-  label: "Banker",
-  icon: Phone
+  id: "submission",
+  label: "Closing",
+  icon: Send
 }, {
   id: "mission",
   label: "Mission",
   icon: CheckCircle2
 }, {
-  id: "submission",
-  label: "Closing",
-  icon: Send
-}, {
-  id: "leave",
-  label: "On Leave",
-  icon: CalendarDays
+  id: "banker",
+  label: "Banker",
+  icon: Phone
 }, {
   id: "todo",
   label: "To Do",
   icon: ListTodo
+}, {
+  id: "leave",
+  label: "On Leave",
+  icon: CalendarDays
 }, {
   id: "phone",
   label: "Phone",
@@ -3257,7 +3257,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v46"));
+    h("div", { className: "sb-ver" }, "v47"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3392,29 +3392,36 @@ function PhonePage({ currentUser }) {
   const [q, setQ] = React.useState("");
   const items = list || [];
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
-  const add = () => save([...items, { id: uid(), number: "", who: "", by: currentUser, at: Date.now() }]);
+  const add = () => save([...items, { id: uid(), number: "", remark: "", handle: "", who: "", out: "", back: "", by: currentUser, at: Date.now() }]);
   const del = x => { if (window.confirm("删除电话 " + (x.number || "(空)") + " ？")) save(items.filter(y => y.id !== x.id)); };
-  const shown = items.filter(x => !q || ((x.number || "") + " " + (x.who || "")).toLowerCase().includes(q.toLowerCase()));
-  const inp = { ...S.bankerInput, fontWeight: 700, fontSize: 14, letterSpacing: .3 };
+  const shown = items.filter(x => !q || [x.number, x.remark, x.handle, x.who].join(" ").toLowerCase().includes(q.toLowerCase()));
+  const inp = { ...S.bankerInput, fontWeight: 700, fontSize: 13.5 };
+  const dInp = { ...S.bankerInput, fontSize: 13, width: 140 };
+  const who = (x, k) => h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+    x[k] ? czAvatar(x[k], 24) : null,
+    h(DebouncedInput, { style: { ...inp, minWidth: 110 }, placeholder: "名字", value: x[k] || "", onCommit: v => upd(x.id, k, v.trim()) }));
+  const COLS = ["#", "Number HP", "Remark", "Handle", "Take", "Date Out", "Date Back", ""];
   return h("div", { className: "cz-page" },
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
-      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search number / who take", value: q, onChange: e => setQ(e.target.value) })),
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search number / remark / handle / take", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 新增电话")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Number", "Who Take", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有电话 — 按「新增电话」")) :
+      h("thead", null, h("tr", null, COLS.map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: COLS.length, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: COLS.length, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有电话 — 按「新增电话」")) :
         shown.map((x, i) => {
-          const w = x.who || "";
-          return h("tr", { key: x.id },
+          const outNow = x.out && !x.back;
+          return h("tr", { key: x.id, style: outNow ? { background: "#fffbeb" } : null },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
-            h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: inp, type: "tel", placeholder: "e.g. 012-345 6789", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
-            h("td", { style: { ...S.td, minWidth: 200 } }, h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-              w ? czAvatar(w, 26) : h("span", { style: { width: 26, height: 26, borderRadius: "50%", background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "📱"),
-              h(DebouncedInput, { style: { ...inp, minWidth: 140 }, placeholder: "输入名字", value: w, onCommit: v => upd(x.id, "who", v.trim()) }))),
+            h("td", { style: { ...S.td, minWidth: 150 } }, h(DebouncedInput, { style: { ...inp, letterSpacing: .3 }, type: "tel", placeholder: "e.g. 012-345 6789", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
+            h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: { ...inp, fontWeight: 600 }, placeholder: "Remark", value: x.remark || "", onCommit: v => upd(x.id, "remark", v.trim()) })),
+            h("td", { style: { ...S.td, minWidth: 150 } }, who(x, "handle")),
+            h("td", { style: { ...S.td, minWidth: 150 } }, who(x, "who")),
+            h("td", { style: S.td }, h("input", { type: "date", style: dInp, value: x.out || "", onChange: e => upd(x.id, "out", e.target.value) })),
+            h("td", { style: S.td }, h("input", { type: "date", style: dInp, value: x.back || "", onChange: e => upd(x.id, "back", e.target.value) })),
             h("td", { style: { ...S.td, width: 40 } }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))),
-    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 10 } }, "共 " + items.length + " 支电话 · 有人拿 " + items.filter(x => x.who).length + " · 空着 " + items.filter(x => !x.who).length));
+    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 10 } }, "共 " + items.length + " 支电话 · 拿出去还没还 " + items.filter(x => x.out && !x.back).length + "（黄色）"));
 }
 
 /* ---------- Closing List（Build / Ori / Special Case / Cancel / Rencai） ---------- */
@@ -5237,7 +5244,7 @@ const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, St
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
 /* Personal 表格固定显示的银行（顺序 + 显示名） */
 const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
-const PB_PROGRESS = [["collect", "Collect", "#06b6d4"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
+const PB_PROGRESS = [["collect", "Collect", "#0d9488"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
 const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
 const bankLabel = k => (PERSONAL_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
@@ -5463,12 +5470,11 @@ function TypePage({
     }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : PB_PROGRESS.some(x => x[0] === b.dis) ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pg-" + b.dis, title: (PB_PROGRESS.find(x => x[0] === b.dis) || [])[1] }, (b.amount ? money(b.amount) : String((PB_PROGRESS.find(x => x[0] === b.dis) || [])[1]).toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "disbursed" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk disb" }, "💰 " + (b.amount ? money(b.amount) : "DISBURSED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
-      : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
-      : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
-      : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
+      : b.status === "approved" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk appr" }, "✓ " + (b.amount ? money(b.amount) : "APPROVED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : (b.amount || b.officer || b.status === "pending" || b.status === "submitted") ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, (b.status === "pending" ? "⏳ " : "") + (b.amount ? money(b.amount) : (b.status || "submitted").toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null) : "");
   }), isP && /*#__PURE__*/React.createElement("td", {
-    style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0891b2" }
-  }, (() => { const t = (l.banks || []).filter(b => b.status === "disbursed").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
+    style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0d9488" }
+  }, (() => { const t = (l.banks || []).filter(b => b.dis === "collect").reduce((x, b) => x + Number(String(b.amount || 0).replace(/,/g, "")) , 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
     style: { ...S.td, ...S.tdNum, fontWeight: 900, color: "#0f172a" }
   }, (() => { const t = (l.banks || []).reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), !isP && /*#__PURE__*/React.createElement("td", {
     style: S.td
@@ -8149,15 +8155,17 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; line-height: 1.2; font-weight: 800; font-size: 12px; padding: 4px 10px; border-radius: 10px; white-space: nowrap; }
 .tp-bk small { font-size: 10px; font-weight: 700; opacity: .7; padding-left: 6px; border-left: 1px solid currentColor; }
 .tp-bk.ok { color: #047857; background: linear-gradient(135deg,#ecfdf5,#d1fae5); border: 1px solid #a7f3d0; }
-.tp-bk.pg-collect { color: #083344; background: linear-gradient(135deg,#67e8f9,#22d3ee); border: 1px solid #06b6d4; box-shadow: 0 0 10px rgba(34,211,238,.75), 0 0 2px #22d3ee; }
+.tp-bk.pg-collect { color: #fff; background: linear-gradient(135deg,#14b8a6,#0d9488); border: 1px solid #0f766e; box-shadow: 0 3px 10px -3px rgba(13,148,136,.55); }
 .tp-bk.pg-run { color: #fff; background: linear-gradient(135deg,#ef4444,#dc2626); border: 1px solid #b91c1c; box-shadow: 0 3px 10px -3px rgba(220,38,38,.5); }
 .tp-bk.pg-incomplete { color: #fff; background: linear-gradient(135deg,#7dd3fc,#38bdf8); border: 1px solid #0ea5e9; }
 .tp-bk.pg-noaccept { color: #fff; background: linear-gradient(135deg,#334155,#0f172a); border: 1px solid #000; }
 .tp-bk[class*="pg-"] small { opacity: .85; }
-.tp-bk.disb { color: #fff; background: linear-gradient(135deg,#ef4444,#dc2626); border: 1px solid #b91c1c; box-shadow: 0 3px 10px -3px rgba(220,38,38,.5); }
+.tp-bk.disb { color: #fff; background: linear-gradient(135deg,#f472b6,#db2777); border: 1px solid #be185d; box-shadow: 0 3px 10px -3px rgba(219,39,119,.5); }
+.tp-bk.appr { color: #fff; background: linear-gradient(135deg,#a78bfa,#7c3aed); border: 1px solid #6d28d9; }
+.tp-bk.appr small { opacity: .9; }
 .tp-bk.disb small { opacity: .9; }
 .tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
-.tp-bk.pend { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; flex-direction: row; }
+.tp-bk.pend { color: #713f12; background: linear-gradient(135deg,#fef08a,#facc15); border: 1px solid #eab308; flex-direction: row; }
 .tp-bk.sub { color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 700; }
 .tp-table td[style*="text-align: right"] { font-variant-numeric: tabular-nums; font-weight: 700; color: #1e293b; }
 
