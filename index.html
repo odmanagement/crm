@@ -3279,7 +3279,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v54"));
+    h("div", { className: "sb-ver" }, "v55"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -7125,7 +7125,7 @@ function LoanBlock({
     style: {
       fontWeight: 700
     }
-  }, t.label), loan.type !== "personal" && /*#__PURE__*/React.createElement("span", {
+  }, t.label), !isPLike(loan.type) && /*#__PURE__*/React.createElement("span", {
     style: {
       ...S.stageTag,
       background: st.color + "1a",
@@ -7154,10 +7154,10 @@ function LoanBlock({
     style: S.miniBtn
   }))), expanded && /*#__PURE__*/React.createElement("div", {
     style: S.loanBlockBody
-  }, loan.type !== "personal" && /*#__PURE__*/React.createElement(StageTimeline, {
+  }, !isPLike(loan.type) && /*#__PURE__*/React.createElement(StageTimeline, {
     stage: loan.stage,
     onSet: setStage
-  }), loan.type === "personal" ? [/*#__PURE__*/React.createElement(EditRow, {
+  }), isPLike(loan.type) ? [/*#__PURE__*/React.createElement(EditRow, {
     key: "agent",
     label: "Agent",
     value: loan.agent,
@@ -7301,7 +7301,7 @@ function LoanBlock({
         borderColor: s.color
       } : {})
     }
-  }, s.label))), loan.type !== "personal" && canonUser(window.__crmUser) !== "admin" && /*#__PURE__*/React.createElement(CalcSection, {
+  }, s.label))), !isPLike(loan.type) && canonUser(window.__crmUser) !== "admin" && /*#__PURE__*/React.createElement(CalcSection, {
     loan: loan,
     onUpdate: onUpdate,
     clientName: clientName
