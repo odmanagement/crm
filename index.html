@@ -3278,7 +3278,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v50"));
+    h("div", { className: "sb-ver" }, "v51"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3413,7 +3413,7 @@ function PhonePage({ currentUser }) {
   const [q, setQ] = React.useState("");
   const items = list || [];
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
-  const add = () => save([...items, { id: uid(), number: "", remark: "", handle: "", who: "", out: "", back: "", by: currentUser, at: Date.now() }]);
+  const add = () => save([...items, { id: uid(), number: "", remark: "", handle: canonUser(currentUser || ""), who: "", out: "", back: "", by: currentUser, at: Date.now() }]);
   const del = x => { if (window.confirm("删除电话 " + (x.number || "(空)") + " ？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => !q || [x.number, x.remark, x.handle, x.who].join(" ").toLowerCase().includes(q.toLowerCase()));
   const inp = { ...S.bankerInput, fontWeight: 700, fontSize: 13.5 };
@@ -3436,7 +3436,7 @@ function PhonePage({ currentUser }) {
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
             h("td", { style: { ...S.td, minWidth: 150 } }, h(DebouncedInput, { style: { ...inp, letterSpacing: .3 }, type: "tel", placeholder: "e.g. 012-345 6789", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
             h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: { ...inp, fontWeight: 600 }, placeholder: "Remark", value: x.remark || "", onCommit: v => upd(x.id, "remark", v.trim()) })),
-            h("td", { style: { ...S.td, minWidth: 150 } }, who(x, "handle")),
+            h("td", { style: { ...S.td, minWidth: 130 } }, (() => { const hn = x.handle || x.by || ""; return hn ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13.5 } }, czAvatar(hn, 24), String(hn).toUpperCase()) : h("span", { style: { color: "#cbd5e1" } }, "—"); })()),
             h("td", { style: { ...S.td, minWidth: 150 } }, who(x, "who")),
             h("td", { style: S.td }, h("input", { type: "date", style: dInp, value: x.out || "", onChange: e => upd(x.id, "out", e.target.value) })),
             h("td", { style: S.td }, h("input", { type: "date", style: dInp, value: x.back || "", onChange: e => upd(x.id, "back", e.target.value) })),
