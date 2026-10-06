@@ -2941,7 +2941,8 @@ function CRM({ onLogout, currentUser }) {
     type: page,
     clients: clients,
     onOpen: setOpenId,
-    onNew: () => quickNewClient(page)
+    onNew: () => quickNewClient(page),
+    onSetBase: (cid, lid, v) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, base: v } : l) } : c))
   }))), open && /*#__PURE__*/React.createElement(Detail, {
     onlyType: ["house", "car", "personal"].includes(page) ? page : null,
     client: open,
@@ -3257,7 +3258,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v48"));
+    h("div", { className: "sb-ver" }, "v49"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4190,9 +4191,11 @@ function CompanyFilesPage() {
   const openEdit = c => setEdit(c ? { name: c.name, full: c.full || "", payslip: c.pUrl || "", cl: c.cUrl || "", of: c.oUrl || "", bao: c.aUrl || "", locked: true } : { name: "", full: "", payslip: "", cl: "", of: "", bao: "", locked: false });
   const fixUrl = u => { u = String(u || "").trim(); if (!u) return ""; return /^https?:\/\//i.test(u) ? u : "https://" + u; };
   const submitEdit = async () => {
-    const name = edit.name.trim(), payslip = fixUrl(edit.payslip), cl = fixUrl(edit.cl), of = fixUrl(edit.of), bao = fixUrl(edit.bao);
-    if (!name) { alert("请填公司名字"); return; }
     const full = String(edit.full || "").trim();
+    const hit = !edit.locked && all.find(c => keyOf(c.name) === keyOf(full) || keyOf(c.full || "") === keyOf(full));
+    const name = edit.locked ? edit.name.trim() : hit ? hit.name : full;
+    const payslip = fixUrl(edit.payslip), cl = fixUrl(edit.cl), of = fixUrl(edit.of), bao = fixUrl(edit.bao);
+    if (!name) { alert("请填公司全名"); return; }
     if (!payslip && !cl && !of && !bao && !full) { alert("至少要填一个链接"); return; }
     setSaving(true);
     const ex = custom.find(x => keyOf(x.name) === keyOf(name));
@@ -4284,11 +4287,11 @@ function CompanyFilesPage() {
           h("div", { style: { flex: 1, fontSize: 16, fontWeight: 800 } }, edit.locked ? "改链接 · " + edit.name : "添加公司 / 文件"),
           h("button", { onClick: () => setEdit(null), style: { background: "rgba(255,255,255,.2)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 15, color: "#fff" }))),
         h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
-          [["name", "公司简称", "例如 ABC", edit.locked], ["full", "公司全名", "例如 ABC SDN BHD", false], ["payslip", "Payslip 链接", "贴上 Google Sheet / Drive 链接", false], ["cl", "CL 链接", "贴上 Google Sheet / Drive 链接", false], ["of", "OF 链接", "贴上 Google Sheet / Drive 链接", false], ["bao", "Bank Acc Opening Letter 链接", "贴上 Google Sheet / Drive 链接", false]].map(([k, label, ph, dis]) => h("label", { key: k, style: { display: "block" } },
+          [["full", "公司全名", "例如 ABC SDN BHD", false], ["payslip", "Payslip 链接", "贴上 Google Sheet / Drive 链接", false], ["cl", "CL 链接", "贴上 Google Sheet / Drive 链接", false], ["of", "OF 链接", "贴上 Google Sheet / Drive 链接", false], ["bao", "Bank Acc Opening Letter 链接", "贴上 Google Sheet / Drive 链接", false]].map(([k, label, ph, dis]) => h("label", { key: k, style: { display: "block" } },
             h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, label),
-            h("input", { value: edit[k], disabled: dis, placeholder: ph, list: k === "name" ? "co-names" : undefined, onChange: e => setEdit({ ...edit, [k]: e.target.value }),
+            h("input", { value: edit[k], disabled: dis, placeholder: ph, list: k === "full" && !edit.locked ? "co-names" : undefined, onChange: e => setEdit({ ...edit, [k]: e.target.value }),
               style: { width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 10, border: "1px solid #e0e7ff", background: dis ? "#f8fafc" : "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" } }))),
-          h("datalist", { id: "co-names" }, all.map(c => h("option", { key: c.name, value: c.name }))),
+          h("datalist", { id: "co-names" }, all.map(c => h("option", { key: c.name, value: c.full || c.name }))),
           h("div", { style: { fontSize: 12, color: "#94a3b8", lineHeight: 1.5 } }, "公司名字跟现有的一样，就会加进那家公司。只填一个链接也可以。"),
           h("button", { onClick: submitEdit, disabled: saving, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 800, fontSize: 14.5, boxShadow: "0 8px 20px rgba(79,70,229,.35)" } }, saving ? "保存中…" : "保存")))),
     delItem && h(PwDialog, { title: "删除公司", desc: "删除「" + delItem.name + "」和它的链接，不能复原。", confirmText: "删除", onCancel: () => setDelItem(null),
@@ -5246,7 +5249,11 @@ const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBS
 const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
 const PB_PROGRESS = [["collect", "Collect", "#0d9488"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
 const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
-const bankLabel = k => (PERSONAL_BANKS.find(x => x[0] === k) || [k, k])[1];
+const CAR_BANKS = [["PBB", "PBB"], ["HLB", "HLB"], ["AMBANK", "AMB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON"], ["GFS", "GFS"], ["X STAR", "X STAR"], ["CHAILEASE", "CHAILEASE"], ["GENIE", "GENIE"], ["CARSOME", "CARSOME"], ["MUAMALAT", "MUAMALAT"]];
+const isPLike = t => t === "personal" || t === "car"; // Car 跟 Personal 一样的格式
+const bankListFor = t => t === "car" ? CAR_BANKS : PERSONAL_BANKS;
+const LOAN_BASES = ["ORI", "BUILD", "SPECIAL", "RENCAI"];
+const bankLabel = (k, t) => (bankListFor(t || "personal").find(x => x[0] === k) || PERSONAL_BANKS.find(x => x[0] === k) || CAR_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
 const BANK_LIST = ["MAYBANK","CIMB","PBB","RHB","HLB","AMBANK","UOB","OCBC","HSBC","STANDARD CHARTERED","AFFIN","ALLIANCE","B.RAKYAT","BSN","BANK ISLAM","MUAMALAT","ALRAJHI","MBSB","AGROBANK","KFH","CITIBANK","GX BANK","AEON BANK","BOOST BANK","AEON CREDIT"];
 const BANK_ALIAS = { "ALB": "ALLIANCE", "ALLIANCE BANK": "ALLIANCE", "AEON .C": "AEON CREDIT", "AEON.C": "AEON CREDIT", "AEON.B": "AEON BANK", "AMB": "AMBANK", "ALRAHJI": "ALRAJHI", "GXBANK": "GX BANK", "GX": "GX BANK", "AEON": "AEON BANK", "MAY BANK": "MAYBANK", "MBB": "MAYBANK", "AM BANK": "AMBANK", "AGRO BANK": "AGROBANK", "KUWAIT FINANCE HOUSE": "KFH", "SCB": "STANDARD CHARTERED", "HONG LEONG": "HLB", "HONG LEONG BANK": "HLB", "BANK RAKYAT": "B.RAKYAT", "RAKYAT": "B.RAKYAT", "PUBLIC BANK": "PBB", "PUBLIC": "PBB", "AL RAJHI": "ALRAJHI", "AL-RAJHI": "ALRAJHI" };
@@ -5255,9 +5262,10 @@ function TypePage({
   type,
   clients,
   onOpen,
-  onNew
+  onNew,
+  onSetBase
 }) {
-  const isP = type === "personal";
+  const isP = isPLike(type);
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const t = typeOf(type);
@@ -5271,7 +5279,7 @@ function TypePage({
   });
   const total = rows.reduce((s, r) => s + Number(r.loan.amount || 0), 0);
   const usedBanks = Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type).flatMap(l => (l.banks || []).map(b => bankKey(b.bank)))).filter(Boolean)));
-  const COLS = isP ? PERSONAL_BANKS.map(x => x[0]).concat(usedBanks.filter(bk => !PERSONAL_BANKS.some(x => x[0] === bk))) : BANK_COLS.concat(usedBanks.filter(bk => !BANK_COLS.includes(bk)));
+  const COLS = isP ? bankListFor(type).map(x => x[0]).concat(usedBanks.filter(bk => !bankListFor(type).some(x => x[0] === bk))) : BANK_COLS.concat(usedBanks.filter(bk => !BANK_COLS.includes(bk)));
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
   style: {
     ...S.typeBanner,
@@ -5330,7 +5338,9 @@ function TypePage({
   style: S.th
 }, "Link"), /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Agent"), /*#__PURE__*/React.createElement("th", {
+}, "Agent"), isP && /*#__PURE__*/React.createElement("th", {
+  style: S.th
+}, "Base"), /*#__PURE__*/React.createElement("th", {
   style: {
     ...S.th,
     ...S.thSticky
@@ -5370,7 +5380,7 @@ function TypePage({
 }, "Submit Date"), COLS.map(bk => /*#__PURE__*/React.createElement("th", {
   key: bk,
   style: S.th
-}, isP ? bankLabel(bk) : bk)), isP && /*#__PURE__*/React.createElement("th", {
+}, isP ? bankLabel(bk, type) : bk)), isP && /*#__PURE__*/React.createElement("th", {
   style: { ...S.th, ...S.thNum }
 }, "Collect"), isP && /*#__PURE__*/React.createElement("th", {
   style: { ...S.th, ...S.thNum }
@@ -5415,7 +5425,14 @@ function TypePage({
     style: S.linkCell
   }, "Open", linkCountOf(l, c) > 1 ? " (" + linkCountOf(l, c) + ")" : "") : ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, tpPerson(l.agent)), /*#__PURE__*/React.createElement("td", {
+  }, tpPerson(l.agent)), isP && /*#__PURE__*/React.createElement("td", {
+    style: S.td,
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("select", {
+    value: l.base || "",
+    onChange: e => onSetBase && onSetBase(c.id, l.id, e.target.value),
+    style: { padding: "4px 6px", borderRadius: 8, border: "1px solid " + (l.base ? "#c4b5fd" : "#e2e8f0"), background: l.base ? "#f5f3ff" : "#fff", color: l.base ? "#6d28d9" : "#94a3b8", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), LOAN_BASES.map(b => /*#__PURE__*/React.createElement("option", { key: b, value: b }, b)))), /*#__PURE__*/React.createElement("td", {
     style: c.flag ? {
       ...S.td,
       ...S.tdName,
@@ -7023,7 +7040,7 @@ function LoanBlock({
   });
   // Personal：没有日期的银行自动填当天
   React.useEffect(() => {
-    if (loan.type === "personal" && banks.some(b => !b.date || b.dis === "dis" || b.dis === "non")) onUpdate({ ...loan, banks: banks.map(b => {
+    if (isPLike(loan.type) && banks.some(b => !b.date || b.dis === "dis" || b.dis === "non")) onUpdate({ ...loan, banks: banks.map(b => {
       let x = b.date ? b : { ...b, date: today() };
       if (x.dis === "dis") x = { ...x, status: "disbursed", dis: "" }; // 旧的 Disbursed → 状态改成 Disbursed
       else if (x.dis === "non") x = { ...x, dis: "" };
@@ -7185,14 +7202,14 @@ function LoanBlock({
     style: S.fuEmpty
   }, "No banks yet — tap Add Bank"), bankView.map(({ b, i }, vi) => /*#__PURE__*/React.createElement("div", {
     key: i >= 0 ? "r" + i : "v" + b.bank,
-    className: loan.type === "personal" ? "bank-row-p" : "",
+    className: isPLike(loan.type) ? "bank-row-p" : "",
     title: b._v ? "还没填 — 直接填就会记录" : undefined,
     style: { ...S.bankInlineRow, ...(b._v ? { opacity: .5 } : {}) }
   }, /*#__PURE__*/React.createElement("select", {
     style: { ...S.bankInput, fontWeight: 700, ...(b.bank ? czPill(czBankHue(b.bank), { borderRadius: 8, padding: "6px 8px" }) : { color: "#94a3b8" }) },
     value: b.bank ? bankKey(b.bank) : "",
     onChange: e => setBankV(i, b, "bank", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = loan.type === "personal" ? PERSONAL_BANKS.map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, loan.type === "personal" ? bankLabel(bk) : bk))), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "选择银行"), (() => { const base = isPLike(loan.type) ? bankListFor(loan.type).map(x => x[0]) : BANK_LIST; const k = bankKey(b.bank); return (!b.bank || base.includes(k) ? base : [k, ...base]); })().map(bk => /*#__PURE__*/React.createElement("option", { key: bk, value: bk }, isPLike(loan.type) ? bankLabel(bk, loan.type) : bk))), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
     title: "Personal Loan / Credit Card",
     style: { ...S.bankInput, width: 140, flex: "0 0 140px", fontWeight: 700, ...(b.prod === "cc" ? { color: "#c2410c", borderColor: "#c2410c55", background: "#c2410c0f" } : b.prod === "ploan" ? { color: "#4f46e5", borderColor: "#4f46e555", background: "#4f46e50f" } : { color: "#94a3b8" }) },
     value: b.prod || "",
@@ -7228,7 +7245,7 @@ function LoanBlock({
     placeholder: "Amount",
     value: b.amount ? (isNaN(Number(String(b.amount).replace(/,/g, ""))) ? b.amount : Number(String(b.amount).replace(/,/g, "")).toLocaleString("en-US", { maximumFractionDigits: 2 })) : "",
     onCommit: v => setBankV(i, b, "amount", String(v).replace(/[^\d.]/g, ""))
-  }), loan.type === "personal" && /*#__PURE__*/React.createElement("select", {
+  }), isPLike(loan.type) && /*#__PURE__*/React.createElement("select", {
     style: { ...S.bankInput, fontWeight: 700, ...pbStyle(b.dis) },
     value: PB_PROGRESS.some(x => x[0] === b.dis) ? b.dis : "",
     onChange: e => setBankV(i, b, "dis", e.target.value)
