@@ -2702,7 +2702,7 @@ function CRM({ onLogout, currentUser }) {
   const verifyToLoan = (v, type, noJump) => {
     let c = clients.find(x => x.id === v.clientId) || clients.find(x => v.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(v.icNumber).replace(/\D/g, ""));
     const agent = v.agent ? String(v.agent).toUpperCase() : "";
-    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [] });
+    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (v.remark || "") : "" });
     let list = clients;
     if (!c) {
       c = { id: uid(), name: v.customerName || "", phone: v.phone || "", ic: v.icNumber || "", job: v.position || "", income: "", note: "", links: (v.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: [newLoan()] };
@@ -2721,6 +2721,31 @@ function CRM({ onLogout, currentUser }) {
     setPage(type);
     setOpenId(c.id);
   };
+  /* Verify 的 Remark 改了 → 同步去这个客户的 Car / Personal Loan */
+  const verifySyncRemark = v => {
+    const c = clients.find(x => x.id === v.clientId);
+    if (!c) return;
+    const ts = _vTypes(v);
+    let changed = false;
+    const loans = (c.loans || []).map(l => { if (isPLike(l.type) && ts.includes(l.type) && (l.remark || "") !== (v.remark || "")) { changed = true; return { ...l, remark: v.remark || "" }; } return l; });
+    if (changed) persist(clients.map(x => x.id === c.id ? { ...c, loans } : x));
+  };
+  // 旧资料：已经建好的 Car / Personal Loan 如果还没有 Remark，自动从 Verify 带过来（只补空的）
+  const _remarkFilled = React.useRef(false);
+  React.useEffect(() => {
+    if (_remarkFilled.current || !clients.length || !(verifications || []).length) return;
+    _remarkFilled.current = true;
+    let changed = false;
+    const next = clients.map(c => {
+      const vs = verifications.filter(v => v.clientId === c.id && v.remark);
+      if (!vs.length) return c;
+      let cc = false;
+      const loans = (c.loans || []).map(l => { const v = vs.find(v => _vTypes(v).includes(l.type)); if (v && isPLike(l.type) && !l.remark) { cc = true; return { ...l, remark: v.remark }; } return l; });
+      if (cc) { changed = true; return { ...c, loans }; }
+      return c;
+    });
+    if (changed && canonUser(window.__crmUser) !== "admin") persist(next);
+  }, [clients, verifications]);
   /* Verify：Mark Verified 时才把选好的 Loan Type 建去对应的 Loan 页面（不跳页） */
   const verifyFinalize = nv => {
     let list = clients, cid = nv.clientId;
@@ -2728,7 +2753,7 @@ function CRM({ onLogout, currentUser }) {
     if (nv.status === "verified" && types.length) {
       let c = clients.find(x => x.id === nv.clientId) || clients.find(x => nv.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(nv.icNumber).replace(/\D/g, ""));
       const agent = nv.agent ? String(nv.agent).toUpperCase() : "";
-      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [] });
+      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (nv.remark || "") : "" });
       if (!c) {
         c = { id: uid(), name: nv.customerName || "", phone: nv.phone || "", ic: nv.icNumber || "", job: nv.position || "", income: "", note: "", links: (nv.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: types.map(mk) };
         list = [...clients, c];
@@ -2917,7 +2942,8 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onToLoan: verifyToLoan,
     onDropLoans: verifyDropLoans,
-    onFinalize: verifyFinalize
+    onFinalize: verifyFinalize,
+    onSyncRemark: verifySyncRemark
   }) : page === "html_forms" ? /*#__PURE__*/React.createElement(FormsPage, {
     currentUser: currentUser,
     tools: FORMS_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
@@ -3280,7 +3306,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v59"));
+    h("div", { className: "sb-ver" }, "v60"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5814,7 +5840,8 @@ function VerifyPage({
   currentUser,
   onToLoan,
   onDropLoans,
-  onFinalize
+  onFinalize,
+  onSyncRemark
 }) {
   const [tab, setTab] = useState("progress"); // progress | completed
   const [q, setQ] = useState("");
@@ -5827,6 +5854,7 @@ function VerifyPage({
     const old = verifications.find(x => x.id === v.id);
     if (old && !canEditV(old)) return;
     onSave(old ? verifications.map(x => x.id === v.id ? v : x) : [v, ...verifications]);
+    if (old && (old.remark || "") !== (v.remark || "") && v.clientId && onSyncRemark) onSyncRemark(v);
   };
   const remove = id => {
     const v = verifications.find(x => x.id === id);
@@ -6212,14 +6240,23 @@ function VCaseInfo({ v, onSave, onToLoan, onDropLoan }) {
           h("button", { onClick: () => setLinks(links.filter((_, j) => j !== i)), style: { ...S.bankDelBtn, cursor: "pointer" } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
       h(VRemark, { v, onSave })));
 }
+function LoanRemark({ value, onSave }) {
+  const h = React.createElement;
+  const [t, setT] = React.useState(value || "");
+  React.useEffect(() => { setT(value || ""); }, [value]);
+  return h("div", { style: { padding: "10px 0 4px" } },
+    h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6, letterSpacing: .3 } }, "REMARK"),
+    h("textarea", { value: t, rows: 8, placeholder: "写备注…（跟 Verify 同步 · 离开格子自动保存）", onChange: e => setT(e.target.value), onBlur: () => { if ((value || "") !== t.trim()) onSave(t.trim()); },
+      style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff", minHeight: 160, lineHeight: 1.6 } }));
+}
 function VRemark({ v, onSave }) {
   const h = React.createElement;
   const [t, setT] = React.useState(v.remark || "");
   React.useEffect(() => { setT(v.remark || ""); }, [v.id, v.remark]);
   return h("div", null,
     h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "REMARK"),
-    h("textarea", { value: t, rows: 3, placeholder: "写备注…（离开格子自动保存）", onChange: e => setT(e.target.value), onBlur: () => { if ((v.remark || "") !== t.trim()) onSave({ ...v, remark: t.trim() }); },
-      style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff" } }));
+    h("textarea", { value: t, rows: 10, placeholder: "写备注…（离开格子自动保存）", onChange: e => setT(e.target.value), onBlur: () => { if ((v.remark || "") !== t.trim()) onSave({ ...v, remark: t.trim() }); },
+      style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff", minHeight: 200, lineHeight: 1.6 } }));
 }
 function VSalaryBlock({ v, onSave }) {
   const h = React.createElement;
@@ -7225,6 +7262,10 @@ function LoanBlock({
     label: "Admin",
     value: loan.admin,
     onChange: v => setField("admin", v)
+  }), /*#__PURE__*/React.createElement(LoanRemark, {
+    key: "remark",
+    value: loan.remark || "",
+    onSave: v => setField("remark", v)
   })] : [/*#__PURE__*/React.createElement(React.Fragment, { key: "std" }, /*#__PURE__*/React.createElement(EditRow, {
     label: "Amount",
     value: loan.amount,
