@@ -3257,7 +3257,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v45"));
+    h("div", { className: "sb-ver" }, "v46"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4898,6 +4898,7 @@ function Dashboard({
     const fs = (l.followUps || []).filter(f => !f.done && f.date);
     if (!fs.length) return null;
     const f = fs.reduce((best, x) => (x.date > best.date ? x : best), fs[0]); // 新加的在前面，同一天取最新加的
+    if (f.replies && f.replies.length) return null; // 回复了就不显示
     return { ...f, loan: l };
   }).filter(Boolean).sort((a, b) => {
     const fa = a.date >= _td, fb = b.date >= _td;
@@ -6982,6 +6983,13 @@ function LoanBlock({
       done: !f.done
     } : f)
   });
+  // 回复跟进：回复了就不会再出现在 Dashboard 的 Upcoming Follow-ups
+  const replyFu = f => {
+    const t = window.prompt("回复：" + (f.text || ""), "");
+    if (t == null || !t.trim()) return;
+    onUpdate({ ...loan, followUps: (loan.followUps || []).map(x => x.id === f.id ? { ...x, replies: [...(x.replies || []), { text: t.trim(), by: currentUser || "", at: today() }] } : x) });
+    if (f.by && !sameUser(f.by, currentUser)) { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "fu", to: canonUser(f.by), from: currentUser, task: "回复「" + (f.text || "") + "」：" + t.trim(), client: clientName || "", cid: clientId || "", ltype: loan.type, at: Date.now() }); } catch (e) {} }
+  };
   const delFu = fid => onUpdate({
     ...loan,
     followUps: (loan.followUps || []).filter(f => f.id !== fid)
@@ -7306,7 +7314,14 @@ function LoanBlock({
       }
     }, /*#__PURE__*/React.createElement(Clock, {
       size: 11
-    }), " ", f.date, " ", overdue && "· overdue", f.by && " · by " + f.by)), /*#__PURE__*/React.createElement("button", {
+    }), " ", f.date, " ", overdue && "· overdue", f.by && " · by " + f.by), (f.replies || []).map((r, ri) => /*#__PURE__*/React.createElement("div", {
+      key: ri,
+      style: { marginTop: 5, padding: "5px 10px", background: "#eef2ff", borderLeft: "3px solid #6366f1", borderRadius: 8, fontSize: 12.5, color: "#1e293b" }
+    }, "↩ ", /*#__PURE__*/React.createElement("b", null, String(r.by || "").toUpperCase()), ": ", r.text, /*#__PURE__*/React.createElement("span", { style: { color: "#94a3b8", fontSize: 11, marginLeft: 6 } }, r.at)))), /*#__PURE__*/React.createElement("button", {
+      style: { ...S.fuDel, color: "#6366f1", fontSize: 12, fontWeight: 800, width: "auto", padding: "0 8px" },
+      onClick: () => replyFu(f),
+      title: "回复"
+    }, "↩ 回复"), /*#__PURE__*/React.createElement("button", {
       style: S.fuDel,
       onClick: () => delFu(f.id),
       title: "\u5220\u9664 / Delete"
