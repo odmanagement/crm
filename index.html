@@ -3280,7 +3280,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v58"));
+    h("div", { className: "sb-ver" }, "v59"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6209,7 +6209,17 @@ function VCaseInfo({ v, onSave, onToLoan, onDropLoan }) {
         links.map((lk, i) => h("div", { key: lk.id || i, style: { display: "flex", gap: 6, marginBottom: 6 } },
           h(DebouncedInput, { style: { ...inp, flex: 1, textTransform: "none" }, value: lk.url, placeholder: "贴上链接 / URL", onCommit: val => setLinks(links.map((x, j) => j === i ? { ...x, url: val } : x)) }),
           lk.url && h("a", { href: _fixUrl(lk.url), target: "_blank", rel: "noopener", style: { ...S.linkOpenBtn, display: "flex", alignItems: "center", justifyContent: "center" } }, h(ExternalLink, { size: 14 })),
-          h("button", { onClick: () => setLinks(links.filter((_, j) => j !== i)), style: { ...S.bankDelBtn, cursor: "pointer" } }, h(Trash2, { size: 14, color: "#ef4444" })))))));
+          h("button", { onClick: () => setLinks(links.filter((_, j) => j !== i)), style: { ...S.bankDelBtn, cursor: "pointer" } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
+      h(VRemark, { v, onSave })));
+}
+function VRemark({ v, onSave }) {
+  const h = React.createElement;
+  const [t, setT] = React.useState(v.remark || "");
+  React.useEffect(() => { setT(v.remark || ""); }, [v.id, v.remark]);
+  return h("div", null,
+    h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 6 } }, "REMARK"),
+    h("textarea", { value: t, rows: 3, placeholder: "写备注…（离开格子自动保存）", onChange: e => setT(e.target.value), onBlur: () => { if ((v.remark || "") !== t.trim()) onSave({ ...v, remark: t.trim() }); },
+      style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff" } }));
 }
 function VSalaryBlock({ v, onSave }) {
   const h = React.createElement;
