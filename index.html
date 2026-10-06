@@ -3279,7 +3279,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v53"));
+    h("div", { className: "sb-ver" }, "v54"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5275,7 +5275,7 @@ const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#
 const CAR_BANKS = [["PBB", "PBB"], ["HLB", "HLB"], ["AMBANK", "AMB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON"], ["GFS", "GFS"], ["X STAR", "X STAR"], ["CHAILEASE", "CHAILEASE"], ["GENIE", "GENIE"], ["CARSOME", "CARSOME"], ["MUAMALAT", "MUAMALAT"]];
 const isPLike = t => t === "personal" || t === "car"; // Car 跟 Personal 一样的格式
 const bankListFor = t => t === "car" ? CAR_BANKS : PERSONAL_BANKS;
-const LOAN_BASES = ["ORI", "BUILD", "SPECIAL", "RENCAI"];
+const LOAN_BASES = ["ORI", "BUILD", "BD BUILD", "SPECIAL", "RENCAI"];
 const bankLabel = (k, t) => (bankListFor(t || "personal").find(x => x[0] === k) || PERSONAL_BANKS.find(x => x[0] === k) || CAR_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
 const BANK_LIST = ["MAYBANK","CIMB","PBB","RHB","HLB","AMBANK","UOB","OCBC","HSBC","STANDARD CHARTERED","AFFIN","ALLIANCE","B.RAKYAT","BSN","BANK ISLAM","MUAMALAT","ALRAJHI","MBSB","AGROBANK","KFH","CITIBANK","GX BANK","AEON BANK","BOOST BANK","AEON CREDIT"];
