@@ -3004,6 +3004,7 @@ function CRM({ onLogout, currentUser }) {
     onPatchLoan: (cid, lid, patch) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, ...patch } : l) } : c))
   }))), open && /*#__PURE__*/React.createElement(Detail, {
     onlyType: ["house", "car", "personal"].includes(page) ? page : null,
+    verification: (() => { const vs = verifications.filter(v => v.clientId === open.id); return vs.find(v => v.status === "verified") || vs[0] || null; })(),
     client: open,
     onClose: closeDetail,
     onEdit: () => setEditing(open),
@@ -3345,7 +3346,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v78"));
+    h("div", { className: "sb-ver" }, "v79"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6926,9 +6927,11 @@ function Detail({
   onUpdate,
   onSendVerify,
   currentUser,
-  onlyType
+  onlyType,
+  verification
 }) {
   const [addingLoan, setAddingLoan] = useState(false);
+  const [copiedV, setCopiedV] = useState(false);
   const [showHist, setShowHist] = useState(false);
   const loans = client.loans || [];
   const saveLoan = loan => {
@@ -6984,7 +6987,11 @@ function Detail({
     style: S.panelName
   }, client.name || /*#__PURE__*/React.createElement("span", { style: { color: "#a5b4fc" } }, "新客户 · 先填名字")), /*#__PURE__*/React.createElement("div", {
     style: S.panelActions
-  }, /*#__PURE__*/React.createElement("button", {
+  }, verification && /*#__PURE__*/React.createElement("button", {
+    style: { ...S.iconBtn, width: "auto", padding: "0 12px", gap: 6, fontWeight: 800, fontSize: 12.5, color: copiedV ? "#16a34a" : "#4f46e5", borderColor: copiedV ? "#bbf7d0" : "#c7d2fe", background: copiedV ? "#f0fdf4" : "#eef2ff" },
+    onClick: () => { try { navigator.clipboard.writeText(verifyCopyText(verification)); } catch (e) {} setCopiedV(true); setTimeout(() => setCopiedV(false), 1500); },
+    title: "复制 Verify 的 Applicant / Company / Previous Company"
+  }, copiedV ? "✓ 已复制" : "📋 Copy"), /*#__PURE__*/React.createElement("button", {
     style: {
       ...S.iconBtn,
       color: client.flag ? "#f59e0b" : "#94a3b8",
