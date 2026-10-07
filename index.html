@@ -1203,17 +1203,17 @@ const NAV = [{
   label: "Loan",
   icon: Wallet,
   children: [{
-    id: "house",
-    label: "House",
-    icon: Home
+    id: "personal",
+    label: "Personal",
+    icon: Wallet
   }, {
     id: "car",
     label: "Car",
     icon: Car
   }, {
-    id: "personal",
-    label: "Personal",
-    icon: Wallet
+    id: "house",
+    label: "House",
+    icon: Home
   }]
 }, {
   id: "html",
@@ -3001,7 +3001,12 @@ function CRM({ onLogout, currentUser }) {
     onRestore: restoreSnapshot
   }), welcome && /*#__PURE__*/React.createElement(FortuneWelcome, {
     onDone: endWelcome
-  }), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  }), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(CollectReminder, {
+    clients: clients,
+    currentUser: currentUser,
+    onOpen: cid => { setPage("personal"); setOpenId(cid); },
+    onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -3324,7 +3329,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v74"));
+    h("div", { className: "sb-ver" }, "v75"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -7304,7 +7309,8 @@ function LoanBlock({
     ...loan,
     banks: banks.map((b, j) => j === i ? {
       ...b,
-      [k]: v
+      [k]: v,
+      ...(k === "status" && v === "approved" && !b.approvedAt ? { approvedAt: today() } : {})
     } : b)
   });
   const removeBank = i => onUpdate({
@@ -7514,7 +7520,11 @@ function LoanBlock({
     style: { ...S.bankInput, width: 140, flex: "0 0 140px" },
     value: b.date || "",
     onChange: e => setBankV(i, b, "date", e.target.value)
-  }), /*#__PURE__*/React.createElement("button", {
+  }), loan.type === "personal" && !b._v && (b.status === "approved" || b.status === "disbursed" || b.collected) && /*#__PURE__*/React.createElement("button", {
+    title: b.collected ? "已收钱（按一下取消）" : "收到钱了就按 Done",
+    onClick: () => setBankV(i, b, "collected", !b.collected),
+    style: { flexShrink: 0, border: "1px solid " + (b.collected ? "#16a34a" : "#f59e0b"), background: b.collected ? "#16a34a" : "#fffbeb", color: b.collected ? "#fff" : "#b45309", borderRadius: 8, padding: "0 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", minHeight: 34 }
+  }, b.collected ? "✓ Done" : "💰 Done?"), /*#__PURE__*/React.createElement("button", {
     style: { ...S.bankDelBtn, ...(b._v ? { visibility: "hidden" } : {}) },
     onClick: () => i >= 0 && removeBank(i)
   }, /*#__PURE__*/React.createElement(Trash2, {
@@ -7828,6 +7838,41 @@ function Row({
   }, value));
 }
 /* 会自动变高的输入格：内容全部显示出来（Enter 保存，Shift+Enter 换行） */
+/* Personal Loan：Approved 2 天后提醒 Admin 收钱，按 Done 才停 */
+const daysSince = d => { if (!d) return 0; const a = new Date(d + "T00:00:00"), b = new Date(today() + "T00:00:00"); return Math.round((b - a) / 86400000); };
+function CollectReminder({ clients, currentUser, onOpen, onDone }) {
+  const h = React.createElement;
+  const [hide, setHide] = React.useState(() => { try { return Number(sessionStorage.getItem("crm_collect_hide") || 0); } catch (e) { return 0; } });
+  const [min, setMin] = React.useState(false);
+  const [, tick] = React.useState(0);
+  React.useEffect(() => { const t = setInterval(() => tick(x => x + 1), 10 * 60 * 1000); return () => clearInterval(t); }, []);
+  const items = [];
+  (clients || []).forEach(c => (c.loans || []).forEach(l => {
+    if (l.type !== "personal") return;
+    const adm = l.admin || l.createdBy;
+    if (!adm || !sameUser(adm, currentUser)) return;
+    (l.banks || []).forEach((b, bi) => {
+      if (b.collected || !(b.status === "approved" || b.status === "disbursed")) return;
+      const since = b.approvedAt || b.date;
+      if (daysSince(since) < 2) return;
+      items.push({ c, l, b, bi, days: daysSince(since) });
+    });
+  }));
+  if (!items.length || (hide && Date.now() < hide)) return null;
+  const later = () => { const t = Date.now() + 2 * 60 * 60 * 1000; setHide(t); try { sessionStorage.setItem("crm_collect_hide", String(t)); } catch (e) {} };
+  if (min) return h("button", { onClick: () => setMin(false), style: { position: "fixed", left: 18, bottom: 18, zIndex: 9990, border: "none", borderRadius: 999, padding: "10px 16px", background: "linear-gradient(135deg,#f59e0b,#dc2626)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(220,38,38,.6)" } }, "💰 收钱提醒 " + items.length);
+  return h("div", { style: { position: "fixed", left: 18, bottom: 18, zIndex: 9990, width: 340, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #f59e0b" } },
+    h("div", { style: { padding: "10px 14px", background: "linear-gradient(135deg,#f59e0b,#dc2626)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+      h("b", { style: { flex: 1, fontSize: 14 } }, "💰 记得收钱！（" + items.length + "）"),
+      h("button", { onClick: () => setMin(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer" } }, "–")),
+    h("div", { style: { maxHeight: 300, overflowY: "auto" } }, items.map((x, k) => h("div", { key: k, style: { padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 } },
+      h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => onOpen(x.c.id) },
+        h("div", { style: { fontWeight: 800, fontSize: 13.5, color: "#0f172a" } }, String(x.c.name || "(没名字)").toUpperCase()),
+        h("div", { style: { fontSize: 12, color: "#64748b" } }, bankLabel(bankKey(x.b.bank), "personal") + (x.b.amount ? " · " + money(x.b.amount) : "") + " · Approved " + x.days + " 天")),
+      h("button", { onClick: () => onDone(x.c.id, x.l.id, x.bi), style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "✓ Done")))),
+    h("div", { style: { padding: "8px 14px", textAlign: "right", background: "#fffbeb" } },
+      h("button", { onClick: later, style: { border: "none", background: "none", color: "#b45309", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "2 小时后再提醒")));
+}
 /* Mission 回复：像 chat 一样，会通知指派的人 / 被指派的人 */
 function MissionReplies({ m, currentUser, onSave }) {
   const h = React.createElement;
