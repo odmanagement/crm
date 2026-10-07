@@ -3347,7 +3347,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v82"));
+    h("div", { className: "sb-ver" }, "v83"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5546,6 +5546,9 @@ const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "
 const PB_PROGRESS = [["collect", "Collect", "#0d9488"], ["nopickup", "No Pick Up", "#ea580c"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
 const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
 const CAR_BANKS = [["PBB", "PBB"], ["HLB", "HLB"], ["AMBANK", "AMB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON"], ["GFS", "GFS"], ["X STAR", "X STAR"], ["CHAILEASE", "CHAILEASE"], ["GENIE", "GENIE"], ["CARSOME", "CARSOME"], ["MUAMALAT", "MUAMALAT"]];
+/* 只有那笔贷款的 Admin（建立的人）或老板可以删除资料；不知道是谁建的就不限制 */
+const loanOwner = l => (l && (l.admin || l.createdBy)) || "";
+const canDelLoan = (l, u) => { const o = loanOwner(l); return !o || sameUser(o, u) || isMissionBoss(u); };
 const isPLike = t => t === "personal" || t === "car"; // Car 跟 Personal 一样的格式
 const bankListFor = t => t === "car" ? CAR_BANKS : PERSONAL_BANKS;
 /* Done PDF：每笔 Personal / Car Loan 可以上传一份完成的 PDF */
@@ -5587,7 +5590,7 @@ function DonePdfCell({ loan, onPatch }) {
   return h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" } },
     h("button", { onClick: () => openDonePdf(f), title: f.name + (f.by ? " · " + String(f.by).toUpperCase() : "") + (f.at ? " · " + f.at : ""), style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "none", background: "linear-gradient(135deg,#f472b6,#db2777)", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "📕 DONE"),
     h("label", { title: "换一个 PDF", style: { cursor: "pointer", fontSize: 13, color: "#94a3b8", padding: "0 2px" } }, "↻", pick),
-    h("button", { onClick: del, title: "删除 PDF", style: { border: "none", background: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 14, padding: 0 } }, "×"));
+    canDelLoan(loan, window.__crmUser) && h("button", { onClick: del, title: "删除 PDF", style: { border: "none", background: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 14, padding: 0 } }, "×"));
 }
 const LOAN_BASES = ["ORI", "BUILD", "BD BUILD", "SPECIAL", "RENCAI"];
 const bankLabel = (k, t) => (bankListFor(t || "personal").find(x => x[0] === k) || PERSONAL_BANKS.find(x => x[0] === k) || CAR_BANKS.find(x => x[0] === k) || [k, k])[1];
@@ -7003,7 +7006,7 @@ function Detail({
     title: "Edit info"
   }, /*#__PURE__*/React.createElement(Edit3, {
     size: 16
-  })), /*#__PURE__*/React.createElement(ConfirmDelete, {
+  })), (client.loans || []).every(l => canDelLoan(l, currentUser)) && /*#__PURE__*/React.createElement(ConfirmDelete, {
     onConfirm: onDelete
   }), /*#__PURE__*/React.createElement("button", {
     style: S.iconBtn,
@@ -7063,7 +7066,7 @@ function Detail({
     disabled: !lk.url
   }, /*#__PURE__*/React.createElement(ExternalLink, {
     size: 13
-  })), /*#__PURE__*/React.createElement("button", {
+  })), (client.loans || []).every(l => canDelLoan(l, currentUser)) && /*#__PURE__*/React.createElement("button", {
     style: S.bankDelBtn,
     onClick: () => removeLink(lk.id)
   }, /*#__PURE__*/React.createElement(Trash2, {
@@ -7498,7 +7501,7 @@ function LoanBlock({
     onClick: () => setEditingLoan(true)
   }, /*#__PURE__*/React.createElement(Edit3, {
     size: 13
-  })), /*#__PURE__*/React.createElement(ConfirmDelete, {
+  })), canDelLoan(loan, currentUser) && /*#__PURE__*/React.createElement(ConfirmDelete, {
     onConfirm: onRemove,
     size: 13,
     style: S.miniBtn
@@ -7640,8 +7643,8 @@ function LoanBlock({
     onClick: () => setBankV(i, b, "collected", !b.collected),
     style: { flexShrink: 0, border: "1px solid " + (b.collected ? "#16a34a" : "#f59e0b"), background: b.collected ? "#16a34a" : "#fffbeb", color: b.collected ? "#fff" : "#b45309", borderRadius: 8, padding: "0 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", minHeight: 34 }
   }, b.collected ? "✓ Done" : "💰 Done?"), /*#__PURE__*/React.createElement("button", {
-    style: { ...S.bankDelBtn, ...(b._v ? { visibility: "hidden" } : {}) },
-    onClick: () => i >= 0 && removeBank(i)
+    style: { ...S.bankDelBtn, ...(b._v || !canDelLoan(loan, currentUser) ? { visibility: "hidden" } : {}) },
+    onClick: () => i >= 0 && canDelLoan(loan, currentUser) && removeBank(i)
   }, /*#__PURE__*/React.createElement(Trash2, {
     size: 13
   }))))), loan.note && !/[\u4e00-\u9fff]/.test(loan.note) && /*#__PURE__*/React.createElement("div", {
@@ -7732,6 +7735,7 @@ function LoanBlock({
     }, "↩ 回复"), /*#__PURE__*/React.createElement("button", {
       style: S.fuDel,
       onClick: () => delFu(f.id),
+      hidden: !canDelLoan(loan, currentUser),
       title: "\u5220\u9664 / Delete"
     }, /*#__PURE__*/React.createElement(Trash2, {
       size: 15,
