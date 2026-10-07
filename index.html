@@ -3317,7 +3317,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v67"));
+    h("div", { className: "sb-ver" }, "v68"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -7811,31 +7811,62 @@ function Row({
   }, value));
 }
 /* 会自动变高的输入格：内容全部显示出来（Enter 保存，Shift+Enter 换行） */
-/* Mission 回复：在任务下面对话，会通知对方 */
+/* Mission 回复：像 chat 一样，会通知指派的人 / 被指派的人 */
 function MissionReplies({ m, currentUser, onSave }) {
   const h = React.createElement;
   const [open, setOpen] = React.useState(false);
   const [t, setT] = React.useState("");
+  const endRef = React.useRef(null);
   const reps = m.replies || [];
+  const last = reps[reps.length - 1];
+  const unread = last && !sameUser(last.by, currentUser);
+  React.useEffect(() => { if (open && endRef.current) endRef.current.scrollIntoView({ block: "end" }); }, [open, reps.length]);
   const send = () => {
     const text = t.trim(); if (!text) return;
-    onSave([...reps, { id: uid(), text, by: canonUser(currentUser || ""), at: today() }]);
+    onSave([...reps, { id: uid(), text, by: canonUser(currentUser || ""), at: today(), ts: Date.now() }]);
     const from = canonUser(m.assignedBy || m.by || ""), to = canonUser(m.owner || "");
-    const target = sameUser(currentUser, to) ? from : to;
-    const others = [target, from, to].filter((x, i, a) => x && !sameUser(x, currentUser) && a.indexOf(x) === i);
-    others.forEach(p => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "mreply", to: p, from: currentUser, task: "「" + (m.task || "") + "」→ " + text, at: Date.now() }); } catch (e) {} });
-    setT(""); setOpen(false);
+    [from, to].filter((x, i, a) => x && !sameUser(x, currentUser) && a.indexOf(x) === i)
+      .forEach(p => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "mreply", to: p, from: currentUser, task: "「" + (m.task || "") + "」\n" + text, at: Date.now() }); } catch (e) {} });
+    setT("");
   };
-  return h("div", { style: { marginTop: 4 } },
-    reps.map(r => h("div", { key: r.id, style: { margin: "4px 0 0 4px", padding: "5px 10px", background: sameUser(r.by, currentUser) ? "#eef2ff" : "#f0fdf4", borderLeft: "3px solid " + (sameUser(r.by, currentUser) ? "#6366f1" : "#16a34a"), borderRadius: 8, fontSize: 12.5, color: "#1e293b", whiteSpace: "pre-wrap", wordBreak: "break-word" } },
-      h("b", { style: { color: "hsl(" + czHue(r.by) + ",60%,38%)" } }, String(r.by || "").toUpperCase()), ": ", r.text,
-      h("span", { style: { color: "#94a3b8", fontSize: 11, marginLeft: 6 } }, String(r.at || "").split("-").reverse().join("/")))),
-    open ? h("div", { style: { display: "flex", gap: 6, marginTop: 6 } },
-      h("input", { autoFocus: true, value: t, onChange: e => setT(e.target.value), placeholder: "回复…（Enter 送出）", onKeyDown: e => { if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) send(); if (e.key === "Escape") setOpen(false); },
-        style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 8, border: "1px solid #c7d2fe", fontSize: 13, outline: "none", fontFamily: "inherit" } }),
-      h("button", { onClick: send, style: { border: "none", background: "#6366f1", color: "#fff", borderRadius: 8, padding: "0 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "送出"),
-      h("button", { onClick: () => setOpen(false), style: { border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", borderRadius: 8, padding: "0 10px", fontSize: 12, cursor: "pointer" } }, "取消"))
-    : h("button", { onClick: () => setOpen(true), style: { marginTop: 4, marginLeft: 4, border: "none", background: "none", color: "#6366f1", fontWeight: 800, fontSize: 12, cursor: "pointer", padding: 0 } }, "↩ 回复" + (reps.length ? "（" + reps.length + "）" : "")));
+  const tm = r => { const d = String(r.at || "").split("-").reverse().slice(0, 2).join("/"); const hm = r.ts ? new Date(r.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""; return (d + " " + hm).trim(); };
+  const chip = h("div", { onClick: () => setOpen(true), style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, cursor: "pointer" } },
+    h("span", { style: { position: "relative", display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 999, background: reps.length ? "#eef2ff" : "#f8fafc", border: "1px solid " + (reps.length ? "#c7d2fe" : "#e2e8f0"), color: "#4f46e5", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap" } },
+      "💬 " + (reps.length ? reps.length : "回复"),
+      unread && h("span", { style: { position: "absolute", top: -3, right: -3, width: 9, height: 9, borderRadius: "50%", background: "#ef4444", border: "2px solid #fff" } })),
+    last && h("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, minWidth: 0, fontSize: 12, color: "#64748b" } },
+      czAvatar(last.by, 18),
+      h("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 } }, last.text)));
+  if (!open) return chip;
+  return h(React.Fragment, null, chip,
+    h("div", { onClick: () => setOpen(false), style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.45)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: 420, maxWidth: "100%", height: 560, maxHeight: "88vh", background: "#fff", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 70px -20px rgba(0,0,0,.45)" } },
+        h("div", { style: { padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #eef0f4" } },
+          czAvatar(m.assignedBy || m.by || "", 34),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontWeight: 800, fontSize: 14, color: "#050505" } }, String(canonUser(m.assignedBy || m.by || "")).toUpperCase() + " → " + String(m.owner || "").toUpperCase()),
+            h("div", { style: { fontSize: 12, color: "#65676b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, m.task || "")),
+          h("button", { onClick: () => setOpen(false), style: { border: "none", background: "#f0f2f5", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 15 } }, "✕")),
+        h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 12px", background: "#fff", display: "flex", flexDirection: "column", gap: 4 } },
+          h("div", { style: { alignSelf: "center", maxWidth: "85%", background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: "8px 12px", fontSize: 13, marginBottom: 10, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, "📌 " + (m.task || "")),
+          reps.length === 0 && h("div", { style: { textAlign: "center", color: "#94a3b8", fontSize: 13, marginTop: 30 } }, "还没有回复，说点什么吧 👋"),
+          reps.map((r, i) => {
+            const mine = sameUser(r.by, currentUser);
+            const prev = reps[i - 1], next = reps[i + 1];
+            const first = !prev || !sameUser(prev.by, r.by), lastOf = !next || !sameUser(next.by, r.by);
+            return h("div", { key: r.id || i, style: { display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start", marginTop: first ? 8 : 0 } },
+              first && !mine && h("div", { style: { fontSize: 11.5, color: "#65676b", margin: "0 0 2px 40px", fontWeight: 700 } }, String(r.by || "").toUpperCase()),
+              h("div", { style: { display: "flex", alignItems: "flex-end", gap: 6, maxWidth: "80%", flexDirection: mine ? "row-reverse" : "row" } },
+                !mine && h("div", { style: { width: 30, flexShrink: 0 } }, lastOf ? czAvatar(r.by, 30) : null),
+                h("div", { title: tm(r), style: { background: mine ? "#0084ff" : "#f0f2f5", color: mine ? "#fff" : "#050505", padding: "8px 12px", fontSize: 14, lineHeight: 1.4, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                  borderRadius: 18, ...(mine ? { borderTopRightRadius: first ? 18 : 6, borderBottomRightRadius: lastOf ? 18 : 6 } : { borderTopLeftRadius: first ? 18 : 6, borderBottomLeftRadius: lastOf ? 18 : 6 }) } }, r.text)),
+              lastOf && h("div", { style: { fontSize: 10.5, color: "#94a3b8", margin: mine ? "2px 4px 0 0" : "2px 0 0 40px" } }, tm(r)));
+          }),
+          h("div", { ref: endRef })),
+        h("div", { style: { padding: 10, borderTop: "1px solid #eef0f4", display: "flex", gap: 8, alignItems: "center" } },
+          h("input", { autoFocus: true, value: t, onChange: e => setT(e.target.value), placeholder: "Aa", onKeyDown: e => { if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) send(); if (e.key === "Escape") setOpen(false); },
+            style: { flex: 1, minWidth: 0, padding: "10px 14px", borderRadius: 999, border: "none", background: "#f0f2f5", fontSize: 14, outline: "none", fontFamily: "inherit" } }),
+          h("button", { onClick: send, disabled: !t.trim(), style: { border: "none", background: "none", color: t.trim() ? "#0084ff" : "#bcc0c4", fontSize: 22, cursor: t.trim() ? "pointer" : "default", padding: "0 4px" } }, "➤")))));
 }
 function TaskTextarea({ value, onCommit, style, placeholder, disabled }) {
   const [draft, setDraft] = React.useState(value || "");
