@@ -3306,7 +3306,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v61"));
+    h("div", { className: "sb-ver" }, "v62"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5297,7 +5297,7 @@ const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, St
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
 /* Personal 表格固定显示的银行（顺序 + 显示名） */
 const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
-const PB_PROGRESS = [["collect", "Collect", "#0d9488"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
+const PB_PROGRESS = [["collect", "Collect", "#0d9488"], ["nopickup", "No Pick Up", "#ea580c"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
 const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
 const CAR_BANKS = [["PBB", "PBB"], ["HLB", "HLB"], ["AMBANK", "AMB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON"], ["GFS", "GFS"], ["X STAR", "X STAR"], ["CHAILEASE", "CHAILEASE"], ["GENIE", "GENIE"], ["CARSOME", "CARSOME"], ["MUAMALAT", "MUAMALAT"]];
 const isPLike = t => t === "personal" || t === "car"; // Car 跟 Personal 一样的格式
@@ -5493,7 +5493,7 @@ function TypePage({
     if (!ex) { bankMap[k] = b; return; }
     const amt = (Number(String(ex.amount || 0).replace(/,/g, "")) || 0) + (Number(String(b.amount || 0).replace(/,/g, "")) || 0);
     const offs = Array.from(new Set([ex.officer, b.officer].join("/").split("/").map(x => String(x || "").trim()).filter(Boolean)));
-    const _dr = { noaccept: 4, incomplete: 3, run: 2, collect: 1 }; // 同银行不同进度：Collect 最低，颜色跟其他那个
+    const _dr = { noaccept: 5, nopickup: 4, incomplete: 3, run: 2, collect: 1 }; // 同银行不同进度：Collect 最低，颜色跟其他那个
     bankMap[k] = { ...ex, dis: ((_dr[b.dis] || 0) > (_dr[ex.dis] || 0) ? b.dis : ex.dis) || "", amount: amt ? String(amt) : "", officer: offs.join("/"), status: (_rank[b.status] || 0) > (_rank[ex.status] || 0) ? b.status : ex.status };
   });
   return /*#__PURE__*/React.createElement("tr", {
@@ -7374,7 +7374,7 @@ function LoanBlock({
     style: { ...S.bankInput, fontWeight: 700, ...pbStyle(b.dis) },
     value: PB_PROGRESS.some(x => x[0] === b.dis) ? b.dis : "",
     onChange: e => setBankV(i, b, "dis", e.target.value)
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), PB_PROGRESS.map(([k, l]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, l))), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), PB_PROGRESS.filter(([k]) => k !== "nopickup" || loan.type === "car" || b.dis === "nopickup").map(([k, l]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, l))), loan.type === "personal" && /*#__PURE__*/React.createElement("input", {
     type: "date",
     title: "日期（加银行时自动填当天）",
     style: { ...S.bankInput, width: 140, flex: "0 0 140px" },
@@ -8321,6 +8321,7 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk small { font-size: 10px; font-weight: 700; opacity: .7; padding-left: 6px; border-left: 1px solid currentColor; }
 .tp-bk.ok { color: #047857; background: linear-gradient(135deg,#ecfdf5,#d1fae5); border: 1px solid #a7f3d0; }
 .tp-bk.pg-collect { color: #fff; background: linear-gradient(135deg,#14b8a6,#0d9488); border: 1px solid #0f766e; box-shadow: 0 3px 10px -3px rgba(13,148,136,.55); }
+.tp-bk.pg-nopickup { color: #fff; background: linear-gradient(135deg,#fb923c,#ea580c); border: 1px solid #c2410c; }
 .tp-bk.pg-run { color: #fff; background: linear-gradient(135deg,#ef4444,#dc2626); border: 1px solid #b91c1c; box-shadow: 0 3px 10px -3px rgba(220,38,38,.5); }
 .tp-bk.pg-incomplete { color: #fff; background: linear-gradient(135deg,#7dd3fc,#38bdf8); border: 1px solid #0ea5e9; }
 .tp-bk.pg-noaccept { color: #fff; background: linear-gradient(135deg,#334155,#0f172a); border: 1px solid #000; }
