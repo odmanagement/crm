@@ -3346,7 +3346,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v80"));
+    h("div", { className: "sb-ver" }, "v81"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4061,7 +4061,7 @@ function MissionPage({
   currentUser
 }) {
   const [q, setQ] = React.useState("");
-  const [filter, setFilter] = React.useState("all");
+  const [filter, setFilter] = React.useState("me");
   const [mine, setMine] = React.useState(false);
   const boss = isMissionBoss(currentUser);
   React.useEffect(() => {
@@ -4074,7 +4074,7 @@ function MissionPage({
   const [showOut, setShowOut] = React.useState(false);
   const outCount = missions.filter(m => sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser)).length;
   const [photoId, setPhotoId] = React.useState(null);
-  const add = () => onSave([{
+  const add = () => { setFilter(boss ? "staff" : "me"); onSave([{
     id: uid(),
     task: "",
     owner: boss ? "" : currentUser || "",
@@ -4082,7 +4082,7 @@ function MissionPage({
     status: "todo",
     date: today(),
     by: currentUser || ""
-  }, ...missions]);
+  }, ...missions]); };
   const upd = (id, k, v) => onSave(missions.map(m => m.id === id ? (k === "owner" ? {
     ...m,
     owner: v,
@@ -4116,9 +4116,13 @@ function MissionPage({
     label: "Done",
     color: "#16a34a"
   }];
+  // 4 个分页：Assigned to me / Me · Done / Assigned to staff / Staff · Done（Done 了自动跳去 Done 分页）
+  const isMe = m => sameUser(m.owner, currentUser);
+  const isStaff = m => !isMe(m) && (boss || sameUser(m.assignedBy || m.by, currentUser));
+  const VIEWS = [["me", "⭐ Assigned to me", m => isMe(m) && m.status !== "done", "#4f46e5"], ["meDone", "✓ Assigned to me · Done", m => isMe(m) && m.status === "done", "#16a34a"], ["staff", "📤 Assigned to staff", m => isStaff(m) && m.status !== "done", "#7c3aed"], ["staffDone", "✓ Assigned to staff · Done", m => isStaff(m) && m.status === "done", "#16a34a"]];
+  const view = VIEWS.find(v => v[0] === filter) || VIEWS[0];
   const list = visible.filter(m => {
-    if (mine && !sameUser(m.owner, currentUser)) return false;
-    if (filter !== "all" && m.status !== filter) return false;
+    if (!view[2](m)) return false;
     if (!q) return true;
     const s = q.toLowerCase();
     return [m.task, m.owner].filter(Boolean).join(" ").toLowerCase().includes(s);
@@ -4154,21 +4158,12 @@ function MissionPage({
     size: 16
   }), " Add Mission")), /*#__PURE__*/React.createElement("div", {
     style: S.filters
-  }, /*#__PURE__*/React.createElement(Chip, {
-    active: mine,
-    onClick: () => setMine(v => !v),
-    label: "⭐ Assigned to me " + mineCount,
-    color: "#4f46e5"
-  }), /*#__PURE__*/React.createElement(Chip, {
-    active: filter === "all",
-    onClick: () => setFilter("all"),
-    label: "All " + visible.length
-  }), STATUS.map(s => /*#__PURE__*/React.createElement(Chip, {
-    key: s.id,
-    active: filter === s.id,
-    onClick: () => setFilter(s.id),
-    label: s.label + " " + count(s.id),
-    color: s.color
+  }, VIEWS.map(v => /*#__PURE__*/React.createElement(Chip, {
+    key: v[0],
+    active: view[0] === v[0],
+    onClick: () => setFilter(v[0]),
+    label: v[1] + " " + visible.filter(v[2]).length,
+    color: v[3]
   })), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowOut(true),
     style: { marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", fontWeight: 700, fontSize: 13, boxShadow: "0 6px 16px rgba(79,70,229,.3)" }
