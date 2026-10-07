@@ -10108,5 +10108,26 @@ const S = {
   root.render(React.createElement(ErrorBoundary, null, React.createElement(App, null)));
 })(0);
 </script>
+<style id="row-hl-style">
+  /* 点击表格某一排 → 整排 highlight */
+  table tbody tr.row-hl > td {
+    background-image: linear-gradient(rgba(250,204,21,.28), rgba(250,204,21,.28)) !important;
+    border-top: 2px solid #f59e0b !important;
+    border-bottom: 2px solid #f59e0b !important;
+  }
+  table tbody tr.row-hl > td:first-child { box-shadow: inset 4px 0 0 #f59e0b; }
+</style>
+<script>
+  // 点击表格某一排 highlight；再点同一排取消；点另一排换过去
+  document.addEventListener("click", function (e) {
+    var tr = e.target.closest && e.target.closest("table tbody tr");
+    if (!tr || !tr.querySelector("td")) return;
+    var tbl = tr.closest("table");
+    var typing = e.target.closest("input, select, textarea, button, a, [contenteditable]");
+    if (tr.classList.contains("row-hl")) { if (!typing) tr.classList.remove("row-hl"); return; }
+    tbl.querySelectorAll("tbody tr.row-hl").forEach(function (r) { r.classList.remove("row-hl"); });
+    tr.classList.add("row-hl");
+  }, true);
+</script>
 </body>
 </html>
