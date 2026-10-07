@@ -2762,11 +2762,12 @@ function CRM({ onLogout, currentUser }) {
       let cc = false;
       const loans = (c.loans || []).map(l => {
         const v = vs.find(v => _vTypes(v).includes(l.type));
-        if (!v || !isPLike(l.type)) return l;
+        if (!v) return l;
+        if (!isPLike(l.type)) { if ((l.base || "") !== (v.base || "")) { cc = true; return { ...l, base: v.base || "" }; } return l; }
         let x = l;
         if (!l.remark && v.remark) { x = { ...x, remark: v.remark }; cc = true; }
         if (!l.createdBy && !l.admin && (v.staff || v.createdBy)) { x = { ...x, createdBy: canonUser(v.staff || v.createdBy) }; cc = true; }
-        if (!l.base && v.base) { x = { ...x, base: v.base }; cc = true; }
+        if ((l.base || "") !== (v.base || "")) { x = { ...x, base: v.base || "" }; cc = true; }
         return x;
       });
       if (cc) { changed = true; return { ...c, loans }; }
@@ -3346,7 +3347,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v81"));
+    h("div", { className: "sb-ver" }, "v82"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5675,7 +5676,7 @@ function TypePage({
   style: S.th
 }, "Link"), /*#__PURE__*/React.createElement("th", {
   style: S.th
-}, "Agent"), isP && /*#__PURE__*/React.createElement("th", {
+}, "Agent"), /*#__PURE__*/React.createElement("th", {
   style: S.th
 }, "Base"), /*#__PURE__*/React.createElement("th", {
   style: {
@@ -5764,14 +5765,9 @@ function TypePage({
     style: S.linkCell
   }, "Open", linkCountOf(l, c) > 1 ? " (" + linkCountOf(l, c) + ")" : "") : ""), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, tpPerson(l.agent)), isP && /*#__PURE__*/React.createElement("td", {
-    style: S.td,
-    onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("select", {
-    value: l.base || "",
-    onChange: e => onSetBase && onSetBase(c.id, l.id, e.target.value),
-    style: { padding: "4px 6px", borderRadius: 8, border: "1px solid " + (l.base ? "#c4b5fd" : "#e2e8f0"), background: l.base ? "#f5f3ff" : "#fff", color: l.base ? "#6d28d9" : "#94a3b8", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), LOAN_BASES.map(b => /*#__PURE__*/React.createElement("option", { key: b, value: b }, b)))), /*#__PURE__*/React.createElement("td", {
+  }, tpPerson(l.agent)), /*#__PURE__*/React.createElement("td", {
+    style: S.td
+  }, l.base ? /*#__PURE__*/React.createElement("span", { title: "跟着 Verify", style: { display: "inline-block", padding: "3px 10px", borderRadius: 999, border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap" } }, l.base) : /*#__PURE__*/React.createElement("span", { style: { color: "#cbd5e1" } }, "—")), /*#__PURE__*/React.createElement("td", {
     style: c.flag ? {
       ...S.td,
       ...S.tdName,
@@ -6088,7 +6084,7 @@ function VerifyPage({
   onFinalize,
   onSyncRemark
 }) {
-  const [tab, setTab] = useState("progress"); // progress | completed
+  const [tab, setTab] = useState("completed"); // progress | completed
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState(null);
   const [adding, setAdding] = useState(false);
