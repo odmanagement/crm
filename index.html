@@ -3317,7 +3317,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v72"));
+    h("div", { className: "sb-ver" }, "v73"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3380,7 +3380,7 @@ function ReferralPage({ currentUser }) {
       h("div", { style: { fontSize: 46 } }, "🧧"),
       h("div", { style: { flex: 1, minWidth: 220 } },
         h("div", { style: { fontSize: 22, fontWeight: 900, letterSpacing: .5 } }, "REFERRAL 红包"),
-        null),
+        h("div", { style: { fontSize: 13.5, opacity: .95, marginTop: 4, lineHeight: 1.6 } }, "介绍 Agent 进来 → 老板批准 → 自己拆红包，随机 RM " + (cfg.min === "" ? 0 : cfg.min) + " – RM " + (cfg.max === "" ? (cfg.min || 0) : cfg.max) + "！")),
       boss && h("div", { style: { display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,.18)", padding: "8px 12px", borderRadius: 12, fontSize: 13, fontWeight: 700 } }, "红包范围 RM",
         h("input", { type: "number", value: cfg.min, onChange: e => saveCfg([{ ...cfg, min: e.target.value }]), style: { width: 60, padding: "4px 6px", borderRadius: 8, border: "none", fontWeight: 800 } }), "–",
         h("input", { type: "number", value: cfg.max, onChange: e => saveCfg([{ ...cfg, max: e.target.value }]), style: { width: 60, padding: "4px 6px", borderRadius: 8, border: "none", fontWeight: 800 } }))),
