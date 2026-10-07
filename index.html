@@ -2715,7 +2715,7 @@ function CRM({ onLogout, currentUser }) {
   const verifyToLoan = (v, type, noJump) => {
     let c = clients.find(x => x.id === v.clientId) || clients.find(x => v.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(v.icNumber).replace(/\D/g, ""));
     const agent = v.agent ? String(v.agent).toUpperCase() : "";
-    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (v.remark || "") : "", createdBy: canonUser(v.staff || v.createdBy || "") });
+    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (v.remark || "") : "", createdBy: canonUser(v.staff || v.createdBy || ""), base: v.base || "" });
     let list = clients;
     if (!c) {
       c = { id: uid(), name: v.customerName || "", phone: v.phone || "", ic: v.icNumber || "", job: v.position || "", income: "", note: "", links: (v.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: [newLoan()] };
@@ -2740,7 +2740,14 @@ function CRM({ onLogout, currentUser }) {
     if (!c) return;
     const ts = _vTypes(v);
     let changed = false;
-    const loans = (c.loans || []).map(l => { if (isPLike(l.type) && ts.includes(l.type) && (l.remark || "") !== (v.remark || "")) { changed = true; return { ...l, remark: v.remark || "" }; } return l; });
+    const loans = (c.loans || []).map(l => {
+      if (!ts.includes(l.type)) return l;
+      let x = l;
+      if (isPLike(l.type) && (l.remark || "") !== (v.remark || "")) x = { ...x, remark: v.remark || "" };
+      if ((l.base || "") !== (v.base || "")) x = { ...x, base: v.base || "" };
+      if (x !== l) changed = true;
+      return x;
+    });
     if (changed) persist(clients.map(x => x.id === c.id ? { ...c, loans } : x));
   };
   // 旧资料：已经建好的 Car / Personal Loan 如果还没有 Remark，自动从 Verify 带过来（只补空的）
@@ -2759,6 +2766,7 @@ function CRM({ onLogout, currentUser }) {
         let x = l;
         if (!l.remark && v.remark) { x = { ...x, remark: v.remark }; cc = true; }
         if (!l.createdBy && !l.admin && (v.staff || v.createdBy)) { x = { ...x, createdBy: canonUser(v.staff || v.createdBy) }; cc = true; }
+        if (!l.base && v.base) { x = { ...x, base: v.base }; cc = true; }
         return x;
       });
       if (cc) { changed = true; return { ...c, loans }; }
@@ -2773,7 +2781,7 @@ function CRM({ onLogout, currentUser }) {
     if (nv.status === "verified" && types.length) {
       let c = clients.find(x => x.id === nv.clientId) || clients.find(x => nv.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(nv.icNumber).replace(/\D/g, ""));
       const agent = nv.agent ? String(nv.agent).toUpperCase() : "";
-      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (nv.remark || "") : "", createdBy: canonUser(nv.staff || nv.createdBy || "") });
+      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (nv.remark || "") : "", createdBy: canonUser(nv.staff || nv.createdBy || ""), base: nv.base || "" });
       if (!c) {
         c = { id: uid(), name: nv.customerName || "", phone: nv.phone || "", ic: nv.icNumber || "", job: nv.position || "", income: "", note: "", links: (nv.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: types.map(mk) };
         list = [...clients, c];
@@ -3337,7 +3345,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v76"));
+    h("div", { className: "sb-ver" }, "v77"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6095,7 +6103,7 @@ function VerifyPage({
     const old = verifications.find(x => x.id === v.id);
     if (old && !canEditV(old)) return;
     onSave(old ? verifications.map(x => x.id === v.id ? v : x) : [v, ...verifications]);
-    if (old && (old.remark || "") !== (v.remark || "") && v.clientId && onSyncRemark) onSyncRemark(v);
+    if (old && ((old.remark || "") !== (v.remark || "") || (old.base || "") !== (v.base || "")) && v.clientId && onSyncRemark) onSyncRemark(v);
   };
   const remove = id => {
     const v = verifications.find(x => x.id === id);
@@ -6183,7 +6191,7 @@ function VerifyPage({
     className: "vf-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     className: "vf-head"
-  }, ["#", "Link", "Agent", "Customer", "IC Number", "Company", "Loan Type", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-lk", "vf-ag", "vf-c3", "vf-c4", "vf-c5", "vf-lt", "vf-c6", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, ["#", "Link", "Agent", "Base", "Customer", "IC Number", "Company", "Loan Type", "Staff", ""].map((t, k) => /*#__PURE__*/React.createElement("span", { key: k, className: ["vf-c0", "vf-lk", "vf-ag", "vf-bs", "vf-c3", "vf-c4", "vf-c5", "vf-lt", "vf-c6", "vf-c7"][k] }, t))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: { ...S.empty, padding: 40 }
   }, "No records"), shown.map((v, i) => {
     const st = V_STATUS[v.status];
@@ -6195,6 +6203,12 @@ function VerifyPage({
     }, /*#__PURE__*/React.createElement("span", { className: "vf-c0" }, i + 1),
       /*#__PURE__*/React.createElement("span", { className: "vf-lk", onClick: e => e.stopPropagation() }, (v.links || []).filter(x => x && x.url).length ? /*#__PURE__*/React.createElement("a", { href: _fixUrl(v.links.find(x => x && x.url).url), target: "_blank", rel: "noopener", style: S.linkCell }, "OPEN") : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-ag" }, v.agent ? tpPerson(String(v.agent).toUpperCase()) : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-bs", onClick: e => e.stopPropagation() }, /*#__PURE__*/React.createElement("select", {
+        value: v.base || "",
+        disabled: !canEditV(v),
+        onChange: e => save({ ...v, base: e.target.value }),
+        style: { padding: "4px 6px", borderRadius: 8, border: "1px solid " + (v.base ? "#c4b5fd" : "#e2e8f0"), background: v.base ? "#f5f3ff" : "#fff", color: v.base ? "#6d28d9" : "#94a3b8", fontWeight: 800, fontSize: 12, cursor: canEditV(v) ? "pointer" : "default", fontFamily: "inherit", opacity: 1 }
+      }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), LOAN_BASES.map(b => /*#__PURE__*/React.createElement("option", { key: b, value: b }, b)))),
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
       /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
@@ -6217,6 +6231,7 @@ function VerifyPage({
   .vf-c0{width:28px;color:#94a3b8;font-size:12.5px}
   .vf-c1{width:92px;color:#64748b;font-size:12.5px}
   .vf-c2{width:96px}
+  .vf-bs{width:110px;flex-shrink:0}
   .vf-c3{flex:2;min-width:160px;display:flex;align-items:center;gap:10px}
   .vf-c3 b{font-weight:700;color:#1e1b4b}
   .vf-ini{width:30px;height:30px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:900;color:#4f46e5;background:#eef2ff}
