@@ -3317,7 +3317,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v70"));
+    h("div", { className: "sb-ver" }, "v72"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3380,7 +3380,7 @@ function ReferralPage({ currentUser }) {
       h("div", { style: { fontSize: 46 } }, "🧧"),
       h("div", { style: { flex: 1, minWidth: 220 } },
         h("div", { style: { fontSize: 22, fontWeight: 900, letterSpacing: .5 } }, "REFERRAL 红包"),
-        h("div", { style: { fontSize: 13.5, opacity: .95, marginTop: 4, lineHeight: 1.6 } }, "介绍 Agent 进来 → 老板批准 → 自己拆红包，随机 RM " + cfg.min + " – RM " + cfg.max + "！")),
+        null),
       boss && h("div", { style: { display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,.18)", padding: "8px 12px", borderRadius: 12, fontSize: 13, fontWeight: 700 } }, "红包范围 RM",
         h("input", { type: "number", value: cfg.min, onChange: e => saveCfg([{ ...cfg, min: e.target.value }]), style: { width: 60, padding: "4px 6px", borderRadius: 8, border: "none", fontWeight: 800 } }), "–",
         h("input", { type: "number", value: cfg.max, onChange: e => saveCfg([{ ...cfg, max: e.target.value }]), style: { width: 60, padding: "4px 6px", borderRadius: 8, border: "none", fontWeight: 800 } }))),
@@ -3589,7 +3589,7 @@ function PhonePage({ currentUser }) {
           const outNow = x.out && !x.back;
           return h("tr", { key: x.id, style: outNow ? { background: "#fffbeb" } : null },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
-            h("td", { style: { ...S.td, minWidth: 150 } }, h(DebouncedInput, { style: { ...inp, letterSpacing: .3 }, type: "tel", placeholder: "e.g. 012-345 6789", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
+            h("td", { style: { ...S.td, minWidth: 150 } }, h(DebouncedInput, { style: { ...inp, letterSpacing: .3 }, type: "tel", placeholder: "HP", value: x.number, onCommit: v => upd(x.id, "number", v.trim()) })),
             h("td", { style: { ...S.td, minWidth: 180 } }, h(DebouncedInput, { style: { ...inp, fontWeight: 600 }, placeholder: "Remark", value: x.remark || "", onCommit: v => upd(x.id, "remark", v.trim()) })),
             h("td", { style: { ...S.td, minWidth: 130 } }, (() => { const hn = x.handle || x.by || ""; return hn ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 13.5 } }, czAvatar(hn, 24), String(hn).toUpperCase()) : h("span", { style: { color: "#cbd5e1" } }, "—"); })()),
             h("td", { style: { ...S.td, minWidth: 150 } }, who(x, "who")),
