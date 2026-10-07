@@ -5440,7 +5440,6 @@ function ClientsPage({
   return /*#__PURE__*/React.createElement("tr", {
     key: l.id,
     style: c.flag ? { ...S.tr, background: "#fde68a" } : S.tr,
-    "data-rid": l.id,
     onClick: () => onOpen(c.id)
   }, /*#__PURE__*/React.createElement("td", {
     style: {
@@ -5744,8 +5743,9 @@ function TypePage({
       ...S.tr,
       background: "#fde68a"
     } : S.tr,
-    "data-rid": l.id,
-    onClick: () => onOpen(c.id)
+    "data-rid": type === "house" ? l.id : undefined,
+    onClick: type === "house" ? undefined : () => onOpen(c.id),
+    onDoubleClick: type === "house" ? () => { try { window.getSelection().removeAllRanges(); } catch (e) {} onOpen(c.id); } : undefined
   }, /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
@@ -10111,20 +10111,21 @@ const S = {
 })(0);
 </script>
 <style id="row-hl-style">
-  /* 点击表格某一排 → 整排 highlight（盖过 hover 颜色） */
+  /* House Loan：点一下整排浅蓝色 highlight（盖过 hover 颜色）；点两下打开客户 */
   table tbody tr.row-hl.row-hl.row-hl > td {
-    background-image: linear-gradient(rgba(250,204,21,.32), rgba(250,204,21,.32)) !important;
-    border-top: 2px solid #f59e0b !important;
-    border-bottom: 2px solid #f59e0b !important;
+    background-image: linear-gradient(rgba(56,189,248,.22), rgba(56,189,248,.22)) !important;
+    border-top: 2px solid #38bdf8 !important;
+    border-bottom: 2px solid #38bdf8 !important;
   }
-  table tbody tr.row-hl.row-hl.row-hl > td:first-child { box-shadow: inset 4px 0 0 #f59e0b !important; }
+  table tbody tr.row-hl.row-hl.row-hl > td:first-child { box-shadow: inset 4px 0 0 #0ea5e9 !important; }
+  table tbody tr[data-rid] { cursor: pointer; }
 </style>
 <script>
-  // 点击某一排 → highlight；再点同一排取消；换页、开客户再回来也会记住
+  // 只针对有 data-rid 的排（House Loan）：点一下 highlight，点另一排换过去；开客户再回来也会记住
   (function () {
     var hlId = null;
     function apply() {
-      document.querySelectorAll("tr.row-hl[data-rid]").forEach(function (r) {
+      document.querySelectorAll("tr.row-hl").forEach(function (r) {
         if (r.getAttribute("data-rid") !== hlId) r.classList.remove("row-hl");
       });
       if (hlId) document.querySelectorAll('tr[data-rid="' + CSS.escape(hlId) + '"]').forEach(function (r) {
@@ -10132,19 +10133,10 @@ const S = {
       });
     }
     document.addEventListener("click", function (e) {
-      var tr = e.target.closest && e.target.closest("table tbody tr");
-      if (!tr || !tr.querySelector("td")) return;
-      var typing = e.target.closest("input, select, textarea, button, a, [contenteditable]");
-      var rid = tr.getAttribute("data-rid");
-      if (rid) {
-        if (hlId === rid) { if (!typing) hlId = null; } else hlId = rid;
-        apply();
-        return;
-      }
-      var tbl = tr.closest("table");
-      if (tr.classList.contains("row-hl")) { if (!typing) tr.classList.remove("row-hl"); return; }
-      tbl.querySelectorAll("tbody tr.row-hl").forEach(function (r) { r.classList.remove("row-hl"); });
-      tr.classList.add("row-hl");
+      var tr = e.target.closest && e.target.closest("table tbody tr[data-rid]");
+      if (!tr) return;
+      hlId = tr.getAttribute("data-rid");
+      apply();
     }, true);
     var pending = false;
     new MutationObserver(function () {
