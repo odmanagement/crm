@@ -3306,7 +3306,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v60"));
+    h("div", { className: "sb-ver" }, "v61"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3978,7 +3978,7 @@ function MissionPage({
         minWidth: 220,
         boxShadow: "inset 3px 0 0 " + st.color
       }
-    }, /*#__PURE__*/React.createElement(DebouncedInput, {
+    }, /*#__PURE__*/React.createElement(AutoTextarea, {
       style: {
         ...S.bankerInput,
         textDecoration: m.status === "done" ? "line-through" : "none",
@@ -7691,6 +7691,26 @@ function Row({
   }, label), /*#__PURE__*/React.createElement("span", {
     style: S.detailValue
   }, value));
+}
+/* 会自动变高的输入格：内容全部显示出来（Enter 保存，Shift+Enter 换行） */
+function AutoTextarea({ value, onCommit, style, placeholder, disabled }) {
+  const [draft, setDraft] = React.useState(value || "");
+  const ref = React.useRef(null);
+  React.useEffect(() => { setDraft(value || ""); }, [value]);
+  const fit = () => { const el = ref.current; if (!el) return; el.style.height = "auto"; el.style.height = el.scrollHeight + 2 + "px"; };
+  React.useLayoutEffect(fit, [draft]);
+  React.useEffect(() => { window.addEventListener("resize", fit); return () => window.removeEventListener("resize", fit); }, []);
+  return React.createElement("textarea", {
+    ref,
+    rows: 1,
+    disabled,
+    style: { ...style, width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.45, fontFamily: "inherit", display: "block" },
+    placeholder: placeholder || "",
+    value: draft,
+    onChange: e => setDraft(e.target.value),
+    onBlur: () => { if ((draft || "") !== (value || "")) onCommit(draft); },
+    onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) { e.preventDefault(); e.target.blur(); } }
+  });
 }
 function DebouncedInput({
   value,
