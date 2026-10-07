@@ -3307,7 +3307,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v63"));
+    h("div", { className: "sb-ver" }, "v66"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3987,7 +3987,8 @@ function MissionPage({
       },
       value: m.task,
       placeholder: "Task…",
-      onCommit: v => upd(m.id, "task", v)
+      disabled: !canEditAssign(m),
+      onCommit: v => { if (canEditAssign(m)) upd(m.id, "task", v); }
     }), /*#__PURE__*/React.createElement(MissionReplies, { m: m, currentUser: currentUser, onSave: reps => upd(m.id, "replies", reps) })), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, (m.assignedBy || m.by) ? /*#__PURE__*/React.createElement("span", { title: "指派人", style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 800, color: "hsl(" + czHue(m.assignedBy || m.by) + ",60%,40%)", whiteSpace: "nowrap" } }, czAvatar(m.assignedBy || m.by, 22), String(canonUser(m.assignedBy || m.by)).toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: "#a5b4fc", fontSize: 14 } }, "→")) : null, m.owner ? czAvatar(m.owner, 26) : null, /*#__PURE__*/React.createElement("select", {
@@ -3998,7 +3999,6 @@ function MissionPage({
       },
       value: m.owner,
       disabled: !canEditAssign(m),
-      title: canEditAssign(m) ? "" : "🔒 只有指派的人可以改",
       onChange: e => upd(m.id, "owner", e.target.value)
     }, /*#__PURE__*/React.createElement("option", {
       value: ""
@@ -7731,7 +7731,7 @@ function TaskTextarea({ value, onCommit, style, placeholder, disabled }) {
     ref,
     rows: 1,
     disabled,
-    style: { ...style, width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.45, fontFamily: "inherit", display: "block" },
+    style: { ...style, width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.45, fontFamily: "inherit", display: "block", ...(disabled ? { background: "transparent", borderColor: "transparent", cursor: "default", opacity: 1, WebkitTextFillColor: style && style.color } : {}) },
     placeholder: placeholder || "",
     value: draft,
     onChange: e => setDraft(e.target.value),
