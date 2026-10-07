@@ -3032,10 +3032,9 @@ function CRM({ onLogout, currentUser }) {
     onView: () => { setOpenId(null); setPage("mission"); },
     onDone: async id => {
       const dm = missions.find(m => m.id === id) || {};
-      if (!window.confirm("确定完成「" + (dm.task || "这个任务") + "」吗？\n按确定后任务会被删除，不能复原。")) return;
-      persistMissions(missions.filter(m => m.id !== id));
+      if (!window.confirm("确定完成「" + (dm.task || "这个任务") + "」吗？\n按确定后任务会移去 Done 分页。")) return;
+      persistMissions(missions.map(m => m.id === id ? { ...m, status: "done", doneAt: Date.now(), doneBy: currentUser || "" } : m));
       noticeForDone(dm);
-      for (const pid of dm.photos || []) { try { await DB.del("mphoto_" + pid); } catch (e) {} }
     }
   })), editing && /*#__PURE__*/React.createElement(EditForm, {
     initial: editing === "new" ? null : editing,
@@ -4016,7 +4015,7 @@ function AssignedByMePanel({ missions, currentUser, onClose }) {
   const [done, setDone] = React.useState(null);
   React.useEffect(() => { DB.get("mission_done").then(v => setDone(v ? JSON.parse(v) : [])).catch(() => setDone([])); }, []);
   const mineOut = m => sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser);
-  const active = (missions || []).filter(mineOut).sort((a, b) => (b.assignedAt || 0) - (a.assignedAt || 0));
+  const active = (missions || []).filter(m => mineOut(m) && m.status !== "done").sort((a, b) => (b.assignedAt || 0) - (a.assignedAt || 0));
   const finished = (done || []).filter(mineOut).sort((a, b) => b.doneAt - a.doneAt);
   const STATUS = [{ id: "todo", label: "To Do", color: "#64748b" }, { id: "doing", label: "Doing", color: "#f59e0b" }, { id: "done", label: "Done", color: "#16a34a" }];
   const st = id => STATUS.find(x => x.id === id) || STATUS[0];
@@ -4066,7 +4065,7 @@ function MissionPage({
   const [delId, setDelId] = React.useState(null);
   const [doneId, setDoneId] = React.useState(null);
   const [showOut, setShowOut] = React.useState(false);
-  const outCount = missions.filter(m => sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser)).length;
+  const outCount = missions.filter(m => m.status !== "done" && sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser)).length;
   const [photoId, setPhotoId] = React.useState(null);
   const add = () => { setFilter(boss ? "staff" : "me"); onSave([{
     id: uid(),
@@ -4095,7 +4094,7 @@ function MissionPage({
   const canEditAssign = m => boss || sameUser(m.assignedBy || m.by, currentUser) || (!m.assignedBy && !m.by);
   const canView = m => boss || sameUser(m.owner, currentUser) || sameUser(m.assignedBy, currentUser) || sameUser(m.by, currentUser);
   const visible = missions.filter(canView);
-  const others = missions.filter(m => !canView(m));
+  const others = missions.filter(m => !canView(m) && m.status !== "done");
   const othersBy = others.reduce((acc, m) => { const k = m.owner || "—"; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
   const STATUS = [{
     id: "todo",
@@ -4293,10 +4292,10 @@ function MissionPage({
           /*#__PURE__*/React.createElement("div", { style: { width: 56, height: 56, margin: "0 auto 12px", borderRadius: "50%", background: "linear-gradient(135deg,#34d399,#059669)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(16,185,129,.4)" } }, /*#__PURE__*/React.createElement(Check, { size: 28, color: "#fff" })),
           /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: "#1e1b4b" } }, "确定完成吗？"),
           /*#__PURE__*/React.createElement("div", { style: { fontSize: 13.5, color: "#475569", margin: "8px 0 4px", lineHeight: 1.5 } }, "「" + (dm.task || "这个任务") + "」"),
-          /*#__PURE__*/React.createElement("div", { style: { fontSize: 12.5, color: "#94a3b8" } }, "按确定后，这个任务" + (n ? "和 " + n + " 张照片" : "") + "会被删除，不能复原。")),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 12.5, color: "#94a3b8" } }, "按确定后，这个任务会移去 Done 分页" + (n ? "（" + n + " 张照片保留）" : "") + "。")),
         /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, padding: 20 } },
           /*#__PURE__*/React.createElement("button", { onClick: () => setDoneId(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600 } }, "取消"),
-          /*#__PURE__*/React.createElement("button", { onClick: async () => { const id = doneId; const dm = missions.find(x => x.id === id); setDoneId(null); await del(id); onDoneNotify && onDoneNotify(dm); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
+          /*#__PURE__*/React.createElement("button", { onClick: () => { const id = doneId; const dm = missions.find(x => x.id === id); setDoneId(null); if (!dm) return; onSave(missions.map(x => x.id === id ? { ...x, status: "done", doneAt: Date.now(), doneBy: currentUser || "" } : x)); setFilter(isMe(dm) ? "meDone" : "staffDone"); onDoneNotify && onDoneNotify(dm); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
   })(), showOut && /*#__PURE__*/React.createElement(AssignedByMePanel, {
     missions: missions,
     currentUser: currentUser,
