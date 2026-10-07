@@ -10128,8 +10128,8 @@ const S = {
       document.querySelectorAll("tr.row-hl").forEach(function (r) {
         if (r.getAttribute("data-rid") !== hlId) r.classList.remove("row-hl");
       });
-      if (hlId) document.querySelectorAll('tr[data-rid="' + CSS.escape(hlId) + '"]').forEach(function (r) {
-        r.classList.add("row-hl");
+      if (hlId) document.querySelectorAll("tr[data-rid]").forEach(function (r) {
+        if (r.getAttribute("data-rid") === hlId) r.classList.add("row-hl");
       });
     }
     document.addEventListener("click", function (e) {
