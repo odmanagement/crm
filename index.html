@@ -3347,7 +3347,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v84"));
+    h("div", { className: "sb-ver" }, "v85"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3377,7 +3377,7 @@ function printReceipt(r) {
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const amt = Number(String(r.amount || 0).replace(/,/g, "")) || 0;
   const d = String(r.date || "").split("-").reverse().join("/");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${esc(r.no)}</title><style>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${esc(r.from)}</title><style>
   @page{size:A5 landscape;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0}
   .wrap{border:2px solid #111;padding:18px 22px;position:relative}.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px}
   .co{font-size:22px;font-weight:900;letter-spacing:1px}.ttl{font-size:20px;font-weight:900;letter-spacing:4px;text-align:right}.no{font-size:13px;text-align:right;margin-top:4px}
@@ -3385,7 +3385,7 @@ function printReceipt(r) {
   .amt{display:inline-block;border:2px solid #111;padding:8px 16px;font-size:20px;font-weight:900;margin-top:14px}
   .sig{display:flex;justify-content:space-between;margin-top:40px;font-size:13px}.sig div{width:42%;border-top:1px solid #111;padding-top:6px;text-align:center}
   </style></head><body><div class="wrap">
-  <div class="top"><div><div class="co">OD MANAGEMENT</div></div><div><div class="ttl">OFFICIAL RECEIPT</div><div class="no">No: <b>${esc(r.no)}</b> &nbsp; Date: <b>${esc(d)}</b></div></div></div>
+  <div class="top"><div><div class="co">OD MANAGEMENT</div></div><div><div class="ttl">OFFICIAL RECEIPT</div><div class="no">Date: <b>${esc(d)}</b></div></div></div>
   <div class="row"><span class="lb">Received from</span><span class="v">${esc(String(r.from || "").toUpperCase())}${r.ic ? " &nbsp;(" + esc(r.ic) + ")" : ""}</span></div>
   <div class="row"><span class="lb">The sum of</span><span class="v">${esc(rmWords(amt))}</span></div>
   ${r.for ? `<div class="row"><span class="lb">Being payment for</span><span class="v">${esc(r.for)}</span></div>` : ""}
@@ -3417,7 +3417,7 @@ function ReceiptPage({ currentUser }) {
     setF(blank());
     if (andPrint) printReceipt(r);
   };
-  const del = r => { if (window.confirm("删除收据 " + r.no + "？")) save(items.filter(x => x.id !== r.id)); };
+  const del = r => { if (window.confirm("删除「" + (r.from || "") + "」的收据？")) save(items.filter(x => x.id !== r.id)); };
   const shown = items.filter(x => !q || [x.no, x.from, x.ic, x.for, x.by].join(" ").toLowerCase().includes(q.toLowerCase()));
   const card = { background: "rgba(255,255,255,.94)", borderRadius: 16, padding: "16px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 14 };
   const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#fff" };
@@ -3425,7 +3425,7 @@ function ReceiptPage({ currentUser }) {
   const amtN = Number(String(f.amount).replace(/,/g, "")) || 0;
   return h("div", { className: "cz-page" },
     h("div", { style: card },
-      h("div", { style: { fontSize: 14, fontWeight: 900, color: "#0f172a", marginBottom: 12 } }, "🧾 开收据 · No. " + nextNo()),
+      h("div", { style: { fontSize: 14, fontWeight: 900, color: "#0f172a", marginBottom: 12 } }, "🧾 开收据"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 12 } },
         fld("DATE", h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
         fld("NAME", h("input", { style: inp, value: f.from, onChange: e => setF({ ...f, from: e.target.value }) })),
@@ -3434,14 +3434,13 @@ function ReceiptPage({ currentUser }) {
       h("div", { style: { display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" } },
         h("button", { onClick: () => create(false), style: { border: "1px solid #c7d2fe", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "保存"),
         h("button", { onClick: () => create(true), style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "保存 + 🖨 Print"))),
-    h("div", { style: { ...S.searchWrap } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search receipt no / name / IC", value: q, onChange: e => setQ(e.target.value) })),
+    h("div", { style: { ...S.searchWrap } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["No.", "Date", "Name", "Amount", "By", ""].map((x, i) => h("th", { key: i, style: i === 3 ? { ...S.th, ...S.thNum } : S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 6, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有收据")) :
+      h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", ""].map((x, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有收据")) :
         shown.map(r => h("tr", { key: r.id },
-          h("td", { style: { ...S.td, fontWeight: 800, color: "#4f46e5", whiteSpace: "nowrap" } }, r.no),
-          h("td", { style: S.td }, tpDate(String(r.date || "").split("-").reverse().join("/"))),
+          h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
           h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), r.ic && h("div", { style: { fontSize: 11.5, color: "#94a3b8" } }, r.ic)),
           h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, money(r.amount)),
           h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
