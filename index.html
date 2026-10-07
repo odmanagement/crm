@@ -3317,7 +3317,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v69"));
+    h("div", { className: "sb-ver" }, "v70"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3392,15 +3392,24 @@ function ReferralPage({ currentUser }) {
         h("input", { style: { ...inp, flex: "2 1 220px" }, placeholder: "备注（可以不填）", value: f.note, onChange: e => setF({ ...f, note: e.target.value }), onKeyDown: e => e.key === "Enter" && submit() }),
         h("button", { onClick: submit, style: { border: "none", borderRadius: 10, padding: "0 20px", background: "linear-gradient(135deg,#dc2626,#f59e0b)", color: "#fff", fontWeight: 900, cursor: "pointer", minHeight: 40 } }, "提交 🧧"))),
     h("div", { style: card },
-      h("div", { style: { fontSize: 13, fontWeight: 800, color: "#b91c1c", marginBottom: 10 } }, "🏆 排行榜"),
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 10 } }, stats.map((x, i) => h("div", { key: x.p, style: { position: "relative", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 14, background: x.p === top ? "linear-gradient(135deg,#fef3c7,#fde68a)" : "#fff7f7", border: "1px solid " + (x.p === top ? "#f59e0b" : "#fee2e2") } },
-        x.p === top && h("div", { style: { position: "absolute", top: -14, left: 8 } }, h(CrownSvg, { size: 26 })),
-        h("div", { style: { fontWeight: 900, color: "#94a3b8", width: 16 } }, i + 1),
-        czAvatar(x.p, 32),
-        h("div", { style: { flex: 1, minWidth: 0 } },
-          h("div", { style: { fontWeight: 900, fontSize: 13.5, color: "hsl(" + czHue(x.p) + ",60%,35%)" } }, String(x.p).toUpperCase()),
-          h("div", { style: { fontSize: 11.5, color: "#64748b", fontWeight: 600 } }, "介绍 " + x.total + " · 批准 " + x.ok + (x.unopened ? " · 🧧未拆 " + x.unopened : ""))),
-        h("div", { style: { fontWeight: 900, color: "#b91c1c", fontSize: 15 } }, "RM " + x.money))))),
+      h("div", { style: { fontSize: 13, fontWeight: 800, color: "#b91c1c", marginBottom: 14 } }, "🏆 排行榜"),
+      (() => {
+        // 金字塔：第 1 层 1 人，第 2 层 2 人，第 3 层 3 人…
+        const rows = []; let k = 0, n = 1;
+        while (k < stats.length) { rows.push(stats.slice(k, k + n).map((x, j) => ({ ...x, rank: k + j + 1 }))); k += n; n++; }
+        const tier = r => r === 1 ? ["linear-gradient(135deg,#fde68a,#f59e0b)", "#b45309", "#f59e0b"] : r <= 3 ? ["linear-gradient(135deg,#f1f5f9,#cbd5e1)", "#475569", "#94a3b8"] : r <= 6 ? ["linear-gradient(135deg,#fed7aa,#fb923c)", "#9a3412", "#f97316"] : ["linear-gradient(135deg,#fff1f2,#fecdd3)", "#9f1239", "#fda4af"];
+        return h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 10 } }, rows.map((row, ri) => h("div", { key: ri, style: { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" } }, row.map(x => {
+          const t = tier(x.rank);
+          const big = x.rank === 1;
+          return h("div", { key: x.p, style: { position: "relative", width: big ? 210 : 170, padding: big ? "18px 14px 14px" : "12px 12px 10px", borderRadius: 16, background: t[0], border: "2px solid " + t[2], boxShadow: big ? "0 12px 28px -10px rgba(245,158,11,.7)" : "0 6px 16px -10px rgba(0,0,0,.35)", textAlign: "center" } },
+            big && h("div", { style: { position: "absolute", top: -22, left: "50%", transform: "translateX(-50%)" } }, h(CrownSvg, { size: 40 })),
+            h("div", { style: { position: "absolute", top: 6, left: 10, fontWeight: 900, fontSize: 13, color: t[1] } }, x.rank === 1 ? "🥇" : x.rank === 2 ? "🥈" : x.rank === 3 ? "🥉" : "#" + x.rank),
+            h("div", { style: { display: "flex", justifyContent: "center", marginBottom: 6 } }, czAvatar(x.p, big ? 46 : 34)),
+            h("div", { style: { fontWeight: 900, fontSize: big ? 15 : 13, color: t[1] } }, String(x.p).toUpperCase()),
+            h("div", { style: { fontWeight: 900, fontSize: big ? 22 : 16, color: "#b91c1c", margin: "2px 0" } }, "RM " + x.money),
+            h("div", { style: { fontSize: 11, color: t[1], fontWeight: 700, opacity: .85 } }, "介绍 " + x.total + " · 批准 " + x.ok + (x.unopened ? " · 🧧" + x.unopened : "")));
+        }))));
+      })()),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["#", "Agent", "电话", "介绍人", "日期", "状态", "红包", "备注", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
       h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
