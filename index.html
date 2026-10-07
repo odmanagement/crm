@@ -3112,8 +3112,8 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
   ].sort((x, y) => (y.at || 0) - (x.at || 0));
   const prevCount = React.useRef(0);
   const up = s => String(s || "").toUpperCase();
-  const isFu = it => it.kind === "n" && it.n.kind === "fu";
-  const titleOf = it => isFu(it) ? up(it.n.from) + " 在跟进里 tag 了你 🏷" : it.kind === "n" ? up(it.n.from) + " 完成了任务 ✅" : (sameUser(it.m.assignedBy, currentUser) ? "你 指派了任务给自己" : up(it.m.assignedBy) + " 指派了任务给你");
+  const isFu = it => it.kind === "n" && (it.n.kind === "fu" || it.n.kind === "mreply");
+  const titleOf = it => it.kind === "n" && it.n.kind === "mreply" ? up(it.n.from) + " 回复了任务 💬" : isFu(it) ? up(it.n.from) + " 在跟进里 tag 了你 🏷" : it.kind === "n" ? up(it.n.from) + " 完成了任务 ✅" : (sameUser(it.m.assignedBy, currentUser) ? "你 指派了任务给自己" : up(it.m.assignedBy) + " 指派了任务给你");
   const textOf = it => isFu(it) ? (it.n.client ? String(it.n.client).toUpperCase() + " · " : "") + (it.n.task || "") : it.kind === "n" ? (it.n.task || "（没有任务内容）") : (it.m.task || "（任务内容还没填）");
   React.useEffect(() => {
     if (items.length > prevCount.current) {
@@ -3168,6 +3168,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
                 h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "d", onClick: () => onDone && onDone(it.m.id), style: btn("#16a34a", "#fff") }, h(Check, { size: 13 }), "Done")
               ] : [
+                it.n.kind === "mreply" && h("button", { key: "mv", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 isFu(it) && it.n.cid && h("button", { key: "v", onClick: () => { setOpen(false); window.__crmOpenClient && window.__crmOpenClient(it.n.cid, it.n.ltype); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "c", onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了")
               ])))))),
@@ -3306,7 +3307,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v62"));
+    h("div", { className: "sb-ver" }, "v63"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3978,7 +3979,7 @@ function MissionPage({
         minWidth: 220,
         boxShadow: "inset 3px 0 0 " + st.color
       }
-    }, /*#__PURE__*/React.createElement(AutoTextarea, {
+    }, /*#__PURE__*/React.createElement(TaskTextarea, {
       style: {
         ...S.bankerInput,
         textDecoration: m.status === "done" ? "line-through" : "none",
@@ -3987,7 +3988,7 @@ function MissionPage({
       value: m.task,
       placeholder: "Task…",
       onCommit: v => upd(m.id, "task", v)
-    })), /*#__PURE__*/React.createElement("td", {
+    }), /*#__PURE__*/React.createElement(MissionReplies, { m: m, currentUser: currentUser, onSave: reps => upd(m.id, "replies", reps) })), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, (m.assignedBy || m.by) ? /*#__PURE__*/React.createElement("span", { title: "指派人", style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 800, color: "hsl(" + czHue(m.assignedBy || m.by) + ",60%,40%)", whiteSpace: "nowrap" } }, czAvatar(m.assignedBy || m.by, 22), String(canonUser(m.assignedBy || m.by)).toUpperCase(), /*#__PURE__*/React.createElement("span", { style: { color: "#a5b4fc", fontSize: 14 } }, "→")) : null, m.owner ? czAvatar(m.owner, 26) : null, /*#__PURE__*/React.createElement("select", {
       style: {
@@ -7693,7 +7694,33 @@ function Row({
   }, value));
 }
 /* 会自动变高的输入格：内容全部显示出来（Enter 保存，Shift+Enter 换行） */
-function AutoTextarea({ value, onCommit, style, placeholder, disabled }) {
+/* Mission 回复：在任务下面对话，会通知对方 */
+function MissionReplies({ m, currentUser, onSave }) {
+  const h = React.createElement;
+  const [open, setOpen] = React.useState(false);
+  const [t, setT] = React.useState("");
+  const reps = m.replies || [];
+  const send = () => {
+    const text = t.trim(); if (!text) return;
+    onSave([...reps, { id: uid(), text, by: canonUser(currentUser || ""), at: today() }]);
+    const from = canonUser(m.assignedBy || m.by || ""), to = canonUser(m.owner || "");
+    const target = sameUser(currentUser, to) ? from : to;
+    const others = [target, from, to].filter((x, i, a) => x && !sameUser(x, currentUser) && a.indexOf(x) === i);
+    others.forEach(p => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "mreply", to: p, from: currentUser, task: "「" + (m.task || "") + "」→ " + text, at: Date.now() }); } catch (e) {} });
+    setT(""); setOpen(false);
+  };
+  return h("div", { style: { marginTop: 4 } },
+    reps.map(r => h("div", { key: r.id, style: { margin: "4px 0 0 4px", padding: "5px 10px", background: sameUser(r.by, currentUser) ? "#eef2ff" : "#f0fdf4", borderLeft: "3px solid " + (sameUser(r.by, currentUser) ? "#6366f1" : "#16a34a"), borderRadius: 8, fontSize: 12.5, color: "#1e293b", whiteSpace: "pre-wrap", wordBreak: "break-word" } },
+      h("b", { style: { color: "hsl(" + czHue(r.by) + ",60%,38%)" } }, String(r.by || "").toUpperCase()), ": ", r.text,
+      h("span", { style: { color: "#94a3b8", fontSize: 11, marginLeft: 6 } }, String(r.at || "").split("-").reverse().join("/")))),
+    open ? h("div", { style: { display: "flex", gap: 6, marginTop: 6 } },
+      h("input", { autoFocus: true, value: t, onChange: e => setT(e.target.value), placeholder: "回复…（Enter 送出）", onKeyDown: e => { if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) send(); if (e.key === "Escape") setOpen(false); },
+        style: { flex: 1, minWidth: 0, padding: "6px 10px", borderRadius: 8, border: "1px solid #c7d2fe", fontSize: 13, outline: "none", fontFamily: "inherit" } }),
+      h("button", { onClick: send, style: { border: "none", background: "#6366f1", color: "#fff", borderRadius: 8, padding: "0 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "送出"),
+      h("button", { onClick: () => setOpen(false), style: { border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", borderRadius: 8, padding: "0 10px", fontSize: 12, cursor: "pointer" } }, "取消"))
+    : h("button", { onClick: () => setOpen(true), style: { marginTop: 4, marginLeft: 4, border: "none", background: "none", color: "#6366f1", fontWeight: 800, fontSize: 12, cursor: "pointer", padding: 0 } }, "↩ 回复" + (reps.length ? "（" + reps.length + "）" : "")));
+}
+function TaskTextarea({ value, onCommit, style, placeholder, disabled }) {
   const [draft, setDraft] = React.useState(value || "");
   const ref = React.useRef(null);
   React.useEffect(() => { setDraft(value || ""); }, [value]);
