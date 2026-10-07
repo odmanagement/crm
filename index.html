@@ -3345,7 +3345,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v77"));
+    h("div", { className: "sb-ver" }, "v78"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -4693,7 +4693,8 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
     } catch (e) { alert("上传失败：" + (e.message || e)); }
     setBusy(false);
   };
-  const shown = files.filter(f => (cat === "all" || f.cat === cat || (cat === "__none" && !cats.some(c => c.id === f.cat))) && (!q || (f.name + " " + (f.fname || "")).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => b.at - a.at);
+  const cat2 = cat === "all" || (cat !== "__none" && !cats.some(c => c.id === cat)) ? ((cats[0] || {}).id || "__none") : cat; // 没有「全部」，默认第一个分类
+  const shown = files.filter(f => (f.cat === cat2 || (cat2 === "__none" && !cats.some(c => c.id === f.cat))) && (!q || (f.name + " " + (f.fname || "")).toLowerCase().includes(q.toLowerCase()))).sort((a, b) => b.at - a.at);
   const iconOf = f => f.isDraft ? "📝" : f.url ? "🔗" : /pdf/.test(f.ftype || "") ? "📕" : /image/.test(f.ftype || "") ? "🖼" : /sheet|excel|csv/.test(f.ftype || "") ? "📊" : /word|document/.test(f.ftype || "") ? "📘" : "📄";
   const catName = id => (cats.find(c => c.id === id) || {}).name || "未分类";
   const chip = (on) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999, border: on ? "none" : "1px solid #e2e8f0", background: on ? "#4f46e5" : "#fff", color: on ? "#fff" : "#475569", fontWeight: 800, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" });
@@ -4702,13 +4703,12 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
     h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" } },
       h("div", { style: { fontSize: 16, fontWeight: 900, color: "#1e1b4b", flex: 1 } }, "🗂 我的文件库 (" + files.length + ")"),
       h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "Search 文件", style: { padding: "9px 14px", borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 13.5, width: 220, fontFamily: "inherit", outline: "none" } }),
-      h("button", { onClick: () => setAdding({ name: "", cat: cat !== "all" ? cat : (cats[0] || {}).id || "", mode: "upload", url: "", file: null }), style: { ...S.addBtn, cursor: "pointer" } }, h(Plus, { size: 16 }), " Add File")),
+      h("button", { onClick: () => setAdding({ name: "", cat: cat2 !== "__none" ? cat2 : (cats[0] || {}).id || "", mode: "upload", url: "", file: null }), style: { ...S.addBtn, cursor: "pointer" } }, h(Plus, { size: 16 }), " Add File")),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 } },
-      h("button", { style: chip(cat === "all"), onClick: () => setCat("all") }, "全部 ", h("b", { style: { opacity: .8 } }, files.length)),
-      cats.map(c => h("span", { key: c.id, style: { ...chip(cat === c.id), paddingRight: 6 } },
+      cats.map(c => h("span", { key: c.id, style: { ...chip(cat2 === c.id), paddingRight: 6 } },
         h("span", { onClick: () => setCat(c.id), onDoubleClick: () => renameCat(c), title: "双击改名" }, "📁 " + c.name + " ", h("b", { style: { opacity: .8 } }, files.filter(f => f.cat === c.id).length)),
-        h("button", { onClick: () => delCat(c), title: "删除分类", style: { border: "none", background: "transparent", color: cat === c.id ? "#e0e7ff" : "#cbd5e1", cursor: "pointer", fontSize: 14, padding: "0 4px" } }, "×"))),
-      uncats > 0 && h("button", { style: chip(cat === "__none"), onClick: () => setCat("__none") }, "未分类 ", h("b", { style: { opacity: .8 } }, uncats)),
+        h("button", { onClick: () => delCat(c), title: "删除分类", style: { border: "none", background: "transparent", color: cat2 === c.id ? "#e0e7ff" : "#cbd5e1", cursor: "pointer", fontSize: 14, padding: "0 4px" } }, "×"))),
+      uncats > 0 && h("button", { style: chip(cat2 === "__none"), onClick: () => setCat("__none") }, "未分类 ", h("b", { style: { opacity: .8 } }, uncats)),
       h("button", { style: { ...chip(false), borderStyle: "dashed", color: "#4f46e5" }, onClick: addCat }, "+ 新分类")),
     shown.length === 0 ? h("div", { style: { color: "#94a3b8", fontSize: 13.5, padding: 20, textAlign: "center", background: "rgba(255,255,255,.7)", borderRadius: 14 } }, cats.length ? "这里还没有文件" : "先按「+ 新分类」建立分类，再按「Add File」加文件") :
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 } },
