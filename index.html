@@ -2709,7 +2709,7 @@ function CRM({ onLogout, currentUser }) {
   const verifyToLoan = (v, type, noJump) => {
     let c = clients.find(x => x.id === v.clientId) || clients.find(x => v.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(v.icNumber).replace(/\D/g, ""));
     const agent = v.agent ? String(v.agent).toUpperCase() : "";
-    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (v.remark || "") : "" });
+    const newLoan = () => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (v.remark || "") : "", createdBy: canonUser(v.staff || v.createdBy || "") });
     let list = clients;
     if (!c) {
       c = { id: uid(), name: v.customerName || "", phone: v.phone || "", ic: v.icNumber || "", job: v.position || "", income: "", note: "", links: (v.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: [newLoan()] };
@@ -2744,10 +2744,17 @@ function CRM({ onLogout, currentUser }) {
     _remarkFilled.current = true;
     let changed = false;
     const next = clients.map(c => {
-      const vs = verifications.filter(v => v.clientId === c.id && v.remark);
+      const vs = verifications.filter(v => v.clientId === c.id);
       if (!vs.length) return c;
       let cc = false;
-      const loans = (c.loans || []).map(l => { const v = vs.find(v => _vTypes(v).includes(l.type)); if (v && isPLike(l.type) && !l.remark) { cc = true; return { ...l, remark: v.remark }; } return l; });
+      const loans = (c.loans || []).map(l => {
+        const v = vs.find(v => _vTypes(v).includes(l.type));
+        if (!v || !isPLike(l.type)) return l;
+        let x = l;
+        if (!l.remark && v.remark) { x = { ...x, remark: v.remark }; cc = true; }
+        if (!l.createdBy && !l.admin && (v.staff || v.createdBy)) { x = { ...x, createdBy: canonUser(v.staff || v.createdBy) }; cc = true; }
+        return x;
+      });
       if (cc) { changed = true; return { ...c, loans }; }
       return c;
     });
@@ -2760,7 +2767,7 @@ function CRM({ onLogout, currentUser }) {
     if (nv.status === "verified" && types.length) {
       let c = clients.find(x => x.id === nv.clientId) || clients.find(x => nv.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(nv.icNumber).replace(/\D/g, ""));
       const agent = nv.agent ? String(nv.agent).toUpperCase() : "";
-      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (nv.remark || "") : "" });
+      const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (nv.remark || "") : "", createdBy: canonUser(nv.staff || nv.createdBy || "") });
       if (!c) {
         c = { id: uid(), name: nv.customerName || "", phone: nv.phone || "", ic: nv.icNumber || "", job: nv.position || "", income: "", note: "", links: (nv.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: types.map(mk) };
         list = [...clients, c];
@@ -2784,7 +2791,7 @@ function CRM({ onLogout, currentUser }) {
   };
   const quickNewClient = pg => {
     const type = ["house", "car", "personal"].includes(pg) ? pg : "house";
-    const c = { id: uid(), name: "", phone: "", ic: "", job: "", income: "", note: "", links: [], createdAt: today(), loans: [{ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] };
+    const c = { id: uid(), name: "", phone: "", ic: "", job: "", income: "", note: "", links: [], createdAt: today(), loans: [{ id: uid(), createdBy: canonUser(window.__crmUser || ""), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] };
     saveClient(c);
   };
   const closeDetail = () => {
@@ -3317,7 +3324,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v73"));
+    h("div", { className: "sb-ver" }, "v74"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -7384,12 +7391,12 @@ function LoanBlock({
     label: "Agent",
     value: loan.agent,
     onChange: v => setField("agent", v)
-  }), /*#__PURE__*/React.createElement(EditRow, {
+  }), /*#__PURE__*/React.createElement("div", {
     key: "admin",
-    label: "Admin",
-    value: loan.admin,
-    onChange: v => setField("admin", v)
-  }), /*#__PURE__*/React.createElement(LoanRemark, {
+    style: S.detailRow
+  }, /*#__PURE__*/React.createElement("span", {
+    style: S.detailLabel
+  }, "Admin"), (loan.admin || loan.createdBy) ? /*#__PURE__*/React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 } }, czAvatar(loan.admin || loan.createdBy, 22), String(loan.admin || loan.createdBy).toUpperCase()) : /*#__PURE__*/React.createElement("span", { style: { color: "#cbd5e1" } }, "—")), /*#__PURE__*/React.createElement(LoanRemark, {
     key: "remark",
     value: loan.remark || "",
     onSave: v => setField("remark", v)
@@ -7614,6 +7621,7 @@ function LoanForm({
 }) {
   const [l, setL] = useState(initial || {
     id: uid(),
+    createdBy: canonUser(window.__crmUser || ""),
     type: "house",
     amount: "",
     subject: "",
@@ -7830,14 +7838,40 @@ function MissionReplies({ m, currentUser, onSave }) {
   const last = reps[reps.length - 1];
   const unread = last && !sameUser(last.by, currentUser);
   React.useEffect(() => { if (open && endRef.current) endRef.current.scrollIntoView({ block: "end" }); }, [open, reps.length]);
-  const send = () => {
-    const text = t.trim(); if (!text) return;
-    onSave([...reps, { id: uid(), text, by: canonUser(currentUser || ""), at: today(), ts: Date.now() }]);
+  const repsRef = React.useRef(reps); repsRef.current = reps;
+  const [busy, setBusy] = React.useState(false), [big, setBig] = React.useState(null);
+  const notifyAll = text => {
     const from = canonUser(m.assignedBy || m.by || ""), to = canonUser(m.owner || "");
     [from, to].filter((x, i, a) => x && !sameUser(x, currentUser) && a.indexOf(x) === i)
       .forEach(p => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "mreply", to: p, from: currentUser, task: "「" + (m.task || "") + "」\n" + text, at: Date.now() }); } catch (e) {} });
+  };
+  const send = () => {
+    const text = t.trim(); if (!text) return;
+    onSave([...repsRef.current, { id: uid(), text, by: canonUser(currentUser || ""), at: today(), ts: Date.now() }]);
+    notifyAll(text);
     setT("");
   };
+  const sendPhotos = async files => {
+    files = Array.from(files || []).filter(f => f && f.type && f.type.startsWith("image/"));
+    if (!files.length) return;
+    setBusy(true);
+    const add = [];
+    for (const f of files) { try { const data = await compressImage(f); const id = uid(); _photoCache[id] = data; await DB.set("mphoto_" + id, data); add.push({ id: uid(), text: "", photo: id, by: canonUser(currentUser || ""), at: today(), ts: Date.now() }); } catch (e) { alert("照片上传失败：" + (e.message || e)); } }
+    if (add.length) { onSave([...repsRef.current, ...add]); notifyAll("📷 照片"); }
+    setBusy(false);
+  };
+  const sendRef = React.useRef(sendPhotos); sendRef.current = sendPhotos;
+  React.useEffect(() => {
+    if (!open) return;
+    const onPaste = e => {
+      const items = Array.from((e.clipboardData && e.clipboardData.items) || []).filter(it => it.kind === "file" && it.type.startsWith("image/"));
+      if (!items.length) return;
+      e.preventDefault();
+      sendRef.current(items.map(it => it.getAsFile()));
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [open]);
   const tm = r => { const d = String(r.at || "").split("-").reverse().slice(0, 2).join("/"); const hm = r.ts ? new Date(r.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""; return (d + " " + hm).trim(); };
   const chip = h("div", { onClick: () => setOpen(true), style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, cursor: "pointer" } },
     h("span", { style: { position: "relative", display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 999, background: reps.length ? "#eef2ff" : "#f8fafc", border: "1px solid " + (reps.length ? "#c7d2fe" : "#e2e8f0"), color: "#4f46e5", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap" } },
@@ -7845,7 +7879,7 @@ function MissionReplies({ m, currentUser, onSave }) {
       unread && h("span", { style: { position: "absolute", top: -3, right: -3, width: 9, height: 9, borderRadius: "50%", background: "#ef4444", border: "2px solid #fff" } })),
     last && h("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, minWidth: 0, fontSize: 12, color: "#64748b" } },
       czAvatar(last.by, 18),
-      h("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 } }, last.text)));
+      h("span", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 } }, last.photo ? "📷 照片" : last.text)));
   if (!open) return chip;
   return h(React.Fragment, null, chip,
     h("div", { onClick: () => setOpen(false), style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.45)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
@@ -7867,15 +7901,20 @@ function MissionReplies({ m, currentUser, onSave }) {
               first && !mine && h("div", { style: { fontSize: 11.5, color: "#65676b", margin: "0 0 2px 40px", fontWeight: 700 } }, String(r.by || "").toUpperCase()),
               h("div", { style: { display: "flex", alignItems: "flex-end", gap: 6, maxWidth: "80%", flexDirection: mine ? "row-reverse" : "row" } },
                 !mine && h("div", { style: { width: 30, flexShrink: 0 } }, lastOf ? czAvatar(r.by, 30) : null),
+                r.photo ? h(PhotoImg, { id: r.photo, onClick: () => setBig(r.photo), style: { maxWidth: 220, maxHeight: 260, borderRadius: 16, cursor: "zoom-in", display: "block", objectFit: "cover", border: "1px solid #e2e8f0" } }) :
                 h("div", { title: tm(r), style: { background: mine ? "#0084ff" : "#f0f2f5", color: mine ? "#fff" : "#050505", padding: "8px 12px", fontSize: 14, lineHeight: 1.4, whiteSpace: "pre-wrap", wordBreak: "break-word",
                   borderRadius: 18, ...(mine ? { borderTopRightRadius: first ? 18 : 6, borderBottomRightRadius: lastOf ? 18 : 6 } : { borderTopLeftRadius: first ? 18 : 6, borderBottomLeftRadius: lastOf ? 18 : 6 }) } }, r.text)),
               lastOf && h("div", { style: { fontSize: 10.5, color: "#94a3b8", margin: mine ? "2px 4px 0 0" : "2px 0 0 40px" } }, tm(r)));
           }),
           h("div", { ref: endRef })),
         h("div", { style: { padding: 10, borderTop: "1px solid #eef0f4", display: "flex", gap: 8, alignItems: "center" } },
-          h("input", { autoFocus: true, value: t, onChange: e => setT(e.target.value), placeholder: "Aa", onKeyDown: e => { if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) send(); if (e.key === "Escape") setOpen(false); },
+          h("label", { title: "传照片（也可以直接 Ctrl+V 贴上）", style: { cursor: busy ? "wait" : "pointer", fontSize: 20, color: "#0084ff", padding: "0 2px", flexShrink: 0 } }, busy ? "⏳" : "🖼",
+            h("input", { type: "file", accept: "image/*", multiple: true, style: { display: "none" }, disabled: busy, onChange: e => { sendPhotos(e.target.files); e.target.value = ""; } })),
+          h("input", { autoFocus: true, value: t, onChange: e => setT(e.target.value), placeholder: "Aa（可以 Ctrl+V 贴照片）", onKeyDown: e => { if (e.key === "Enter" && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) send(); if (e.key === "Escape") setOpen(false); },
             style: { flex: 1, minWidth: 0, padding: "10px 14px", borderRadius: 999, border: "none", background: "#f0f2f5", fontSize: 14, outline: "none", fontFamily: "inherit" } }),
-          h("button", { onClick: send, disabled: !t.trim(), style: { border: "none", background: "none", color: t.trim() ? "#0084ff" : "#bcc0c4", fontSize: 22, cursor: t.trim() ? "pointer" : "default", padding: "0 4px" } }, "➤")))));
+          h("button", { onClick: send, disabled: !t.trim(), style: { border: "none", background: "none", color: t.trim() ? "#0084ff" : "#bcc0c4", fontSize: 22, cursor: t.trim() ? "pointer" : "default", padding: "0 4px" } }, "➤")))),
+    big && h("div", { onClick: () => setBig(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" } },
+      h(PhotoImg, { id: big, style: { maxWidth: "95vw", maxHeight: "92vh", borderRadius: 10 } })));
 }
 function TaskTextarea({ value, onCommit, style, placeholder, disabled }) {
   const [draft, setDraft] = React.useState(value || "");
@@ -8027,7 +8066,7 @@ function EditForm({
       return;
     }
     if (!initial && loanType && !(f.loans || []).length) {
-      onSave({ ...f, loans: [{ id: uid(), type: loanType, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] });
+      onSave({ ...f, loans: [{ id: uid(), createdBy: canonUser(window.__crmUser || ""), type: loanType, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: "", lawyer: "", supplies: "", date: "", banks: [], followUps: [] }] });
       return;
     }
     onSave(f);
