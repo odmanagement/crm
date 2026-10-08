@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v97"));
+    h("div", { className: "sb-ver" }, "v98"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3407,7 +3407,7 @@ function printReceipt(r) {
   setTimeout(() => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) {} setTimeout(() => iframe.remove(), 60000); }, 300);
 }
 /* ---------- Return Salary（Alice）：每个客户自己的余额，自动 carry forward ----------
-   资料欄位：customer, agent, salary, ret, date, remark, received, receivedAt, by, at
+   资料欄位：customer, agent, salary, ret, date, remark, received, receivedAt, closed, closedAt, closedBy, by, at
    余额不另外存，每次按日期（同一天按建立时间）从头算，改旧资料后面的会自动跟着更新：
      Previous Balance = 同一个客户上一笔的 Remaining Balance（第一笔 = 0）
      Total Available  = Previous Balance + Salary
@@ -3422,8 +3422,10 @@ function rsLedger(items) {
     const k = rsKey(r.customer); const prev = run[k] || 0;
     const avail = rsR2(prev + rsNum(r.salary)); const remain = rsR2(avail - rsNum(r.ret));
     calc[r.id] = { prev, avail, remain };
-    run[k] = remain; latest[k] = { remain, agent: r.agent || (latest[k] && latest[k].agent) || "", name: r.customer };
+    run[k] = remain; latest[k] = { remain, agent: r.agent || (latest[k] && latest[k].agent) || "", name: r.customer, id: r.id };
   });
+  // 不是这个客户最后一笔的，余额已经带去下一笔（carried forward）
+  sorted.forEach(r => { calc[r.id].carried = latest[rsKey(r.customer)].id !== r.id; });
   return { sorted, calc, latest };
 }
 function ReturnSalaryPage({ currentUser }) {
@@ -3468,11 +3470,26 @@ function ReturnSalaryPage({ currentUser }) {
 
   const ql = q.trim().toLowerCase();
   const matchQ = r => !ql || [r.customer, r.agent, r.remark].some(v => String(v || "").toLowerCase().includes(ql));
-  const notYet = items.filter(r => !r.received);
-  const shown = (tab === "pending" ? notYet : items).filter(matchQ).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
-  const owed = notYet.reduce((t, r) => t + rsNum(r.ret), 0);
-  const salaryTotal = shown.reduce((t, r) => t + rsNum(r.salary), 0);
-  const retTotal = shown.filter(r => r.received).reduce((t, r) => t + rsNum(r.ret), 0); // 只算已经 RECEIVED 的
+  /* 状态：ACTIVE（closed 不是 true）/ CLOSED（closed = true，有 closedAt）
+     CLOSED 又分：FULLY CLOSED（Remaining = 0）和 BALANCE OUTSTANDING（Remaining > 0） */
+  const remainOf = r => (calc[r.id] || { remain: 0 }).remain;
+  // 余额已经带去同一个客户的下一笔，就不重复算 outstanding
+  const isOutstanding = r => remainOf(r) > 0.004 && !(calc[r.id] || {}).carried;
+  const active = items.filter(r => !r.closed);
+  const closedAll = items.filter(r => r.closed);
+  const notYet = active.filter(r => !r.received);
+  const outstanding = closedAll.filter(isOutstanding);
+  const closedView = tab === "closed" || tab === "outstanding";
+  const base = tab === "pending" ? notYet : tab === "closed" ? closedAll : tab === "outstanding" ? outstanding : active;
+  const shown = base.filter(matchQ).sort((a, b) => closedView ? String(b.closedAt || "").localeCompare(String(a.closedAt || "")) || String(b.date || "").localeCompare(String(a.date || "")) : String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+  const activeQ = active.filter(matchQ), closedQ = closedAll.filter(matchQ);
+  const owed = notYet.filter(matchQ).reduce((t, r) => t + rsNum(r.ret), 0);
+  const salaryTotal = activeQ.reduce((t, r) => t + rsNum(r.salary), 0);                          // 只算 ACTIVE
+  const retTotal = activeQ.filter(r => r.received).reduce((t, r) => t + rsNum(r.ret), 0);       // ACTIVE + 已 RECEIVED
+  const closeTotal = closedQ.reduce((t, r) => t + rsNum(r.salary), 0);                           // 已搬去 Close File 的 Salary
+  const outstandingTotal = outstanding.filter(matchQ).reduce((t, r) => t + remainOf(r), 0);
+  const closeFile = r => { if (window.confirm("Are you sure you want to close this file?\n\n" + r.customer + " · Salary " + rm(rsNum(r.salary)))) patch(r, { closed: true, closedAt: today(), closedBy: me }); };
+  const reopen = r => { if (window.confirm("把「" + r.customer + "」搬回 Active？")) patch(r, { closed: false, closedAt: null, closedBy: null }); };
   const custNames = Object.keys(latest).sort().map(k => latest[k]);
 
   const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #e2e8f0", marginBottom: 14 };
@@ -3512,16 +3529,20 @@ function ReturnSalaryPage({ currentUser }) {
           step("REMAINING BALANCE", fRemain, fRemain < 0 ? "#dc2626" : "#7c3aed", true)),
         fErr && h("div", { style: { marginTop: 8, padding: "8px 12px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontWeight: 800, fontSize: 13 } }, "❌ " + fErr + "，不能保存"))),
     h("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
-      tabBtn("all", "ALL", items.length),
+      tabBtn("all", "ALL", active.length),
       tabBtn("pending", "HAVEN'T RECEIVED", notYet.length),
+      tabBtn("closed", "📁 CLOSE FILE", closedAll.length),
+      tabBtn("outstanding", "CLOSE FILE – BALANCE OUTSTANDING", outstanding.length),
       totBox("还没收到 TOTAL", owed, "#fef2f2", "#fecaca", "#b91c1c", "#991b1b"),
       totBox("SALARY TOTAL", salaryTotal, "#eff6ff", "#bfdbfe", "#1d4ed8", "#1e3a8a"),
       totBox("RETURN TOTAL（已收到）", retTotal, "#f0fdf4", "#bbf7d0", "#15803d", "#14532d"),
+      totBox("CLOSE FILE TOTAL", closeTotal, "#f5f3ff", "#ddd6fe", "#6d28d9", "#4c1d95"),
+      outstanding.length > 0 && totBox("BALANCE OUTSTANDING", outstandingTotal, "#fff7ed", "#fed7aa", "#c2410c", "#9a3412"),
       h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search customer / agent", value: q, onChange: e => setQ(e.target.value) }))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Customer Name", "Agent Name", "Previous Balance", "Salary", "Total Available", "Return Amount", "Remaining Balance", "Date", "Remark", "Received", ""].map((x, i) => h("th", { key: i, style: i >= 3 && i <= 7 ? { ...S.th, ...S.thNum } : S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 12, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 12, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, tab === "pending" ? "全部都收到了 ✓" : "还没有资料")) :
+      h("thead", null, h("tr", null, ["#", "Customer Name", "Agent Name", "Previous Balance", "Salary", "Total Available", "Return Amount", "Remaining Balance", "Date", "Remark", "Received"].concat(closedView ? ["Close Status", "Close Date", ""] : ["Close", ""]).map((x, i) => h("th", { key: i, style: i >= 3 && i <= 7 ? { ...S.th, ...S.thNum } : S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 14, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 14, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, tab === "pending" ? "全部都收到了 ✓" : tab === "closed" ? "还没有 Close File" : tab === "outstanding" ? "没有欠余额的 Close File ✓" : "还没有资料")) :
         shown.map((r, i) => { const c = calc[r.id] || { prev: 0, avail: 0, remain: 0 }; const bad = c.remain < 0; return h("tr", { key: r.id },
           h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
           h("td", { style: S.td }, cell(r, "customer", { textTransform: "uppercase" })),
@@ -3534,6 +3555,13 @@ function ReturnSalaryPage({ currentUser }) {
           h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && patch(r, { date: e.target.value }), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
           h("td", { style: { ...S.td, minWidth: 140, whiteSpace: "normal" } }, cell(r, "remark", { fontWeight: 500 })),
           h("td", { style: S.td }, h("button", { onClick: () => patch(r, r.received ? { received: false, receivedAt: null } : { received: true, receivedAt: today() }), title: r.received && r.receivedAt ? "收到日期 " + r.receivedAt.split("-").reverse().join("/") : "", style: { border: "none", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer", background: r.received ? "#dcfce7" : "#fee2e2", color: r.received ? "#15803d" : "#b91c1c" } }, r.received ? "✓ RECEIVED" : "✕ NOT YET")),
+          ...(closedView ? [
+            h("td", { key: "cs", style: S.td }, h("span", { style: { display: "inline-block", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap", background: isOutstanding(r) ? "#ffedd5" : bad ? "#fee2e2" : "#ede9fe", color: isOutstanding(r) ? "#c2410c" : bad ? "#b91c1c" : "#6d28d9" } }, isOutstanding(r) ? "⏳ BALANCE OUTSTANDING" : bad ? "⚠ CLOSED（余额负数）" : remainOf(r) > 0.004 ? "✓ CLOSED · 余额已转下一笔" : "✓ FULLY CLOSED")),
+            h("td", { key: "cd", style: { ...S.td, whiteSpace: "nowrap" } }, String(r.closedAt || "").split("-").reverse().join("/"),
+              h("button", { onClick: () => reopen(r), title: "搬回 Active", style: { marginLeft: 8, border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, padding: "3px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer", color: "#475569" } }, "↩ REOPEN"))
+          ] : [
+            h("td", { key: "cl", style: S.td }, h("button", { onClick: () => closeFile(r), style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📁 CLOSE"))
+          ]),
           h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" })))); })))));
 }
 /* ---------- Receipt：按月份分组、Copy 去 WhatsApp、下载 Excel ---------- */
