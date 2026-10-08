@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v95"));
+    h("div", { className: "sb-ver" }, "v96"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3412,7 +3412,7 @@ function ReturnSalaryPage({ currentUser }) {
   const me = canonUser(currentUser || "");
   const [list, save] = useCloudList("return_salary");
   const items = list || [];
-  const blank = () => ({ customer: "", agent: "", salary: "", ret: "", date: today() });
+  const blank = () => ({ customer: "", agent: "", salary: "", ret: "", date: today(), remark: "" });
   const [f, setF] = React.useState(blank());
   const [tab, setTab] = React.useState("all");
   const [q, setQ] = React.useState("");
@@ -3421,22 +3421,27 @@ function ReturnSalaryPage({ currentUser }) {
   const add = () => {
     if (!f.customer.trim()) { alert("请填 Customer Name"); return; }
     if (!f.ret) { alert("请填 Return Amount"); return; }
-    save([{ id: uid(), customer: f.customer.trim(), agent: f.agent.trim(), salary: f.salary, ret: f.ret, date: f.date || today(), received: false, by: me, at: Date.now() }, ...items]);
+    save([{ id: uid(), customer: f.customer.trim(), agent: f.agent.trim(), salary: f.salary, ret: f.ret, date: f.date || today(), remark: f.remark.trim(), received: false, by: me, at: Date.now() }, ...items]);
     setF(blank());
   };
   const patch = (r, p) => save(items.map(x => x.id === r.id ? { ...x, ...p } : x));
   const del = r => { if (window.confirm("删除「" + r.customer + "」？")) save(items.filter(x => x.id !== r.id)); };
   const ql = q.trim().toLowerCase();
-  const matchQ = r => !ql || [r.customer, r.agent].some(v => String(v || "").toLowerCase().includes(ql));
+  const matchQ = r => !ql || [r.customer, r.agent, r.remark].some(v => String(v || "").toLowerCase().includes(ql));
   const notYet = items.filter(r => !r.received);
   const shown = (tab === "pending" ? notYet : items).filter(matchQ).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
   const owed = notYet.reduce((t, r) => t + num(r.ret), 0);
+  const salaryTotal = shown.reduce((t, r) => t + num(r.salary), 0);
+  const retTotal = shown.reduce((t, r) => t + num(r.ret), 0);
   const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #e2e8f0", marginBottom: 14 };
   const inp = { padding: "9px 12px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#fff", width: "100%", boxSizing: "border-box" };
   const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4, letterSpacing: .3 } }, t);
   const field = (t, k, extra) => h("div", { style: { flex: "1 1 150px" } }, lbl(t), h("input", { style: inp, value: f[k], onChange: e => setF({ ...f, [k]: e.target.value }), onKeyDown: e => e.key === "Enter" && add(), ...(extra || {}) }));
   const tabBtn = (id, t, n) => h("button", { onClick: () => setTab(id), style: { border: tab === id ? "2px solid #4f46e5" : "1px solid #e2e8f0", background: tab === id ? "#eef2ff" : "#fff", color: tab === id ? "#3730a3" : "#475569", borderRadius: 12, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, t + " ", h("span", { style: { marginLeft: 4, padding: "1px 8px", borderRadius: 999, background: tab === id ? "#4f46e5" : "#f1f5f9", color: tab === id ? "#fff" : "#64748b", fontSize: 12 } }, n));
-  const cell = (r, k, extra) => h("input", { value: r[k] || "", onChange: e => patch(r, { [k]: e.target.value }), style: { border: "1px solid transparent", background: "transparent", padding: "4px 6px", borderRadius: 6, fontSize: 13, fontFamily: "inherit", fontWeight: 700, width: "100%", minWidth: 80, boxSizing: "border-box", ...(extra || {}) }, onFocus: e => { e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#fff"; }, onBlur: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } });
+  const cell = (r, k, extra) => { const { __display, __ek, ...st } = extra || {}; return h("input", { value: __display != null ? __display : (r[k] || ""), onChange: e => patch(r, { [k]: e.target.value }), style: { border: "1px solid transparent", background: "transparent", padding: "4px 6px", borderRadius: 6, fontSize: 13, fontFamily: "inherit", fontWeight: 700, width: "100%", minWidth: 80, boxSizing: "border-box", ...st }, onFocus: e => { if (__ek) setEditing(__ek); e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#fff"; }, onBlur: e => { if (__ek) setEditing(""); e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } }); };
+  const [editing, setEditing] = React.useState("");
+  const fmt2 = v => { const t = String(v == null ? "" : v).trim(); if (!t) return ""; const n = Number(t.replace(/,/g, "")); return isNaN(n) ? t : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  const numCell = (r, k, extra) => { const ek = r.id + k; return cell(r, k, { textAlign: "right", ...extra, __display: editing === ek ? null : fmt2(r[k]), __ek: ek }); };
   return h("div", { className: "cz-page" },
     h("div", { style: card },
       h("div", { style: { fontSize: 14, fontWeight: 900, color: "#1e1b4b", marginBottom: 10 } }, "➕ 新增 Return Salary"),
@@ -3446,6 +3451,7 @@ function ReturnSalaryPage({ currentUser }) {
         field("SALARY (RM)", "salary", { inputMode: "decimal" }),
         field("RETURN AMOUNT (RM)", "ret", { inputMode: "decimal" }),
         h("div", { style: { flex: "0 1 160px" } }, lbl("DATE"), h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
+        field("REMARK", "remark"),
         h("button", { onClick: add, style: { border: "none", borderRadius: 10, padding: "0 22px", minHeight: 40, background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", fontWeight: 900, cursor: "pointer" } }, "保存"))),
     h("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
       tabBtn("all", "ALL", items.length),
@@ -3453,18 +3459,25 @@ function ReturnSalaryPage({ currentUser }) {
       h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px" } },
         h("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#b91c1c" } }, "还没收到 TOTAL"),
         h("div", { style: { fontSize: 17, fontWeight: 900, color: "#991b1b" } }, rm(owed))),
+      h("div", { style: { background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "6px 14px" } },
+        h("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#1d4ed8" } }, "SALARY TOTAL"),
+        h("div", { style: { fontSize: 17, fontWeight: 900, color: "#1e3a8a" } }, rm(salaryTotal))),
+      h("div", { style: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "6px 14px" } },
+        h("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#15803d" } }, "RETURN TOTAL"),
+        h("div", { style: { fontSize: 17, fontWeight: 900, color: "#14532d" } }, rm(retTotal))),
       h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search customer / agent", value: q, onChange: e => setQ(e.target.value) }))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Customer Name", "Agent Name", "Salary", "Return Amount", "Date", "Received", ""].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...S.th, ...S.thNum } : S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, tab === "pending" ? "全部都收到了 ✓" : "还没有资料")) :
+      h("thead", null, h("tr", null, ["#", "Customer Name", "Agent Name", "Salary", "Return Amount", "Date", "Remark", "Received", ""].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...S.th, ...S.thNum } : S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, tab === "pending" ? "全部都收到了 ✓" : "还没有资料")) :
         shown.map((r, i) => h("tr", { key: r.id },
           h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
           h("td", { style: S.td }, cell(r, "customer", { textTransform: "uppercase" })),
           h("td", { style: S.td }, cell(r, "agent", { textTransform: "uppercase" })),
-          h("td", { style: { ...S.td, ...S.tdNum } }, cell(r, "salary", { textAlign: "right" })),
-          h("td", { style: { ...S.td, ...S.tdNum } }, cell(r, "ret", { textAlign: "right", color: r.received ? "#15803d" : "#b91c1c", fontWeight: 900 })),
+          h("td", { style: { ...S.td, ...S.tdNum } }, numCell(r, "salary", {})),
+          h("td", { style: { ...S.td, ...S.tdNum } }, numCell(r, "ret", { color: r.received ? "#15803d" : "#b91c1c", fontWeight: 900 })),
           h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && patch(r, { date: e.target.value }), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
+          h("td", { style: { ...S.td, minWidth: 160, whiteSpace: "normal" } }, cell(r, "remark", { fontWeight: 500 })),
           h("td", { style: S.td }, h("button", { onClick: () => patch(r, r.received ? { received: false, receivedAt: null } : { received: true, receivedAt: today() }), title: r.received && r.receivedAt ? "收到日期 " + r.receivedAt.split("-").reverse().join("/") : "", style: { border: "none", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer", background: r.received ? "#dcfce7" : "#fee2e2", color: r.received ? "#15803d" : "#b91c1c" } }, r.received ? "✓ RECEIVED" : "✕ NOT YET")),
           h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" })))))))));
 }
