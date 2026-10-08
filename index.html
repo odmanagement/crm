@@ -3346,7 +3346,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v89"));
+    h("div", { className: "sb-ver" }, "v90"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -8782,7 +8782,7 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk.disb { color: #fff; background: linear-gradient(135deg,#f472b6,#db2777); border: 1px solid #be185d; box-shadow: 0 3px 10px -3px rgba(219,39,119,.5); }
 .tp-bk.hold { color: #fff; background: linear-gradient(135deg,#94a3b8,#475569); border: 1px solid #334155; }
 .tp-bk.hold small { opacity: .9; }
-.tp-bk.appr { color: #fff; background: linear-gradient(135deg,#a78bfa,#7c3aed); border: 1px solid #6d28d9; }
+.tp-bk.appr { color: #fff; background: linear-gradient(135deg,#22d3ee,#0891b2); border: 1px solid #0e7490; box-shadow: 0 3px 10px -3px rgba(8,145,178,.5); }
 .tp-bk.appr small { opacity: .9; }
 .tp-bk.disb small { opacity: .9; }
 .tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
