@@ -3346,7 +3346,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v90"));
+    h("div", { className: "sb-ver" }, "v91"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3914,6 +3914,110 @@ function ClosingRanking({ items, staffOf }) {
         });
       })()));
 }
+/* ---------- Closing 盲盒：每笔 closing → staff 得 1 个盲盒 → 开到现金 → Lucas 批准 ---------- */
+const BB_DEFAULT = { start: "2026-10-08", none: 30, prizes: [{ amt: 5, w: 40 }, { amt: 10, w: 25 }, { amt: 50, w: 5 }] };
+function BlindBox({ items, staffOf, currentUser }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const boss = isMissionBoss(currentUser);
+  const [list, save] = useCloudList("blindbox");
+  const [cfgList, saveCfg] = useCloudList("blindbox_cfg");
+  const cfg = { ...BB_DEFAULT, ...((cfgList && cfgList[0]) || {}) };
+  const prizes = (cfg.prizes || []).filter(p => Number(p.amt) > 0 && Number(p.w) > 0);
+  const draws = list || [];
+  const [phase, setPhase] = React.useState(null); // null | "shake" | {amt}
+  const [showSet, setShowSet] = React.useState(false);
+  const notify = (to, title, task) => { if (!to || sameUser(to, currentUser)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", to: canonUser(to), from: currentUser, title, task, at: Date.now() }); } catch (e) {} };
+  const used = new Set(draws.map(d => d.closingId));
+  const myBoxes = items.filter(x => x.date && x.date >= (cfg.start || "") && x.cat !== "cancel" && String(x.client || "").trim() && sameUser(staffOf(x), currentUser) && !used.has(x.id))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const pick = () => {
+    const none = Math.max(0, Number(cfg.none) || 0);
+    const W = none + prizes.reduce((t, p) => t + Number(p.w), 0);
+    if (W <= 0) return 0;
+    let r = Math.random() * W;
+    for (const p of prizes) { r -= Number(p.w); if (r < 0) return Number(p.amt); }
+    return 0;
+  };
+  const open = () => {
+    const c = myBoxes[0]; if (!c || phase) return;
+    setPhase("shake");
+    setTimeout(() => {
+      const amt = pick();
+      const d = { id: uid(), user: me, closingId: c.id, client: c.client, date: today(), at: Date.now(), amt, status: amt ? (boss ? "approved" : "pending") : "none" };
+      save([d, ...draws]);
+      if (amt && !boss) MISSION_BOSSES.forEach(b => notify(b, String(me).toUpperCase() + " 开盲盒中了 RM " + amt + " 🎁", "Closing「" + c.client + "」· 等你批准"));
+      setPhase({ amt });
+    }, 1300);
+  };
+  const decide = (d, st) => {
+    save(draws.map(x => x.id === d.id ? { ...x, status: st, decidedBy: me, decidedAt: today() } : x));
+    notify(d.user, st === "approved" ? "🎉 盲盒奖金 RM " + d.amt + " 已批准！" : "盲盒奖金 RM " + d.amt + " 不批准", "Closing「" + (d.client || "") + "」");
+  };
+  const ym = today().slice(0, 7);
+  const mine = draws.filter(d => sameUser(d.user, currentUser));
+  const myMonth = mine.filter(d => d.status === "approved" && String(d.date).startsWith(ym)).reduce((t, d) => t + Number(d.amt || 0), 0);
+  const myPending = mine.filter(d => d.status === "pending");
+  const pending = draws.filter(d => d.status === "pending");
+  const W = (Number(cfg.none) || 0) + prizes.reduce((t, p) => t + Number(p.w), 0);
+  const pct = w => W ? Math.round(Number(w) / W * 100) + "%" : "0%";
+  const setCfg = patch => saveCfg([{ ...cfg, ...patch }]);
+  const pill = (bg, fg) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, background: bg, color: fg, fontSize: 12, fontWeight: 800 });
+  const btn = { border: "none", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer" };
+  const ST = { pending: ["待批", "#fef3c7", "#b45309"], approved: ["已批准", "#dcfce7", "#15803d"], rejected: ["不批准", "#fee2e2", "#b91c1c"], none: ["谢谢参与", "#f1f5f9", "#64748b"] };
+  return h("div", { style: { background: "linear-gradient(135deg,#fdf4ff,#eef2ff 55%,#ecfeff)", border: "1.5px solid #e9d5ff", borderRadius: 18, padding: "16px 18px", marginBottom: 14 } },
+    h("style", null, "@keyframes bbShake{0%,100%{transform:rotate(0) scale(1)}15%{transform:rotate(-12deg) scale(1.05)}30%{transform:rotate(12deg) scale(1.1)}45%{transform:rotate(-10deg) scale(1.1)}60%{transform:rotate(10deg) scale(1.15)}80%{transform:rotate(-6deg) scale(1.2)}}@keyframes bbPop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}@keyframes bbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}"),
+    h("div", { style: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" } },
+      h("button", { onClick: open, disabled: !myBoxes.length || !!phase, title: myBoxes.length ? "点我开盲盒" : "add closing 就有盲盒", style: { border: "none", background: "none", padding: 0, fontSize: 58, lineHeight: 1, cursor: myBoxes.length ? "pointer" : "default", filter: myBoxes.length ? "none" : "grayscale(1) opacity(.45)", animation: phase === "shake" ? "bbShake 1.3s ease-in-out" : myBoxes.length ? "bbFloat 2s ease-in-out infinite" : "none" } }, "🎁"),
+      h("div", { style: { flex: 1, minWidth: 220 } },
+        h("div", { style: { fontSize: 18, fontWeight: 900, color: "#6b21a8" } }, "CLOSING 盲盒"),
+        h("div", { style: { fontSize: 13, color: "#475569", marginTop: 3, lineHeight: 1.6 } }, "每 add 一笔 closing（Cancel 不算）就得 1 个盲盒 → 开到现金 → Lucas 批准后才算"),
+        h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 } },
+          h("span", { style: pill(myBoxes.length ? "#7c3aed" : "#e2e8f0", myBoxes.length ? "#fff" : "#64748b") }, "🎁 我有 " + myBoxes.length + " 个盲盒"),
+          h("span", { style: pill("#dcfce7", "#15803d") }, "本月已批准 RM " + myMonth),
+          myPending.length > 0 && h("span", { style: pill("#fef3c7", "#b45309") }, "⏳ 等批准 " + myPending.length + " 个"))),
+      myBoxes.length > 0 && !phase && h("button", { onClick: open, style: { border: "none", borderRadius: 12, padding: "12px 22px", background: "linear-gradient(135deg,#a855f7,#6366f1)", color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", boxShadow: "0 8px 20px -8px rgba(124,58,237,.7)" } }, "开盲盒！"),
+      boss && h("button", { onClick: () => setShowSet(!showSet), style: { ...btn, background: "#fff", border: "1px solid #e9d5ff", color: "#7c3aed", padding: "8px 12px" } }, "⚙ 奖品设定")),
+    phase && typeof phase === "object" && h("div", { onClick: () => setPhase(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 24, padding: "30px 40px", textAlign: "center", animation: "bbPop .45s ease-out", minWidth: 260 } },
+        h("div", { style: { fontSize: 64 } }, phase.amt ? "🎉" : "🍀"),
+        h("div", { style: { fontSize: phase.amt ? 34 : 22, fontWeight: 900, color: phase.amt ? "#7c3aed" : "#64748b", margin: "6px 0" } }, phase.amt ? "RM " + phase.amt : "谢谢参与"),
+        h("div", { style: { fontSize: 13, color: "#64748b" } }, phase.amt ? (boss ? "已经算进去了" : "等 Lucas 批准后才算哦") : "下一笔 closing 再来！"),
+        h("button", { onClick: () => setPhase(null), style: { ...btn, marginTop: 16, padding: "9px 26px", fontSize: 14, background: "linear-gradient(135deg,#a855f7,#6366f1)", color: "#fff" } }, "好"))),
+    boss && showSet && h("div", { style: { marginTop: 14, background: "#fff", borderRadius: 14, padding: "12px 14px", border: "1px solid #e9d5ff" } },
+      h("div", { style: { fontSize: 13, fontWeight: 900, color: "#6b21a8", marginBottom: 8 } }, "⚙ 奖品设定（数字越大越容易中）"),
+      h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+        prizes.length === 0 && h("div", { style: { fontSize: 12, color: "#94a3b8" } }, "还没有奖品"),
+        (cfg.prizes || []).map((p, i) => h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 } },
+          "RM", h("input", { type: "number", value: p.amt, onChange: e => setCfg({ prizes: cfg.prizes.map((x, j) => j === i ? { ...x, amt: e.target.value } : x) }), style: { width: 70, ...S.bankerInput } }),
+          "机会", h("input", { type: "number", value: p.w, onChange: e => setCfg({ prizes: cfg.prizes.map((x, j) => j === i ? { ...x, w: e.target.value } : x) }), style: { width: 60, ...S.bankerInput } }),
+          h("span", { style: { color: "#7c3aed", minWidth: 40 } }, pct(p.w)),
+          h("button", { onClick: () => setCfg({ prizes: cfg.prizes.filter((x, j) => j !== i) }), style: { ...btn, background: "#fee2e2", color: "#b91c1c" } }, "✕"))),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 } },
+          "谢谢参与 机会", h("input", { type: "number", value: cfg.none, onChange: e => setCfg({ none: e.target.value }), style: { width: 60, ...S.bankerInput } }),
+          h("span", { style: { color: "#64748b" } }, pct(cfg.none))),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, flexWrap: "wrap" } },
+          h("button", { onClick: () => setCfg({ prizes: [...(cfg.prizes || []), { amt: 20, w: 10 }] }), style: { ...btn, background: "#f3e8ff", color: "#7c3aed" } }, "＋ 加奖品"),
+          h("span", { style: { marginLeft: 12 } }, "从这天之后的 closing 才有盲盒："),
+          h("input", { type: "date", value: cfg.start || "", onChange: e => setCfg({ start: e.target.value }), style: { ...S.bankerInput, width: "auto" } })))),
+    boss && pending.length > 0 && h("div", { style: { marginTop: 14, background: "#fff", borderRadius: 14, padding: "12px 14px", border: "1px solid #fde68a" } },
+      h("div", { style: { fontSize: 13, fontWeight: 900, color: "#b45309", marginBottom: 8 } }, "⏳ 等你批准（" + pending.length + "）"),
+      pending.map(d => h("div", { key: d.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid #f1f5f9", flexWrap: "wrap" } },
+        czAvatar(d.user, 24), h("b", null, String(d.user).toUpperCase()),
+        h("span", { style: { fontWeight: 900, color: "#7c3aed" } }, "RM " + d.amt),
+        h("span", { style: { fontSize: 12, color: "#64748b" } }, (d.client || "") + " · " + String(d.date || "").split("-").reverse().join("/")),
+        h("span", { style: { flex: 1 } }),
+        h("button", { onClick: () => decide(d, "approved"), style: { ...btn, background: "#16a34a", color: "#fff" } }, "✓ 批准"),
+        h("button", { onClick: () => decide(d, "rejected"), style: { ...btn, background: "#fee2e2", color: "#b91c1c" } }, "✕ 不批")))),
+    mine.length > 0 && h("details", { style: { marginTop: 12 } },
+      h("summary", { style: { cursor: "pointer", fontSize: 12.5, fontWeight: 800, color: "#6b21a8" } }, "我的盲盒记录（" + mine.length + "）"),
+      h("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginTop: 8 } },
+        mine.slice(0, 30).map(d => { const st = ST[d.status] || ST.none; return h("div", { key: d.id, style: { display: "flex", alignItems: "center", gap: 10, fontSize: 12.5 } },
+          h("span", { style: { color: "#94a3b8", width: 78 } }, String(d.date || "").split("-").reverse().join("/")),
+          h("span", { style: { fontWeight: 700, minWidth: 120 } }, d.client || ""),
+          h("span", { style: { fontWeight: 900, color: d.amt ? "#7c3aed" : "#94a3b8", minWidth: 60 } }, d.amt ? "RM " + d.amt : "—"),
+          h("span", { style: pill(st[1], st[2]) }, st[0])); }))));
+}
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("submissions");
@@ -3943,6 +4047,7 @@ function SubmissionPage({ currentUser }) {
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / staff / agent / remark", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { onClick: () => setShowRank(!showRank), style: { ...S.addBtn, background: showRank ? "linear-gradient(120deg,#f59e0b,#eab308)" : "#fff", color: showRank ? "#fff" : "#b45309", border: "1px solid #fcd34d", boxShadow: "none" } }, "🏆 Ranking"),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Closing")),
+    list !== null && h(BlindBox, { items, staffOf, currentUser }),
     showRank && h(ClosingRanking, { items, staffOf }),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
