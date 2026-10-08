@@ -1259,10 +1259,16 @@ const NAV = [{
   label: "Receipt",
   icon: Receipt
 }, {
+  id: "returnsalary",
+  label: "Return Salary",
+  icon: Wallet
+}, {
   id: "referral",
   label: "Referral 🧧",
   icon: Gift
 }];
+/* Return Salary 只有这些人看得到 */
+const RETURN_SALARY_USERS = ["alice"];
 /* 某些账号看不到的 Forms（填文件名） */
 const FORMS_HIDDEN = {
   admin: ["CAR_SALES_QUOTATION.html"]
@@ -2981,6 +2987,8 @@ function CRM({ onLogout, currentUser }) {
     onSave: persistBankers
   }) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
     currentUser: currentUser
+  }) : page === "returnsalary" && RETURN_SALARY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(ReturnSalaryPage, {
+    currentUser: currentUser
   }) : page === "receipt" ? /*#__PURE__*/React.createElement(ReceiptPage, {
     currentUser: currentUser
   }) : page === "referral" ? /*#__PURE__*/React.createElement(ReferralPage, {
@@ -3322,7 +3330,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const h = React.createElement;
   const me = canonUser(currentUser);
   const role = ROLE_LABELS[me] || "Staff";
-  const items = NAV.filter(n => !(n.id === "todo" && me === "admin"));
+  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)));
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
       h("div", { className: "sb-ava" }, czAvatar(currentUser || "?", 64)),
@@ -3346,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v91"));
+    h("div", { className: "sb-ver" }, "v94"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3397,6 +3405,68 @@ function printReceipt(r) {
   document.body.appendChild(iframe);
   const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close();
   setTimeout(() => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) {} setTimeout(() => iframe.remove(), 60000); }, 300);
+}
+/* ---------- Return Salary：客户 / Agent / 薪水 / 要还的钱 / 日期 / 收到没 ---------- */
+function ReturnSalaryPage({ currentUser }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const [list, save] = useCloudList("return_salary");
+  const items = list || [];
+  const blank = () => ({ customer: "", agent: "", salary: "", ret: "", date: today() });
+  const [f, setF] = React.useState(blank());
+  const [tab, setTab] = React.useState("all");
+  const [q, setQ] = React.useState("");
+  const num = v => Number(String(v || "").replace(/,/g, "")) || 0;
+  const rm = n => "RM " + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const add = () => {
+    if (!f.customer.trim()) { alert("请填 Customer Name"); return; }
+    if (!f.ret) { alert("请填 Return Amount"); return; }
+    save([{ id: uid(), customer: f.customer.trim(), agent: f.agent.trim(), salary: f.salary, ret: f.ret, date: f.date || today(), received: false, by: me, at: Date.now() }, ...items]);
+    setF(blank());
+  };
+  const patch = (r, p) => save(items.map(x => x.id === r.id ? { ...x, ...p } : x));
+  const del = r => { if (window.confirm("删除「" + r.customer + "」？")) save(items.filter(x => x.id !== r.id)); };
+  const ql = q.trim().toLowerCase();
+  const matchQ = r => !ql || [r.customer, r.agent].some(v => String(v || "").toLowerCase().includes(ql));
+  const notYet = items.filter(r => !r.received);
+  const shown = (tab === "pending" ? notYet : items).filter(matchQ).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+  const owed = notYet.reduce((t, r) => t + num(r.ret), 0);
+  const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #e2e8f0", marginBottom: 14 };
+  const inp = { padding: "9px 12px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#fff", width: "100%", boxSizing: "border-box" };
+  const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4, letterSpacing: .3 } }, t);
+  const field = (t, k, extra) => h("div", { style: { flex: "1 1 150px" } }, lbl(t), h("input", { style: inp, value: f[k], onChange: e => setF({ ...f, [k]: e.target.value }), onKeyDown: e => e.key === "Enter" && add(), ...(extra || {}) }));
+  const tabBtn = (id, t, n) => h("button", { onClick: () => setTab(id), style: { border: tab === id ? "2px solid #4f46e5" : "1px solid #e2e8f0", background: tab === id ? "#eef2ff" : "#fff", color: tab === id ? "#3730a3" : "#475569", borderRadius: 12, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, t + " ", h("span", { style: { marginLeft: 4, padding: "1px 8px", borderRadius: 999, background: tab === id ? "#4f46e5" : "#f1f5f9", color: tab === id ? "#fff" : "#64748b", fontSize: 12 } }, n));
+  const cell = (r, k, extra) => h("input", { value: r[k] || "", onChange: e => patch(r, { [k]: e.target.value }), style: { border: "1px solid transparent", background: "transparent", padding: "4px 6px", borderRadius: 6, fontSize: 13, fontFamily: "inherit", fontWeight: 700, width: "100%", minWidth: 80, boxSizing: "border-box", ...(extra || {}) }, onFocus: e => { e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#fff"; }, onBlur: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } });
+  return h("div", { className: "cz-page" },
+    h("div", { style: card },
+      h("div", { style: { fontSize: 14, fontWeight: 900, color: "#1e1b4b", marginBottom: 10 } }, "➕ 新增 Return Salary"),
+      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
+        field("CUSTOMER NAME", "customer"),
+        field("AGENT NAME", "agent"),
+        field("SALARY (RM)", "salary", { inputMode: "decimal" }),
+        field("RETURN AMOUNT (RM)", "ret", { inputMode: "decimal" }),
+        h("div", { style: { flex: "0 1 160px" } }, lbl("DATE"), h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
+        h("button", { onClick: add, style: { border: "none", borderRadius: 10, padding: "0 22px", minHeight: 40, background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", fontWeight: 900, cursor: "pointer" } }, "保存"))),
+    h("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
+      tabBtn("all", "ALL", items.length),
+      tabBtn("pending", "HAVEN'T RECEIVED", notYet.length),
+      h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px" } },
+        h("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#b91c1c" } }, "还没收到 TOTAL"),
+        h("div", { style: { fontSize: 17, fontWeight: 900, color: "#991b1b" } }, rm(owed))),
+      h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search customer / agent", value: q, onChange: e => setQ(e.target.value) }))),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Customer Name", "Agent Name", "Salary", "Return Amount", "Date", "Received", ""].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...S.th, ...S.thNum } : S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, tab === "pending" ? "全部都收到了 ✓" : "还没有资料")) :
+        shown.map((r, i) => h("tr", { key: r.id },
+          h("td", { style: { ...S.td, color: "#94a3b8", width: 36 } }, i + 1),
+          h("td", { style: S.td }, cell(r, "customer", { textTransform: "uppercase" })),
+          h("td", { style: S.td }, cell(r, "agent", { textTransform: "uppercase" })),
+          h("td", { style: { ...S.td, ...S.tdNum } }, cell(r, "salary", { textAlign: "right" })),
+          h("td", { style: { ...S.td, ...S.tdNum } }, cell(r, "ret", { textAlign: "right", color: r.received ? "#15803d" : "#b91c1c", fontWeight: 900 })),
+          h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && patch(r, { date: e.target.value }), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
+          h("td", { style: S.td }, h("button", { onClick: () => patch(r, r.received ? { received: false, receivedAt: null } : { received: true, receivedAt: today() }), title: r.received && r.receivedAt ? "收到日期 " + r.receivedAt.split("-").reverse().join("/") : "", style: { border: "none", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer", background: r.received ? "#dcfce7" : "#fee2e2", color: r.received ? "#15803d" : "#b91c1c" } }, r.received ? "✓ RECEIVED" : "✕ NOT YET")),
+          h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" })))))))));
 }
 /* ---------- Receipt：按月份分组、Copy 去 WhatsApp、下载 Excel ---------- */
 const RC_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
@@ -4799,7 +4869,54 @@ function formReadValues(doc) {
     if (el.type === "checkbox" || el.type === "radio") return [key, el.checked ? "1" : ""];
     if (el.type === "file" || el.type === "button" || el.type === "submit") return [key, null];
     return [key, el.value];
-  }).filter(x => x[1] !== null);
+  }).filter(x => x[1] !== null).concat(formReadICImages(doc));
+}
+/* 表格里上传的 IC 照片（Future / Finpro Agreement 等）也一起存档 */
+const _icShrinkCache = new Map();
+function icShrink(src, imgEl) {
+  if (!src || src.length < 700000 || !imgEl || !imgEl.naturalWidth) return src;
+  if (_icShrinkCache.has(src)) return _icShrinkCache.get(src);
+  let out = src;
+  try {
+    const k = Math.min(1, 1600 / Math.max(imgEl.naturalWidth, imgEl.naturalHeight));
+    const c = imgEl.ownerDocument.createElement("canvas");
+    c.width = Math.round(imgEl.naturalWidth * k); c.height = Math.round(imgEl.naturalHeight * k);
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(imgEl, 0, 0, c.width, c.height);
+    const j = c.toDataURL("image/jpeg", 0.85); if (j.length < src.length) out = j;
+  } catch (e) {}
+  _icShrinkCache.set(src, out);
+  return out;
+}
+function formICSides(doc) {
+  try { const w = doc.defaultView; const sides = w && w.eval("typeof IC_SIDES !== 'undefined' ? IC_SIDES : null"); return Array.isArray(sides) ? sides : null; } catch (e) { return null; }
+}
+function icHash(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + "_" + str.length.toString(36); }
+const _icSaved = new Map(); // 照片另外存，不塞进存档清单
+function formReadICImages(doc) {
+  const sides = formICSides(doc); if (!sides) return [];
+  const imgs = sides.filter(sd => sd && sd.dataURL).map(sd => {
+    const src = icShrink(sd.dataURL, sd.ctrl && sd.ctrl.querySelector("img"));
+    let ref = _icSaved.get(src);
+    if (!ref) { ref = icHash(src); _icSaved.set(src, ref); try { DB.set("ficimg_" + ref, src); } catch (e) {} }
+    return { key: sd.key, rotation: sd.rotation || 0, ref };
+  });
+  return [["__ic_images__", JSON.stringify(imgs)]];
+}
+async function formWriteICImages(doc, raw) {
+  const sides = formICSides(doc); if (!sides || raw == null) return;
+  let imgs = []; try { imgs = JSON.parse(raw) || []; } catch (e) {}
+  const w = doc.defaultView;
+  for (const sd of sides) {
+    const it = imgs.find(x => x.key === sd.key);
+    try {
+      if (it && (it.ref || it.src)) {
+        const src = it.src || await DB.get("ficimg_" + it.ref);
+        if (!src) continue;
+        if (it.ref) _icSaved.set(src, it.ref);
+        sd.rotation = it.rotation || 0; w.setICImage(sd, src);
+      } else if (sd.dataURL && w.clearICImage) w.clearICImage(sd);
+    } catch (e) {}
+  }
 }
 function formWriteValues(doc, values) {
   const map = Object.fromEntries(values || []);
@@ -4811,6 +4928,7 @@ function formWriteValues(doc, values) {
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   });
+  if ("__ic_images__" in map) formWriteICImages(doc, map.__ic_images__);
 }
 /* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
 function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, onMoveDraft, onDelDraft, onRenameDraft }) {
