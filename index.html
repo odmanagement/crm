@@ -3346,7 +3346,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v86"));
+    h("div", { className: "sb-ver" }, "v87"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -5530,7 +5530,10 @@ function ClientsPage({
 const tpHue = n => { const k = String(n || "").trim().toLowerCase(); const i = (typeof CLOSING_AGENTS !== "undefined" ? CLOSING_AGENTS : []).indexOf(k); return i >= 0 ? [262, 199, 330, 152, 24, 222, 285, 174, 350, 45, 120, 300, 190, 15, 240, 60, 160, 340][i % 18] : czHue(k); };
 const tpPerson = v => v ? React.createElement("span", { className: "tp-pp", style: { "--h": tpHue(v) } }, React.createElement("i", null, String(v).trim().charAt(0)), String(v)) : "";
 const tpTag = (v, icon, hue) => v ? React.createElement("span", { className: "tp-tag", style: { "--h": hue } }, icon ? React.createElement("em", null, icon) : null, String(v)) : "";
-const tpDate = v => v ? React.createElement("span", { className: "tp-date" }, String(v)) : "";
+const TP_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+/* 2026-10-08 这种格式 → 显示成 8-OCTOBER，跟旧资料一样 */
+const tpDateText = v => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(v).trim()); return m && +m[2] >= 1 && +m[2] <= 12 ? (+m[3]) + "-" + TP_MONTHS[+m[2] - 1] : String(v); };
+const tpDate = v => v ? React.createElement("span", { className: "tp-date", title: String(v) }, tpDateText(v)) : "";
 /* ---------- Type page ---------- */
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
 /* Personal 表格固定显示的银行（顺序 + 显示名） */
