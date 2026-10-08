@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v94"));
+    h("div", { className: "sb-ver" }, "v95"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3577,7 +3577,7 @@ function ReceiptPage({ currentUser }) {
             g.rows.map(r => h("tr", { key: r.id },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
               h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), r.ic && h("div", { style: { fontSize: 11.5, color: "#94a3b8" } }, r.ic)),
-              h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, money(r.amount)),
+              h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, rcRM(rcNum(r.amount))),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => printReceipt(r), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", marginRight: 6 } }, "🖨 Print"),
