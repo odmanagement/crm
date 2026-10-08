@@ -3346,7 +3346,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v87"));
+    h("div", { className: "sb-ver" }, "v88"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3398,6 +3398,51 @@ function printReceipt(r) {
   const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close();
   setTimeout(() => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) {} setTimeout(() => iframe.remove(), 60000); }, 300);
 }
+/* ---------- Receipt：按月份分组、Copy 去 WhatsApp、下载 Excel ---------- */
+const RC_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+const rcNum = v => Number(String(v || 0).replace(/,/g, "")) || 0;
+const rcRM = n => "RM " + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const rcDMY = d => String(d || "").split("-").reverse().join("/");
+const rcMonthLabel = ym => { const [y, m] = String(ym).split("-"); return (RC_MONTHS[+m - 1] || "NO DATE") + (y && m ? " " + y : ""); };
+function rcGroups(rows) {
+  const map = {};
+  rows.forEach(r => { const k = /^\d{4}-\d{2}/.test(r.date || "") ? r.date.slice(0, 7) : "0000-00"; (map[k] = map[k] || []).push(r); });
+  return Object.keys(map).sort((a, b) => b.localeCompare(a)).map(k => {
+    const rs = map[k].slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+    return { key: k, label: rcMonthLabel(k), rows: rs, total: rs.reduce((t, r) => t + rcNum(r.amount), 0) };
+  });
+}
+function rcWhatsAppText(g) {
+  const lines = ["*RECEIPT – " + g.label + "*", ""];
+  g.rows.forEach((r, i) => lines.push((i + 1) + ". " + rcDMY(r.date) + "  " + String(r.from || "").toUpperCase() + "  " + rcRM(rcNum(r.amount))));
+  lines.push("", "*TOTAL: " + rcRM(g.total) + "*  (" + g.rows.length + " receipts)");
+  return lines.join("\n");
+}
+async function rcCopy(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch (e2) {} t.remove(); }
+}
+function rcLoadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = () => window.XLSX ? res(window.XLSX) : rej(); s.onerror = rej; document.head.appendChild(s); });
+}
+async function rcExcel(g) {
+  const name = "Receipt_" + g.label.replace(/\s+/g, "_");
+  const aoa = [["No", "Date", "Name", "Amount (RM)", "By"]];
+  g.rows.forEach((r, i) => aoa.push([i + 1, rcDMY(r.date), String(r.from || "").toUpperCase(), rcNum(r.amount), String(r.by || "").toUpperCase()]));
+  aoa.push(["", "", "TOTAL", Math.round(g.total * 100) / 100, ""]);
+  try {
+    const X = await rcLoadXLSX();
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 5 }, { wch: 12 }, { wch: 32 }, { wch: 14 }, { wch: 10 }];
+    for (let i = 2; i <= aoa.length; i++) { const c = ws["D" + i]; if (c && typeof c.v === "number") c.z = "#,##0.00"; }
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, g.label.slice(0, 31));
+    X.writeFile(wb, name + ".xlsx");
+  } catch (e) {
+    const csv = aoa.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\r\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); a.download = name + ".csv"; a.click();
+  }
+}
 function ReceiptPage({ currentUser }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -3407,6 +3452,7 @@ function ReceiptPage({ currentUser }) {
   const blank = () => ({ date: today(), from: "", amount: "" });
   const [f, setF] = React.useState(blank());
   const [q, setQ] = React.useState("");
+  const [copied, setCopied] = React.useState("");
   const nextNo = () => { const ym = today().slice(0, 7).replace("-", ""); const n = items.filter(x => String(x.no || "").startsWith("OD-" + ym)).length + 1; return "OD-" + ym + "-" + String(n).padStart(3, "0"); };
   const create = (andPrint) => {
     if (!f.from.trim()) { alert("请填名字"); return; }
@@ -3438,14 +3484,26 @@ function ReceiptPage({ currentUser }) {
       h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", ""].map((x, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, x)))),
       h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
         shown.length === 0 ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有收据")) :
-        shown.map(r => h("tr", { key: r.id },
+        rcGroups(shown).map(g => [
+          h("tr", { key: "m_" + g.key }, h("td", { colSpan: 5, style: { ...S.td, background: "#eef2ff", padding: "10px 14px", borderTop: "2px solid #c7d2fe" } },
+            h("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+              h("span", { style: { fontWeight: 900, fontSize: 14, color: "#1e1b4b" } }, "📅 " + g.label),
+              h("span", { style: { fontSize: 12, color: "#64748b", fontWeight: 700 } }, g.rows.length + " 张"),
+              h("span", { style: { flex: 1 } }),
+              h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
+              h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "📊 Excel")))),
+          ...g.rows.map(r => h("tr", { key: r.id },
           h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
           h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), r.ic && h("div", { style: { fontSize: 11.5, color: "#94a3b8" } }, r.ic)),
           h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, money(r.amount)),
           h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
           h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
             h("button", { onClick: () => printReceipt(r), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", marginRight: 6 } }, "🖨 Print"),
-            (boss || sameUser(r.by, currentUser)) && h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" })))))))));
+            (boss || sameUser(r.by, currentUser)) && h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))))),
+          h("tr", { key: "t_" + g.key }, h("td", { colSpan: 2, style: { ...S.td, background: "#fefce8", fontWeight: 900, textAlign: "right", color: "#713f12" } }, "TOTAL " + g.label),
+            h("td", { style: { ...S.td, ...S.tdNum, background: "#fefce8", fontWeight: 900, fontSize: 15, color: "#713f12" } }, rcRM(g.total)),
+            h("td", { colSpan: 2, style: { ...S.td, background: "#fefce8" } }))
+        ])))));
 }
 /* ---------- Referral 红包（介绍 Agent → Lucas 批准 → 拆红包） ---------- */
 const REF_DEFAULT = { min: 10, max: 88 };
