@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v105"));
+    h("div", { className: "sb-ver" }, "v106"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3957,7 +3957,7 @@ function PhonePage({ currentUser }) {
 /* ---------- Closing List（Build / Ori / Special Case / Cancel / Rencai） ---------- */
 const SUB_TYPES = [["build", "Build", 262], ["ori", "Ori", 199], ["special", "Special Case", 25], ["cancel", "Cancel", 0], ["rencai", "Rencai", 150]];
 const SUB_STATUS = [["submitted", "Submitted", "#3b82f6"], ["pending", "Pending", "#f59e0b"], ["approved", "Approved", "#16a34a"], ["rejected", "Rejected", "#dc2626"]];
-const CLOSING_AGENTS = ["alex", "steven", "vick", "fin", "candy", "edward", "nico", "anna", "gary", "darren", "davis", "celement", "br", "ivan", "kelvin", "lee", "nick", "william"];
+const CLOSING_AGENTS = ["alex", "steven", "vick", "fin", "candy", "edward", "nico", "anna", "gary", "darren", "davis", "celement", "br", "ivan", "kelvin", "lee", "nick", "william", "da sheng", "bosco", "loki", "jimmy", "elwin", "caden", "joe", "tom"];
 function AutoTextarea({ value, onCommit, placeholder, style, readOnly }) {
   const [draft, setDraft] = React.useState(value || "");
   const ref = React.useRef(null);
