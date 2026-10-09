@@ -2558,6 +2558,7 @@ function CRM({ onLogout, currentUser }) {
             await DB.set("clients", JSON.stringify(list));
           } catch (e) {}
         }
+        __clientsBase = list;
         setClients(list);
         try {
           const vr = await DB.get("verifications");
@@ -2583,7 +2584,7 @@ function CRM({ onLogout, currentUser }) {
         if (v == null) {
           v = await DB.get(key);
         }
-        if (key === "clients" && v) setClients(JSON.parse(v));
+        if (key === "clients" && v) { const pv = JSON.parse(v); __clientsBase = pv; setClients(pv); }
         else if (key === "verifications" && v) setVerifications(JSON.parse(v));
         else if (key === "bankers" && v) setBankers(JSON.parse(v));
         else if (key === "missions" && v) setMissions(JSON.parse(v));
@@ -2644,7 +2645,7 @@ function CRM({ onLogout, currentUser }) {
   const [sound, setSound] = React.useState(soundOn());
   const restoreSnapshot = async snap => {
     const jobs = [];
-    if (snap.clients) { setClients(snap.clients); jobs.push(DB.set("clients", JSON.stringify(snap.clients))); }
+    if (snap.clients) { __clientsBase = snap.clients; setClients(snap.clients); jobs.push(DB.set("clients", JSON.stringify(snap.clients))); }
     if (snap.missions) { setMissions(snap.missions); jobs.push(DB.set("missions", JSON.stringify(snap.missions))); }
     if (snap.bankers) { setBankers(snap.bankers); jobs.push(DB.set("bankers", JSON.stringify(snap.bankers))); }
     if (snap.verifications) { setVerifications(snap.verifications); jobs.push(DB.set("verifications", JSON.stringify(snap.verifications))); }
@@ -2698,7 +2699,17 @@ function CRM({ onLogout, currentUser }) {
     setClients(next);
     setSaving(true);
     try {
-      await DB.set("clients", JSON.stringify(next));
+      let merged = next;
+      if (__clientsBase) {
+        try {
+          const raw = await DB.get("clients");
+          const remote = raw ? JSON.parse(raw) : null;
+          if (Array.isArray(remote)) merged = crmMerge(__clientsBase, next, remote);
+        } catch (e) {}
+      }
+      __clientsBase = merged;
+      if (_J(merged) !== _J(next)) setClients(merged);
+      await DB.set("clients", JSON.stringify(merged));
     } catch (e) {
       console.error(e);
     }
@@ -3360,9 +3371,44 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v108"));
+    h("div", { className: "sb-ver" }, "v109"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
+/* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
+   base = 我上次从云端拿到的版本，mine = 我现在的版本，theirs = 云端最新版本 */
+const _J = x => JSON.stringify(x === undefined ? null : x);
+const _isObj = x => x && typeof x === "object" && !Array.isArray(x);
+const _idArr = a => Array.isArray(a) && a.every(x => _isObj(x) && x.id != null);
+function crmMerge(base, mine, theirs) {
+  if (_J(mine) === _J(base)) return theirs;
+  if (_J(theirs) === _J(base) || _J(theirs) === _J(mine)) return mine;
+  if (_isObj(mine) && _isObj(theirs)) {
+    const b = _isObj(base) ? base : {}, out = {};
+    new Set([...Object.keys(b), ...Object.keys(mine), ...Object.keys(theirs)]).forEach(k => {
+      const inM = k in mine, inT = k in theirs, inB = k in b;
+      if (!inM && inB && _J(theirs[k]) === _J(b[k])) return;      // 我删了，别人没动 → 删
+      if (!inT && inB && _J(mine[k]) === _J(b[k])) return;        // 别人删了，我没动 → 删
+      const v = crmMerge(b[k], inM ? mine[k] : undefined, inT ? theirs[k] : undefined);
+      if (v !== undefined) out[k] = v;
+    });
+    return out;
+  }
+  if (_idArr(mine) && _idArr(theirs)) {
+    const bArr = _idArr(base) ? base : [];
+    const bMap = new Map(bArr.map(x => [x.id, x])), mMap = new Map(mine.map(x => [x.id, x])), tMap = new Map(theirs.map(x => [x.id, x]));
+    const order = [...mine.map(x => x.id), ...theirs.map(x => x.id).filter(id => !mMap.has(id))];
+    const out = [];
+    order.forEach(id => {
+      const bx = bMap.get(id), mx = mMap.get(id), tx = tMap.get(id);
+      if (mx && tx) { out.push(crmMerge(bx, mx, tx)); return; }
+      if (mx && !tx) { if (!bx || _J(mx) !== _J(bx)) out.push(mx); return; }   // 别人删了；我改过就保留
+      if (!mx && tx) { if (!bx || _J(tx) !== _J(bx)) out.push(tx); return; }   // 我删了；别人改过就保留
+    });
+    return out;
+  }
+  return mine; // 同一个格子两边都改 → 以我最新的为准
+}
+let __clientsBase = null;
 function useCloudList(key) {
   const [list, setList] = React.useState(null);
   React.useEffect(() => { DB.get(key).then(v => setList(v ? JSON.parse(v) : [])).catch(() => setList([])); }, [key]);
