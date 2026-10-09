@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v99"));
+    h("div", { className: "sb-ver" }, "v100"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6628,6 +6628,15 @@ function VerifyPage({
   .vf-del{border:none;background:#fff1f2;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;opacity:.55;transition:all .15s}
   .vf-row:hover .vf-del{opacity:1}
   .vf-del:hover{background:#fee2e2;transform:scale(1.08)}
+  /* 表头和每一排用同一个 grid，栏位对齐；每格加直线 */
+  .vf-wrap{overflow-x:auto}
+  .vf-head,.vf-row{display:grid!important;grid-template-columns:44px 80px 130px 140px minmax(220px,2fr) minmax(170px,1.2fr) minmax(200px,1.6fr) 150px 130px 52px;gap:0!important;padding:0!important;align-items:stretch;min-width:1340px}
+  .vf-head>span,.vf-row>span{width:auto!important;min-width:0!important;display:flex!important;align-items:center;padding:8px 12px;border-right:1px solid rgba(148,163,184,.28);box-sizing:border-box;overflow:hidden}
+  .vf-head>span{border-right-color:rgba(255,255,255,.28)}
+  .vf-head>span:last-child,.vf-row>span:last-child{border-right:none;justify-content:center}
+  .vf-row>.vf-lt{flex-wrap:wrap;align-content:center}
+  .vf-row>.vf-c0,.vf-head>.vf-c0{justify-content:center}
+  .vf-row>.vf-c5{line-height:1.35}
   `)), open && /*#__PURE__*/React.createElement(VerifyDetail, {
     v: open,
     clients: clients,
