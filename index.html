@@ -3352,7 +3352,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v102"));
+    h("div", { className: "sb-ver" }, "v103"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3365,7 +3365,8 @@ function useCloudList(key) {
 const pillSel = (hue, extra) => ({ ...S.bankerInput, ...czPill(hue, { padding: "5px 10px", width: "auto", ...(extra || {}) }), fontWeight: 700 });
 
 const VERIFY_CHECKERS = ["money"]; // 除了建立的人，这些人也可以 Mark Verified / Failed
-const _vTypes = v => v.loanTypes || (v.loanType ? [v.loanType] : []);
+const _V_TYPE_ORDER = { personal: 0, car: 1, house: 2 }; // 显示顺序：Personal → Car → House
+const _vTypes = v => (v.loanTypes || (v.loanType ? [v.loanType] : [])).slice().sort((a, b) => (_V_TYPE_ORDER[a] ?? 9) - (_V_TYPE_ORDER[b] ?? 9));
 /* ---------- Receipt 收据 ---------- */
 const RC_METHODS = ["Cash", "Online Transfer", "Bank In", "Cheque", "DuitNow / QR"];
 function rmWords(num) {
