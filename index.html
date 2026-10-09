@@ -682,7 +682,7 @@ const DB = {
         try {
           const row = payload.new || payload.old || {};
           const key = row.key;
-          if (!key || String(key).startsWith("mphoto_") || String(key).startsWith("backup_")) return;
+          if (!key || String(key).startsWith("mphoto_") || String(key).startsWith("backup_") || String(key).startsWith("dtfile_")) return;
           if (this._queue[key] && this._queue[key].running) return; // 自己还在保存中，忽略
           let v = row.value;
           if (v == null) v = await this.get(key);
@@ -1262,6 +1262,10 @@ const NAV = [{
   id: "returnsalary",
   label: "Return Salary",
   icon: Wallet
+}, {
+  id: "doctrack",
+  label: "Customer Docs",
+  icon: Folder
 }, {
   id: "referral",
   label: "Referral 🧧",
@@ -2987,6 +2991,8 @@ function CRM({ onLogout, currentUser }) {
     onSave: persistBankers
   }) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
     currentUser: currentUser
+  }) : page === "doctrack" && DT_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(CustomerDocsPage, {
+    currentUser: currentUser
   }) : page === "returnsalary" && RETURN_SALARY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(ReturnSalaryPage, {
     currentUser: currentUser
   }) : page === "receipt" ? /*#__PURE__*/React.createElement(ReceiptPage, {
@@ -3330,7 +3336,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const h = React.createElement;
   const me = canonUser(currentUser);
   const role = ROLE_LABELS[me] || "Staff";
-  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)));
+  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)));
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
       h("div", { className: "sb-ava" }, czAvatar(currentUser || "?", 64)),
@@ -3354,7 +3360,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v106"));
+    h("div", { className: "sb-ver" }, "v107"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3566,6 +3572,246 @@ function ReturnSalaryPage({ currentUser }) {
             h("td", { key: "cl", style: S.td }, h("button", { onClick: () => closeFile(r), style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📁 CLOSE"))
           ]),
           h("td", { style: S.td }, h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" })))); })))));
+}
+/* ---------- Customer Document Tracking（Alice）----------
+   资料：useCloudList("doc_tracking")，每个客户一笔：
+   { id, customer, agent, createdAt, updatedAt, updatedBy,
+     bank:      { files:[], remark, collected },
+     agreement: { status:"completed"|"not_completed"|"", date, files:[], remark },
+     details:   { ic, phone, email, address, company, position, files:[], remark },
+     funder:    { status:"done"|"absconded"|"", files:[], remark },
+     settlement:{ status:"completed"|"partial"|"none"|"", amount, outstanding, date, files:[], remark },
+     card:      { files:[], remark, collected },
+     salaryBank:{ type:"CIMB"|"OTHER"|"", name } }
+   文件：{ id, blob, name, type, size, remark, at, by }，内容另外存在 DB key "dtfile_<blob>"（重新整理 / 重新登入都还在） */
+const DT_USERS = ["alice"];
+const DT_AGREE = { completed: ["Completed", "#dcfce7", "#15803d"], not_completed: ["Not Completed", "#fee2e2", "#b91c1c"] };
+const DT_FUNDER = { done: ["Done – Returned to Funder", "#dcfce7", "#15803d"], absconded: ["Customer Absconded – Did Not Return Funds", "#fee2e2", "#b91c1c"] };
+const DT_SETTLE = { completed: ["Completed", "#dcfce7", "#15803d"], partial: ["Not Fully Settled", "#ffedd5", "#c2410c"], none: ["No Settlement", "#f1f5f9", "#475569"] };
+const DT_MAX = 4 * 1024 * 1024;
+const _dtCache = {};
+const dtKeyName = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+const dtDMY = d => d ? String(d).split("-").reverse().join("/") : "";
+const dtIsImg = f => /^image\//.test(f.type || "") || /\.(jpe?g|png|gif|webp)$/i.test(f.name || "");
+const dtFiles = (r, sec) => ((r[sec] || {}).files || []);
+const dtBankName = r => { const sb = r.salaryBank || {}; return sb.type === "CIMB" ? "CIMB" : sb.type === "OTHER" ? String(sb.name || "").trim() : ""; };
+const dtIncomplete = r => !(r.bank || {}).collected || (r.agreement || {}).status !== "completed" || !(r.card || {}).collected || !dtFiles(r, "details").length || !dtBankName(r);
+async function dtGetData(blob) {
+  if (_dtCache[blob]) return _dtCache[blob];
+  const d = await DB.get("dtfile_" + blob);
+  if (d) _dtCache[blob] = d;
+  return d;
+}
+async function dtReadFile(file) {
+  // 照片压缩成 1600px JPG；PDF / Excel / Word 原档（最多 4MB）
+  if (/^image\/(jpeg|png|webp)$/.test(file.type) && file.size > 350 * 1024) return { data: await compressImage(file, 1600, 0.8), type: "image/jpeg" };
+  if (file.size > DT_MAX) throw new Error("「" + file.name + "」超过 4MB");
+  const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(new Error("读取失败")); fr.readAsDataURL(file); });
+  return { data, type: file.type || "application/octet-stream" };
+}
+async function dtDownload(f) {
+  const d = await dtGetData(f.blob);
+  if (!d) { alert("找不到文件，请重新上传"); return; }
+  const a = document.createElement("a"); a.href = d; a.download = f.name || "file"; document.body.appendChild(a); a.click(); a.remove();
+}
+function DtThumb({ f, onOpen }) {
+  const h = React.createElement;
+  const [src, setSrc] = React.useState(_dtCache[f.blob] || null);
+  React.useEffect(() => { let on = true; if (dtIsImg(f) && !src) dtGetData(f.blob).then(d => on && d && setSrc(d)).catch(() => {}); return () => { on = false; }; }, [f.blob]);
+  const box = { width: "100%", height: 120, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "zoom-in" };
+  if (dtIsImg(f)) return h("div", { style: box, onClick: () => onOpen(f) }, src ? h("img", { src, style: { width: "100%", height: "100%", objectFit: "cover" } }) : h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "载入中…"));
+  const ext = (String(f.name || "").split(".").pop() || "FILE").toUpperCase().slice(0, 5);
+  const col = ext === "PDF" ? "#dc2626" : /XLS|CSV/.test(ext) ? "#15803d" : /DOC/.test(ext) ? "#1d4ed8" : "#475569";
+  return h("div", { style: { ...box, flexDirection: "column", gap: 4 }, onClick: () => onOpen(f) }, h("div", { style: { fontSize: 22, fontWeight: 900, color: col } }, ext), h("div", { style: { fontSize: 11, color: "#64748b" } }, "点击打开"));
+}
+/* 通用文件区：多文件上传 / 拖拉 / 预览放大 / 下载 / 换档 / 删除 / 每个文件备注 / 上传日期 / 失败重试 */
+function DtFileBox({ files, onFiles, me, photoFirst, accept }) {
+  const h = React.createElement;
+  const [busy, setBusy] = React.useState("");
+  const [failed, setFailed] = React.useState([]);
+  const [view, setView] = React.useState(null);
+  const [drag, setDrag] = React.useState(false);
+  const pick = React.useRef(null), rep = React.useRef(null), repTarget = React.useRef(null);
+  const upload = async list => {
+    list = Array.from(list || []); if (!list.length) return;
+    const added = [], bad = [];
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i];
+      setBusy("上传中 " + (i + 1) + " / " + list.length + "…");
+      try {
+        const { data, type } = await dtReadFile(file);
+        const blob = uid(); await DB.set("dtfile_" + blob, data); _dtCache[blob] = data;
+        added.push({ id: uid(), blob, name: file.name, type, size: file.size, remark: "", at: today(), by: me });
+      } catch (e) { bad.push({ file, msg: e.message || String(e) }); }
+    }
+    setBusy("");
+    if (added.length) onFiles([...added, ...files]);
+    setFailed(bad);
+    if (bad.length) alert("❌ 有 " + bad.length + " 个文件上传失败：\n" + bad.map(b => "· " + b.file.name + "（" + b.msg + "）").join("\n") + "\n\n可以按「重试」再上传一次。");
+  };
+  const replace = async (f, file) => {
+    if (!file) return;
+    setBusy("换档中…");
+    try {
+      const { data, type } = await dtReadFile(file);
+      const blob = uid(); await DB.set("dtfile_" + blob, data); _dtCache[blob] = data;
+      onFiles(files.map(x => x.id === f.id ? { ...x, blob, name: file.name, type, size: file.size, at: today(), by: me } : x));
+      try { await DB.del("dtfile_" + f.blob); } catch (e) {}
+    } catch (e) { alert("❌ 换档失败：" + (e.message || e) + "\n请再试一次。"); }
+    setBusy("");
+  };
+  const del = async f => {
+    if (!window.confirm("删除「" + f.name + "」？删除后不能复原。")) return;
+    onFiles(files.filter(x => x.id !== f.id));
+    try { await DB.del("dtfile_" + f.blob); } catch (e) {}
+  };
+  const open = async f => {
+    if (dtIsImg(f)) { setView(f); return; }
+    const d = await dtGetData(f.blob); if (!d) { alert("找不到文件"); return; }
+    if (/^data:application\/pdf/.test(d)) { const w = window.open(); if (w) { w.document.write('<title>' + String(f.name).replace(/</g, "") + '</title><iframe src="' + d + '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>'); w.document.close(); } }
+    else dtDownload(f);
+  };
+  const btn = (bg, fg, bd) => ({ border: "1px solid " + bd, background: bg, color: fg, borderRadius: 8, padding: "4px 8px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" });
+  return h("div", null,
+    h("div", { onDragOver: e => { e.preventDefault(); setDrag(true); }, onDragLeave: () => setDrag(false), onDrop: e => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files); },
+      onClick: () => !busy && pick.current && pick.current.click(),
+      style: { border: "2px dashed " + (drag ? "#6366f1" : "#c7d2fe"), background: drag ? "#eef2ff" : "#f8faff", borderRadius: 14, padding: "18px 14px", textAlign: "center", cursor: busy ? "wait" : "pointer", marginBottom: 12 } },
+      h("div", { style: { fontSize: 26 } }, photoFirst ? "📷" : "📎"),
+      h("div", { style: { fontWeight: 900, color: "#3730a3", fontSize: 14 } }, busy || (photoFirst ? "点击或拖拉上传照片（可一次选多张）" : "点击或拖拉上传文件（可一次选多个）")),
+      h("div", { style: { fontSize: 11.5, color: "#64748b", marginTop: 3 } }, photoFirst ? "JPG / JPEG / PNG / PDF" : "JPG / PNG / PDF / Excel / Word · 每个最多 4MB（照片会自动压缩）"),
+      h("input", { ref: pick, type: "file", multiple: true, accept, style: { display: "none" }, onChange: e => { upload(e.target.files); e.target.value = ""; } })),
+    failed.length > 0 && h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+      h("span", { style: { color: "#b91c1c", fontWeight: 800, fontSize: 12.5, flex: 1 } }, "❌ 上传失败：" + failed.map(b => b.file.name).join("、")),
+      h("button", { onClick: () => upload(failed.map(b => b.file)), style: btn("#fff", "#b91c1c", "#fecaca") }, "↻ 重试"),
+      h("button", { onClick: () => setFailed([]), style: btn("#fff", "#64748b", "#e2e8f0") }, "关闭")),
+    files.length === 0 ? h("div", { style: { textAlign: "center", color: "#94a3b8", fontSize: 13, padding: 10 } }, "还没有文件") :
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))", gap: 10 } },
+      files.map(f => h("div", { key: f.id, style: { border: "1px solid #e2e8f0", borderRadius: 12, padding: 8, background: "#fff", display: "flex", flexDirection: "column", gap: 6 } },
+        h(DtThumb, { f, onOpen: open }),
+        h("div", { title: f.name, style: { fontSize: 12, fontWeight: 800, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.name),
+        h("div", { style: { fontSize: 11, color: "#94a3b8" } }, "上传 " + dtDMY(f.at) + (f.by ? " · " + String(f.by).toUpperCase() : "")),
+        h(DebouncedInput, { value: f.remark || "", placeholder: "备注…", onCommit: val => onFiles(files.map(x => x.id === f.id ? { ...x, remark: val } : x)), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" } }),
+        h("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+          h("button", { onClick: () => dtDownload(f), style: btn("#eff6ff", "#1d4ed8", "#bfdbfe") }, "⬇ 下载"),
+          h("button", { onClick: () => { repTarget.current = f; rep.current && rep.current.click(); }, style: btn("#f5f3ff", "#6d28d9", "#ddd6fe") }, "⇄ 换档"),
+          h("button", { onClick: () => del(f), style: btn("#fef2f2", "#b91c1c", "#fecaca") }, "删除"))))),
+    h("input", { ref: rep, type: "file", accept, style: { display: "none" }, onChange: e => { const fl = e.target.files[0]; e.target.value = ""; if (repTarget.current) replace(repTarget.current, fl); } }),
+    view && h("div", { onClick: () => setView(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.85)", zIndex: 10001, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" } },
+      h("img", { src: _dtCache[view.blob], style: { maxWidth: "95%", maxHeight: "85%", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,.5)" } }),
+      h("div", { style: { color: "#fff", marginTop: 10, fontWeight: 700, fontSize: 13 } }, view.name + (view.remark ? " · " + view.remark : "") + " · " + dtDMY(view.at) + "（点任何地方关闭）")));
+}
+function CustomerDocsPage({ currentUser }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const [list, saveList] = useCloudList("doc_tracking");
+  const items = list || [];
+  const [q, setQ] = React.useState("");
+  const [fA, setFA] = React.useState(""), [fF, setFF] = React.useState(""), [fS, setFS] = React.useState(""), [fB, setFB] = React.useState(""), [onlyInc, setOnlyInc] = React.useState(false);
+  const [nw, setNw] = React.useState({ customer: "", agent: "" });
+  const [modal, setModal] = React.useState(null); // { id, sec }
+  const patch = (r, p) => saveList(items.map(x => x.id === r.id ? { ...x, ...p, updatedAt: Date.now(), updatedBy: me } : x));
+  const patchSec = (r, sec, p) => patch(r, { [sec]: { ...(r[sec] || {}), ...p } });
+  const add = () => {
+    const name = nw.customer.trim();
+    if (!name) { alert("请填 Customer Name"); return; }
+    const dup = items.find(x => dtKeyName(x.customer) === dtKeyName(name));
+    if (dup) { alert("「" + dup.customer + "」已经有记录了，不会重复建立。"); setQ(dup.customer); return; }
+    const now = Date.now();
+    saveList([{ id: uid(), customer: name.toUpperCase(), agent: nw.agent.trim().toUpperCase(), createdAt: now, updatedAt: now, updatedBy: me, bank: { files: [] }, agreement: { files: [] }, details: { files: [] }, funder: { files: [] }, settlement: { files: [] }, card: { files: [] }, salaryBank: {} }, ...items]);
+    setNw({ customer: "", agent: "" });
+  };
+  const del = r => { if (window.prompt("删除「" + r.customer + "」整笔记录和所有文件？\n输入 DELETE 确认") !== "DELETE") return;
+    saveList(items.filter(x => x.id !== r.id));
+    ["bank", "agreement", "details", "funder", "settlement", "card"].forEach(sec => dtFiles(r, sec).forEach(f => DB.del("dtfile_" + f.blob).catch(() => {}))); };
+  const ql = q.trim().toLowerCase();
+  const shown = items.filter(r => (!ql || [r.customer, r.agent].some(v => String(v || "").toLowerCase().includes(ql)))
+    && (!fA || (fA === "none" ? !(r.agreement || {}).status : (r.agreement || {}).status === fA))
+    && (!fF || (fF === "none" ? !(r.funder || {}).status : (r.funder || {}).status === fF))
+    && (!fS || (fS === "none_set" ? !(r.settlement || {}).status : (r.settlement || {}).status === fS))
+    && (!fB || (fB === "CIMB" ? dtBankName(r) === "CIMB" : fB === "OTHER" ? !!dtBankName(r) && dtBankName(r) !== "CIMB" : !dtBankName(r)))
+    && (!onlyInc || dtIncomplete(r))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const incCount = items.filter(dtIncomplete).length;
+  const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "14px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #e2e8f0", marginBottom: 14 };
+  const inp = { padding: "9px 12px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#fff", width: "100%", boxSizing: "border-box" };
+  const sel = { padding: "8px 10px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 13, fontFamily: "inherit", background: "#fff", fontWeight: 700 };
+  const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4, letterSpacing: .3 } }, t);
+  const pillSelect = (val, map, onChange, ph) => { const m = map[val]; return h("select", { value: val || "", onChange: e => onChange(e.target.value), onClick: e => e.stopPropagation(), style: { border: "1px solid " + (m ? m[2] + "55" : "#e2e8f0"), background: m ? m[1] : "#fff", color: m ? m[2] : "#94a3b8", borderRadius: 999, padding: "5px 8px", fontWeight: 800, fontSize: 11.5, fontFamily: "inherit", maxWidth: 190, cursor: "pointer" } }, h("option", { value: "" }, ph), Object.keys(map).map(k => h("option", { key: k, value: k }, map[k][0]))); };
+  const openBtn = (r, sec, txt, n, ok) => h("button", { onClick: () => setModal({ id: r.id, sec }), style: { border: "1px solid " + (ok ? "#86efac" : "#c7d2fe"), background: ok ? "#f0fdf4" : "#eef2ff", color: ok ? "#15803d" : "#4338ca", borderRadius: 999, padding: "5px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" } }, txt + (n ? " · " + n : ""));
+  const td = { ...S.td, verticalAlign: "middle" };
+  const row = r => {
+    const ag = r.agreement || {}, sb = r.salaryBank || {}, needName = sb.type === "OTHER" && !String(sb.name || "").trim();
+    return h("tr", { key: r.id },
+      h("td", { style: { ...td, fontWeight: 900, color: "#1e1b4b", minWidth: 150 } }, r.customer, dtIncomplete(r) && h("div", { style: { fontSize: 10.5, color: "#c2410c", fontWeight: 800 } }, "⚠ 文件未齐")),
+      h("td", { style: { ...td, fontWeight: 700 } }, r.agent || "—"),
+      h("td", { style: td }, openBtn(r, "bank", "VIEW / UPLOAD", dtFiles(r, "bank").length, (r.bank || {}).collected), h("div", { style: { fontSize: 10.5, fontWeight: 800, marginTop: 3, color: (r.bank || {}).collected ? "#15803d" : "#94a3b8" } }, (r.bank || {}).collected ? "✓ 已收齐" : "未收齐")),
+      h("td", { style: td }, pillSelect(ag.status, DT_AGREE, v => patchSec(r, "agreement", { status: v }), "— 选择 —"), h("div", { style: { marginTop: 4 } }, openBtn(r, "agreement", "📎 文件", dtFiles(r, "agreement").length))),
+      h("td", { style: td }, h("input", { type: "date", value: ag.date || "", onChange: e => patchSec(r, "agreement", { date: e.target.value }), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12.5, fontFamily: "inherit", background: "#fff" } })),
+      h("td", { style: td }, openBtn(r, "details", "VIEW / EDIT", dtFiles(r, "details").length)),
+      h("td", { style: td }, pillSelect((r.funder || {}).status, DT_FUNDER, v => patchSec(r, "funder", { status: v }), "— 选择 —"), h("div", { style: { marginTop: 4 } }, openBtn(r, "funder", "📷 VIEW / UPLOAD PHOTOS", dtFiles(r, "funder").length))),
+      h("td", { style: td }, pillSelect((r.settlement || {}).status, DT_SETTLE, v => patchSec(r, "settlement", { status: v }), "— 选择 —"), h("div", { style: { marginTop: 4 } }, openBtn(r, "settlement", "📷 VIEW / UPLOAD PHOTOS", dtFiles(r, "settlement").length))),
+      h("td", { style: td }, openBtn(r, "card", "VIEW / UPLOAD", dtFiles(r, "card").length, (r.card || {}).collected), h("div", { style: { fontSize: 10.5, fontWeight: 800, marginTop: 3, color: (r.card || {}).collected ? "#15803d" : "#94a3b8" } }, (r.card || {}).collected ? "✓ 已收齐" : "未收齐")),
+      h("td", { style: { ...td, minWidth: 150 } },
+        h("select", { value: sb.type || "", onChange: e => patch(r, { salaryBank: { ...sb, type: e.target.value } }), style: { ...sel, padding: "5px 8px", fontSize: 12 } }, h("option", { value: "" }, "— 选择 —"), h("option", { value: "CIMB" }, "CIMB"), h("option", { value: "OTHER" }, "Other")),
+        sb.type === "OTHER" && h(DebouncedInput, { value: sb.name || "", placeholder: "Please Specify Bank Name", onCommit: val => patch(r, { salaryBank: { ...sb, name: val.trim().toUpperCase() } }), style: { marginTop: 4, width: "100%", boxSizing: "border-box", border: "1px solid " + (needName ? "#ef4444" : "#e2e8f0"), background: needName ? "#fef2f2" : "#fff", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontFamily: "inherit", outline: "none" } }),
+        needName && h("div", { style: { fontSize: 10.5, color: "#dc2626", fontWeight: 800, marginTop: 2 } }, "⚠ 请填银行名字，才算保存")),
+      h("td", { style: { ...td, fontSize: 12, color: "#64748b", whiteSpace: "nowrap" } }, r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("en-GB") : "—", r.updatedBy && h("div", { style: { fontSize: 10.5 } }, String(r.updatedBy).toUpperCase())),
+      h("td", { style: td }, h("button", { style: S.fuDel, title: "删除整笔记录", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
+  };
+  /* ---- 弹出视窗 ---- */
+  const mr = modal && items.find(x => x.id === modal.id);
+  const modalBody = () => {
+    const r = mr, sec = modal.sec, d = r[sec] || {};
+    const setFiles = files => patchSec(r, sec, { files });
+    const field = (t, k, extra) => h("div", { style: { flex: "1 1 200px" } }, lbl(t), h(DebouncedInput, { value: d[k] || "", onCommit: val => patchSec(r, sec, { [k]: k === "ic" ? fmtIC(val) : val }), style: inp, ...(extra || {}) }));
+    const remark = h("div", { style: { marginTop: 12 } }, lbl("REMARK 备注"), h(DebouncedInput, { value: d.remark || "", placeholder: "写备注…", onCommit: val => patchSec(r, sec, { remark: val }), style: inp }));
+    const collected = h("label", { style: { display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 900, fontSize: 13.5, cursor: "pointer", padding: "8px 12px", borderRadius: 10, background: d.collected ? "#dcfce7" : "#f8fafc", border: "1px solid " + (d.collected ? "#86efac" : "#e2e8f0"), color: d.collected ? "#15803d" : "#475569", marginBottom: 12 } },
+      h("input", { type: "checkbox", checked: !!d.collected, onChange: e => patchSec(r, sec, { collected: e.target.checked }) }), d.collected ? "✓ 所需文件已全部收齐" : "所需文件已全部收齐？（打勾）");
+    const selBox = (t, map, k) => h("div", { style: { flex: "1 1 220px" } }, lbl(t), h("select", { value: d[k] || "", onChange: e => patchSec(r, sec, { [k]: e.target.value }), style: { ...inp, fontWeight: 800 } }, h("option", { value: "" }, "— 选择 —"), Object.keys(map).map(x => h("option", { key: x, value: x }, map[x][0]))));
+    const docAccept = "image/jpeg,image/png,image/webp,application/pdf,.pdf,.jpg,.jpeg,.png,.xls,.xlsx,.csv,.doc,.docx";
+    const photoAccept = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
+    const box = (photo) => h(DtFileBox, { files: d.files || [], onFiles: setFiles, me, photoFirst: photo, accept: photo ? photoAccept : docAccept });
+    if (sec === "bank") return [collected, box(false), remark];
+    if (sec === "card") return [h("div", { key: "w", style: { background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "8px 12px", color: "#9a3412", fontSize: 12.5, fontWeight: 700, marginBottom: 12 } }, "🔒 请勿上传或写下完整卡号、CVV、PIN。照片上的卡号请先遮住，只留最后 4 位。"), collected, box(false), remark];
+    if (sec === "agreement") return [h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, selBox("AGREEMENT STATUS", DT_AGREE, "status"), h("div", { style: { flex: "0 1 200px" } }, lbl("AGREEMENT DATE"), h("input", { type: "date", value: d.date || "", onChange: e => patchSec(r, sec, { date: e.target.value }), style: inp }))), box(false), remark];
+    if (sec === "details") return [
+      h("div", { key: "n", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 } },
+        h("div", { style: { flex: "1 1 200px" } }, lbl("CUSTOMER NAME"), h(DebouncedInput, { value: r.customer, onCommit: val => { const v = val.trim().toUpperCase(); if (!v) return; const dup = items.find(x => x.id !== r.id && dtKeyName(x.customer) === dtKeyName(v)); if (dup) { alert("已经有「" + dup.customer + "」的记录"); return; } patch(r, { customer: v }); }, style: inp })),
+        h("div", { style: { flex: "1 1 200px" } }, lbl("AGENT NAME"), h(DebouncedInput, { value: r.agent || "", onCommit: val => patch(r, { agent: val.trim().toUpperCase() }), style: inp }))),
+      h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, field("IC NUMBER", "ic"), field("CONTACT NO", "phone"), field("EMAIL", "email"), field("ADDRESS", "address"), field("COMPANY", "company"), field("POSITION", "position")),
+      box(false), remark];
+    if (sec === "funder") return [h("div", { key: "f", style: { marginBottom: 12 } }, selBox("FUNDER STATUS", DT_FUNDER, "status")), box(true), remark];
+    if (sec === "settlement") return [
+      h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, selBox("SETTLEMENT STATUS", DT_SETTLE, "status"), field("SETTLEMENT AMOUNT (RM)", "amount", { inputMode: "decimal" }), field("OUTSTANDING BALANCE (RM)", "outstanding", { inputMode: "decimal" }),
+        h("div", { style: { flex: "0 1 180px" } }, lbl("SETTLEMENT DATE"), h("input", { type: "date", value: d.date || "", onChange: e => patchSec(r, sec, { date: e.target.value }), style: inp }))),
+      box(true), remark];
+    return null;
+  };
+  const TITLES = { bank: "🏦 Bank Check", agreement: "📝 Agreement", details: "👤 Customer Details", funder: "💸 Funder", settlement: "🧾 Settlement", card: "💳 Credit Card" };
+  return h("div", { className: "cz-page" },
+    h("div", { style: card },
+      h("div", { style: { fontSize: 14, fontWeight: 900, color: "#1e1b4b", marginBottom: 10 } }, "➕ 新增客户"),
+      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
+        h("div", { style: { flex: "1 1 220px" } }, lbl("CUSTOMER NAME"), h("input", { style: inp, value: nw.customer, onChange: e => setNw({ ...nw, customer: e.target.value }), onKeyDown: e => e.key === "Enter" && add() })),
+        h("div", { style: { flex: "1 1 180px" } }, lbl("AGENT NAME"), h("input", { style: inp, value: nw.agent, onChange: e => setNw({ ...nw, agent: e.target.value }), onKeyDown: e => e.key === "Enter" && add() })),
+        h("button", { onClick: add, style: { border: "none", borderRadius: 10, padding: "0 22px", minHeight: 40, background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", fontWeight: 900, cursor: "pointer" } }, "保存"))),
+    h("div", { style: { ...card, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "10px 14px" } },
+      h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search customer / agent", value: q, onChange: e => setQ(e.target.value) })),
+      h("select", { value: fA, onChange: e => setFA(e.target.value), style: sel }, h("option", { value: "" }, "Agreement：全部"), h("option", { value: "completed" }, "Completed"), h("option", { value: "not_completed" }, "Not Completed"), h("option", { value: "none" }, "未选")),
+      h("select", { value: fF, onChange: e => setFF(e.target.value), style: sel }, h("option", { value: "" }, "Funder：全部"), h("option", { value: "done" }, "Done – Returned"), h("option", { value: "absconded" }, "Customer Absconded"), h("option", { value: "none" }, "未选")),
+      h("select", { value: fS, onChange: e => setFS(e.target.value), style: sel }, h("option", { value: "" }, "Settlement：全部"), h("option", { value: "completed" }, "Completed"), h("option", { value: "partial" }, "Not Fully Settled"), h("option", { value: "none" }, "No Settlement"), h("option", { value: "none_set" }, "未选")),
+      h("select", { value: fB, onChange: e => setFB(e.target.value), style: sel }, h("option", { value: "" }, "Salary Bank：全部"), h("option", { value: "CIMB" }, "CIMB"), h("option", { value: "OTHER" }, "Other"), h("option", { value: "EMPTY" }, "未填")),
+      h("button", { onClick: () => setOnlyInc(!onlyInc), style: { border: onlyInc ? "2px solid #ea580c" : "1px solid #fed7aa", background: onlyInc ? "#ffedd5" : "#fff", color: "#c2410c", borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "⚠ 文件未齐 " + incCount)),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["Customer Name", "Agent Name", "Bank Check", "Agreement Status", "Agreement Date", "Customer Details", "Funder Status", "Settlement Status", "Credit Card", "Salary Bank Card", "Last Updated", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 12, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 12, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有客户，先在上面新增")) : shown.map(row)))),
+    mr && h("div", { onClick: () => setModal(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "30px 14px", overflowY: "auto" } },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 900, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
+          h("div", { style: { flex: 1 } }, h("div", { style: { fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, TITLES[modal.sec]), h("div", { style: { fontSize: 12, color: "#64748b", fontWeight: 700 } }, mr.customer + (mr.agent ? " · Agent " + mr.agent : ""))),
+          h("span", { style: { fontSize: 11, color: "#16a34a", fontWeight: 800 } }, "● 自动保存"),
+          h("button", { onClick: () => setModal(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
+        h("div", { style: { padding: "16px 18px 20px" } }, modalBody()))));
 }
 /* ---------- Receipt：按月份分组、Copy 去 WhatsApp、下载 Excel ---------- */
 const RC_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
