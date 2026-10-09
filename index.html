@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v98"));
+    h("div", { className: "sb-ver" }, "v99"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3668,7 +3668,7 @@ function ReceiptPage({ currentUser }) {
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", ""].map((x, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, x)))),
+          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", "✓"].map((x, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, x)))),
           h("tbody", null, list === null ? tdEmpty("载入中…") : !g ? tdEmpty(items.length ? "找不到" : "还没有收据") :
             g.rows.map(r => h("tr", { key: r.id },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
@@ -3676,7 +3676,7 @@ function ReceiptPage({ currentUser }) {
               h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, rcRM(rcNum(r.amount))),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
-                h("button", { onClick: () => printReceipt(r), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", marginRight: 6 } }, "🖨 Print"),
+                h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
                 (boss || sameUser(r.by, currentUser)) && h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))))))))
       ];
     })());
