@@ -3354,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v104"));
+    h("div", { className: "sb-ver" }, "v105"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -7079,8 +7079,8 @@ function VerifyDetail({
       onChange: e => setField("agent", e.target.value),
       style: { flex: 1, border: "none", background: "transparent", padding: "8px 12px", fontSize: 14, fontWeight: 700, fontFamily: "inherit", outline: "none", cursor: "pointer" }
     }, /*#__PURE__*/React.createElement("option", { value: "" }, "— 选择 Agent —"), (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => /*#__PURE__*/React.createElement("option", { key: a, value: a }, a.toUpperCase()))) : /*#__PURE__*/React.createElement(VField, {
-      value: v[field],
-      onChange: val => setField(field, val)
+      value: field === "icNumber" || field === "spouseIc" ? fmtIC(v[field]) : v[field],
+      onChange: val => setField(field, field === "icNumber" || field === "spouseIc" ? fmtIC(val) : val)
     })))), sec.key === "company" && /*#__PURE__*/React.createElement(VSalaryBlock, {
       v: v,
       onSave: onSave
@@ -7450,8 +7450,8 @@ function Detail({
     onChange: v => onUpdate({ ...client, phone: v })
   }), /*#__PURE__*/React.createElement(EditRow, {
     label: "IC",
-    value: client.ic,
-    onChange: v => onUpdate({ ...client, ic: v })
+    value: fmtIC(client.ic),
+    onChange: v => onUpdate({ ...client, ic: fmtIC(v) })
   })), /*#__PURE__*/React.createElement("div", {
     style: S.linkHeadRow
   }, /*#__PURE__*/React.createElement("div", {
