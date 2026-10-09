@@ -2647,6 +2647,7 @@ function CRM({ onLogout, currentUser }) {
     await Promise.all(jobs);
   };
   const persistVerifications = async next => {
+    next = next.map(v => v && v.icNumber && fmtIC(v.icNumber) !== v.icNumber ? { ...v, icNumber: fmtIC(v.icNumber) } : v);
     setVerifications(next);
     setSaving(true);
     try {
@@ -2688,6 +2689,7 @@ function CRM({ onLogout, currentUser }) {
     alert(`${client.name} sent to verify queue`);
   };
   const persist = async next => {
+    next = next.map(c => c && c.ic && fmtIC(c.ic) !== c.ic ? { ...c, ic: fmtIC(c.ic) } : c);
     ensureDailyBackup({ clients, missions, bankers, verifications });
     setClients(next);
     setSaving(true);
@@ -3352,7 +3354,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v103"));
+    h("div", { className: "sb-ver" }, "v104"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3365,6 +3367,8 @@ function useCloudList(key) {
 const pillSel = (hue, extra) => ({ ...S.bankerInput, ...czPill(hue, { padding: "5px 10px", width: "auto", ...(extra || {}) }), fontWeight: 700 });
 
 const VERIFY_CHECKERS = ["money"]; // 除了建立的人，这些人也可以 Mark Verified / Failed
+/* IC：12 位数字自动变 000000-00-0000；不是 12 位（护照等）就照原样 */
+const fmtIC = x => { const t = String(x == null ? "" : x).trim(); const d = t.replace(/\D/g, ""); return d.length === 12 && /^[\d\s-]+$/.test(t) ? d.slice(0, 6) + "-" + d.slice(6, 8) + "-" + d.slice(8) : t; };
 const _V_TYPE_ORDER = { personal: 0, car: 1, house: 2 }; // 显示顺序：Personal → Car → House
 const _vTypes = v => (v.loanTypes || (v.loanType ? [v.loanType] : [])).slice().sort((a, b) => (_V_TYPE_ORDER[a] ?? 9) - (_V_TYPE_ORDER[b] ?? 9));
 /* ---------- Receipt 收据 ---------- */
@@ -6589,7 +6593,7 @@ function VerifyPage({
         style: { padding: "4px 6px", borderRadius: 8, border: "1px solid " + (v.base ? "#c4b5fd" : "#e2e8f0"), background: v.base ? "#f5f3ff" : "#fff", color: v.base ? "#6d28d9" : "#94a3b8", fontWeight: 800, fontSize: 12, cursor: canEditV(v) ? "pointer" : "default", fontFamily: "inherit", opacity: 1 }
       }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), LOAN_BASES.map(b => /*#__PURE__*/React.createElement("option", { key: b, value: b }, b)))),
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
-      /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, v.icNumber) : "—"),
+      /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, fmtIC(v.icNumber)) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-lt" }, _vTypes(v).length ? _vTypes(v).map(t => { const tt = { house: ["House", 262], car: ["Car", 190], personal: ["Personal", 330] }[t] || [t, 220]; return /*#__PURE__*/React.createElement("span", { key: t, style: { ...czPill(tt[1], { padding: "2px 8px", fontSize: 11 }), whiteSpace: "nowrap" } }, tt[0]); }) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c6" }, v.staff ? [/*#__PURE__*/React.createElement(React.Fragment, { key: "a" }, czAvatar(v.staff, 22)), " ", String(v.staff).toUpperCase()] : "—"),
@@ -6699,7 +6703,7 @@ function printVerification(v, client) {
     ${bar("(b) Applicant's Details")}
     <div class="two">
       ${row("FULL NAME AS IC", v.customerName)}${row("CONTACT NO", v.phone)}
-      ${row("IC NO.", v.icNumber)}${rowRaw("EMAIL ADDRESS", v.email)}
+      ${row("IC NO.", fmtIC(v.icNumber))}${rowRaw("EMAIL ADDRESS", v.email)}
       <div class="full">${row("RESIDENTIAL ADDRESS", v.resAddress)}</div>
       <div class="full">${row("YEARS OF STAY", v.yearsOfStay)}</div>
       <div class="full">${row("MOTHER FULL NAME", v.motherName)}</div>
@@ -6825,7 +6829,7 @@ function verifyCopyText(v) {
   const lbl = it => { const n = U(it.name); if (n === "EPF" && basic && vNum(it.amount)) return "EPF(" + Math.round(vNum(it.amount) / basic * 100) + "%)"; return n; };
   const L = [];
   L.push("NAME : " + U(v.customerName));
-  L.push("I/C NO. : " + U(v.icNumber));
+  L.push("I/C NO. : " + U(fmtIC(v.icNumber)));
   L.push("CONTACT NO. : " + U(v.phone));
   L.push("EMAIL ADDRESS : " + (v.email || ""));
   L.push("RESIDENTIAL ADDRESS : " + U(v.resAddress));
@@ -7021,7 +7025,7 @@ function VerifyDetail({
     style: S.panelName
   }, v.customerName || "Unnamed"), /*#__PURE__*/React.createElement("div", {
     style: S.vSubIc
-  }, v.icNumber, client ? ` · linked to ${client.name}` : "")), /*#__PURE__*/React.createElement("div", {
+  }, fmtIC(v.icNumber), client ? ` · linked to ${client.name}` : "")), /*#__PURE__*/React.createElement("div", {
     style: S.panelActions
   }, /*#__PURE__*/React.createElement("button", {
     style: { ...S.iconBtn, width: "auto", padding: "0 12px", gap: 6, fontWeight: 800, fontSize: 12.5, color: copiedV ? "#16a34a" : "#4f46e5", borderColor: copiedV ? "#bbf7d0" : "#c7d2fe", background: copiedV ? "#f0fdf4" : "#eef2ff" },
