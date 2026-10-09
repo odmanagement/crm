@@ -3352,7 +3352,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v101"));
+    h("div", { className: "sb-ver" }, "v102"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -6837,14 +6837,21 @@ function verifyCopyText(v) {
   L.push("");
   L.push("DATE JOINED : 🚨 " + U(v.lengthOfService));
   L.push("");
-  L.push("SALARY");
-  L.push("");
-  plus.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount), false)));
-  L.push("");
-  minus.forEach(it => L.push(lbl(it) + " : " + money(vNum(it.amount), true)));
-  L.push("");
-  L.push("NETT SALARY : " + money(vNett(v), true));
-  L.push("");
+  const salSets = [{ label: v.salaryLabel, items }].concat((v.extraSalaries || []).map(x => ({ label: x.label, items: x.items || [] })));
+  salSets.forEach((st, si) => {
+    const p2 = st.items.filter(it => it.sign !== "-"), m2 = st.items.filter(it => it.sign === "-");
+    const b2 = vNum((p2[0] || {}).amount);
+    const lbl2 = it => { const n = U(it.name); if (n === "EPF" && b2 && vNum(it.amount)) return "EPF(" + Math.round(vNum(it.amount) / b2 * 100) + "%)"; return n; };
+    const nt = st.items.reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
+    L.push(salSets.length > 1 ? "SALARY " + (si + 1) + (st.label ? " (" + U(st.label) + ")" : "") : "SALARY");
+    L.push("");
+    p2.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount), false)));
+    L.push("");
+    m2.forEach(it => L.push(lbl2(it) + " : " + money(vNum(it.amount), true)));
+    L.push("");
+    L.push("NETT SALARY : " + money(nt, true));
+    L.push("");
+  });
   L.push("SALARY TRANSFER TO " + U(v.salaryTransfer));
   L.push("");
   L.push("⭐PREVIOUS COMPANY ⭐");
@@ -6901,32 +6908,51 @@ function VRemark({ v, onSave }) {
     h("textarea", { value: t, rows: 10, placeholder: "写备注…（离开格子自动保存）", onChange: e => setT(e.target.value), onBlur: () => { if ((v.remark || "") !== t.trim()) onSave({ ...v, remark: t.trim() }); },
       style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff", minHeight: 200, lineHeight: 1.6 } }));
 }
-function VSalaryBlock({ v, onSave }) {
+/* 一套工资的编辑器：items 可加减、上下移、改 + / − */
+function VSalaryEditor({ items, onItems }) {
   const h = React.createElement;
-  const items = vSalaryItems(v);
-  const save = list => onSave({ ...v, salaryItems: list });
+  const save = onItems;
   const upd = (i, k, val) => save(items.map((x, j) => j === i ? { ...x, [k]: val } : x));
-  const nett = vNett(v);
+  const nett = items.reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
   const inp = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", minWidth: 0, background: "#fff" };
-  return h("div", { style: { ...S.vSection } },
-    h("div", { style: S.vSectionHead }, "💰 Salary"),
-    h("div", { style: { padding: "10px 12px 12px" } },
+  return h(React.Fragment, null,
     h("div", { style: { fontSize: 12, color: "#64748b", margin: "-2px 0 10px", fontWeight: 600 } }, items.filter(x => x.name).map((x, i) => (x.sign === "-" ? "− " : i === 0 ? "" : "+ ") + x.name).join(" ") + " = Nett Salary"),
     items.map((it, i) => h("div", { key: it.id || i, style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 6 } },
       h("div", { style: { display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 } },
         h("button", { title: "往上移", disabled: i === 0, onClick: () => { const l = items.slice(); [l[i - 1], l[i]] = [l[i], l[i - 1]]; save(l); }, style: { width: 22, height: 15, border: "1px solid #e2e8f0", borderRadius: 4, background: "#fff", color: i === 0 ? "#e2e8f0" : "#64748b", fontSize: 9, lineHeight: 1, padding: 0, cursor: i === 0 ? "default" : "pointer" } }, "▲"),
         h("button", { title: "往下移", disabled: i === items.length - 1, onClick: () => { const l = items.slice(); [l[i + 1], l[i]] = [l[i], l[i + 1]]; save(l); }, style: { width: 22, height: 15, border: "1px solid #e2e8f0", borderRadius: 4, background: "#fff", color: i === items.length - 1 ? "#e2e8f0" : "#64748b", fontSize: 9, lineHeight: 1, padding: 0, cursor: i === items.length - 1 ? "default" : "pointer" } }, "▼")),
-      h("button", { title: "切换 + / −", onClick: () => upd(i, "sign", it.sign === "-" ? "+" : "-"), style: { width: 30, height: 32, borderRadius: 8, border: "1px solid " + (it.sign === "-" ? "#fecaca" : "#bbf7d0"), background: it.sign === "-" ? "#fef2f2" : "#f0fdf4", color: it.sign === "-" ? "#dc2626" : "#16a34a", fontWeight: 900, fontSize: 15, flexShrink: 0, cursor: "pointer" } }, it.sign === "-" ? "−" : "+"),
+      h("button", { title: "切换 + / −", onClick: () => upd(i, "sign", it.sign === "-" ? "+" : "-"), style: { width: 30, height: 32, borderRadius: 8, border: "1px solid " + (it.sign === "-" ? "#fecaca" : "#bbf7d0"), background: it.sign === "-" ? "#fef2f2" : "#f0fdf4", color: it.sign === "-" ? "#dc2626" : "#16a34a", fontWeight: 900, fontSize: 16, cursor: "pointer", flexShrink: 0 } }, it.sign === "-" ? "−" : "+"),
       h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: it.name, placeholder: "项目", onCommit: val => upd(i, "name", val) }),
       h(DebouncedInput, { style: { ...inp, width: 130, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: it.amount, placeholder: "0.00", onCommit: val => upd(i, "amount", val) }),
       h("button", { title: "删除", onClick: () => save(items.filter((_, j) => j !== i)), style: { border: "none", background: "none", color: "#cbd5e1", width: 24, cursor: "pointer", fontSize: 16 } }, "×"))),
     h("button", { onClick: () => save([...items, { id: uid(), name: "", sign: "-", amount: "" }]), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer", marginTop: 2 } }, "+ Add Item"),
     h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "10px 14px", borderRadius: 12, background: "#fff", border: "1.5px solid #c7d2fe" } },
       h("span", { style: { fontWeight: 900, color: "#312e81", fontSize: 13.5 } }, "NETT SALARY"),
-      h("span", { style: { fontWeight: 900, fontSize: 18, color: nett < 0 ? "#dc2626" : "#16a34a", fontVariantNumeric: "tabular-nums" } }, vMoney(nett))),
-    h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
-      h("span", { style: { fontWeight: 800, fontSize: 13, color: "#334155", whiteSpace: "nowrap" } }, "SALARY TRANSFER TO"),
-      h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: v.salaryTransfer, placeholder: "银行，例如 UOB", onCommit: val => onSave({ ...v, salaryTransfer: val }) }))));
+      h("span", { style: { fontWeight: 900, fontSize: 18, color: nett < 0 ? "#dc2626" : "#16a34a", fontVariantNumeric: "tabular-nums" } }, vMoney(nett))));
+}
+const vNewSalarySet = () => ({ id: uid(), label: "", items: V_SALARY_DEFAULT.map(([id, name, sign]) => ({ id: id + "_" + uid(), name, sign, amount: "" })) });
+function VSalaryBlock({ v, onSave }) {
+  const h = React.createElement;
+  const items = vSalaryItems(v);
+  const extras = v.extraSalaries || [];
+  const inp = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", minWidth: 0, background: "#fff" };
+  const setExtra = (i, patch) => onSave({ ...v, extraSalaries: extras.map((x, j) => j === i ? { ...x, ...patch } : x) });
+  const subHead = (txt, labelVal, onLabel, onDel) => h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "4px 0 10px" } },
+    h("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#4f46e5", background: "#eef2ff", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" } }, txt),
+    h(DebouncedInput, { style: { ...inp, flex: 1, fontSize: 12.5, padding: "5px 10px" }, value: labelVal || "", placeholder: "备注，例如 月份 / 第二份工作", onCommit: onLabel }),
+    onDel && h("button", { title: "删除这份 Salary", onClick: onDel, style: { border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "删除"));
+  return h("div", { style: { ...S.vSection } },
+    h("div", { style: S.vSectionHead }, "💰 Salary"),
+    h("div", { style: { padding: "10px 12px 12px" } },
+      extras.length > 0 && subHead("SALARY 1", v.salaryLabel, val => onSave({ ...v, salaryLabel: val })),
+      h(VSalaryEditor, { items, onItems: list => onSave({ ...v, salaryItems: list }) }),
+      extras.map((ex, i) => h("div", { key: ex.id, style: { marginTop: 16, paddingTop: 14, borderTop: "2px dashed #c7d2fe" } },
+        subHead("SALARY " + (i + 2), ex.label, val => setExtra(i, { label: val }), () => { if (window.confirm("删除 SALARY " + (i + 2) + "？")) onSave({ ...v, extraSalaries: extras.filter((_, j) => j !== i) }); }),
+        h(VSalaryEditor, { items: ex.items || [], onItems: list => setExtra(i, { items: list }) }))),
+      h("button", { onClick: () => onSave({ ...v, extraSalaries: [...extras, vNewSalarySet()] }), style: { marginTop: 14, width: "100%", border: "1.5px dashed #818cf8", background: "#eef2ff", color: "#4338ca", borderRadius: 10, padding: "9px 12px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, "＋ Add Salary"),
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
+        h("span", { style: { fontWeight: 800, fontSize: 13, color: "#334155", whiteSpace: "nowrap" } }, "SALARY TRANSFER TO"),
+        h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: v.salaryTransfer, placeholder: "银行，例如 UOB", onCommit: val => onSave({ ...v, salaryTransfer: val }) }))));
 }
 function VerifyDetail({
   v,
