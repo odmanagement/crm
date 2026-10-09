@@ -3360,7 +3360,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v107"));
+    h("div", { className: "sb-ver" }, "v108"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 function useCloudList(key) {
@@ -3595,7 +3595,34 @@ const dtDMY = d => d ? String(d).split("-").reverse().join("/") : "";
 const dtIsImg = f => /^image\//.test(f.type || "") || /\.(jpe?g|png|gif|webp)$/i.test(f.name || "");
 const dtFiles = (r, sec) => ((r[sec] || {}).files || []);
 const dtBankName = r => { const sb = r.salaryBank || {}; return sb.type === "CIMB" ? "CIMB" : sb.type === "OTHER" ? String(sb.name || "").trim() : ""; };
-const dtIncomplete = r => !(r.bank || {}).collected || (r.agreement || {}).status !== "completed" || !(r.card || {}).collected || !dtFiles(r, "details").length || !dtBankName(r);
+/* Bank Check 清单：每一类文件自己选 Completed / Not Completed（以选的状态为准，不看有没有上传文件） */
+const DT_BANK_DEFAULT = ["Bank Statement", "Payslip", "EPF Statement", "IC Copy", "Confirmation Letter"];
+const dtChecklist = r => { const b = r.bank || {}; return Array.isArray(b.checklist) ? b.checklist : DT_BANK_DEFAULT.map((n, i) => ({ id: "d" + i, name: n, status: b.collected ? "completed" : "" })); };
+const dtBankOverall = r => { const cl = dtChecklist(r); if (!cl.length || cl.every(c => !c.status)) return "pending"; return cl.every(c => c.status === "completed") ? "collected" : "incomplete"; };
+const DT_BANK_OVERALL = { collected: ["✓ ALL DOCUMENTS COLLECTED", "#dcfce7", "#15803d"], incomplete: ["⚠ DOCUMENTS INCOMPLETE", "#ffedd5", "#c2410c"], pending: ["⏳ PENDING", "#f1f5f9", "#64748b"] };
+const DT_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dtMonthTxt = ym => { const m = /^(\d{4})-(\d{2})$/.exec(ym || ""); return m ? DT_MON[+m[2] - 1] + " " + m[1] : ""; };
+const dtIncomplete = r => dtBankOverall(r) !== "collected" || (r.agreement || {}).status !== "completed" || !(r.card || {}).collected || !dtFiles(r, "details").length || !dtBankName(r);
+/* 备注：textarea 保留换行 / 空格 / 编号；可以展开成大视窗编辑 */
+function DtRemarkEditor({ value, onSave, title, rows }) {
+  const h = React.createElement;
+  const [t, setT] = React.useState(value || "");
+  const [big, setBig] = React.useState(false);
+  React.useEffect(() => { setT(value || ""); }, [value]);
+  const commit = v => { if ((value || "") !== v) onSave(v); };
+  const ta = (r, extra) => h("textarea", { className: "dt-keep", value: t, rows: r, placeholder: "写备注…（换行、编号、点点都会保留）", onChange: e => setT(e.target.value), onBlur: e => commit(e.target.value),
+    style: { width: "100%", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: 10, padding: "9px 12px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff", lineHeight: 1.6, whiteSpace: "pre-wrap", textTransform: "none", ...(extra || {}) } });
+  return h("div", null,
+    h("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } },
+      h("div", { style: { flex: 1, fontSize: 11, fontWeight: 800, color: "#64748b", letterSpacing: .3 } }, title || "REMARK 备注"),
+      h("button", { type: "button", onClick: () => setBig(true), style: { border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "3px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "⤢ 展开 View Full")),
+    ta(rows || 3),
+    big && h("div", { onClick: () => { commit(t); setBig(false); }, style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.55)", zIndex: 10002, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 820, padding: 16, display: "flex", flexDirection: "column", gap: 10 } },
+        h("div", { style: { display: "flex", alignItems: "center" } }, h("div", { style: { flex: 1, fontWeight: 900, color: "#1e1b4b" } }, title || "REMARK 备注"),
+          h("button", { onClick: () => { commit(t); setBig(false); }, style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "7px 18px", fontWeight: 900, cursor: "pointer" } }, "保存并关闭")),
+        ta(18, { minHeight: "55vh", fontSize: 14.5 }))));
+}
 async function dtGetData(blob) {
   if (_dtCache[blob]) return _dtCache[blob];
   const d = await DB.get("dtfile_" + blob);
@@ -3625,9 +3652,26 @@ function DtThumb({ f, onOpen }) {
   return h("div", { style: { ...box, flexDirection: "column", gap: 4 }, onClick: () => onOpen(f) }, h("div", { style: { fontSize: 22, fontWeight: 900, color: col } }, ext), h("div", { style: { fontSize: 11, color: "#64748b" } }, "点击打开"));
 }
 /* 通用文件区：多文件上传 / 拖拉 / 预览放大 / 下载 / 换档 / 删除 / 每个文件备注 / 上传日期 / 失败重试 */
-function DtFileBox({ files, onFiles, me, photoFirst, accept }) {
+function DtFileBox({ files, onFiles, me, photoFirst, accept, allowPaste }) {
   const h = React.createElement;
   const [busy, setBusy] = React.useState("");
+  const [pasted, setPasted] = React.useState([]); // 贴上来、还没保存的图片（先预览）
+  const addPasted = list => { const imgs = Array.from(list || []).filter(f => /^image\//.test(f.type)); if (!imgs.length) return false;
+    setPasted(p => [...p, ...imgs.map((f, i) => { const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg"); const file = new File([f], "pasted_" + new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "") + "_" + (p.length + i + 1) + "." + ext, { type: f.type }); return { id: uid(), file, url: URL.createObjectURL(file) }; })]); return true; };
+  React.useEffect(() => {
+    if (!allowPaste) return;
+    const onPaste = e => { const t = e.target; if (t && (t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && t.type !== "file"))) return; const fl = e.clipboardData && e.clipboardData.files; if (fl && fl.length && addPasted(fl)) e.preventDefault(); };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [allowPaste]);
+  const readClipboard = async () => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) throw new Error("这个浏览器不支持按钮读取，请直接按 Ctrl+V");
+      const its = await navigator.clipboard.read(); const out = [];
+      for (const it of its) { const tp = it.types.find(x => /^image\//.test(x)); if (tp) out.push(new File([await it.getType(tp)], "clip." + tp.split("/")[1], { type: tp })); }
+      if (!addPasted(out)) alert("剪贴板里没有图片。先复制图片或截图，再按这个按钮（或 Ctrl+V）。");
+    } catch (e) { alert((e && e.message) || "读取剪贴板失败，请直接按 Ctrl+V"); }
+  };
   const [failed, setFailed] = React.useState([]);
   const [view, setView] = React.useState(null);
   const [drag, setDrag] = React.useState(false);
@@ -3680,6 +3724,17 @@ function DtFileBox({ files, onFiles, me, photoFirst, accept }) {
       h("div", { style: { fontWeight: 900, color: "#3730a3", fontSize: 14 } }, busy || (photoFirst ? "点击或拖拉上传照片（可一次选多张）" : "点击或拖拉上传文件（可一次选多个）")),
       h("div", { style: { fontSize: 11.5, color: "#64748b", marginTop: 3 } }, photoFirst ? "JPG / JPEG / PNG / PDF" : "JPG / PNG / PDF / Excel / Word · 每个最多 4MB（照片会自动压缩）"),
       h("input", { ref: pick, type: "file", multiple: true, accept, style: { display: "none" }, onChange: e => { upload(e.target.files); e.target.value = ""; } })),
+    allowPaste && h("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", border: "1px solid #bae6fd", background: "#f0f9ff", borderRadius: 12 } },
+      h("button", { type: "button", onClick: readClipboard, style: { border: "1px solid #7dd3fc", background: "#fff", color: "#0369a1", borderRadius: 10, padding: "7px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "📋 贴上图片 Paste Image"),
+      h("span", { style: { fontSize: 12, color: "#0369a1", fontWeight: 700 } }, "复制图片或截图后，在这个视窗按 Ctrl+V（手机长按贴上），可以贴很多张，先预览再保存")),
+    pasted.length > 0 && h("div", { style: { border: "2px solid #38bdf8", borderRadius: 12, padding: 10, marginBottom: 12, background: "#fff" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+        h("b", { style: { flex: 1, color: "#0369a1", fontSize: 13 } }, "预览 · " + pasted.length + " 张贴上的图片（还没保存）"),
+        h("button", { onClick: () => { const fl = pasted.map(p => p.file); pasted.forEach(p => URL.revokeObjectURL(p.url)); setPasted([]); upload(fl); }, style: { border: "none", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", borderRadius: 9, padding: "6px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "✓ 保存全部"),
+        h("button", { onClick: () => { pasted.forEach(p => URL.revokeObjectURL(p.url)); setPasted([]); }, style: { border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", borderRadius: 9, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "取消")),
+      h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, pasted.map(p => h("div", { key: p.id, style: { position: "relative" } },
+        h("img", { src: p.url, style: { width: 120, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" } }),
+        h("button", { title: "不要这张", onClick: () => { URL.revokeObjectURL(p.url); setPasted(pasted.filter(x => x.id !== p.id)); }, style: { position: "absolute", top: 3, right: 3, width: 22, height: 22, borderRadius: 999, border: "none", background: "rgba(15,23,42,.7)", color: "#fff", cursor: "pointer", fontSize: 12 } }, "✕"))))),
     failed.length > 0 && h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
       h("span", { style: { color: "#b91c1c", fontWeight: 800, fontSize: 12.5, flex: 1 } }, "❌ 上传失败：" + failed.map(b => b.file.name).join("、")),
       h("button", { onClick: () => upload(failed.map(b => b.file)), style: btn("#fff", "#b91c1c", "#fecaca") }, "↻ 重试"),
@@ -3738,22 +3793,41 @@ function CustomerDocsPage({ currentUser }) {
   const pillSelect = (val, map, onChange, ph) => { const m = map[val]; return h("select", { value: val || "", onChange: e => onChange(e.target.value), onClick: e => e.stopPropagation(), style: { border: "1px solid " + (m ? m[2] + "55" : "#e2e8f0"), background: m ? m[1] : "#fff", color: m ? m[2] : "#94a3b8", borderRadius: 999, padding: "5px 8px", fontWeight: 800, fontSize: 11.5, fontFamily: "inherit", maxWidth: 190, cursor: "pointer" } }, h("option", { value: "" }, ph), Object.keys(map).map(k => h("option", { key: k, value: k }, map[k][0]))); };
   const openBtn = (r, sec, txt, n, ok) => h("button", { onClick: () => setModal({ id: r.id, sec }), style: { border: "1px solid " + (ok ? "#86efac" : "#c7d2fe"), background: ok ? "#f0fdf4" : "#eef2ff", color: ok ? "#15803d" : "#4338ca", borderRadius: 999, padding: "5px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" } }, txt + (n ? " · " + n : ""));
   const td = { ...S.td, verticalAlign: "middle" };
+  const setSalaryBank = (r, nb) => { const name = nb.type === "OTHER" ? String(nb.name || "").trim() : nb.type === "CIMB" ? "CIMB" : ""; patch(r, { salaryBank: { ...nb, collected: !!name } }); };
+  const [remarkOpen, setRemarkOpen] = React.useState(null);
   const row = r => {
     const ag = r.agreement || {}, sb = r.salaryBank || {}, needName = sb.type === "OTHER" && !String(sb.name || "").trim();
+    const ov = DT_BANK_OVERALL[dtBankOverall(r)];
+    const sbOk = !!dtBankName(r);
+    const rmk = String(r.remark || "");
     return h("tr", { key: r.id },
       h("td", { style: { ...td, fontWeight: 900, color: "#1e1b4b", minWidth: 150 } }, r.customer, dtIncomplete(r) && h("div", { style: { fontSize: 10.5, color: "#c2410c", fontWeight: 800 } }, "⚠ 文件未齐")),
       h("td", { style: { ...td, fontWeight: 700 } }, r.agent || "—"),
-      h("td", { style: td }, openBtn(r, "bank", "VIEW / UPLOAD", dtFiles(r, "bank").length, (r.bank || {}).collected), h("div", { style: { fontSize: 10.5, fontWeight: 800, marginTop: 3, color: (r.bank || {}).collected ? "#15803d" : "#94a3b8" } }, (r.bank || {}).collected ? "✓ 已收齐" : "未收齐")),
-      h("td", { style: td }, pillSelect(ag.status, DT_AGREE, v => patchSec(r, "agreement", { status: v }), "— 选择 —"), h("div", { style: { marginTop: 4 } }, openBtn(r, "agreement", "📎 文件", dtFiles(r, "agreement").length))),
-      h("td", { style: td }, h("input", { type: "date", value: ag.date || "", onChange: e => patchSec(r, "agreement", { date: e.target.value }), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12.5, fontFamily: "inherit", background: "#fff" } })),
+      h("td", { style: { ...td, minWidth: 170 } }, openBtn(r, "bank", "VIEW / UPLOAD", dtFiles(r, "bank").length, dtBankOverall(r) === "collected"),
+        h("div", { style: { display: "inline-block", marginTop: 5, borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900, background: ov[1], color: ov[2], whiteSpace: "nowrap" } }, ov[0])),
+      h("td", { style: { ...td, minWidth: 175 } },
+        pillSelect(ag.status, DT_AGREE, v => patchSec(r, "agreement", { status: v }), "— Status —"),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 5 } },
+          h("span", { style: { fontSize: 11, fontWeight: 800, color: "#64748b" } }, "Date:"),
+          h("input", { type: "date", value: ag.date || "", onChange: e => patchSec(r, "agreement", { date: e.target.value }), style: { padding: "3px 6px", borderRadius: 7, border: "1px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", background: "#fff", width: 128 } })),
+        h("div", { style: { fontSize: 11, fontWeight: 800, marginTop: 3, color: ag.date ? "#15803d" : "#94a3b8" } }, (DT_AGREE[ag.status] ? DT_AGREE[ag.status][0] : "—") + " · Date: " + (ag.date ? dtDMY(ag.date) : "Not Set")),
+        h("div", { style: { marginTop: 4 } }, openBtn(r, "agreement", "📎 文件", dtFiles(r, "agreement").length))),
       h("td", { style: td }, openBtn(r, "details", "VIEW / EDIT", dtFiles(r, "details").length)),
       h("td", { style: td }, pillSelect((r.funder || {}).status, DT_FUNDER, v => patchSec(r, "funder", { status: v }), "— 选择 —"), h("div", { style: { marginTop: 4 } }, openBtn(r, "funder", "📷 VIEW / UPLOAD PHOTOS", dtFiles(r, "funder").length))),
       h("td", { style: td }, pillSelect((r.settlement || {}).status, DT_SETTLE, v => patchSec(r, "settlement", { status: v }), "— 选择 —"), h("div", { style: { marginTop: 4 } }, openBtn(r, "settlement", "📷 VIEW / UPLOAD PHOTOS", dtFiles(r, "settlement").length))),
       h("td", { style: td }, openBtn(r, "card", "VIEW / UPLOAD", dtFiles(r, "card").length, (r.card || {}).collected), h("div", { style: { fontSize: 10.5, fontWeight: 800, marginTop: 3, color: (r.card || {}).collected ? "#15803d" : "#94a3b8" } }, (r.card || {}).collected ? "✓ 已收齐" : "未收齐")),
-      h("td", { style: { ...td, minWidth: 150 } },
-        h("select", { value: sb.type || "", onChange: e => patch(r, { salaryBank: { ...sb, type: e.target.value } }), style: { ...sel, padding: "5px 8px", fontSize: 12 } }, h("option", { value: "" }, "— 选择 —"), h("option", { value: "CIMB" }, "CIMB"), h("option", { value: "OTHER" }, "Other")),
-        sb.type === "OTHER" && h(DebouncedInput, { value: sb.name || "", placeholder: "Please Specify Bank Name", onCommit: val => patch(r, { salaryBank: { ...sb, name: val.trim().toUpperCase() } }), style: { marginTop: 4, width: "100%", boxSizing: "border-box", border: "1px solid " + (needName ? "#ef4444" : "#e2e8f0"), background: needName ? "#fef2f2" : "#fff", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontFamily: "inherit", outline: "none" } }),
-        needName && h("div", { style: { fontSize: 10.5, color: "#dc2626", fontWeight: 800, marginTop: 2 } }, "⚠ 请填银行名字，才算保存")),
+      h("td", { style: { ...td, width: 175, minWidth: 175, maxWidth: 175 } },
+        h("div", { style: { display: "flex", flexDirection: "column", gap: 4, width: "100%" } },
+          h("select", { value: sb.type || "", onChange: e => setSalaryBank(r, { ...sb, type: e.target.value }), style: { ...sel, padding: "5px 8px", fontSize: 12, width: "100%", boxSizing: "border-box" } }, h("option", { value: "" }, "— 选择 —"), h("option", { value: "CIMB" }, "CIMB"), h("option", { value: "OTHER" }, "Other")),
+          sb.type === "OTHER" && h(DebouncedInput, { value: sb.name || "", placeholder: "Please Specify Bank Name", onCommit: val => setSalaryBank(r, { ...sb, name: val.trim().toUpperCase() }), style: { width: "100%", boxSizing: "border-box", border: "1px solid " + (needName ? "#ef4444" : "#e2e8f0"), background: needName ? "#fef2f2" : "#fff", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontFamily: "inherit", outline: "none" } }),
+          needName && h("div", { style: { fontSize: 10.5, color: "#dc2626", fontWeight: 800, whiteSpace: "normal" } }, "⚠ 请填银行名字"),
+          h("div", { style: { fontSize: 10.5, fontWeight: 900, borderRadius: 999, padding: "2px 8px", alignSelf: "flex-start", whiteSpace: "normal", lineHeight: 1.35, background: sbOk ? "#dcfce7" : "#f1f5f9", color: sbOk ? "#15803d" : "#64748b" } }, sbOk ? "✓ COLLECTED / RECEIVED – 已收齐" : "⏳ PENDING – 未收"))),
+      h("td", { style: { ...td, minWidth: 140 } },
+        h("input", { type: "month", value: r.startSalary || "", onChange: e => patch(r, { startSalary: e.target.value }), style: { padding: "4px 6px", borderRadius: 7, border: "1px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", background: "#fff", width: 130 } }),
+        h("div", { style: { fontSize: 11.5, fontWeight: 900, marginTop: 3, color: r.startSalary ? "#4338ca" : "#94a3b8" } }, r.startSalary ? dtMonthTxt(r.startSalary) : "Not Set")),
+      h("td", { style: { ...td, minWidth: 180, maxWidth: 240, whiteSpace: "normal" } },
+        rmk ? h("div", { className: "dt-keep", style: { fontSize: 12, color: "#334155", whiteSpace: "pre-wrap", maxHeight: 54, overflow: "hidden", lineHeight: 1.5, textTransform: "none" } }, rmk.length > 80 ? rmk.slice(0, 80) + "…" : rmk) : h("span", { style: { color: "#cbd5e1" } }, "—"),
+        h("button", { onClick: () => setRemarkOpen(r.id), style: { marginTop: 4, border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, rmk ? "⤢ View Full Remark" : "＋ 写备注")),
       h("td", { style: { ...td, fontSize: 12, color: "#64748b", whiteSpace: "nowrap" } }, r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("en-GB") : "—", r.updatedBy && h("div", { style: { fontSize: 10.5 } }, String(r.updatedBy).toUpperCase())),
       h("td", { style: td }, h("button", { style: S.fuDel, title: "删除整笔记录", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
   };
@@ -3762,32 +3836,73 @@ function CustomerDocsPage({ currentUser }) {
   const modalBody = () => {
     const r = mr, sec = modal.sec, d = r[sec] || {};
     const setFiles = files => patchSec(r, sec, { files });
-    const field = (t, k, extra) => h("div", { style: { flex: "1 1 200px" } }, lbl(t), h(DebouncedInput, { value: d[k] || "", onCommit: val => patchSec(r, sec, { [k]: k === "ic" ? fmtIC(val) : val }), style: inp, ...(extra || {}) }));
-    const remark = h("div", { style: { marginTop: 12 } }, lbl("REMARK 备注"), h(DebouncedInput, { value: d.remark || "", placeholder: "写备注…", onCommit: val => patchSec(r, sec, { remark: val }), style: inp }));
-    const collected = h("label", { style: { display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 900, fontSize: 13.5, cursor: "pointer", padding: "8px 12px", borderRadius: 10, background: d.collected ? "#dcfce7" : "#f8fafc", border: "1px solid " + (d.collected ? "#86efac" : "#e2e8f0"), color: d.collected ? "#15803d" : "#475569", marginBottom: 12 } },
+    const opt = h("span", { style: { fontWeight: 600, color: "#94a3b8", marginLeft: 4 } }, "(选填)");
+    const lblO = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4, letterSpacing: .3 } }, t, opt);
+    const field = (t, k, extra) => h("div", { key: k, style: { flex: "1 1 200px" } }, lblO(t), h(DebouncedInput, { value: d[k] || "", onCommit: val => patchSec(r, sec, { [k]: k === "ic" ? fmtIC(val) : val }), style: inp, ...(extra || {}) }));
+    const dateF = (t, k) => h("div", { key: k, style: { flex: "0 1 190px" } }, lblO(t), h("input", { type: "date", value: d[k] || "", onChange: e => patchSec(r, sec, { [k]: e.target.value }), style: inp }));
+    const pickF = (t, k, opts) => h("div", { key: k, style: { flex: "1 1 170px" } }, lblO(t), h("select", { value: d[k] || "", onChange: e => patchSec(r, sec, { [k]: e.target.value }), style: { ...inp, fontWeight: 700 } }, h("option", { value: "" }, "— 选择 —"), opts.map(o => h("option", { key: o, value: o }, o))));
+    const remark = h("div", { key: "rmk", style: { marginTop: 14 } }, h(DtRemarkEditor, { value: d.remark || "", onSave: val => patchSec(r, sec, { remark: val }), title: "REMARK 备注" }));
+    const collected = h("label", { key: "col", style: { display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 900, fontSize: 13.5, cursor: "pointer", padding: "8px 12px", borderRadius: 10, background: d.collected ? "#dcfce7" : "#f8fafc", border: "1px solid " + (d.collected ? "#86efac" : "#e2e8f0"), color: d.collected ? "#15803d" : "#475569", marginBottom: 12 } },
       h("input", { type: "checkbox", checked: !!d.collected, onChange: e => patchSec(r, sec, { collected: e.target.checked }) }), d.collected ? "✓ 所需文件已全部收齐" : "所需文件已全部收齐？（打勾）");
-    const selBox = (t, map, k) => h("div", { style: { flex: "1 1 220px" } }, lbl(t), h("select", { value: d[k] || "", onChange: e => patchSec(r, sec, { [k]: e.target.value }), style: { ...inp, fontWeight: 800 } }, h("option", { value: "" }, "— 选择 —"), Object.keys(map).map(x => h("option", { key: x, value: x }, map[x][0]))));
+    const selBox = (t, map, k) => h("div", { key: k, style: { flex: "1 1 220px" } }, lbl(t), h("select", { value: d[k] || "", onChange: e => patchSec(r, sec, { [k]: e.target.value }), style: { ...inp, fontWeight: 800 } }, h("option", { value: "" }, "— 选择 —"), Object.keys(map).map(x => h("option", { key: x, value: x }, map[x][0]))));
     const docAccept = "image/jpeg,image/png,image/webp,application/pdf,.pdf,.jpg,.jpeg,.png,.xls,.xlsx,.csv,.doc,.docx";
     const photoAccept = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
-    const box = (photo) => h(DtFileBox, { files: d.files || [], onFiles: setFiles, me, photoFirst: photo, accept: photo ? photoAccept : docAccept });
-    if (sec === "bank") return [collected, box(false), remark];
+    const box = (photo, paste) => h(DtFileBox, { key: "box", files: d.files || [], onFiles: setFiles, me, photoFirst: photo, accept: photo ? photoAccept : docAccept, allowPaste: paste });
+    const group = (t, kids) => h("div", { key: t, style: { border: "1px solid #e2e8f0", borderRadius: 14, padding: "12px 14px", marginBottom: 12, background: "#fcfcff" } },
+      h("div", { style: { fontWeight: 900, fontSize: 13, color: "#4338ca", marginBottom: 10 } }, t), h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } }, kids));
+    if (sec === "bank") {
+      const cl = dtChecklist(r), ov = DT_BANK_OVERALL[dtBankOverall(r)];
+      const setCl = next => patchSec(r, "bank", { checklist: next });
+      const setSt = (c, st) => setCl(cl.map(x => x.id === c.id ? { ...x, status: st } : x));
+      return [
+        h("div", { key: "cl", style: { border: "1.5px solid #c7d2fe", borderRadius: 14, padding: "12px 14px", marginBottom: 14, background: "#f8faff" } },
+          h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" } },
+            h("b", { style: { flex: 1, color: "#1e1b4b", fontSize: 13.5 } }, "📋 Required Documents 所需文件"),
+            h("span", { style: { borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 12, background: ov[1], color: ov[2] } }, ov[0])),
+          h("div", { style: { fontSize: 11.5, color: "#64748b", marginBottom: 8, fontWeight: 600 } }, "以你选的状态为准，不用先上传文件。点名字可以快速切换 Completed / Not Completed。"),
+          cl.map(c => h("div", { key: c.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 10, marginBottom: 4, background: c.status === "completed" ? "#f0fdf4" : c.status === "not_completed" ? "#fff7ed" : "#fff", border: "1px solid #eef2f7" } },
+            h("span", { style: { fontSize: 16, width: 22, textAlign: "center" } }, c.status === "completed" ? "✅" : c.status === "not_completed" ? "⭕" : "▫️"),
+            h("button", { className: "dt-namebtn", type: "button", title: "点一下切换", onClick: () => setSt(c, c.status === "completed" ? "not_completed" : "completed"), style: { flex: 1, textAlign: "left", border: "none", background: "none", fontWeight: 800, fontSize: 13.5, color: "#1e293b", cursor: "pointer", padding: 0 } }, c.name),
+            h("select", { value: c.status || "", onChange: e => setSt(c, e.target.value), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #cbd5e1", fontWeight: 800, fontSize: 12, fontFamily: "inherit", background: "#fff", color: c.status === "completed" ? "#15803d" : c.status === "not_completed" ? "#c2410c" : "#94a3b8" } },
+              h("option", { value: "" }, "— 选择 —"), h("option", { value: "completed" }, "Completed"), h("option", { value: "not_completed" }, "Not Completed")),
+            h("button", { type: "button", title: "删除这一项", onClick: () => { if (window.confirm("从清单删除「" + c.name + "」？")) setCl(cl.filter(x => x.id !== c.id)); }, style: { border: "none", background: "none", color: "#cbd5e1", cursor: "pointer", fontSize: 15 } }, "×"))),
+          h("button", { type: "button", onClick: () => { const n = window.prompt("新文件类别名字："); if (n && n.trim()) setCl([...cl, { id: uid(), name: n.trim(), status: "" }]); }, style: { marginTop: 4, border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "＋ 加类别")),
+        box(false, true), remark];
+    }
     if (sec === "card") return [h("div", { key: "w", style: { background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "8px 12px", color: "#9a3412", fontSize: 12.5, fontWeight: 700, marginBottom: 12 } }, "🔒 请勿上传或写下完整卡号、CVV、PIN。照片上的卡号请先遮住，只留最后 4 位。"), collected, box(false), remark];
     if (sec === "agreement") return [h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, selBox("AGREEMENT STATUS", DT_AGREE, "status"), h("div", { style: { flex: "0 1 200px" } }, lbl("AGREEMENT DATE"), h("input", { type: "date", value: d.date || "", onChange: e => patchSec(r, sec, { date: e.target.value }), style: inp }))), box(false), remark];
-    if (sec === "details") return [
-      h("div", { key: "n", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 } },
-        h("div", { style: { flex: "1 1 200px" } }, lbl("CUSTOMER NAME"), h(DebouncedInput, { value: r.customer, onCommit: val => { const v = val.trim().toUpperCase(); if (!v) return; const dup = items.find(x => x.id !== r.id && dtKeyName(x.customer) === dtKeyName(v)); if (dup) { alert("已经有「" + dup.customer + "」的记录"); return; } patch(r, { customer: v }); }, style: inp })),
-        h("div", { style: { flex: "1 1 200px" } }, lbl("AGENT NAME"), h(DebouncedInput, { value: r.agent || "", onCommit: val => patch(r, { agent: val.trim().toUpperCase() }), style: inp }))),
-      h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, field("IC NUMBER", "ic"), field("CONTACT NO", "phone"), field("EMAIL", "email"), field("ADDRESS", "address"), field("COMPANY", "company"), field("POSITION", "position")),
-      box(false), remark];
-    if (sec === "funder") return [h("div", { key: "f", style: { marginBottom: 12 } }, selBox("FUNDER STATUS", DT_FUNDER, "status")), box(true), remark];
+    if (sec === "details") {
+      const em = Array.isArray(d.emergency) && d.emergency.length ? d.emergency : [{ id: "e0" }];
+      const setEm = next => patchSec(r, "details", { emergency: next });
+      const emF = (c, t, k) => h("div", { key: k, style: { flex: "1 1 190px" } }, lblO(t), h(DebouncedInput, { value: c[k] || "", onCommit: val => setEm(em.map(x => x.id === c.id ? { ...x, [k]: val } : x)), style: inp }));
+      return [
+        h("div", { key: "own", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } },
+          h("div", { style: { flex: "1 1 200px" } }, lbl("CUSTOMER NAME（列表显示名字）"), h(DebouncedInput, { value: r.customer, onCommit: val => { const v = val.trim().toUpperCase(); if (!v) return; const dup = items.find(x => x.id !== r.id && dtKeyName(x.customer) === dtKeyName(v)); if (dup) { alert("已经有「" + dup.customer + "」的记录"); return; } patch(r, { customer: v }); }, style: inp })),
+          h("div", { style: { flex: "1 1 200px" } }, lbl("AGENT NAME"), h(DebouncedInput, { value: r.agent || "", onCommit: val => patch(r, { agent: val.trim().toUpperCase() }), style: inp }))),
+        group("A · Basic Information 基本资料", [field("FULL NAME", "fullName"), field("IC / IDENTIFICATION NO.", "ic"), dateF("DATE OF BIRTH", "dob"), pickF("GENDER", "gender", ["Male", "Female"]), field("NATIONALITY", "nationality"), pickF("MARITAL STATUS", "marital", ["Single", "Married", "Divorced", "Widowed"]),
+          field("MOBILE NUMBER", "phone"), field("ALTERNATIVE CONTACT", "phone2"), field("EMAIL ADDRESS", "email"), field("RESIDENTIAL ADDRESS", "address"), field("MAILING ADDRESS", "mailAddress")]),
+        h("div", { key: "em", style: { border: "1px solid #e2e8f0", borderRadius: 14, padding: "12px 14px", marginBottom: 12, background: "#fcfcff" } },
+          h("div", { style: { fontWeight: 900, fontSize: 13, color: "#4338ca", marginBottom: 10 } }, "B · Emergency Contact 紧急联络人"),
+          em.map((c, i) => h("div", { key: c.id, style: { borderTop: i ? "1px dashed #c7d2fe" : "none", paddingTop: i ? 10 : 0, marginBottom: 8 } },
+            h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } }, h("b", { style: { flex: 1, fontSize: 12, color: "#64748b" } }, "CONTACT " + (i + 1)),
+              em.length > 1 && h("button", { type: "button", onClick: () => { if (window.confirm("删除 Contact " + (i + 1) + "？")) setEm(em.filter(x => x.id !== c.id)); }, style: { border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", borderRadius: 8, padding: "3px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "删除")),
+            h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } }, emF(c, "NAME", "name"), emF(c, "RELATIONSHIP", "relation"), emF(c, "CONTACT NUMBER", "phone"), emF(c, "ALTERNATIVE CONTACT", "phone2"), emF(c, "ADDRESS", "address"), emF(c, "REMARKS", "remark")))),
+          h("button", { type: "button", onClick: () => setEm([...em, { id: uid() }]), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "＋ 加紧急联络人")),
+        group("C · Employment Information 工作资料", [field("COMPANY NAME", "company"), field("JOB TITLE", "position"), pickF("EMPLOYMENT STATUS", "empStatus", ["Permanent", "Contract", "Probation", "Self-employed", "Others"]), field("OFFICE CONTACT NUMBER", "officePhone"), field("OFFICE ADDRESS", "officeAddress"), dateF("EMPLOYMENT START DATE", "empStart")]),
+        group("D · Additional Information 其他", [field("SPOUSE NAME", "spouseName"), field("SPOUSE CONTACT NUMBER", "spousePhone")]),
+        h("div", { key: "dl", style: { fontWeight: 900, fontSize: 13, color: "#4338ca", margin: "4px 0 8px" } }, "Supporting Documents & Photos"),
+        box(false, true), remark];
+    }
+    if (sec === "funder") return [h("div", { key: "f", style: { marginBottom: 12 } }, selBox("FUNDER STATUS", DT_FUNDER, "status")), box(true, true), remark];
     if (sec === "settlement") return [
-      h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, selBox("SETTLEMENT STATUS", DT_SETTLE, "status"), field("SETTLEMENT AMOUNT (RM)", "amount", { inputMode: "decimal" }), field("OUTSTANDING BALANCE (RM)", "outstanding", { inputMode: "decimal" }),
+      h("div", { key: "f", style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } }, selBox("SETTLEMENT STATUS", DT_SETTLE, "status"), field("SETTLEMENT AMOUNT (RM)", "amount"), field("OUTSTANDING BALANCE (RM)", "outstanding"),
         h("div", { style: { flex: "0 1 180px" } }, lbl("SETTLEMENT DATE"), h("input", { type: "date", value: d.date || "", onChange: e => patchSec(r, sec, { date: e.target.value }), style: inp }))),
-      box(true), remark];
+      box(true, true), remark];
     return null;
   };
   const TITLES = { bank: "🏦 Bank Check", agreement: "📝 Agreement", details: "👤 Customer Details", funder: "💸 Funder", settlement: "🧾 Settlement", card: "💳 Credit Card" };
   return h("div", { className: "cz-page" },
+    h("style", null, ".dt-keep,.dt-keep *{text-transform:none!important}.dt-namebtn{background:none!important;color:#1e293b!important;box-shadow:none!important;border:none!important;text-transform:none!important}"),
     h("div", { style: card },
       h("div", { style: { fontSize: 14, fontWeight: 900, color: "#1e1b4b", marginBottom: 10 } }, "➕ 新增客户"),
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
@@ -3802,9 +3917,13 @@ function CustomerDocsPage({ currentUser }) {
       h("select", { value: fB, onChange: e => setFB(e.target.value), style: sel }, h("option", { value: "" }, "Salary Bank：全部"), h("option", { value: "CIMB" }, "CIMB"), h("option", { value: "OTHER" }, "Other"), h("option", { value: "EMPTY" }, "未填")),
       h("button", { onClick: () => setOnlyInc(!onlyInc), style: { border: onlyInc ? "2px solid #ea580c" : "1px solid #fed7aa", background: onlyInc ? "#ffedd5" : "#fff", color: "#c2410c", borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "⚠ 文件未齐 " + incCount)),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["Customer Name", "Agent Name", "Bank Check", "Agreement Status", "Agreement Date", "Customer Details", "Funder Status", "Settlement Status", "Credit Card", "Salary Bank Card", "Last Updated", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 12, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 12, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有客户，先在上面新增")) : shown.map(row)))),
+      h("thead", null, h("tr", null, ["Customer Name", "Agent Name", "Bank Check", "Agreement Status / Date", "Customer Details", "Funder Status", "Settlement Status", "Credit Card", "Salary Bank Card", "Start Salary", "Remark", "Last Updated", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 13, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 13, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有客户，先在上面新增")) : shown.map(row)))),
+    remarkOpen && items.find(x => x.id === remarkOpen) && (() => { const r = items.find(x => x.id === remarkOpen); return h("div", { onClick: () => setRemarkOpen(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 760, padding: 16 } },
+        h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, h("div", { style: { flex: 1, fontWeight: 900, color: "#1e1b4b" } }, "📝 " + r.customer + " · Remark"), h("button", { onClick: () => setRemarkOpen(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
+        h(DtRemarkEditor, { value: r.remark || "", onSave: val => patch(r, { remark: val }), title: "REMARK（离开格子自动保存）", rows: 14 }))); })(),
     mr && h("div", { onClick: () => setModal(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "30px 14px", overflowY: "auto" } },
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 900, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
