@@ -3371,7 +3371,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v109"));
+    h("div", { className: "sb-ver" }, "v110"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5652,7 +5652,7 @@ function FormsPage({ currentUser, tools }) {
     window.addEventListener("beforeunload", fn);
     return () => window.removeEventListener("beforeunload", fn);
   }, [open]);
-  const guessTitle = vals => { const v = vals.map(x => x[1]).find(x => x && String(x).trim().length > 1 && !/^\d{4}-\d{2}-\d{2}$/.test(x)); return v ? String(v).trim().slice(0, 40) : ""; };
+  const guessTitle = vals => { const nm = vals.find(x => /^(name|client_?name|clientname|customer_?name|custname|cname|applicant_?name|fname)#/i.test(x[0]) && x[1] && String(x[1]).trim()); if (nm) return String(nm[1]).trim().slice(0, 40); const v = vals.map(x => x[1]).find(x => x && String(x).trim().length > 1 && !/^\d{4}-\d{2}-\d{2}$/.test(x)); return v ? String(v).trim().slice(0, 40) : ""; };
   const [saveDlg, setSaveDlg] = React.useState(null);
   const myCats = () => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; return (lib.cats || []).filter(c => sameUser(c.by, currentUser)); };
   const newCat = name => { const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] }; const c = { id: uid(), name, by: canonUser(currentUser) }; saveLib({ ...lib, cats: [...(lib.cats || []), c] }); return c; };
