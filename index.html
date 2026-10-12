@@ -3371,7 +3371,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v111"));
+    h("div", { className: "sb-ver" }, "v112"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7085,7 +7085,7 @@ function printVerification(v, client) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(v.customerName || "Verification")}</title>
   <style>
     @page { size: A4; margin: 14mm 12mm; }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     body { font-family: "Segoe UI", Arial, sans-serif; color: #111; margin: 0 auto; max-width: 760px; padding: 10px 6px; font-size: 12px; }
     .bar { background: #fbe39b; color: #7c2d12; text-align: center; font-weight: 700; padding: 6px; margin: 16px 0 10px; font-size: 12.5px; }
     .r { display: flex; align-items: flex-start; padding: 4px 6px; }
