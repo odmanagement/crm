@@ -3371,7 +3371,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v110"));
+    h("div", { className: "sb-ver" }, "v111"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4295,7 +4295,7 @@ function LeavePage({ currentUser }) {
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 " + st[2] } }, i + 1),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, czAvatar(x.name, 26),
               boss ? h("select", { style: pillSel(czHue(x.name)), value: x.name, onChange: e => upd(x.id, "name", e.target.value) }, MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))) : h("b", { style: { color: "hsl(" + czHue(x.name) + ",60%,35%)" } }, String(x.name).toUpperCase()))),
-            h("td", { style: S.td }, h("span", { title: "提交后不能更改", style: { ...czPill(lt[2], { padding: "5px 12px", fontSize: 12.5 }), whiteSpace: "nowrap" } }, lt[1])),
+            h("td", { style: S.td }, boss ? h("select", { value: x.type, onChange: e => { const v = e.target.value; save(items.map(y => y.id === x.id ? { ...y, type: v, to: v === "half" ? y.from : y.to } : y)); }, style: { ...czPill(lt[2], { padding: "5px 10px", fontSize: 12.5 }), cursor: "pointer", fontFamily: "inherit", fontWeight: 800 } }, LEAVE_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1]))) : h("span", { title: "提交后不能更改", style: { ...czPill(lt[2], { padding: "5px 12px", fontSize: 12.5 }), whiteSpace: "nowrap" } }, lt[1])),
             h("td", { style: S.td }, tpDate(fmt(x.from))),
             h("td", { style: S.td }, tpDate(fmt(x.to || x.from))),
             h("td", { style: { ...S.td, fontWeight: 800, textAlign: "center" } }, leaveDays(x.from, x.to, x.type)),
