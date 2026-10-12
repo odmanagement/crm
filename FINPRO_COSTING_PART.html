@@ -396,7 +396,7 @@ function calcPartC(){
     const amt=parseNum(r.querySelector('.amt-input').value);
     const pEl=r.querySelector('.mult-input');
     const pct=pEl?parseNum(pEl.value)/100:0;
-    const add=amt*pct;
+    const add=Math.round((amt*pct+1e-9)*100)/100; // % 的钱四舍五入到 2 位小数
     sum+=amt; pctSum+=add;
     r.querySelector('.lucasCell').textContent=fmt(amt+add);
     r.querySelector('.agentCell').textContent=fmt(0);
@@ -576,8 +576,9 @@ function copyAll(btn){
     const pv=(r.querySelector('.mult-input')||{}).value||'';
     const pct=parseNum(pv);
     if(!pct) return `${nm} - ${RM(amt)}`;
-    aaPctSum+=amt*pct/100;
-    return `${nm} - ${RM(amt)} + ${pct}% = ${RM(amt*(1+pct/100))}`;
+    const add=Math.round((amt*pct/100+1e-9)*100)/100;
+    aaPctSum+=add;
+    return `${nm} - ${RM(amt)} + ${pct}% = ${RM(amt+add)}`;
   }).join('\n');
   const bSum=sumAmt('partBBody');
   const costingAmt=partATotal+aaTotal+bTotal;
