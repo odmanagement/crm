@@ -1083,7 +1083,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1262,6 +1262,10 @@ const NAV = [{
   id: "salarylist",
   label: "Salary Listing",
   icon: Wallet
+}, {
+  id: "lendingfee",
+  label: "Lending Fee",
+  icon: Receipt
 }, {
   id: "returnsalary",
   label: "Return Salary",
@@ -3010,6 +3014,8 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "returnsalary" && RETURN_SALARY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(ReturnSalaryPage, {
     currentUser: currentUser
+  }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
+    currentUser: currentUser
   }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
     clients: clients,
     currentUser: currentUser,
@@ -3383,7 +3389,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v121"));
+    h("div", { className: "sb-ver" }, "v122"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4179,6 +4185,145 @@ function CustomerDocsPage({ currentUser }) {
           h("span", { style: { fontSize: 11, color: "#16a34a", fontWeight: 800 } }, "● 自动保存"),
           h("button", { onClick: () => setModal(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "16px 18px 20px" } }, modalBody()))));
+}
+/* ---------- Lending Fee：在这里填资料 → 自动填进 Lending Sheet（LEANDING_SHEET.html）→ Print / PDF ---------- */
+const LS_FILE = "LEANDING_SHEET.html";
+const lsNum = v => Number(String(v == null ? "" : v).replace(/,/g, "")) || 0;
+const lsFmt = n => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const lsEsc = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+const lsDMY = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? (+m[3]) + "/" + (+m[2]) + "/" + m[1] : ""; };
+const lsTitle = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return ""; const d = +m[3], suf = (d % 10 === 1 && d !== 11) ? "ST" : (d % 10 === 2 && d !== 12) ? "ND" : (d % 10 === 3 && d !== 13) ? "RD" : "TH"; return "FINPRO AGREEMENT " + d + suf + " " + RC_MONTHS[+m[2] - 1] + " " + m[1]; };
+const LS_BANKS = ["MAYBANK", "CIMB BANK", "PUBLIC BANK", "RHB BANK", "HONG LEONG BANK", "AMBANK", "BANK ISLAM", "BANK RAKYAT", "BSN", "OCBC BANK", "HSBC BANK", "UOB BANK", "STANDARD CHARTERED", "AFFIN BANK", "ALLIANCE BANK", "MBSB BANK", "AGROBANK", "CITIBANK"];
+/* 把资料填进 Lending Sheet，读回计算好的数目 */
+function lsFill(win, r) {
+  const d = win.document, g = id => d.getElementById(id);
+  const set = (id, v) => { const el = g(id); if (el) el.value = v == null ? "" : v; };
+  set("hdr", lsTitle(r.date) || g("hdr").value);
+  set("name", String(r.name || "").toUpperCase()); set("tel", r.tel || "");
+  set("doa", lsDMY(r.date) || g("doa").value); set("months", r.months || "3"); set("interest", r.interest == null || r.interest === "" ? "30" : r.interest);
+  set("basic", r.basic ? lsFmt(lsNum(r.basic)) : ""); set("pcb", "");
+  g("settlement").innerHTML = (r.settlement || []).filter(x => x.desc || x.acc || x.amount).map(x => win.rowHTML2(lsEsc(String(x.desc || "").toUpperCase()), lsEsc(String(x.acc || "").toUpperCase()), x.amount !== "" && x.amount != null ? lsFmt(lsNum(x.amount)) : "")).join("");
+  g("chargesBottom").innerHTML = (r.charges || []).filter(x => x.desc || x.amount).map(x => win.rowHTML(lsEsc(String(x.desc || "").toUpperCase()), x.amount !== "" && x.amount != null ? lsFmt(lsNum(x.amount)) : "")).join("");
+  const sel = g("bank"), oth = g("bankOther"), bk = String(r.bank || "").toUpperCase();
+  if (sel && oth) { if (!bk || LS_BANKS.includes(bk)) { sel.value = bk; sel.style.display = "inline-block"; oth.style.display = "none"; oth.value = ""; } else { sel.value = "__OTHER__"; sel.style.display = "none"; oth.style.display = "inline-block"; oth.value = bk; } }
+  set("acct", r.acct || "");
+  ["epfAmt", "socsoAmt"].forEach(id => { const el = g(id); if (el) delete el.dataset.manual; });
+  try { win.calcDue(); win.calcStat(); } catch (e) {}
+  const t = id => lsNum((g(id) || {}).textContent);
+  return { totA: t("totA"), totB: t("totB"), principal: t("principal"), intAmt: t("intAmt"), grand: t("grand"), tobank: t("tobank") };
+}
+function lsCompute(r) {
+  return new Promise(res => {
+    const f = document.createElement("iframe");
+    Object.assign(f.style, { position: "fixed", left: "-9999px", top: "0", width: "800px", height: "600px", border: "0", visibility: "hidden" });
+    const done = v => { res(v); setTimeout(() => f.remove(), 50); };
+    const to = setTimeout(() => done(null), 15000);
+    f.onload = () => { clearTimeout(to); try { done(lsFill(f.contentWindow, r)); } catch (e) { done(null); } };
+    f.src = LS_FILE + "?calc=" + Date.now();
+    document.body.appendChild(f);
+  });
+}
+function LendingFeePage({ currentUser }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const [list, save] = useCloudList("lending_fee");
+  const items = list || [];
+  const [q, setQ] = React.useState("");
+  const [form, setForm] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [pdf, setPdf] = React.useState(null);
+  const frameRef = React.useRef(null);
+  const blank = () => ({ name: "", tel: "", date: today(), months: "3", interest: "30", basic: "", settlement: [{ id: uid(), desc: "", acc: "", amount: "" }], charges: [{ id: uid(), desc: "MAJIKAN & VERIFY", amount: "" }, { id: uid(), desc: "LAWYER FEES", amount: "800" }], bank: "", acct: "" });
+  const submit = async () => {
+    if (!form.name.trim()) { alert("请填 NAME"); return; }
+    setBusy(true);
+    const rec = { ...form, name: form.name.trim().toUpperCase(), settlement: (form.settlement || []).filter(x => x.desc || x.acc || x.amount), charges: (form.charges || []).filter(x => x.desc || x.amount) };
+    const calc = await lsCompute(rec);
+    const out = { ...rec, ...(calc ? { calc, settleTotal: calc.totA, funderFee: calc.intAmt } : {}), updatedAt: Date.now(), updatedBy: me };
+    if (rec.id) save(items.map(x => x.id === rec.id ? out : x)); else save([{ ...out, id: uid(), by: me, at: Date.now() }, ...items]);
+    setBusy(false); setForm(null);
+    if (!calc) alert("资料已保存，但 Lending Sheet 打不开，Funder Fee 暂时算不到。请确认 " + LS_FILE + " 有上传到 GitHub。");
+  };
+  const del = r => { if (window.confirm("删除「" + r.name + "」？")) save(items.filter(x => x.id !== r.id)); };
+  const ql = q.trim().toLowerCase();
+  const shown = items.filter(r => !ql || [r.name, r.tel].join(" ").toLowerCase().includes(ql)).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+  const inp = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid #cbd5e1", fontSize: 13.5, fontFamily: "inherit", outline: "none", background: "#fff" };
+  const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, t);
+  const fld = (t, k, extra, flex) => h("div", { style: { flex: flex || "1 1 160px" } }, lbl(t), h("input", { value: form[k] == null ? "" : form[k], onChange: e => setForm({ ...form, [k]: e.target.value }), style: inp, ...(extra || {}) }));
+  const sec = (title, key, cols) => {
+    const rows = form[key] || [];
+    const setRow = (id, k, v) => setForm({ ...form, [key]: rows.map(x => x.id === id ? { ...x, [k]: v } : x) });
+    const tot = rows.reduce((a, x) => a + lsNum(x.amount), 0);
+    return h("div", { style: { border: "1px solid #fde68a", borderRadius: 12, marginTop: 14, overflow: "hidden" } },
+      h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f" } }, title),
+      h("div", { style: { padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 } },
+        rows.map(x => h("div", { key: x.id, style: { display: "flex", gap: 6, alignItems: "center" } },
+          cols.map(([k, ph, w, num]) => h("input", { key: k, value: x[k] || "", placeholder: ph, inputMode: num ? "decimal" : undefined, onChange: e => setRow(x.id, k, num ? e.target.value.replace(/[^\d.,]/g, "") : e.target.value), onBlur: num ? e => { const v = e.target.value.trim(); if (v) setRow(x.id, k, lsFmt(lsNum(v))); } : undefined, style: { ...inp, flex: w, textAlign: num ? "right" : "left", textTransform: "uppercase" } })),
+          h("button", { onClick: () => setForm({ ...form, [key]: rows.filter(y => y.id !== x.id) }), title: "删除", style: { border: "none", background: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", width: 24 } }, "×"))),
+        h("div", { style: { display: "flex", alignItems: "center" } },
+          h("button", { onClick: () => setForm({ ...form, [key]: [...rows, { id: uid(), desc: "", acc: "", amount: "" }] }), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "4px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Add Item"),
+          h("span", { style: { flex: 1 } }),
+          h("b", { style: { fontSize: 13 } }, "TOTAL : " + lsFmt(tot)))));
+  };
+  const openPdf = r => setPdf(r);
+  const onPdfLoad = () => {
+    const f = frameRef.current; if (!f || !pdf) return;
+    try {
+      const d = f.contentWindow.document;
+      d.querySelectorAll(".toolbar button").forEach(b => { if (/存档|读取|Reset/i.test(b.textContent)) b.style.display = "none"; });
+      lsFill(f.contentWindow, pdf);
+    } catch (e) { alert("Lending Sheet 打不开：" + (e.message || e)); }
+  };
+  const th = S.th, td = S.td;
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / tel", value: q, onChange: e => setQ(e.target.value) })),
+      h("button", { style: S.addBtn, onClick: () => setForm(blank()) }, h(Plus, { size: 16 }), " 新增 Lending")),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["PDF", "Name", "Date", "Settlement", "Funder Fee", ""].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...th, ...S.thNum } : th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 按「新增 Lending」")) :
+        shown.map(r => h("tr", { key: r.id },
+          h("td", { style: td }, h("button", { onClick: () => openPdf(r), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
+          h("td", { style: { ...td, fontWeight: 800 } }, r.name, r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, r.tel)),
+          h("td", { style: td }, r.date ? tpDate(dtDMY(r.date)) : "—"),
+          h("td", { style: { ...td, ...S.tdNum, fontWeight: 800 } }, "RM " + lsFmt(r.settleTotal != null ? r.settleTotal : (r.settlement || []).reduce((a, x) => a + lsNum(x.amount), 0))),
+          h("td", { style: { ...td, ...S.tdNum, fontWeight: 900, color: "#b91c1c" } }, r.funderFee != null ? "RM " + lsFmt(r.funderFee) : "—", r.interest && h("div", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 700 } }, r.interest + "%")),
+          h("td", { style: { ...td, whiteSpace: "nowrap" } },
+            h("button", { onClick: () => setForm({ ...r, settlement: (r.settlement || []).map(x => ({ id: x.id || uid(), ...x })), charges: (r.charges || []).map(x => ({ id: x.id || uid(), ...x })) }), title: "编辑", style: { ...S.fuDel, marginRight: 4 } }, h(Edit3, { size: 15, color: "#6366f1" })),
+            h("button", { onClick: () => del(r), title: "删除", style: S.fuDel }, h(Trash2, { size: 15, color: "#cbd5e1" })))))))),
+    form && h("div", { onClick: () => !busy && setForm(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 14px", overflowY: "auto" } },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 820, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
+        h("div", { style: { display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
+          h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending"),
+          h("button", { onClick: () => !busy && setForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
+        h("div", { style: { padding: "14px 18px 18px" } },
+          h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
+            fld("NAME", "name", { style: { ...inp, textTransform: "uppercase", fontWeight: 800 } }, "2 1 240px"),
+            fld("TEL", "tel"),
+            h("div", { style: { flex: "1 1 150px" } }, lbl("DATE OF AGREEMENT"), h("input", { type: "date", value: form.date || "", onChange: e => setForm({ ...form, date: e.target.value }), style: inp })),
+            fld("BY MONTH(S)", "months", { inputMode: "numeric" }, "0 1 100px"),
+            fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
+          sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]]),
+          h("div", { style: { border: "1px solid #fde68a", borderRadius: 12, marginTop: 14, overflow: "hidden" } },
+            h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f" } }, "(B) OTHERS CHARGES"),
+            h("div", { style: { padding: "8px 12px", display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" } },
+              h("div", { style: { flex: "0 1 220px" } }, lbl("BASIC SALARY (PER MONTH)"), h("input", { value: form.basic || "", inputMode: "decimal", onChange: e => setForm({ ...form, basic: e.target.value.replace(/[^\d.,]/g, "") }), style: { ...inp, textAlign: "right" } })),
+              h("div", { style: { fontSize: 12, color: "#64748b", fontWeight: 600, paddingBottom: 8 } }, "EPF、SOCSO+EIS+PCB 会照 Lending Sheet 自动算"))),
+          sec("(B) OTHERS CHARGES · 其他项目", "charges", [["desc", "Description", 2.4], ["amount", "0.00", 1, true]]),
+          h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 } },
+            h("div", { style: { flex: "1 1 200px" } }, lbl("ACCOUNT RECORD · BANK"), h("input", { list: "ls-banks", value: form.bank || "", onChange: e => setForm({ ...form, bank: e.target.value }), style: { ...inp, textTransform: "uppercase" } }), h("datalist", { id: "ls-banks" }, LS_BANKS.map(b => h("option", { key: b, value: b })))),
+            fld("ACCOUNT NO.", "acct")),
+          h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 } },
+            h("button", { onClick: () => setForm(null), disabled: busy, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "10px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
+            h("button", { onClick: submit, disabled: busy, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "10px 22px", fontWeight: 900, cursor: busy ? "wait" : "pointer" } }, busy ? "计算中…" : "💾 保存"))))),
+    pdf && h("div", { style: { position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,15,40,.55)", display: "flex", alignItems: "stretch", justifyContent: "center", padding: 18 } },
+      h("div", { style: { flex: 1, maxWidth: 1100, background: "#fff", borderRadius: 18, overflow: "hidden", display: "flex", flexDirection: "column" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f6", background: "#fafbff" } },
+          h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 900, fontSize: 15, color: "#1e1b4b" } }, "📄 Lending Sheet · " + pdf.name), h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, "资料已自动填好 · 这里改的不会存回去，要改请按 ✏️ 编辑")),
+          h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, "🖨 Print / Save PDF"),
+          h("button", { onClick: () => setPdf(null), title: "关闭", style: { border: "none", background: "#f1f5f9", width: 36, height: 36, borderRadius: 10, cursor: "pointer" } }, h(X, { size: 18, color: "#475569" }))),
+        h("iframe", { ref: frameRef, src: LS_FILE + "?v=" + (pdf.updatedAt || pdf.at || 0), onLoad: onPdfLoad, style: { flex: 1, border: "none", width: "100%", background: "#eee" } }))));
 }
 /* ---------- Salary Listing：Personal Loan 有填 CIMB / AEON CREDIT 的客户，自动列出来 ---------- */
 const SALARY_BANKS = ["CIMB", "AEON CREDIT"];
