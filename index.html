@@ -918,14 +918,144 @@ function soundKindOf(el) {
   if (/^\s*[^\n]{0,24}\s\d+\s*$/.test(el.textContent || "") || /chip|tab/.test(el.className || "")) return "chip";
   return "tap";
 }
+/* ===== Monet's Garden 声音主题（主题 = monet 的人，例如 Alice）=====
+   水滴 / 水晶风铃 / 柔和钢琴；全部用 Web Audio 即时合成，不用下载音档 */
+const MONET_DEF = { on: true, vol: 0.35, type: true, click: true, create: true, complete: true, other: true };
+const monetUser = () => { try { return USER_THEMES[canonUser(window.__crmUser)] === "monet"; } catch (e) { return false; } };
+const monetCfg = () => { try { return { ...MONET_DEF, ...(JSON.parse(localStorage.getItem("crm_monet_snd") || "{}")) }; } catch (e) { return { ...MONET_DEF }; } };
+const monetSetCfg = c => { try { localStorage.setItem("crm_monet_snd", JSON.stringify(c)); } catch (e) {} };
+const MONET_CAT = { type: "type", click: "click", nav: "click", select: "click", chip: "click", tap: "click", create: "create", complete: "complete", allDone: "complete", save: "other", delete: "other", open: "other", minimize: "other", error: "other", notify: "other" };
+const _mLast = {}; let _mLastEvent = 0; let _mVoices = 0;
+const PENTA = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98, 1760.0];
+function _mCtx() { _sndCtx = _sndCtx || new (window.AudioContext || window.webkitAudioContext)(); if (_sndCtx.state === "suspended") _sndCtx.resume(); return _sndCtx; }
+/* 基本音色 */
+function _mPiano(ac, out, f, t, dur, g) { // 柔和钢琴：正弦 + 少量泛音，快起慢落
+  [[1, 1], [2, .28], [3, .08]].forEach(([m, a]) => { const o = ac.createOscillator(), v = ac.createGain(); o.type = m === 1 ? "triangle" : "sine"; o.frequency.setValueAtTime(f * m, t);
+    v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g * a, t + 0.012); v.gain.exponentialRampToValueAtTime(0.0001, t + dur / m);
+    o.connect(v); v.connect(out); o.start(t); o.stop(t + dur + .05); });
+}
+function _mChime(ac, out, f, t, dur, g) { // 水晶风铃：不和谐泛音，余音长
+  [[1, 1], [2.76, .45], [5.4, .22], [8.93, .1]].forEach(([m, a]) => { const o = ac.createOscillator(), v = ac.createGain(); o.type = "sine"; o.frequency.setValueAtTime(f * m, t);
+    v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g * a, t + 0.004); v.gain.exponentialRampToValueAtTime(0.0001, t + dur / Math.sqrt(m));
+    o.connect(v); v.connect(out); o.start(t); o.stop(t + dur + .05); });
+}
+function _mDrop(ac, out, f, t, g) { // 水滴：短促的上滑
+  const o = ac.createOscillator(), v = ac.createGain(); o.type = "sine";
+  o.frequency.setValueAtTime(f * 0.6, t); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.05);
+  v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.006); v.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+  o.connect(v); v.connect(out); o.start(t); o.stop(t + 0.14);
+}
+function _mBreeze(ac, out, t, dur, g, up) { // 微风：过滤过的白噪音，慢慢淡出
+  const n = Math.floor(ac.sampleRate * dur), b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = ac.createBufferSource(); src.buffer = b; const fl = ac.createBiquadFilter(); fl.type = "bandpass"; fl.Q.value = 0.9;
+  fl.frequency.setValueAtTime(up ? 600 : 1800, t); fl.frequency.exponentialRampToValueAtTime(up ? 2200 : 400, t + dur);
+  const v = ac.createGain(); v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + dur * .3); v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(fl); fl.connect(v); v.connect(out); src.start(t); src.stop(t + dur + .02);
+}
+function monetPlay(kind, opt) {
+  if (!monetUser()) return false;
+  const c = monetCfg(); if (!c.on) return false;
+  const cat = MONET_CAT[kind] || "click"; if (c[cat] === false) return false;
+  const now = performance.now(), gap = kind === "type" ? 45 : 90;
+  if (now - (_mLast[kind] || 0) < gap) return true; // 防止重复 / 叠在一起
+  if (_mVoices > 6) return true;
+  _mLast[kind] = now;
+  if (kind !== "type" && !/^(click|nav|select|chip|tap)$/.test(kind)) _mLastEvent = now;
+  try {
+    const ac = _mCtx(), t = ac.currentTime + 0.005, V = Math.max(0, Math.min(1, Number(c.vol) || 0));
+    const out = ac.createGain(); out.gain.value = V * 0.55;
+    // 一点点空间感（短回声），像在花园里
+    const dl = ac.createDelay(); dl.delayTime.value = 0.13; const fb = ac.createGain(); fb.gain.value = 0.22; const wet = ac.createGain(); wet.gain.value = 0.3;
+    out.connect(ac.destination); out.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(ac.destination);
+    _mVoices++; setTimeout(() => { _mVoices = Math.max(0, _mVoices - 1); try { out.disconnect(); dl.disconnect(); wet.disconnect(); } catch (e) {} }, 2600);
+    const P = i => PENTA[Math.max(0, Math.min(PENTA.length - 1, i))];
+    const r = Math.floor(Math.random() * 5);
+    switch (kind) {
+      case "type": _mDrop(ac, out, P(4 + r), t, 0.16); break;
+      case "nav": _mPiano(ac, out, P(5), t, .45, .22); break;
+      case "select": _mChime(ac, out, P(7), t, .5, .14); break;
+      case "chip": _mPiano(ac, out, P(6), t, .35, .2); break;
+      case "click": case "tap": _mPiano(ac, out, P(3 + (opt && opt.pitch || 0)), t, .4, .22); break;
+      case "create": _mDrop(ac, out, P(5), t, .2); _mChime(ac, out, P(7), t + .08, .9, .12); _mChime(ac, out, P(9), t + .18, 1, .1); break;
+      case "complete": _mPiano(ac, out, P(2), t, .6, .2); _mPiano(ac, out, P(4), t + .09, .7, .2); _mChime(ac, out, P(7), t + .18, 1.1, .12); break;
+      case "allDone": [0, 2, 4, 5, 7].forEach((n, i) => _mPiano(ac, out, P(n), t + i * .12, 1, .2)); [7, 9].forEach((n, i) => _mChime(ac, out, P(n), t + .55 + i * .14, 1.6, .12)); break;
+      case "save": _mPiano(ac, out, P(2), t, .5, .2); _mPiano(ac, out, P(5), t + .1, .7, .18); break;
+      case "delete": _mPiano(ac, out, P(1) / 2, t, .35, .2); _mBreeze(ac, out, t + .02, .3, .05, false); break;
+      case "open": _mChime(ac, out, P(6), t, .7, .12); _mChime(ac, out, P(8), t + .06, .8, .1); _mBreeze(ac, out, t, .35, .03, true); break;
+      case "minimize": _mBreeze(ac, out, t, .45, .06, false); _mPiano(ac, out, P(3), t, .5, .1); break;
+      case "notify": _mChime(ac, out, P(5), t, 1, .14); _mChime(ac, out, P(8), t + .16, 1.1, .12); break;
+      case "error": _mPiano(ac, out, 311.13, t, .5, .22); _mPiano(ac, out, 293.66, t + .16, .6, .2); break;
+      default: _mPiano(ac, out, P(3), t, .4, .2);
+    }
+  } catch (e) {}
+  return true;
+}
+/* 给各个功能呼叫：成功的动作才响（非 monet 的人什么都不会发生） */
+const monetSfx = kind => { try { monetPlay(kind); } catch (e) {} };
+function monetClickKind(el) {
+  const k = soundKindOf(el);
+  const t = ((el.getAttribute && (el.getAttribute("title") || "")) + " " + (el.textContent || "")).toLowerCase();
+  if (k === "danger") return "delete";
+  if (/^\s*[–-]\s*$/.test(el.textContent || "") || /缩小|minimi/.test(t)) return "minimize";
+  if (k === "close") return "minimize";
+  if (/展开|view|open|打开|查看|⤢|expand/.test(t)) return "open";
+  return k === "nav" || k === "select" || k === "chip" ? k : "click";
+}
+/* 设定视窗 */
+function MonetSoundPanel({ onClose }) {
+  const h = React.createElement;
+  const [c, setC] = React.useState(monetCfg());
+  const upd = p => { const n = { ...c, ...p }; setC(n); monetSetCfg(n); };
+  const row = (k, l, demo) => h("label", { key: k, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 4px", borderBottom: "1px solid #eef2f0", cursor: "pointer", opacity: c.on ? 1 : .5 } },
+    h("input", { type: "checkbox", checked: c[k] !== false, onChange: e => upd({ [k]: e.target.checked }), style: { width: 17, height: 17, accentColor: "#6f9c8a" } }),
+    h("span", { style: { flex: 1, fontWeight: 700, color: "#334155", fontSize: 13.5 } }, l),
+    h("button", { type: "button", onClick: e => { e.preventDefault(); e.stopPropagation(); setTimeout(() => monetPlay(demo), 10); }, style: { border: "1px solid #c9dccf", background: "#f3f8f5", color: "#4d7a68", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 800, cursor: "pointer" } }, "▶ 试听"));
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 10050, background: "rgba(30,41,59,.35)", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", padding: "64px 18px" } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: 330, maxWidth: "100%", background: "linear-gradient(160deg,#fbfdfb,#eef5f8)", borderRadius: 18, boxShadow: "0 24px 60px -18px rgba(0,0,0,.45)", border: "1px solid #d6e6dc", overflow: "hidden", textTransform: "none" } },
+      h("div", { style: { padding: "14px 16px", background: "linear-gradient(120deg,#6f9c8a,#9fb7d9 60%,#d0a9c5)", color: "#fff", display: "flex", alignItems: "center" } },
+        h("div", { style: { flex: 1 } }, h("div", { style: { fontWeight: 900, fontSize: 15 } }, "🪷 Monet's Garden 声音"), h("div", { style: { fontSize: 11.5, opacity: .9 } }, "水滴 · 风铃 · 柔和钢琴")),
+        h("button", { onClick: onClose, style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 999, width: 28, height: 28, cursor: "pointer" } }, "✕")),
+      h("div", { style: { padding: "10px 16px 16px" } },
+        h("label", { style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 10px", cursor: "pointer" } },
+          h("input", { type: "checkbox", checked: !!c.on, onChange: e => { upd({ on: e.target.checked }); if (e.target.checked) setTimeout(() => monetPlay("open"), 20); }, style: { width: 18, height: 18, accentColor: "#6f9c8a" } }),
+          h("b", { style: { flex: 1, fontSize: 14, color: "#1e293b" } }, "声音总开关")),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "4px 4px 10px", opacity: c.on ? 1 : .5 } },
+          h("span", { style: { fontSize: 13, fontWeight: 700, color: "#475569" } }, "🔉"),
+          h("input", { type: "range", min: 0, max: 1, step: 0.05, value: c.vol, onChange: e => upd({ vol: Number(e.target.value) }), onMouseUp: () => monetPlay("chip"), onTouchEnd: () => monetPlay("chip"), style: { flex: 1, accentColor: "#6f9c8a" } }),
+          h("span", { style: { fontSize: 12, fontWeight: 800, color: "#475569", width: 34, textAlign: "right" } }, Math.round(c.vol * 100) + "%")),
+        row("type", "⌨️ 打字（水滴）", "type"), row("click", "🎹 点击按钮（钢琴音）", "click"), row("create", "🌸 新增项目（风铃）", "create"), row("complete", "✅ 完成任务", "complete"), row("other", "💧 其他（保存 / 删除 / 打开 / 缩小 / 错误）", "save"),
+        h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 } }, [["allDone", "全部完成"], ["delete", "删除"], ["open", "打开"], ["minimize", "缩小"], ["error", "错误"], ["notify", "通知"]].map(([k, l]) => h("button", { key: k, type: "button", onClick: () => setTimeout(() => monetPlay(k), 10), style: { border: "1px solid #d6e6dc", background: "#fff", color: "#4d7a68", borderRadius: 999, padding: "3px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" } }, "▶ " + l))),
+        h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 10 } }, "设定会记住，下次登入照旧。"))));
+}
 /* ===== 3D 倾斜 + 数字跳动 ===== */
 function useGlobalFx() {
   React.useEffect(() => {
+    // Monet：alert 出现时 → 成功的讯息用柔和确认声，其他用温柔的提醒音
+    if (!window.__monetAlert) { const oa = window.alert.bind(window); window.__monetAlert = true; window.alert = msg => { try { if (monetUser()) monetPlay(/✓|成功|已存|已保存|已搬|已复制/.test(String(msg)) ? "save" : "error"); } catch (e) {} return oa(msg); }; }
     const down = e => {
+      if (monetUser()) return; // Monet 主题改用 click 事件（成功点下去才响）
       const el = e.target.closest && e.target.closest("button, a, select, label, [role=button], .tilt3d, .co-f");
       if (!el || el.disabled) return;
       playClick(soundKindOf(el));
     };
+    const mClick = e => {
+      if (!monetUser() || !e.isTrusted) return;
+      const el = e.target.closest && e.target.closest("button, a, label, [role=button], .tilt3d, .co-f");
+      if (!el || el.disabled) return;
+      if (el.tagName === "LABEL" && e.target.tagName === "INPUT") return; // label 点一下会触发两次 click，只响一次
+      // 同一下如果已经有「保存 / 新增 / 完成」等声音，就不再加点击声
+      setTimeout(() => { if (performance.now() - _mLastEvent < 350) return; monetPlay(monetClickKind(el)); }, 0);
+    };
+    const mSelect = e => { if (monetUser() && e.isTrusted && e.target.tagName === "SELECT") monetPlay("select"); };
+    const mType = e => {
+      if (!monetUser() || !e.isTrusted) return;
+      const el = e.target; if (!el || !(el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && /^(text|search|tel|email|number|password|url|)$/i.test(el.type || "")))) return;
+      if (e.inputType && !/^(insert|delete)/.test(e.inputType)) return;
+      monetPlay("type");
+    };
+    document.addEventListener("click", mClick, false);
+    document.addEventListener("change", mSelect, true);
+    document.addEventListener("input", mType, true);
     let cur = null;
     const move = e => {
       const el = e.target.closest && e.target.closest(".tilt3d");
@@ -943,7 +1073,7 @@ function useGlobalFx() {
     document.addEventListener("pointermove", move, { passive: true });
     document.addEventListener("pointerleave", leave);
     window.addEventListener("blur", leave);
-    return () => { document.removeEventListener("pointerdown", down, true); document.removeEventListener("pointermove", move); document.removeEventListener("pointerleave", leave); window.removeEventListener("blur", leave); };
+    return () => { document.removeEventListener("click", mClick, false); document.removeEventListener("change", mSelect, true); document.removeEventListener("input", mType, true); document.removeEventListener("pointerdown", down, true); document.removeEventListener("pointermove", move); document.removeEventListener("pointerleave", leave); window.removeEventListener("blur", leave); };
   }, []);
 }
 function CountUp({ value }) {
@@ -2651,6 +2781,7 @@ function CRM({ onLogout, currentUser }) {
   };
   useGlobalFx();
   const [sound, setSound] = React.useState(soundOn());
+  const [monetPanel, setMonetPanel] = React.useState(false);
   const restoreSnapshot = async snap => {
     const jobs = [];
     if (snap.clients) { __clientsBase = snap.clients; setClients(snap.clients); jobs.push(DB.set("clients", JSON.stringify(snap.clients))); }
@@ -2958,9 +3089,9 @@ function CRM({ onLogout, currentUser }) {
     title: "备份 / Backups"
   }, "💾 Backup"), /*#__PURE__*/React.createElement("button", {
     style: { ...S.logoutBtn, padding: "9px 11px" },
-    title: sound ? "点击声音：开" : "点击声音：关",
-    onClick: () => { const v = !sound; try { localStorage.setItem("crm_sound", v ? "on" : "off"); } catch (e) {} setSound(v); if (v) setTimeout(() => playClick("tap"), 30); }
-  }, sound ? "🔊" : "🔇"), SHOW_NEW_CLIENT && page !== "verify" && /*#__PURE__*/React.createElement("button", {
+    title: monetUser() ? "Monet's Garden 声音设定" : sound ? "点击声音：开" : "点击声音：关",
+    onClick: () => { if (monetUser()) { setMonetPanel(true); return; } const v = !sound; try { localStorage.setItem("crm_sound", v ? "on" : "off"); } catch (e) {} setSound(v); if (v) setTimeout(() => playClick("tap"), 30); }
+  }, monetUser() ? (monetCfg().on ? "🪷" : "🔇") : sound ? "🔊" : "🔇"), monetPanel && /*#__PURE__*/React.createElement(MonetSoundPanel, { onClose: () => setMonetPanel(false) }), SHOW_NEW_CLIENT && page !== "verify" && /*#__PURE__*/React.createElement("button", {
     style: S.addBtn,
     onClick: () => setEditing("new")
   }, /*#__PURE__*/React.createElement(Plus, {
@@ -3059,7 +3190,10 @@ function CRM({ onLogout, currentUser }) {
     onRestore: restoreSnapshot
   }), welcome && /*#__PURE__*/React.createElement(FortuneWelcome, {
     onDone: endWelcome
-  }), DT_USERS.includes(canonUser(currentUser)) && /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(DtFollowUpReminder, {
+  }), TODO_FLOAT_USERS.includes(canonUser(currentUser)) && /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(TodoFloat, {
+    currentUser: currentUser,
+    onOpenPage: () => { setOpenId(null); setPage("todo"); }
+  })), DT_USERS.includes(canonUser(currentUser)) && /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(DtFollowUpReminder, {
     currentUser: currentUser,
     onOpen: rid => { setOpenId(null); window.__dtOpenFu = rid; setPage("doctrack"); setTimeout(() => window.dispatchEvent(new Event("dt-open-fu")), 50); }
   })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(CollectReminder, {
@@ -3077,6 +3211,7 @@ function CRM({ onLogout, currentUser }) {
       const dm = missions.find(m => m.id === id) || {};
       if (!window.confirm("确定完成「" + (dm.task || "这个任务") + "」吗？\n按确定后任务会移去 Done 分页。")) return;
       persistMissions(missions.map(m => m.id === id ? { ...m, status: "done", doneAt: Date.now(), doneBy: currentUser || "" } : m));
+      monetSfx("complete");
       noticeForDone(dm);
     }
   })), editing && /*#__PURE__*/React.createElement(EditForm, {
@@ -3201,6 +3336,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
       setPeek(true);
       const it = items[0];
       try {
+        if (monetUser()) { monetPlay("notify"); throw 0; }
         const ac = new (window.AudioContext || window.webkitAudioContext)();
         (it.kind === "n" ? [660, 880, 1320] : [880, 1320]).forEach((f, i) => {
           const o = ac.createOscillator(), g = ac.createGain();
@@ -3389,7 +3525,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v122"));
+    h("div", { className: "sb-ver" }, "v123"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -3843,7 +3979,7 @@ function DtFollowUp({ r, me, onSave, onClose }) {
   const add = () => {
     const txt = t.trim(); if (!txt) { alert("请写 Follow Up 内容"); return; }
     onSave([...all, { id: uid(), text: txt, at: Date.now(), by: me, next: next || "", remind: next ? remind : "", deadline: dl || "", done: false }]);
-    setT(""); setNext(""); setRemind("0"); setDl("");
+    setT(""); setNext(""); setRemind("0"); setDl(""); monetSfx("create");
     try { window.dispatchEvent(new Event("dt-fu-added")); } catch (e) {}
   };
   const upd = (id, p) => onSave(all.map(x => x.id === id ? { ...x, ...p } : x));
@@ -3883,7 +4019,7 @@ function DtFollowUp({ r, me, onSave, onClose }) {
           const dls = dtDlState(f);
           return h("div", { key: f.id, style: { border: "1px solid " + (dls === "over" || due ? "#fca5a5" : dls === "soon" ? "#fdba74" : f.done ? "#bbf7d0" : "#e2e8f0"), borderLeft: "4px solid " + (dls === "over" ? "#ef4444" : dls === "soon" ? "#f97316" : due ? "#ef4444" : f.done ? "#22c55e" : "#94a3b8"), borderRadius: 12, padding: "10px 12px", background: due ? "#fff7f7" : f.done ? "#f7fef9" : "#fff" } },
             h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
-              h("input", { type: "checkbox", checked: !!f.done, title: f.done ? "已完成（取消打勾 = 未完成）" : "打勾 = Complete", onChange: e => upd(f.id, e.target.checked ? { done: true, doneAt: Date.now(), doneBy: me } : { done: false, doneAt: null, doneBy: null }), style: { width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" } }),
+              h("input", { type: "checkbox", checked: !!f.done, title: f.done ? "已完成（取消打勾 = 未完成）" : "打勾 = Complete", onChange: e => { if (e.target.checked) monetSfx("complete"); upd(f.id, e.target.checked ? { done: true, doneAt: Date.now(), doneBy: me } : { done: false, doneAt: null, doneBy: null }); }, style: { width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" } }),
               czAvatar(f.by || "?", 22), h("b", { style: { fontSize: 12.5, color: "#1e293b" } }, String(f.by || "").toUpperCase()),
               h("span", { style: { fontSize: 11.5, color: "#64748b", fontWeight: 700 } }, "🕒 " + dtDT(f.at)),
               f.editedAt && h("span", { style: { fontSize: 10.5, color: "#94a3b8" } }, "（" + String(f.editedBy || "").toUpperCase() + " 改过 " + dtDT(f.editedAt) + "）"),
@@ -3899,7 +4035,7 @@ function DtFollowUp({ r, me, onSave, onClose }) {
               h("span", { style: { flex: 1 } }),
               f.done ? h("span", { style: { fontSize: 11.5, color: "#15803d", fontWeight: 800 } }, "✓ Completed · " + String(f.doneBy || "").toUpperCase() + " · " + dtDT(f.doneAt),
                 h("button", { onClick: () => upd(f.id, { done: false, doneAt: null, doneBy: null }), style: { marginLeft: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", borderRadius: 8, padding: "2px 8px", fontWeight: 700, fontSize: 11, cursor: "pointer" } }, "↺ 未完成"))
-              : h("button", { onClick: () => upd(f.id, { done: true, doneAt: Date.now(), doneBy: me }), style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer" } }, "✓ Mark Completed")));
+              : h("button", { onClick: () => { monetSfx("complete"); upd(f.id, { done: true, doneAt: Date.now(), doneBy: me }); }, style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer" } }, "✓ Mark Completed")));
         }))));
 }
 /* 全局 Follow Up 视窗（只给 Customer Docs 的人）：列出全部未完成的 Follow Up；
@@ -3922,30 +4058,30 @@ function DtFollowUpReminder({ currentUser, onOpen }) {
   items.sort((x, y) => rank(x.f) - rank(y.f) || (dtDlMs(x.f) || 9e15) - (dtDlMs(y.f) || 9e15) || (y.f.at || 0) - (x.f.at || 0));
   const prev = React.useRef(null);
   React.useEffect(() => {
-    if (prev.current !== null && items.length > prev.current) { setMinS(false); try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification("💬 Follow Up（" + items.length + "）", { body: items[0].r.customer + "：" + String(items[0].f.text || "").slice(0, 80) }); } catch (e) {} }
+    if (prev.current !== null && items.length > prev.current) { if (min) monetSfx("open"); setMinS(false); try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification("💬 Follow Up（" + items.length + "）", { body: items[0].r.customer + "：" + String(items[0].f.text || "").slice(0, 80) }); } catch (e) {} }
     prev.current = items.length;
   }, [items.length]);
   if (list === null || !items.length) return null;
   const patchFu = (r, fid, p) => save((list || []).map(x => x.id === r.id ? { ...x, followUps: dtFuList(x).map(y => y.id === fid ? { ...y, ...p } : y), updatedAt: Date.now(), updatedBy: me } : x));
-  const complete = (r, f) => patchFu(r, f.id, { done: true, doneAt: Date.now(), doneBy: me });
+  const complete = (r, f) => { monetSfx(items.length <= 1 ? "allDone" : "complete"); patchFu(r, f.id, { done: true, doneAt: Date.now(), doneBy: me }); };
   const addNew = () => {
     const r = recs.find(x => x.id === aR); if (!r) { alert("请选客户"); return; }
     if (!aT.trim()) { alert("请写 Follow Up 内容"); return; }
     save((list || []).map(x => x.id === r.id ? { ...x, followUps: [...dtFuList(x), { id: uid(), text: aT.trim(), at: Date.now(), by: me, next: "", remind: "", deadline: aDl || "", done: false }], updatedAt: Date.now(), updatedBy: me } : x));
-    setAdding(false); setAT(""); setADl("");
+    setAdding(false); setAT(""); setADl(""); monetSfx("create");
   };
   const nOver = items.filter(x => dtDlState(x.f) === "over").length;
   const pos = { position: "fixed", left: 18, bottom: 90, zIndex: 9991 };
   const inp = { width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "#fff" };
   const sbtn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 8, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" });
   const css = h("style", null, "@keyframes dtBlink{0%,100%{opacity:1}50%{opacity:.55}}");
-  if (min) return h("button", { onClick: () => setMinS(false), title: "打开 Follow Up", style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "💬 Follow Up " + items.length + (nOver ? " · ⛔ " + nOver : ""));
+  if (min) return h("button", { onClick: () => { monetSfx("open"); setMinS(false); }, title: "打开 Follow Up", style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "💬 Follow Up " + items.length + (nOver ? " · ⛔ " + nOver : ""));
   return h("div", { style: { ...pos, width: 380, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#16a34a") } },
     css,
     h("div", { style: { padding: "10px 14px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
       h("b", { style: { flex: 1, fontSize: 14 } }, "💬 Follow Up（" + items.length + " 未完成" + (nOver ? " · ⛔ " + nOver + " 过期" : "") + "）"),
       h("button", { onClick: () => { setAdding(!adding); if (!aR && recs[0]) setAR(recs[0].id); }, title: "+ Add Follow Up", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "3px 10px", fontWeight: 900, cursor: "pointer" } }, "＋ Add"),
-      h("button", { onClick: () => setMinS(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer", fontWeight: 900 } }, "–")),
+      h("button", { onClick: () => { monetSfx("minimize"); setMinS(true); }, title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer", fontWeight: 900 } }, "–")),
     adding && h("div", { style: { padding: "10px 14px", background: "#f0fdf4", borderBottom: "1px solid #dcfce7", display: "flex", flexDirection: "column", gap: 6 } },
       h("select", { value: aR, onChange: e => setAR(e.target.value), style: { ...inp, fontWeight: 800 } }, recs.map(r => h("option", { key: r.id, value: r.id }, r.customer))),
       h("textarea", { className: "dt-keep", value: aT, rows: 3, onChange: e => setAT(e.target.value), placeholder: "Follow Up 内容…", style: { ...inp, resize: "vertical", textTransform: "none" } }),
@@ -4002,7 +4138,7 @@ function CustomerDocsPage({ currentUser }) {
     if (dup) { alert("「" + dup.customer + "」已经有记录了，不会重复建立。"); setQ(dup.customer); return; }
     const now = Date.now();
     saveList([{ id: uid(), customer: name.toUpperCase(), agent: nw.agent.trim().toUpperCase(), createdAt: now, updatedAt: now, updatedBy: me, bank: { files: [] }, agreement: { files: [] }, details: { files: [] }, funder: { files: [] }, settlement: { files: [] }, card: { files: [] }, salaryBank: {} }, ...items]);
-    setNw({ customer: "", agent: "" });
+    setNw({ customer: "", agent: "" }); monetSfx("create");
   };
   const del = r => { if (window.prompt("删除「" + r.customer + "」整笔记录和所有文件？\n输入 DELETE 确认") !== "DELETE") return;
     saveList(items.filter(x => x.id !== r.id));
@@ -4241,7 +4377,7 @@ function LendingFeePage({ currentUser }) {
     const calc = await lsCompute(rec);
     const out = { ...rec, ...(calc ? { calc, settleTotal: calc.totA, funderFee: calc.intAmt } : {}), updatedAt: Date.now(), updatedBy: me };
     if (rec.id) save(items.map(x => x.id === rec.id ? out : x)); else save([{ ...out, id: uid(), by: me, at: Date.now() }, ...items]);
-    setBusy(false); setForm(null);
+    setBusy(false); setForm(null); monetSfx(rec.id ? "save" : "create");
     if (!calc) alert("资料已保存，但 Lending Sheet 打不开，Funder Fee 暂时算不到。请确认 " + LS_FILE + " 有上传到 GitHub。");
   };
   const del = r => { if (window.confirm("删除「" + r.name + "」？")) save(items.filter(x => x.id !== r.id)); };
@@ -4449,7 +4585,7 @@ function ReceiptPage({ currentUser }) {
     if (!f.from.trim()) { alert("请填名字"); return; }
     if (!(Number(String(f.amount).replace(/,/g, "")) > 0)) { alert("请填金额"); return; }
     const r = { id: uid(), no: nextNo(), ...f, from: f.from.trim(), amount: String(f.amount).replace(/,/g, ""), method: f.atm ? "ATM Withdraw" : "", by: me, at: Date.now() };
-    save([r, ...items]);
+    save([r, ...items]); monetSfx("create");
     setF(blank());
     if (andPrint) printReceipt(r);
   };
@@ -4528,7 +4664,7 @@ function ReferralPage({ currentUser }) {
     if (!f.agent.trim()) { alert("请填 Agent 名字"); return; }
     const r = { id: uid(), agent: f.agent.trim(), phone: f.phone.trim(), note: f.note.trim(), by: me, date: today(), status: boss ? "approved" : "pending", packet: null };
     save([r, ...items]);
-    MISSION_BOSSES.forEach(b => notify(b, String(me).toUpperCase() + " 介绍了新 Agent 🧧", r.agent + (r.phone ? " · " + r.phone : "")));
+    MISSION_BOSSES.forEach(b => notify(b, String(me).toUpperCase() + " 介绍了新 Agent 🧧", r.agent + (r.phone ? " · " + r.phone : ""))); monetSfx("create");
     setF({ agent: "", phone: "", note: "" });
   };
   const setStatus = (r, st) => {
@@ -4654,7 +4790,7 @@ function LeavePage({ currentUser }) {
   const submitForm = () => {
     if (!form.reason.trim()) { alert("请填写请假原因"); return; }
     if (form.to < form.from) { alert("结束日期不能早于开始日期"); return; }
-    save([{ id: uid(), ...form, reason: form.reason.trim(), status: boss ? "approved" : "pending", by: currentUser, at: Date.now() }, ...items]);
+    save([{ id: uid(), ...form, reason: form.reason.trim(), status: boss ? "approved" : "pending", by: currentUser, at: Date.now() }, ...items]); monetSfx("create");
     setForm(null);
   };
   const del = x => { if (window.confirm("删除 " + String(x.name).toUpperCase() + " 的请假记录？")) save(items.filter(y => y.id !== x.id)); };
@@ -4747,7 +4883,7 @@ function PhonePage({ currentUser }) {
   const [q, setQ] = React.useState("");
   const items = list || [];
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
-  const add = () => save([...items, { id: uid(), number: "", remark: "", handle: canonUser(currentUser || ""), who: "", out: "", back: "", by: currentUser, at: Date.now() }]);
+  const add = () => monetSfx("create") || save([...items, { id: uid(), number: "", remark: "", handle: canonUser(currentUser || ""), who: "", out: "", back: "", by: currentUser, at: Date.now() }]);
   const del = x => { if (window.confirm("删除电话 " + (x.number || "(空)") + " ？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => !q || [x.number, x.remark, x.handle, x.who].join(" ").toLowerCase().includes(q.toLowerCase()));
   const inp = { ...S.bankerInput, fontWeight: 700, fontSize: 13.5 };
@@ -5115,12 +5251,13 @@ function TodoPage({ currentUser }) {
   const [justDone, setJustDone] = React.useState(null);
   React.useEffect(() => { DB.get(KEY).then(v => setItems(v ? JSON.parse(v) : [])).catch(() => setItems([])); }, [KEY]);
   React.useEffect(() => DB.subscribe((k, v) => { if (k === KEY && v) { try { setItems(JSON.parse(v)); } catch (e) {} } }), [KEY]);
-  const save = list => { setItems(list); DB.set(KEY, JSON.stringify(list)); };
+  const save = list => { setItems(list); DB.set(KEY, JSON.stringify(list)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: KEY, next: list } })); } catch (e) {} };
+  React.useEffect(() => { const f = e => { if (e.detail && e.detail.key === KEY) setItems(e.detail.next); }; window.addEventListener("crm-cloudlist", f); return () => window.removeEventListener("crm-cloudlist", f); }, [KEY]);
   const theme = USER_THEMES[canonUser(currentUser)];
   const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#ca8a04", "#facc15"], gold: ["#b8901f", "#e8c96a"], monet: ["#6f9c8a", "#9fb7d9"] }[theme] || ["#4f46e5", "#0ea5e9"];
   const list = items || [];
-  const add = () => { const t = text.trim(); if (!t) return; save([{ id: uid(), text: t, done: false, at: Date.now() }, ...list]); setText(""); };
-  const toggle = id => { const it = list.find(x => x.id === id); if (it && !it.done) { setJustDone(id); setTimeout(() => setJustDone(null), 700); } save(list.map(x => x.id === id ? { ...x, done: !x.done, doneAt: x.done ? null : Date.now() } : x)); };
+  const add = () => { const t = text.trim(); if (!t) return; if (list.some(x => !x.done && String(x.text).trim().toLowerCase() === t.toLowerCase())) { alert("已经有一样的 To-Do 了"); return; } save([{ id: uid(), text: t, done: false, at: Date.now() }, ...list]); setText(""); monetSfx("create"); try { window.dispatchEvent(new Event("todo-added")); } catch (e) {} };
+  const toggle = id => { const it = list.find(x => x.id === id); if (it && !it.done) { setJustDone(id); setTimeout(() => setJustDone(null), 700); monetSfx(list.filter(x => !x.done).length <= 1 ? "allDone" : "complete"); } save(list.map(x => x.id === id ? { ...x, done: !x.done, doneAt: x.done ? null : Date.now() } : x)); };
   const remove = id => save(list.filter(x => x.id !== id));
   const edit = (id, v) => save(list.map(x => x.id === id ? { ...x, text: v } : x));
   const doneN = list.filter(x => x.done).length, total = list.length, pct = total ? Math.round(doneN / total * 100) : 0;
@@ -5173,8 +5310,80 @@ function TodoPage({ currentUser }) {
       shown.map(x => h("div", { key: x.id, className: "td-row" + (x.done ? " done" : "") },
         h("button", { className: "td-chk" + (x.done ? " on" : "") + (justDone === x.id ? " td-pop" : ""), onClick: () => toggle(x.id), title: x.done ? "标回未完成" : "完成" }, x.done ? h(Check, { size: 15, color: "#fff" }) : null),
         h(DebouncedInput, { className: "td-txt", value: x.text, onCommit: v => v.trim() ? edit(x.id, v) : remove(x.id) }),
+        x.deadline && dtDlBadge(h, x, false),
         x.done && x.doneAt && h("span", { style: { fontSize: 11.5, color: "#94a3b8", whiteSpace: "nowrap" } }, new Date(x.doneAt).toLocaleDateString("en-GB")),
         h("button", { className: "td-del", onClick: () => remove(x.id), title: "删除" }, h(Trash2, { size: 16, color: "#ef4444" }))))));
+}
+/* ---------- To-Do 浮动视窗（跟 Follow Up 视窗一样）：全部未完成的 To-Do 自动出现 ---------- */
+const TODO_FLOAT_USERS = ["alice"];
+function TodoFloat({ currentUser, onOpenPage }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const [list, save] = useCloudList("todo_" + me);
+  const [min, setMin] = React.useState(() => { try { return sessionStorage.getItem("crm_todo_min") === "1"; } catch (e) { return false; } });
+  const setMinS = v => { setMin(v); try { sessionStorage.setItem("crm_todo_min", v ? "1" : "0"); } catch (e) {} };
+  const [, tick] = React.useState(0);
+  const [wide, setWide] = React.useState(() => window.innerWidth >= 820);
+  const [editId, setEditId] = React.useState(null), [eT, setET] = React.useState(""), [eDl, setEDl] = React.useState("");
+  const [adding, setAdding] = React.useState(false), [aT, setAT] = React.useState(""), [aDl, setADl] = React.useState("");
+  React.useEffect(() => { const t = setInterval(() => tick(x => x + 1), 60 * 1000); const r = () => setWide(window.innerWidth >= 820); window.addEventListener("resize", r); return () => { clearInterval(t); window.removeEventListener("resize", r); }; }, []);
+  React.useEffect(() => { const f = () => setMinS(false); window.addEventListener("todo-added", f); return () => window.removeEventListener("todo-added", f); }, []);
+  const all = list || [];
+  const seen = new Set();
+  const items = all.filter(x => !x.done && x.text && !seen.has(x.id) && seen.add(x.id));
+  const rank = x => { const st = dtDlState(x); return st === "over" ? 0 : st === "soon" ? 1 : dtDlMs(x) ? 2 : 3; };
+  items.sort((a, b) => rank(a) - rank(b) || (dtDlMs(a) || 9e15) - (dtDlMs(b) || 9e15) || (b.at || 0) - (a.at || 0));
+  const prev = React.useRef(null);
+  React.useEffect(() => { if (prev.current !== null && items.length > prev.current) { if (min) monetSfx("open"); setMinS(false); } prev.current = items.length; }, [items.length]);
+  if (list === null || !items.length) return null;
+  const upd = (id, p) => save(all.map(x => x.id === id ? { ...x, ...p } : x));
+  const complete = x => { monetSfx(items.length <= 1 ? "allDone" : "complete"); upd(x.id, { done: true, doneAt: Date.now() }); };
+  const addNew = () => {
+    const t = aT.trim(); if (!t) { alert("请写 To-Do 内容"); return; }
+    if (all.some(x => !x.done && String(x.text).trim().toLowerCase() === t.toLowerCase())) { alert("已经有一样的 To-Do 了"); return; }
+    save([{ id: uid(), text: t, done: false, at: Date.now(), deadline: aDl || "" }, ...all]);
+    setAT(""); setADl(""); setAdding(false); monetSfx("create");
+  };
+  const nOver = items.filter(x => dtDlState(x) === "over").length;
+  const pos = wide ? { position: "fixed", left: 410, bottom: 90, zIndex: 9990 } : { position: "fixed", right: 14, bottom: 90, zIndex: 9990 };
+  const grad = nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#6366f1,#4338ca)";
+  const inp = { width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "#fff", textTransform: "none" };
+  const sbtn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 8, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" });
+  const css = h("style", null, "@keyframes dtBlink{0%,100%{opacity:1}50%{opacity:.55}}");
+  if (min) return h("button", { onClick: () => { monetSfx("open"); setMinS(false); }, title: "打开 To-Do", style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: grad, color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "📝 To-Do " + items.length + (nOver ? " · ⛔ " + nOver : ""));
+  return h("div", { style: { ...pos, width: 340, maxWidth: "calc(100vw - 28px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#6366f1") } },
+    css,
+    h("div", { style: { padding: "10px 14px", background: grad, color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+      h("b", { style: { flex: 1, fontSize: 14, cursor: "pointer" }, title: "去 To-Do 页面", onClick: () => onOpenPage && onOpenPage() }, "📝 To-Do（" + items.length + " 未完成" + (nOver ? " · ⛔ " + nOver + " 过期" : "") + "）"),
+      h("button", { onClick: () => setAdding(!adding), title: "+ Add To-Do", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "3px 10px", fontWeight: 900, cursor: "pointer" } }, "＋ Add"),
+      h("button", { onClick: () => { monetSfx("minimize"); setMinS(true); }, title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer", fontWeight: 900 } }, "–")),
+    adding && h("div", { style: { padding: "10px 14px", background: "#eef2ff", borderBottom: "1px solid #e0e7ff", display: "flex", flexDirection: "column", gap: 6 } },
+      h("textarea", { value: aT, rows: 2, autoFocus: true, onChange: e => setAT(e.target.value), placeholder: "要做的事…", style: { ...inp, resize: "vertical" } }),
+      h("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+        h("span", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", whiteSpace: "nowrap" } }, "⏰ Deadline（选填）"),
+        h("input", { type: "datetime-local", value: aDl, onChange: e => setADl(e.target.value), style: { ...inp, flex: 1 } }),
+        h("button", { onClick: addNew, style: sbtn("#4f46e5", "#fff") }, "加入"))),
+    h("div", { style: { maxHeight: "45vh", overflowY: "auto" } }, items.map(x => {
+      const st = dtDlState(x);
+      return h("div", { key: x.id, style: { padding: "9px 12px", borderBottom: "1px solid #f1f5f9", background: st === "over" ? "#fef2f2" : st === "soon" ? "#fff7ed" : "#fff", borderLeft: "4px solid " + (st === "over" ? "#ef4444" : st === "soon" ? "#f97316" : "transparent") } },
+        editId === x.id ? h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+          h("textarea", { value: eT, rows: 2, onChange: e => setET(e.target.value), style: { ...inp, resize: "vertical" } }),
+          h("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+            h("span", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", whiteSpace: "nowrap" } }, "⏰ Deadline"),
+            h("input", { type: "datetime-local", value: eDl, onChange: e => setEDl(e.target.value), style: { ...inp, flex: 1 } })),
+          h("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end" } },
+            h("button", { onClick: () => setEditId(null), style: sbtn("#fff", "#64748b", "#e2e8f0") }, "取消"),
+            h("button", { onClick: () => { if (!eT.trim()) { alert("内容不能空白"); return; } upd(x.id, { text: eT.trim(), deadline: eDl || "" }); setEditId(null); monetSfx("save"); }, style: sbtn("#4f46e5", "#fff") }, "保存")))
+        : h("div", { style: { display: "flex", gap: 8, alignItems: "flex-start" } },
+          h("input", { type: "checkbox", checked: false, title: "打勾 = Complete", onChange: () => complete(x), style: { width: 18, height: 18, marginTop: 2, accentColor: "#4f46e5", cursor: "pointer", flexShrink: 0 } }),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontSize: 13, fontWeight: 700, color: "#1e293b", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.45, textTransform: "none" } }, x.text),
+            h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4, alignItems: "center" } },
+              dtDlBadge(h, x, false),
+              h("span", { style: { flex: 1 } }),
+              h("button", { onClick: () => { setEditId(x.id); setET(x.text || ""); setEDl(x.deadline || ""); }, style: sbtn("#eef2ff", "#4338ca", "#c7d2fe") }, "✎"),
+              h("button", { onClick: () => complete(x), style: sbtn("#4f46e5", "#fff") }, "✓ Complete")))));
+    })));
 }
 /* ---------- 我指派的任务 ---------- */
 function AssignedByMePanel({ missions, currentUser, onClose }) {
@@ -5235,7 +5444,7 @@ function MissionPage({
   const [showOut, setShowOut] = React.useState(false);
   const outCount = missions.filter(m => m.status !== "done" && sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser)).length;
   const [photoId, setPhotoId] = React.useState(null);
-  const add = () => { setFilter(boss ? "staff" : "me"); onSave([{
+  const add = () => { setFilter(boss ? "staff" : "me"); monetSfx("create"); onSave([{
     id: uid(),
     task: "",
     owner: boss ? "" : currentUser || "",
@@ -5463,7 +5672,7 @@ function MissionPage({
           /*#__PURE__*/React.createElement("div", { style: { fontSize: 12.5, color: "#94a3b8" } }, "按确定后，这个任务会移去 Done 分页" + (n ? "（" + n + " 张照片保留）" : "") + "。")),
         /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, padding: 20 } },
           /*#__PURE__*/React.createElement("button", { onClick: () => setDoneId(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600 } }, "取消"),
-          /*#__PURE__*/React.createElement("button", { onClick: () => { const id = doneId; const dm = missions.find(x => x.id === id); setDoneId(null); if (!dm) return; onSave(missions.map(x => x.id === id ? { ...x, status: "done", doneAt: Date.now(), doneBy: currentUser || "" } : x)); setFilter(isMe(dm) ? "meDone" : "staffDone"); onDoneNotify && onDoneNotify(dm); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
+          /*#__PURE__*/React.createElement("button", { onClick: () => { const id = doneId; const dm = missions.find(x => x.id === id); setDoneId(null); if (!dm) return; onSave(missions.map(x => x.id === id ? { ...x, status: "done", doneAt: Date.now(), doneBy: currentUser || "" } : x)); monetSfx("complete"); setFilter(isMe(dm) ? "meDone" : "staffDone"); onDoneNotify && onDoneNotify(dm); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#10b981,#059669)", color: "#fff", fontWeight: 700, boxShadow: "0 6px 16px rgba(16,185,129,.35)" } }, "确定完成"))));
   })(), showOut && /*#__PURE__*/React.createElement(AssignedByMePanel, {
     missions: missions,
     currentUser: currentUser,
@@ -6154,7 +6363,7 @@ function FormsPage({ currentUser, tools }) {
     try { const sk = "crm_nseen_" + me + "_" + open.tool.file; localStorage.setItem(sk, JSON.stringify(after.map(x => x.label))); } catch (e) {}
     baseRef.current = JSON.stringify(currentVals());
     setSaveDlg(null);
-    if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500); }
+    if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); monetSfx("save"); setTimeout(() => setMsg(""), 1500); }
     return true;
   };
   const confirmSave = (title, cat, closeAfter) => {
@@ -6164,7 +6373,7 @@ function FormsPage({ currentUser, tools }) {
     saveDrafts([nd, ...(drafts || [])]);
     baseRef.current = JSON.stringify(vals);
     setSaveDlg(null);
-    if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500); }
+    if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); monetSfx("save"); setTimeout(() => setMsg(""), 1500); }
   };
   const doSave = closeAfter => {
     const vals = currentVals();
@@ -6182,7 +6391,7 @@ function FormsPage({ currentUser, tools }) {
       setOpen({ ...open, draft: nd });
     }
     baseRef.current = JSON.stringify(vals);
-    setMsg("✓ 已存档"); setTimeout(() => setMsg(""), 1500);
+    setMsg("✓ 已存档"); monetSfx("save"); setTimeout(() => setMsg(""), 1500);
   };
   const openKeyFile = open ? open.tool.file : "";
   React.useEffect(() => { if (!openKeyFile && syncedOnce.current) syncNative(); }, [openKeyFile]);
@@ -8625,18 +8834,19 @@ function LoanBlock({
         tags: fuTags
       }, ...(loan.followUps || [])]
     });
+    monetSfx("create");
     // 通知被 tag 的人
     fuTags.filter(p => !sameUser(p, currentUser)).forEach(p => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "fu", to: canonUser(p), from: currentUser, task: fuText.trim(), client: clientName || "", cid: clientId || "", ltype: loan.type, date: fuDate, at: Date.now() }); } catch (e) {} });
     setFuText("");
     setFuTags([]);
   };
-  const toggleFu = fid => onUpdate({
+  const toggleFu = fid => { const f0 = (loan.followUps || []).find(f => f.id === fid); if (f0 && !f0.done) monetSfx("complete"); return onUpdate({
     ...loan,
     followUps: (loan.followUps || []).map(f => f.id === fid ? {
       ...f,
       done: !f.done
     } : f)
-  });
+  }); };
   // 回复跟进：回复了就不会再出现在 Dashboard 的 Upcoming Follow-ups
   const replyFu = f => {
     const t = window.prompt("回复：" + (f.text || ""), "");
