@@ -1083,7 +1083,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1258,6 +1258,10 @@ const NAV = [{
   id: "receipt",
   label: "Receipt",
   icon: Receipt
+}, {
+  id: "salarylist",
+  label: "Salary Listing",
+  icon: Wallet
 }, {
   id: "returnsalary",
   label: "Return Salary",
@@ -3006,6 +3010,9 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "returnsalary" && RETURN_SALARY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(ReturnSalaryPage, {
     currentUser: currentUser
+  }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
+    clients: clients,
+    onOpen: cid => { setPage("personal"); setOpenId(cid); }
   }) : page === "receipt" ? /*#__PURE__*/React.createElement(ReceiptPage, {
     currentUser: currentUser
   }) : page === "referral" ? /*#__PURE__*/React.createElement(ReferralPage, {
@@ -3374,7 +3381,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v118"));
+    h("div", { className: "sb-ver" }, "v119"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4170,6 +4177,35 @@ function CustomerDocsPage({ currentUser }) {
           h("span", { style: { fontSize: 11, color: "#16a34a", fontWeight: 800 } }, "● 自动保存"),
           h("button", { onClick: () => setModal(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "16px 18px 20px" } }, modalBody()))));
+}
+/* ---------- Salary Listing：Personal Loan 有填 CIMB / AEON CREDIT 的客户，自动列出来 ---------- */
+const SALARY_BANKS = ["CIMB", "AEON CREDIT"];
+function SalaryListPage({ clients, onOpen }) {
+  const h = React.createElement;
+  const [q, setQ] = React.useState("");
+  const [fb, setFb] = React.useState("");
+  const rows = [];
+  (clients || []).forEach(c => {
+    const banks = new Set();
+    (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) banks.add(k); }));
+    if (banks.size && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)) });
+  });
+  rows.sort((a, b) => String(a.c.name).localeCompare(String(b.c.name)));
+  const ql = q.trim().toLowerCase();
+  const shown = rows.filter(r => (!fb || r.banks.includes(fb)) && (!ql || String(r.c.name).toLowerCase().includes(ql)));
+  const tag = k => h("span", { key: k, style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, ...czPill(czBankHue(k), {}) } }, bankLabel(k, "personal"));
+  const chip = (k, l, n) => h("button", { key: k, onClick: () => setFb(k), style: { border: fb === k ? "2px solid #4f46e5" : "1px solid #e2e8f0", background: fb === k ? "#eef2ff" : "#fff", color: fb === k ? "#4338ca" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l + " " + n);
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
+      h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
+      chip("", "全部", rows.length),
+      SALARY_BANKS.map(k => chip(k, bankLabel(k, "personal"), rows.filter(r => r.banks.includes(k)).length))),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Name"))),
+      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 2, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
+        shown.map((r, i) => h("tr", { key: r.c.id, style: { ...S.tr, cursor: "pointer" }, onClick: () => onOpen(r.c.id) },
+          h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
+          h("td", { style: { ...S.td, fontWeight: 800 } }, String(r.c.name).toUpperCase(), r.banks.map(tag))))))));
 }
 /* ---------- Receipt：按月份分组、Copy 去 WhatsApp、下载 Excel ---------- */
 const RC_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
