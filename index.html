@@ -3044,7 +3044,10 @@ function CRM({ onLogout, currentUser }) {
     onRestore: restoreSnapshot
   }), welcome && /*#__PURE__*/React.createElement(FortuneWelcome, {
     onDone: endWelcome
-  }), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(CollectReminder, {
+  }), DT_USERS.includes(canonUser(currentUser)) && /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(DtFollowUpReminder, {
+    currentUser: currentUser,
+    onOpen: rid => { setOpenId(null); window.__dtOpenFu = rid; setPage("doctrack"); setTimeout(() => window.dispatchEvent(new Event("dt-open-fu")), 50); }
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(CollectReminder, {
     clients: clients,
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
@@ -3371,7 +3374,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v116"));
+    h("div", { className: "sb-ver" }, "v117"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -3413,7 +3416,8 @@ function useCloudList(key) {
   const [list, setList] = React.useState(null);
   React.useEffect(() => { DB.get(key).then(v => setList(v ? JSON.parse(v) : [])).catch(() => setList([])); }, [key]);
   React.useEffect(() => DB.subscribe((k, v) => { if (k === key && v) { try { setList(JSON.parse(v)); } catch (e) {} } }), [key]);
-  const save = next => { setList(next); DB.set(key, JSON.stringify(next)); };
+  const save = next => { setList(next); DB.set(key, JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key, next } })); } catch (e) {} };
+  React.useEffect(() => { const f = e => { if (e.detail && e.detail.key === key) setList(e.detail.next); }; window.addEventListener("crm-cloudlist", f); return () => window.removeEventListener("crm-cloudlist", f); }, [key]);
   return [list, save];
 }
 const pillSel = (hue, extra) => ({ ...S.bankerInput, ...czPill(hue, { padding: "5px 10px", width: "auto", ...(extra || {}) }), fontWeight: 700 });
@@ -3801,6 +3805,111 @@ function DtFileBox({ files, onFiles, me, photoFirst, accept, allowPaste }) {
       h("img", { src: _dtCache[view.blob], style: { maxWidth: "95%", maxHeight: "85%", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,.5)" } }),
       h("div", { style: { color: "#fff", marginTop: 10, fontWeight: 700, fontSize: 13 } }, view.name + (view.remark ? " · " + view.remark : "") + " · " + dtDMY(view.at) + "（点任何地方关闭）")));
 }
+/* ---------- Customer Docs · Follow Up + 提醒 + Close File ---------- */
+const DT_REMIND = [["0", "当天提醒 On due date"], ["1", "1 天前 1 day before"], ["3", "3 天前 3 days before"]];
+const dtDaysTo = d => { if (!d) return null; const a = new Date(today() + "T00:00:00"), b = new Date(d + "T00:00:00"); return Math.round((b - a) / 86400000); };
+const dtFuList = r => (Array.isArray(r.followUps) ? r.followUps : []);
+const dtFuDue = f => !f.done && !!f.next && dtDaysTo(f.next) <= (Number(f.remind) || 0);
+const dtFuPendingCount = (r, me) => r.closed ? 0 : dtFuList(r).filter(f => dtFuDue(f) && (!me || !f.by || sameUser(f.by, me))).length;
+const dtDT = t => t ? new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+function DtFollowUp({ r, me, onSave, onClose }) {
+  const h = React.createElement;
+  const list = dtFuList(r).slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  const [t, setT] = React.useState(""), [next, setNext] = React.useState(""), [remind, setRemind] = React.useState("0");
+  const [editId, setEditId] = React.useState(null), [editT, setEditT] = React.useState(""), [editNext, setEditNext] = React.useState(""), [editRemind, setEditRemind] = React.useState("0");
+  const [openIds, setOpenIds] = React.useState({});
+  const all = dtFuList(r);
+  const add = () => {
+    const txt = t.trim(); if (!txt) { alert("请写 Follow Up 内容"); return; }
+    onSave([...all, { id: uid(), text: txt, at: Date.now(), by: me, next: next || "", remind: next ? remind : "", done: false }]);
+    setT(""); setNext(""); setRemind("0");
+  };
+  const upd = (id, p) => onSave(all.map(x => x.id === id ? { ...x, ...p } : x));
+  const del = f => { if (window.confirm("删除这条 Follow Up？\n\n" + String(f.text || "").slice(0, 80))) onSave(all.filter(x => x.id !== f.id)); };
+  const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 13.5, fontFamily: "inherit", outline: "none", background: "#fff" };
+  const lbl = x => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, x);
+  const pend = all.filter(dtFuDue).length;
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "30px 14px", overflowY: "auto" } },
+    h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 760, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
+        h("div", { style: { flex: 1 } }, h("div", { style: { fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, "💬 FOLLOW UP (" + all.length + ")"), h("div", { style: { fontSize: 12, color: "#64748b", fontWeight: 700 } }, r.customer + (r.agent ? " · Agent " + r.agent : "") + (pend ? " · 🔔 " + pend + " 个待跟进" : ""))),
+        h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
+      h("div", { style: { padding: "14px 18px", borderBottom: "1px solid #eef2f7", background: "#f8faff" } },
+        lbl("FOLLOW UP DETAILS（可以写很多行）"),
+        h("textarea", { className: "dt-keep", value: t, rows: 4, onChange: e => setT(e.target.value), placeholder: "例如：Banker confirmed that the loan will be disbursed within two days.", style: { ...inp, resize: "vertical", lineHeight: 1.6, whiteSpace: "pre-wrap", textTransform: "none" } }),
+        h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, alignItems: "flex-end" } },
+          h("div", { style: { flex: "0 1 180px" } }, lbl("NEXT FOLLOW UP DATE（选填）"), h("input", { type: "date", value: next, onChange: e => setNext(e.target.value), style: inp })),
+          next && h("div", { style: { flex: "0 1 210px" } }, lbl("REMINDER 提醒"), h("select", { value: remind, onChange: e => setRemind(e.target.value), style: { ...inp, fontWeight: 700 } }, DT_REMIND.map(([k, l]) => h("option", { key: k, value: k }, l)))),
+          h("span", { style: { flex: 1 } }),
+          h("button", { onClick: add, style: { border: "none", borderRadius: 10, padding: "0 22px", minHeight: 40, background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer" } }, "＋ 加 Follow Up"))),
+      h("div", { style: { padding: "14px 18px 20px", display: "flex", flexDirection: "column", gap: 10 } },
+        list.length === 0 && h("div", { style: { textAlign: "center", color: "#94a3b8", padding: 20 } }, "还没有 Follow Up 记录"),
+        list.map(f => {
+          const due = dtFuDue(f), dd = dtDaysTo(f.next);
+          const long = String(f.text || "").length > 220 || String(f.text || "").split("\n").length > 5;
+          const isOpen = !!openIds[f.id];
+          if (editId === f.id) return h("div", { key: f.id, style: { border: "2px solid #a5b4fc", borderRadius: 14, padding: 12, background: "#fff" } },
+            h("textarea", { className: "dt-keep", value: editT, rows: 5, onChange: e => setEditT(e.target.value), style: { ...inp, resize: "vertical", lineHeight: 1.6, whiteSpace: "pre-wrap", textTransform: "none" } }),
+            h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, alignItems: "flex-end" } },
+              h("div", { style: { flex: "0 1 180px" } }, lbl("NEXT FOLLOW UP DATE"), h("input", { type: "date", value: editNext, onChange: e => setEditNext(e.target.value), style: inp })),
+              editNext && h("div", { style: { flex: "0 1 210px" } }, lbl("REMINDER"), h("select", { value: editRemind, onChange: e => setEditRemind(e.target.value), style: { ...inp, fontWeight: 700 } }, DT_REMIND.map(([k, l]) => h("option", { key: k, value: k }, l)))),
+              h("span", { style: { flex: 1 } }),
+              h("button", { onClick: () => setEditId(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, cursor: "pointer" } }, "取消"),
+              h("button", { onClick: () => { if (!editT.trim()) { alert("内容不能空白"); return; } upd(f.id, { text: editT.trim(), next: editNext || "", remind: editNext ? editRemind : "", editedAt: Date.now(), editedBy: me }); setEditId(null); }, style: { border: "none", background: "#4f46e5", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 900, cursor: "pointer" } }, "保存")));
+          return h("div", { key: f.id, style: { border: "1px solid " + (due ? "#fca5a5" : f.done ? "#bbf7d0" : "#e2e8f0"), borderLeft: "4px solid " + (due ? "#ef4444" : f.done ? "#22c55e" : "#94a3b8"), borderRadius: 12, padding: "10px 12px", background: due ? "#fff7f7" : f.done ? "#f7fef9" : "#fff" } },
+            h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
+              czAvatar(f.by || "?", 22), h("b", { style: { fontSize: 12.5, color: "#1e293b" } }, String(f.by || "").toUpperCase()),
+              h("span", { style: { fontSize: 11.5, color: "#64748b", fontWeight: 700 } }, "🕒 " + dtDT(f.at)),
+              f.editedAt && h("span", { style: { fontSize: 10.5, color: "#94a3b8" } }, "（" + String(f.editedBy || "").toUpperCase() + " 改过 " + dtDT(f.editedAt) + "）"),
+              h("span", { style: { flex: 1 } }),
+              h("button", { onClick: () => { setEditId(f.id); setEditT(f.text || ""); setEditNext(f.next || ""); setEditRemind(f.remind || "0"); }, style: { border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 9px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "✎ Edit"),
+              h("button", { onClick: () => del(f), style: { border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", borderRadius: 8, padding: "2px 9px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "🗑 Delete")),
+            h("div", { className: "dt-keep", style: { fontSize: 13.5, color: "#1e293b", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, textTransform: "none", ...(long && !isOpen ? { maxHeight: 110, overflow: "hidden" } : {}) } }, f.text),
+            long && h("button", { onClick: () => setOpenIds({ ...openIds, [f.id]: !isOpen }), style: { border: "none", background: "none", color: "#4f46e5", fontWeight: 800, fontSize: 12, cursor: "pointer", padding: "4px 0" } }, isOpen ? "▲ 收起" : "▼ 展开全部"),
+            f.next && h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2e8f0" } },
+              h("span", { style: { fontSize: 12, fontWeight: 800, color: f.done ? "#15803d" : due ? "#dc2626" : "#475569" } }, "📅 Next Follow Up: " + dtDMY(f.next) + (f.done ? "" : dd < 0 ? "（过期 " + (-dd) + " 天）" : dd === 0 ? "（今天）" : "（还有 " + dd + " 天）")),
+              h("span", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 700 } }, "🔔 " + ((DT_REMIND.find(x => x[0] === (f.remind || "0")) || [])[1] || "")),
+              h("span", { style: { flex: 1 } }),
+              f.done ? h("span", { style: { fontSize: 11.5, color: "#15803d", fontWeight: 800 } }, "✓ Completed · " + String(f.doneBy || "").toUpperCase() + " · " + dtDT(f.doneAt),
+                h("button", { onClick: () => upd(f.id, { done: false, doneAt: null, doneBy: null }), style: { marginLeft: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", borderRadius: 8, padding: "2px 8px", fontWeight: 700, fontSize: 11, cursor: "pointer" } }, "↺ 未完成"))
+              : h("button", { onClick: () => upd(f.id, { done: true, doneAt: Date.now(), doneBy: me }), style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer" } }, "✓ Mark Completed")));
+        }))));
+}
+/* 全局 Follow Up 提醒（只给 Customer Docs 的人） */
+function DtFollowUpReminder({ currentUser, onOpen }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const [list, save] = useCloudList("doc_tracking");
+  const [min, setMin] = React.useState(false);
+  const [hideUntil, setHideUntil] = React.useState(() => { try { return Number(sessionStorage.getItem("crm_dtfu_hide") || 0); } catch (e) { return 0; } });
+  const [, tick] = React.useState(0);
+  React.useEffect(() => { const t = setInterval(() => tick(x => x + 1), 5 * 60 * 1000); return () => clearInterval(t); }, []);
+  const items = [];
+  (list || []).forEach(r => { if (r.closed) return; dtFuList(r).forEach(f => { if (dtFuDue(f) && (!f.by || sameUser(f.by, me))) items.push({ r, f }); }); });
+  items.sort((a, b) => String(a.f.next).localeCompare(String(b.f.next)));
+  const prev = React.useRef(0);
+  React.useEffect(() => {
+    if (items.length > prev.current) { setMin(false); try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification("🔔 Follow Up 提醒（" + items.length + "）", { body: items[0].r.customer + "：" + String(items[0].f.text || "").slice(0, 80) }); } catch (e) {} }
+    prev.current = items.length;
+  }, [items.length]);
+  if (!items.length || (hideUntil && Date.now() < hideUntil)) return null;
+  const done = (r, f) => save((list || []).map(x => x.id === r.id ? { ...x, followUps: dtFuList(x).map(y => y.id === f.id ? { ...y, done: true, doneAt: Date.now(), doneBy: me } : y) } : x));
+  const later = () => { const t = Date.now() + 2 * 60 * 60 * 1000; setHideUntil(t); try { sessionStorage.setItem("crm_dtfu_hide", String(t)); } catch (e) {} };
+  const pos = { position: "fixed", left: 18, bottom: 90, zIndex: 9991 };
+  if (min) return h("button", { onClick: () => setMin(false), style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(220,38,38,.6)" } }, "🔔 Follow Up " + items.length);
+  return h("div", { style: { ...pos, width: 360, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #ef4444" } },
+    h("div", { style: { padding: "10px 14px", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+      h("b", { style: { flex: 1, fontSize: 14 } }, "🔔 Follow Up 提醒（" + items.length + "）"),
+      h("button", { onClick: () => setMin(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer" } }, "–")),
+    h("div", { style: { maxHeight: 320, overflowY: "auto" } }, items.map(({ r, f }) => { const dd = dtDaysTo(f.next); return h("div", { key: f.id, style: { padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", gap: 8 } },
+      h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => onOpen(r.id) },
+        h("div", { style: { fontWeight: 900, fontSize: 13.5, color: "#0f172a" } }, r.customer),
+        h("div", { className: "dt-keep", style: { fontSize: 12, color: "#334155", whiteSpace: "pre-wrap", maxHeight: 54, overflow: "hidden", textTransform: "none" } }, f.text),
+        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: dd < 0 ? "#dc2626" : "#b45309", marginTop: 2 } }, "📅 " + dtDMY(f.next) + (dd < 0 ? "（过期 " + (-dd) + " 天）" : dd === 0 ? "（今天）" : "（" + dd + " 天后）"))),
+      h("button", { onClick: () => done(r, f), title: "Mark Completed", style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "✓ Done")); })),
+    h("div", { style: { padding: "8px 14px", textAlign: "right", background: "#fef2f2" } },
+      h("button", { onClick: later, style: { border: "none", background: "none", color: "#b91c1c", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "2 小时后再提醒")));
+}
 function CustomerDocsPage({ currentUser }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -3810,6 +3919,11 @@ function CustomerDocsPage({ currentUser }) {
   const [fA, setFA] = React.useState(""), [fF, setFF] = React.useState(""), [fS, setFS] = React.useState(""), [fB, setFB] = React.useState(""), [onlyInc, setOnlyInc] = React.useState(false);
   const [nw, setNw] = React.useState({ customer: "", agent: "" });
   const [modal, setModal] = React.useState(null); // { id, sec }
+  const [fuId, setFuId] = React.useState(() => { const x = window.__dtOpenFu; window.__dtOpenFu = null; return x || null; });
+  const [view, setView] = React.useState("active"); // active | closed
+  const [onlyFu, setOnlyFu] = React.useState(false);
+  const [closeAsk, setCloseAsk] = React.useState(null);
+  React.useEffect(() => { const f = () => { if (window.__dtOpenFu) { setView("active"); setFuId(window.__dtOpenFu); window.__dtOpenFu = null; } }; window.addEventListener("dt-open-fu", f); return () => window.removeEventListener("dt-open-fu", f); }, []);
   const patch = (r, p) => saveList(items.map(x => x.id === r.id ? { ...x, ...p, updatedAt: Date.now(), updatedBy: me } : x));
   const patchSec = (r, sec, p) => patch(r, { [sec]: { ...(r[sec] || {}), ...p } });
   const add = () => {
@@ -3825,7 +3939,9 @@ function CustomerDocsPage({ currentUser }) {
     saveList(items.filter(x => x.id !== r.id));
     ["bank", "agreement", "details", "funder", "settlement", "card"].forEach(sec => dtFiles(r, sec).forEach(f => DB.del("dtfile_" + f.blob).catch(() => {}))); };
   const ql = q.trim().toLowerCase();
-  const shown = items.filter(r => (!ql || [r.customer, r.agent].some(v => String(v || "").toLowerCase().includes(ql)))
+  const closedN = items.filter(r => r.closed).length;
+  const fuPendN = items.filter(r => dtFuPendingCount(r, me) > 0).length;
+  const shown = items.filter(r => (view === "closed" ? !!r.closed : !r.closed) && (!onlyFu || dtFuPendingCount(r, me) > 0) && (!ql || [r.customer, r.agent].some(v => String(v || "").toLowerCase().includes(ql)))
     && (!fA || (fA === "none" ? !(r.agreement || {}).status : (r.agreement || {}).status === fA))
     && (!fF || (fF === "none" ? !(r.funder || {}).status : (r.funder || {}).status === fF))
     && (!fS || (fS === "none_set" ? !(r.settlement || {}).status : (r.settlement || {}).status === fS))
@@ -3847,7 +3963,10 @@ function CustomerDocsPage({ currentUser }) {
     const sbOk = !!dtBankName(r);
     const rmk = String(r.remark || "");
     return h("tr", { key: r.id },
-      h("td", { style: { ...td, fontWeight: 900, color: "#1e1b4b", minWidth: 150 } }, r.customer, dtIncomplete(r) && h("div", { style: { fontSize: 10.5, color: "#c2410c", fontWeight: 800 } }, "⚠ 文件未齐")),
+      h("td", { style: { ...td, fontWeight: 900, color: "#1e1b4b", minWidth: 150 } }, r.customer,
+        r.closed ? h("div", { style: { display: "inline-block", marginTop: 4, fontSize: 10.5, fontWeight: 900, background: "#1e293b", color: "#fff", borderRadius: 999, padding: "2px 8px" } }, "🔒 CLOSED")
+        : dtIncomplete(r) && h("div", { style: { fontSize: 10.5, color: "#c2410c", fontWeight: 800 } }, "⚠ 文件未齐"),
+        r.closed && h("div", { style: { fontSize: 10.5, color: "#64748b", fontWeight: 700, marginTop: 2 } }, dtDT(r.closed.at) + " · " + String(r.closed.by || "").toUpperCase())),
       h("td", { style: { ...td, fontWeight: 700 } }, r.agent || "—"),
       h("td", { style: { ...td, minWidth: 170 } }, openBtn(r, "bank", "VIEW / UPLOAD", dtFiles(r, "bank").length, dtBankOverall(r) === "collected"),
         h("div", { style: { display: "inline-block", marginTop: 5, borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900, background: ov[1], color: ov[2], whiteSpace: "nowrap" } }, ov[0])),
@@ -3868,14 +3987,21 @@ function CustomerDocsPage({ currentUser }) {
           sb.type === "OTHER" && h(DebouncedInput, { value: sb.name || "", placeholder: "Please Specify Bank Name", onCommit: val => setSalaryBank(r, { ...sb, name: val.trim().toUpperCase() }), style: { width: "100%", boxSizing: "border-box", border: "1px solid " + (needName ? "#ef4444" : "#e2e8f0"), background: needName ? "#fef2f2" : "#fff", borderRadius: 8, padding: "5px 8px", fontSize: 12, fontFamily: "inherit", outline: "none" } }),
           needName && h("div", { style: { fontSize: 10.5, color: "#dc2626", fontWeight: 800, whiteSpace: "normal" } }, "⚠ 请填银行名字"),
           h("div", { style: { fontSize: 10.5, fontWeight: 900, borderRadius: 999, padding: "2px 8px", alignSelf: "flex-start", whiteSpace: "normal", lineHeight: 1.35, background: sbOk ? "#dcfce7" : "#f1f5f9", color: sbOk ? "#15803d" : "#64748b" } }, sbOk ? "✓ COLLECTED / RECEIVED – 已收齐" : "⏳ PENDING – 未收"))),
-      h("td", { style: { ...td, minWidth: 140 } },
-        h("input", { type: "month", value: r.startSalary || "", onChange: e => patch(r, { startSalary: e.target.value }), style: { padding: "4px 6px", borderRadius: 7, border: "1px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", background: "#fff", width: 130 } }),
-        h("div", { style: { fontSize: 11.5, fontWeight: 900, marginTop: 3, color: r.startSalary ? "#4338ca" : "#94a3b8" } }, r.startSalary ? dtMonthTxt(r.startSalary) : "Not Set")),
+      h("td", { style: { ...td, minWidth: 150 } }, (() => {
+        const fl = dtFuList(r), pn = dtFuPendingCount(r, me), last = fl.slice().sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+        return h("div", null,
+          h("button", { onClick: () => setFuId(r.id), style: { position: "relative", border: "1px solid " + (pn ? "#fca5a5" : "#86efac"), background: pn ? "#fef2f2" : "#f0fdf4", color: pn ? "#b91c1c" : "#15803d", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" } }, "💬 FOLLOW UP (" + fl.length + ")",
+            pn > 0 && h("span", { style: { position: "absolute", top: -7, right: -7, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "#fff", fontSize: 10.5, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 4px", border: "2px solid #fff" } }, pn)),
+          last && h("div", { className: "dt-keep", style: { fontSize: 11, color: "#64748b", marginTop: 4, maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "none" }, title: last.text }, last.text));
+      })()),
       h("td", { style: { ...td, minWidth: 180, maxWidth: 240, whiteSpace: "normal" } },
         rmk ? h("div", { className: "dt-keep", style: { fontSize: 12, color: "#334155", whiteSpace: "pre-wrap", maxHeight: 54, overflow: "hidden", lineHeight: 1.5, textTransform: "none" } }, rmk.length > 80 ? rmk.slice(0, 80) + "…" : rmk) : h("span", { style: { color: "#cbd5e1" } }, "—"),
         h("button", { onClick: () => setRemarkOpen(r.id), style: { marginTop: 4, border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, rmk ? "⤢ View Full Remark" : "＋ 写备注")),
       h("td", { style: { ...td, fontSize: 12, color: "#64748b", whiteSpace: "nowrap" } }, r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("en-GB") : "—", r.updatedBy && h("div", { style: { fontSize: 10.5 } }, String(r.updatedBy).toUpperCase())),
-      h("td", { style: td }, h("button", { style: S.fuDel, title: "删除整笔记录", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
+      h("td", { style: { ...td, whiteSpace: "nowrap" } },
+        r.closed ? h("button", { onClick: () => { if (window.confirm("重新打开「" + r.customer + "」？")) patch(r, { closed: null, status: "", reopenedAt: Date.now(), reopenedBy: me }); }, style: { border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", marginRight: 6 } }, "↺ Reopen")
+        : h("button", { onClick: () => setCloseAsk(r.id), style: { border: "1px solid #334155", background: "#1e293b", color: "#fff", borderRadius: 8, padding: "5px 10px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", marginRight: 6 } }, "🔒 CLOSE FILE"),
+        h("button", { style: S.fuDel, title: "删除整笔记录", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
   };
   /* ---- 弹出视窗 ---- */
   const mr = modal && items.find(x => x.id === modal.id);
@@ -3961,11 +4087,24 @@ function CustomerDocsPage({ currentUser }) {
       h("select", { value: fF, onChange: e => setFF(e.target.value), style: sel }, h("option", { value: "" }, "Funder：全部"), h("option", { value: "done" }, "Done – Returned"), h("option", { value: "absconded" }, "Customer Absconded"), h("option", { value: "none" }, "未选")),
       h("select", { value: fS, onChange: e => setFS(e.target.value), style: sel }, h("option", { value: "" }, "Settlement：全部"), h("option", { value: "completed" }, "Completed"), h("option", { value: "partial" }, "Not Fully Settled"), h("option", { value: "none" }, "No Settlement"), h("option", { value: "none_set" }, "未选")),
       h("select", { value: fB, onChange: e => setFB(e.target.value), style: sel }, h("option", { value: "" }, "Salary Bank：全部"), h("option", { value: "CIMB" }, "CIMB"), h("option", { value: "OTHER" }, "Other"), h("option", { value: "EMPTY" }, "未填")),
-      h("button", { onClick: () => setOnlyInc(!onlyInc), style: { border: onlyInc ? "2px solid #ea580c" : "1px solid #fed7aa", background: onlyInc ? "#ffedd5" : "#fff", color: "#c2410c", borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "⚠ 文件未齐 " + incCount)),
+      h("button", { onClick: () => setOnlyInc(!onlyInc), style: { border: onlyInc ? "2px solid #ea580c" : "1px solid #fed7aa", background: onlyInc ? "#ffedd5" : "#fff", color: "#c2410c", borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "⚠ 文件未齐 " + incCount),
+      h("button", { onClick: () => setOnlyFu(!onlyFu), style: { border: onlyFu ? "2px solid #dc2626" : "1px solid #fecaca", background: onlyFu ? "#fee2e2" : "#fff", color: "#b91c1c", borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, "🔔 待跟进 " + fuPendN),
+      h("div", { style: { display: "inline-flex", border: "1px solid #cbd5e1", borderRadius: 10, overflow: "hidden" } },
+        h("button", { onClick: () => setView("active"), style: { border: "none", padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer", background: view === "active" ? "#16a34a" : "#fff", color: view === "active" ? "#fff" : "#475569" } }, "📂 Active " + (items.length - closedN)),
+        h("button", { onClick: () => setView("closed"), style: { border: "none", padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "pointer", background: view === "closed" ? "#1e293b" : "#fff", color: view === "closed" ? "#fff" : "#475569" } }, "🗄 Closed Files " + closedN))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["Customer Name", "Agent Name", "Bank Check", "Agreement Status / Date", "Customer Details", "Funder Status", "Settlement Status", "Credit Card", "Salary Bank Card", "Start Salary", "Remark", "Last Updated", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("thead", null, h("tr", null, ["Customer Name", "Agent Name", "Bank Check", "Agreement Status / Date", "Customer Details", "Funder Status", "Settlement Status", "Credit Card", "Salary Bank Card", "Follow Up", "Remark", "Last Updated", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
       h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 13, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 13, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有客户，先在上面新增")) : shown.map(row)))),
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 13, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? (view === "closed" ? "还没有 Closed Files" : "找不到") : "还没有客户，先在上面新增")) : shown.map(row)))),
+    fuId && items.find(x => x.id === fuId) && h(DtFollowUp, { r: items.find(x => x.id === fuId), me, onSave: fl => { const r = items.find(x => x.id === fuId); patch(r, { followUps: fl }); }, onClose: () => setFuId(null) }),
+    closeAsk && items.find(x => x.id === closeAsk) && (() => { const r = items.find(x => x.id === closeAsk); return h("div", { onClick: () => setCloseAsk(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.55)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 380, padding: 22, textAlign: "center", boxShadow: "0 30px 70px -20px rgba(0,0,0,.5)" } },
+        h("div", { style: { fontSize: 36 } }, "🔒"),
+        h("div", { style: { fontWeight: 900, fontSize: 17, color: "#1e1b4b", margin: "6px 0" } }, "Are you sure you want to close this file?"),
+        h("div", { style: { fontSize: 13, color: "#64748b", marginBottom: 18 } }, r.customer + "（资料会全部保留，可以在 Closed Files 找回）"),
+        h("div", { style: { display: "flex", gap: 10 } },
+          h("button", { onClick: () => setCloseAsk(null), style: { flex: 1, padding: 11, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 800, cursor: "pointer" } }, "Cancel"),
+          h("button", { onClick: () => { patch(r, { closed: { at: Date.now(), by: me }, status: "CLOSED" }); setCloseAsk(null); }, style: { flex: 1, padding: 11, borderRadius: 12, border: "none", background: "#1e293b", color: "#fff", fontWeight: 900, cursor: "pointer" } }, "Confirm Close")))); })(),
     remarkOpen && items.find(x => x.id === remarkOpen) && (() => { const r = items.find(x => x.id === remarkOpen); return h("div", { onClick: () => setRemarkOpen(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 760, padding: 16 } },
         h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, h("div", { style: { flex: 1, fontWeight: 900, color: "#1e1b4b" } }, "📝 " + r.customer + " · Remark"), h("button", { onClick: () => setRemarkOpen(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
