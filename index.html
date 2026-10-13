@@ -3383,7 +3383,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v120"));
+    h("div", { className: "sb-ver" }, "v121"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4182,7 +4182,8 @@ function CustomerDocsPage({ currentUser }) {
 }
 /* ---------- Salary Listing：Personal Loan 有填 CIMB / AEON CREDIT 的客户，自动列出来 ---------- */
 const SALARY_BANKS = ["CIMB", "AEON CREDIT"];
-const SL_ST = { build: ["▶ CONTINUE BUILD", "#dcfce7", "#15803d", "#86efac"], stop: ["⛔ STOP SALARY", "#fee2e2", "#b91c1c", "#fca5a5"] };
+const SL_ST = { build: ["▶ CONTINUE BUILD", "#dcfce7", "#15803d", "#86efac", "✅"], stop: ["⛔ STOP SALARY", "#fee2e2", "#b91c1c", "#fca5a5", "⛔"], new: ["🆕 NEW SALARY", "#dbeafe", "#1d4ed8", "#93c5fd", "🆕"], net: ["💰 NET SALARY", "#f3e8ff", "#7e22ce", "#d8b4fe", "💰"] };
+const SL_KEYS = ["build", "stop", "new", "net"];
 function SalaryListPage({ clients, onOpen, onSetStatus, currentUser }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
@@ -4194,7 +4195,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, currentUser }) {
   (clients || []).forEach(c => {
     const banks = new Set(); let date = "";
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) { banks.add(k); if (b.date && (!date || b.date < date)) date = b.date; } }));
-    if (banks.size && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st: c.salaryStatus === "stop" ? "stop" : "build" });
+    if (banks.size && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st: SL_KEYS.includes(c.salaryStatus) ? c.salaryStatus : "build" });
   });
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
@@ -4204,11 +4205,10 @@ function SalaryListPage({ clients, onOpen, onSetStatus, currentUser }) {
     .sort((x, y) => String(y.date || "").localeCompare(String(x.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   const copyText = () => {
-    const b = shown.filter(r => r.st === "build"), st = shown.filter(r => r.st === "stop");
     const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
-    const L = ["*SALARY LISTING – " + mLabel(month) + "*", ""];
-    L.push("✅ *CONTINUE BUILD (" + b.length + ")*"); b.forEach((r, i) => L.push(line(r, i))); if (!b.length) L.push("-");
-    L.push("", "⛔ *STOP SALARY (" + st.length + ")*"); st.forEach((r, i) => L.push(line(r, i))); if (!st.length) L.push("-");
+    const L = ["*SALARY LISTING – " + mLabel(month) + "*"];
+    SL_KEYS.forEach(k => { const g = shown.filter(r => r.st === k); if (!g.length) return; L.push("", SL_ST[k][4] + " *" + SL_ST[k][0].replace(/^\S+\s/, "") + " (" + g.length + ")*"); g.forEach((r, i) => L.push(line(r, i))); });
+    if (!shown.length) L.push("", "-");
     return L.join("\n");
   };
   const doCopy = async () => { await rcCopy(copyText()); setCopied(true); setTimeout(() => setCopied(false), 2000); };
@@ -4216,15 +4216,14 @@ function SalaryListPage({ clients, onOpen, onSetStatus, currentUser }) {
   const chip = (on, onClick, l, k) => h("button", { key: k, onClick, style: { border: on ? "2px solid #4f46e5" : "1px solid #e2e8f0", background: on ? "#eef2ff" : "#fff", color: on ? "#4338ca" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l);
   const navBtn = dis => ({ width: 36, height: 36, borderRadius: 10, border: "1px solid #c7d2fe", background: dis ? "#f1f5f9" : "#fff", color: dis ? "#cbd5e1" : "#4f46e5", fontSize: 16, fontWeight: 900, cursor: dis ? "default" : "pointer" });
   const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "12px 16px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
-  const nB = shown.filter(r => r.st === "build").length, nS = shown.filter(r => r.st === "stop").length;
+  const nOf = k => shown.filter(r => r.st === k).length;
   return h("div", { className: "cz-page" },
     h("div", { style: card },
       h("button", { disabled: !month || mi >= months.length - 1, onClick: () => setMonth(months[mi + 1]), title: "上个月", style: navBtn(!month || mi >= months.length - 1) }, "◀"),
       h("select", { value: month, onChange: e => setMonth(e.target.value), style: { minWidth: 170, padding: "8px 10px", borderRadius: 10, border: "1px solid #c7d2fe", fontWeight: 900, fontSize: 14, color: "#1e1b4b", fontFamily: "inherit", background: "#fff" } },
         h("option", { value: "" }, "📅 全部月份"), months.map(m => h("option", { key: m, value: m }, "📅 " + mLabel(m)))),
       h("button", { disabled: !month || mi <= 0, onClick: () => setMonth(months[mi - 1]), title: "下个月", style: navBtn(!month || mi <= 0) }, "▶"),
-      h("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803d" } }, "▶ Build " + nB),
-      h("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#b91c1c" } }, "⛔ Stop " + nS),
+      SL_KEYS.map(k => h("span", { key: k, style: { fontSize: 12.5, fontWeight: 800, color: SL_ST[k][2] } }, SL_ST[k][4] + " " + nOf(k))),
       h("span", { style: { flex: 1 } }),
       h("button", { onClick: doCopy, style: { border: "1px solid #86efac", background: copied ? "#22c55e" : "#f0fdf4", color: copied ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied ? "✓ 已复制" : "📋 Copy (WhatsApp)")),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
@@ -4232,16 +4231,16 @@ function SalaryListPage({ clients, onOpen, onSetStatus, currentUser }) {
       chip(!fb, () => setFb(""), "全部银行", "b"),
       SALARY_BANKS.map(k => chip(fb === k, () => setFb(k), bankLabel(k, "personal"), k)),
       h("span", { style: { width: 8 } }),
-      chip(!fs, () => setFs(""), "全部", "s"), chip(fs === "build", () => setFs("build"), "▶ Build", "sb"), chip(fs === "stop", () => setFs("stop"), "⛔ Stop", "ss")),
+      chip(!fs, () => setFs(""), "全部", "s"), SL_KEYS.map(k => chip(fs === k, () => setFs(k), SL_ST[k][0], "s" + k))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, "Build / Stop Salary"))),
+      h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, "Salary Status"))),
       h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
-        shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(r.st === "stop" ? { background: "#fff5f5" } : {}) } },
+        shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(r.st !== "build" ? { background: m[1] + "66" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
           h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => onOpen(r.c.id), title: "打开客户" }, String(r.c.name).toUpperCase(), r.banks.map(tag)),
-          h("td", { style: S.td }, h("div", { style: { display: "inline-flex", border: "1px solid #e2e8f0", borderRadius: 999, overflow: "hidden" } },
-            ["build", "stop"].map(k => h("button", { key: k, onClick: () => { if (r.st !== k) onSetStatus(r.c.id, k); }, title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8" } }, SL_ST[k][0])))));
+          h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
+            SL_KEYS.map(k => h("button", { key: k, onClick: () => { if (r.st !== k) onSetStatus(r.c.id, k); }, title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8" } }, SL_ST[k][0])))));
         })))));
 }
 /* ---------- Receipt：按月份分组、Copy 去 WhatsApp、下载 Excel ---------- */
