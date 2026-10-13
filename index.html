@@ -3374,7 +3374,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v117"));
+    h("div", { className: "sb-ver" }, "v118"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -3809,20 +3809,27 @@ function DtFileBox({ files, onFiles, me, photoFirst, accept, allowPaste }) {
 const DT_REMIND = [["0", "当天提醒 On due date"], ["1", "1 天前 1 day before"], ["3", "3 天前 3 days before"]];
 const dtDaysTo = d => { if (!d) return null; const a = new Date(today() + "T00:00:00"), b = new Date(d + "T00:00:00"); return Math.round((b - a) / 86400000); };
 const dtFuList = r => (Array.isArray(r.followUps) ? r.followUps : []);
-const dtFuDue = f => !f.done && !!f.next && dtDaysTo(f.next) <= (Number(f.remind) || 0);
+const dtDlMs = f => f && f.deadline ? new Date(f.deadline).getTime() : null; // deadline = "YYYY-MM-DDTHH:MM"（本地时间）
+const dtDlState = f => { const t = dtDlMs(f); if (!t || f.done) return ""; const d = t - Date.now(); return d < 0 ? "over" : d <= 24 * 3600 * 1000 ? "soon" : "ok"; };
+const dtDlTxt = f => { const t = dtDlMs(f); if (!t) return ""; const d = new Date(t), p = n => String(n).padStart(2, "0"); return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes()); };
+const dtDlLeft = f => { const t = dtDlMs(f); if (!t) return ""; let m = Math.round((t - Date.now()) / 60000); const over = m < 0; m = Math.abs(m); const s = m >= 1440 ? Math.floor(m / 1440) + " 天" + (Math.floor(m % 1440 / 60) ? " " + Math.floor(m % 1440 / 60) + " 小时" : "") : m >= 60 ? Math.floor(m / 60) + " 小时" + (m % 60 ? " " + (m % 60) + " 分" : "") : m + " 分钟"; return over ? "过期 " + s : "还有 " + s; };
+const DT_DL_STYLE = { over: ["#fee2e2", "#b91c1c", "#ef4444"], soon: ["#ffedd5", "#c2410c", "#f97316"], ok: ["#eef2ff", "#4338ca", "#a5b4fc"] };
+const dtDlBadge = (h, f, big) => { const st = dtDlState(f); if (!dtDlMs(f)) return null; const c = DT_DL_STYLE[st] || ["#f0fdf4", "#15803d", "#86efac"]; return h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, background: c[0], color: c[1], border: "1px solid " + c[2], borderRadius: 999, padding: big ? "3px 10px" : "1px 8px", fontSize: big ? 12 : 11, fontWeight: 900, whiteSpace: "nowrap", ...(st === "over" ? { animation: "dtBlink 1.4s infinite" } : {}) } }, (st === "over" ? "⛔ " : st === "soon" ? "⏰ " : "⏳ ") + "Deadline " + dtDlTxt(f) + (f.done ? "" : " · " + dtDlLeft(f))); };
+const dtFuDue = f => !f.done && ((!!f.next && dtDaysTo(f.next) <= (Number(f.remind) || 0)) || dtDlState(f) === "over" || dtDlState(f) === "soon");
 const dtFuPendingCount = (r, me) => r.closed ? 0 : dtFuList(r).filter(f => dtFuDue(f) && (!me || !f.by || sameUser(f.by, me))).length;
 const dtDT = t => t ? new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
 function DtFollowUp({ r, me, onSave, onClose }) {
   const h = React.createElement;
   const list = dtFuList(r).slice().sort((a, b) => (b.at || 0) - (a.at || 0));
-  const [t, setT] = React.useState(""), [next, setNext] = React.useState(""), [remind, setRemind] = React.useState("0");
-  const [editId, setEditId] = React.useState(null), [editT, setEditT] = React.useState(""), [editNext, setEditNext] = React.useState(""), [editRemind, setEditRemind] = React.useState("0");
+  const [t, setT] = React.useState(""), [next, setNext] = React.useState(""), [remind, setRemind] = React.useState("0"), [dl, setDl] = React.useState("");
+  const [editId, setEditId] = React.useState(null), [editT, setEditT] = React.useState(""), [editNext, setEditNext] = React.useState(""), [editRemind, setEditRemind] = React.useState("0"), [editDl, setEditDl] = React.useState("");
   const [openIds, setOpenIds] = React.useState({});
   const all = dtFuList(r);
   const add = () => {
     const txt = t.trim(); if (!txt) { alert("请写 Follow Up 内容"); return; }
-    onSave([...all, { id: uid(), text: txt, at: Date.now(), by: me, next: next || "", remind: next ? remind : "", done: false }]);
-    setT(""); setNext(""); setRemind("0");
+    onSave([...all, { id: uid(), text: txt, at: Date.now(), by: me, next: next || "", remind: next ? remind : "", deadline: dl || "", done: false }]);
+    setT(""); setNext(""); setRemind("0"); setDl("");
+    try { window.dispatchEvent(new Event("dt-fu-added")); } catch (e) {}
   };
   const upd = (id, p) => onSave(all.map(x => x.id === id ? { ...x, ...p } : x));
   const del = f => { if (window.confirm("删除这条 Follow Up？\n\n" + String(f.text || "").slice(0, 80))) onSave(all.filter(x => x.id !== f.id)); };
@@ -3840,6 +3847,7 @@ function DtFollowUp({ r, me, onSave, onClose }) {
         h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, alignItems: "flex-end" } },
           h("div", { style: { flex: "0 1 180px" } }, lbl("NEXT FOLLOW UP DATE（选填）"), h("input", { type: "date", value: next, onChange: e => setNext(e.target.value), style: inp })),
           next && h("div", { style: { flex: "0 1 210px" } }, lbl("REMINDER 提醒"), h("select", { value: remind, onChange: e => setRemind(e.target.value), style: { ...inp, fontWeight: 700 } }, DT_REMIND.map(([k, l]) => h("option", { key: k, value: k }, l)))),
+          h("div", { style: { flex: "0 1 220px" } }, lbl("⏰ DEADLINE 日期+时间（选填）"), h("input", { type: "datetime-local", value: dl, onChange: e => setDl(e.target.value), style: inp })),
           h("span", { style: { flex: 1 } }),
           h("button", { onClick: add, style: { border: "none", borderRadius: 10, padding: "0 22px", minHeight: 40, background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer" } }, "＋ 加 Follow Up"))),
       h("div", { style: { padding: "14px 18px 20px", display: "flex", flexDirection: "column", gap: 10 } },
@@ -3853,18 +3861,22 @@ function DtFollowUp({ r, me, onSave, onClose }) {
             h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, alignItems: "flex-end" } },
               h("div", { style: { flex: "0 1 180px" } }, lbl("NEXT FOLLOW UP DATE"), h("input", { type: "date", value: editNext, onChange: e => setEditNext(e.target.value), style: inp })),
               editNext && h("div", { style: { flex: "0 1 210px" } }, lbl("REMINDER"), h("select", { value: editRemind, onChange: e => setEditRemind(e.target.value), style: { ...inp, fontWeight: 700 } }, DT_REMIND.map(([k, l]) => h("option", { key: k, value: k }, l)))),
+              h("div", { style: { flex: "0 1 220px" } }, lbl("⏰ DEADLINE（选填）"), h("input", { type: "datetime-local", value: editDl, onChange: e => setEditDl(e.target.value), style: inp })),
               h("span", { style: { flex: 1 } }),
               h("button", { onClick: () => setEditId(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, cursor: "pointer" } }, "取消"),
-              h("button", { onClick: () => { if (!editT.trim()) { alert("内容不能空白"); return; } upd(f.id, { text: editT.trim(), next: editNext || "", remind: editNext ? editRemind : "", editedAt: Date.now(), editedBy: me }); setEditId(null); }, style: { border: "none", background: "#4f46e5", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 900, cursor: "pointer" } }, "保存")));
-          return h("div", { key: f.id, style: { border: "1px solid " + (due ? "#fca5a5" : f.done ? "#bbf7d0" : "#e2e8f0"), borderLeft: "4px solid " + (due ? "#ef4444" : f.done ? "#22c55e" : "#94a3b8"), borderRadius: 12, padding: "10px 12px", background: due ? "#fff7f7" : f.done ? "#f7fef9" : "#fff" } },
+              h("button", { onClick: () => { if (!editT.trim()) { alert("内容不能空白"); return; } upd(f.id, { text: editT.trim(), next: editNext || "", remind: editNext ? editRemind : "", deadline: editDl || "", editedAt: Date.now(), editedBy: me }); setEditId(null); }, style: { border: "none", background: "#4f46e5", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 900, cursor: "pointer" } }, "保存")));
+          const dls = dtDlState(f);
+          return h("div", { key: f.id, style: { border: "1px solid " + (dls === "over" || due ? "#fca5a5" : dls === "soon" ? "#fdba74" : f.done ? "#bbf7d0" : "#e2e8f0"), borderLeft: "4px solid " + (dls === "over" ? "#ef4444" : dls === "soon" ? "#f97316" : due ? "#ef4444" : f.done ? "#22c55e" : "#94a3b8"), borderRadius: 12, padding: "10px 12px", background: due ? "#fff7f7" : f.done ? "#f7fef9" : "#fff" } },
             h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
+              h("input", { type: "checkbox", checked: !!f.done, title: f.done ? "已完成（取消打勾 = 未完成）" : "打勾 = Complete", onChange: e => upd(f.id, e.target.checked ? { done: true, doneAt: Date.now(), doneBy: me } : { done: false, doneAt: null, doneBy: null }), style: { width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" } }),
               czAvatar(f.by || "?", 22), h("b", { style: { fontSize: 12.5, color: "#1e293b" } }, String(f.by || "").toUpperCase()),
               h("span", { style: { fontSize: 11.5, color: "#64748b", fontWeight: 700 } }, "🕒 " + dtDT(f.at)),
               f.editedAt && h("span", { style: { fontSize: 10.5, color: "#94a3b8" } }, "（" + String(f.editedBy || "").toUpperCase() + " 改过 " + dtDT(f.editedAt) + "）"),
               h("span", { style: { flex: 1 } }),
-              h("button", { onClick: () => { setEditId(f.id); setEditT(f.text || ""); setEditNext(f.next || ""); setEditRemind(f.remind || "0"); }, style: { border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 9px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "✎ Edit"),
+              h("button", { onClick: () => { setEditId(f.id); setEditT(f.text || ""); setEditNext(f.next || ""); setEditRemind(f.remind || "0"); setEditDl(f.deadline || ""); }, style: { border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 9px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "✎ Edit"),
               h("button", { onClick: () => del(f), style: { border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", borderRadius: 8, padding: "2px 9px", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "🗑 Delete")),
-            h("div", { className: "dt-keep", style: { fontSize: 13.5, color: "#1e293b", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, textTransform: "none", ...(long && !isOpen ? { maxHeight: 110, overflow: "hidden" } : {}) } }, f.text),
+            dtDlMs(f) && h("div", { style: { marginBottom: 6 } }, dtDlBadge(h, f, true), f.done && h("span", { style: { marginLeft: 8, fontSize: 11.5, color: "#15803d", fontWeight: 800 } }, "✓ Completed")),
+            h("div", { className: "dt-keep", style: { fontSize: 13.5, color: f.done ? "#64748b" : "#1e293b", textDecoration: f.done ? "line-through" : "none", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, textTransform: "none", ...(long && !isOpen ? { maxHeight: 110, overflow: "hidden" } : {}) } }, f.text),
             long && h("button", { onClick: () => setOpenIds({ ...openIds, [f.id]: !isOpen }), style: { border: "none", background: "none", color: "#4f46e5", fontWeight: 800, fontSize: 12, cursor: "pointer", padding: "4px 0" } }, isOpen ? "▲ 收起" : "▼ 展开全部"),
             f.next && h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2e8f0" } },
               h("span", { style: { fontSize: 12, fontWeight: 800, color: f.done ? "#15803d" : due ? "#dc2626" : "#475569" } }, "📅 Next Follow Up: " + dtDMY(f.next) + (f.done ? "" : dd < 0 ? "（过期 " + (-dd) + " 天）" : dd === 0 ? "（今天）" : "（还有 " + dd + " 天）")),
@@ -3875,40 +3887,82 @@ function DtFollowUp({ r, me, onSave, onClose }) {
               : h("button", { onClick: () => upd(f.id, { done: true, doneAt: Date.now(), doneBy: me }), style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer" } }, "✓ Mark Completed")));
         }))));
 }
-/* 全局 Follow Up 提醒（只给 Customer Docs 的人） */
+/* 全局 Follow Up 视窗（只给 Customer Docs 的人）：列出全部未完成的 Follow Up；
+   新加 Follow Up 会自动打开；可以缩小成浮动按钮；全部完成才会消失 */
 function DtFollowUpReminder({ currentUser, onOpen }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
   const [list, save] = useCloudList("doc_tracking");
-  const [min, setMin] = React.useState(false);
-  const [hideUntil, setHideUntil] = React.useState(() => { try { return Number(sessionStorage.getItem("crm_dtfu_hide") || 0); } catch (e) { return 0; } });
+  const [min, setMin] = React.useState(() => { try { return sessionStorage.getItem("crm_dtfu_min") === "1"; } catch (e) { return false; } });
+  const setMinS = v => { setMin(v); try { sessionStorage.setItem("crm_dtfu_min", v ? "1" : "0"); } catch (e) {} };
   const [, tick] = React.useState(0);
-  React.useEffect(() => { const t = setInterval(() => tick(x => x + 1), 5 * 60 * 1000); return () => clearInterval(t); }, []);
+  const [editId, setEditId] = React.useState(null), [eT, setET] = React.useState(""), [eDl, setEDl] = React.useState("");
+  const [adding, setAdding] = React.useState(false), [aR, setAR] = React.useState(""), [aT, setAT] = React.useState(""), [aDl, setADl] = React.useState("");
+  React.useEffect(() => { const t = setInterval(() => tick(x => x + 1), 60 * 1000); return () => clearInterval(t); }, []);
+  React.useEffect(() => { const f = () => setMinS(false); window.addEventListener("dt-fu-added", f); return () => window.removeEventListener("dt-fu-added", f); }, []);
+  const recs = (list || []).filter(r => !r.closed);
   const items = [];
-  (list || []).forEach(r => { if (r.closed) return; dtFuList(r).forEach(f => { if (dtFuDue(f) && (!f.by || sameUser(f.by, me))) items.push({ r, f }); }); });
-  items.sort((a, b) => String(a.f.next).localeCompare(String(b.f.next)));
-  const prev = React.useRef(0);
+  recs.forEach(r => dtFuList(r).forEach(f => { if (!f.done && (!f.by || sameUser(f.by, me))) items.push({ r, f }); }));
+  const rank = f => { const st = dtDlState(f); return st === "over" ? 0 : st === "soon" ? 1 : dtFuDue(f) ? 2 : dtDlMs(f) ? 3 : 4; };
+  items.sort((x, y) => rank(x.f) - rank(y.f) || (dtDlMs(x.f) || 9e15) - (dtDlMs(y.f) || 9e15) || (y.f.at || 0) - (x.f.at || 0));
+  const prev = React.useRef(null);
   React.useEffect(() => {
-    if (items.length > prev.current) { setMin(false); try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification("🔔 Follow Up 提醒（" + items.length + "）", { body: items[0].r.customer + "：" + String(items[0].f.text || "").slice(0, 80) }); } catch (e) {} }
+    if (prev.current !== null && items.length > prev.current) { setMinS(false); try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification("💬 Follow Up（" + items.length + "）", { body: items[0].r.customer + "：" + String(items[0].f.text || "").slice(0, 80) }); } catch (e) {} }
     prev.current = items.length;
   }, [items.length]);
-  if (!items.length || (hideUntil && Date.now() < hideUntil)) return null;
-  const done = (r, f) => save((list || []).map(x => x.id === r.id ? { ...x, followUps: dtFuList(x).map(y => y.id === f.id ? { ...y, done: true, doneAt: Date.now(), doneBy: me } : y) } : x));
-  const later = () => { const t = Date.now() + 2 * 60 * 60 * 1000; setHideUntil(t); try { sessionStorage.setItem("crm_dtfu_hide", String(t)); } catch (e) {} };
+  if (list === null || !items.length) return null;
+  const patchFu = (r, fid, p) => save((list || []).map(x => x.id === r.id ? { ...x, followUps: dtFuList(x).map(y => y.id === fid ? { ...y, ...p } : y), updatedAt: Date.now(), updatedBy: me } : x));
+  const complete = (r, f) => patchFu(r, f.id, { done: true, doneAt: Date.now(), doneBy: me });
+  const addNew = () => {
+    const r = recs.find(x => x.id === aR); if (!r) { alert("请选客户"); return; }
+    if (!aT.trim()) { alert("请写 Follow Up 内容"); return; }
+    save((list || []).map(x => x.id === r.id ? { ...x, followUps: [...dtFuList(x), { id: uid(), text: aT.trim(), at: Date.now(), by: me, next: "", remind: "", deadline: aDl || "", done: false }], updatedAt: Date.now(), updatedBy: me } : x));
+    setAdding(false); setAT(""); setADl("");
+  };
+  const nOver = items.filter(x => dtDlState(x.f) === "over").length;
   const pos = { position: "fixed", left: 18, bottom: 90, zIndex: 9991 };
-  if (min) return h("button", { onClick: () => setMin(false), style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(220,38,38,.6)" } }, "🔔 Follow Up " + items.length);
-  return h("div", { style: { ...pos, width: 360, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #ef4444" } },
-    h("div", { style: { padding: "10px 14px", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
-      h("b", { style: { flex: 1, fontSize: 14 } }, "🔔 Follow Up 提醒（" + items.length + "）"),
-      h("button", { onClick: () => setMin(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer" } }, "–")),
-    h("div", { style: { maxHeight: 320, overflowY: "auto" } }, items.map(({ r, f }) => { const dd = dtDaysTo(f.next); return h("div", { key: f.id, style: { padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", gap: 8 } },
-      h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => onOpen(r.id) },
-        h("div", { style: { fontWeight: 900, fontSize: 13.5, color: "#0f172a" } }, r.customer),
-        h("div", { className: "dt-keep", style: { fontSize: 12, color: "#334155", whiteSpace: "pre-wrap", maxHeight: 54, overflow: "hidden", textTransform: "none" } }, f.text),
-        h("div", { style: { fontSize: 11.5, fontWeight: 800, color: dd < 0 ? "#dc2626" : "#b45309", marginTop: 2 } }, "📅 " + dtDMY(f.next) + (dd < 0 ? "（过期 " + (-dd) + " 天）" : dd === 0 ? "（今天）" : "（" + dd + " 天后）"))),
-      h("button", { onClick: () => done(r, f), title: "Mark Completed", style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "✓ Done")); })),
-    h("div", { style: { padding: "8px 14px", textAlign: "right", background: "#fef2f2" } },
-      h("button", { onClick: later, style: { border: "none", background: "none", color: "#b91c1c", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "2 小时后再提醒")));
+  const inp = { width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "#fff" };
+  const sbtn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 8, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" });
+  const css = h("style", null, "@keyframes dtBlink{0%,100%{opacity:1}50%{opacity:.55}}");
+  if (min) return h("button", { onClick: () => setMinS(false), title: "打开 Follow Up", style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "💬 Follow Up " + items.length + (nOver ? " · ⛔ " + nOver : ""));
+  return h("div", { style: { ...pos, width: 380, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#16a34a") } },
+    css,
+    h("div", { style: { padding: "10px 14px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+      h("b", { style: { flex: 1, fontSize: 14 } }, "💬 Follow Up（" + items.length + " 未完成" + (nOver ? " · ⛔ " + nOver + " 过期" : "") + "）"),
+      h("button", { onClick: () => { setAdding(!adding); if (!aR && recs[0]) setAR(recs[0].id); }, title: "+ Add Follow Up", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "3px 10px", fontWeight: 900, cursor: "pointer" } }, "＋ Add"),
+      h("button", { onClick: () => setMinS(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer", fontWeight: 900 } }, "–")),
+    adding && h("div", { style: { padding: "10px 14px", background: "#f0fdf4", borderBottom: "1px solid #dcfce7", display: "flex", flexDirection: "column", gap: 6 } },
+      h("select", { value: aR, onChange: e => setAR(e.target.value), style: { ...inp, fontWeight: 800 } }, recs.map(r => h("option", { key: r.id, value: r.id }, r.customer))),
+      h("textarea", { className: "dt-keep", value: aT, rows: 3, onChange: e => setAT(e.target.value), placeholder: "Follow Up 内容…", style: { ...inp, resize: "vertical", textTransform: "none" } }),
+      h("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+        h("span", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", whiteSpace: "nowrap" } }, "⏰ Deadline"),
+        h("input", { type: "datetime-local", value: aDl, onChange: e => setADl(e.target.value), style: { ...inp, flex: 1 } }),
+        h("button", { onClick: addNew, style: sbtn("#16a34a", "#fff") }, "加入"))),
+    h("div", { style: { maxHeight: "45vh", overflowY: "auto" } }, items.map(({ r, f }) => {
+      const st = dtDlState(f);
+      const bg = st === "over" ? "#fef2f2" : st === "soon" ? "#fff7ed" : "#fff";
+      return h("div", { key: f.id, style: { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", background: bg, borderLeft: "4px solid " + (st === "over" ? "#ef4444" : st === "soon" ? "#f97316" : dtFuDue(f) ? "#ef4444" : "transparent") } },
+        editId === f.id ? h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+          h("div", { style: { fontWeight: 900, fontSize: 12.5, color: "#0f172a" } }, r.customer),
+          h("textarea", { className: "dt-keep", value: eT, rows: 3, onChange: e => setET(e.target.value), style: { ...inp, resize: "vertical", textTransform: "none" } }),
+          h("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+            h("span", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", whiteSpace: "nowrap" } }, "⏰ Deadline"),
+            h("input", { type: "datetime-local", value: eDl, onChange: e => setEDl(e.target.value), style: { ...inp, flex: 1 } })),
+          h("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end" } },
+            h("button", { onClick: () => setEditId(null), style: sbtn("#fff", "#64748b", "#e2e8f0") }, "取消"),
+            h("button", { onClick: () => { if (!eT.trim()) { alert("内容不能空白"); return; } patchFu(r, f.id, { text: eT.trim(), deadline: eDl || "", editedAt: Date.now(), editedBy: me }); setEditId(null); }, style: sbtn("#4f46e5", "#fff") }, "保存")))
+        : h("div", { style: { display: "flex", gap: 8, alignItems: "flex-start" } },
+          h("input", { type: "checkbox", checked: false, title: "打勾 = Complete", onChange: () => complete(r, f), style: { width: 18, height: 18, marginTop: 2, accentColor: "#16a34a", cursor: "pointer", flexShrink: 0 } }),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { onClick: () => onOpen(r.id), title: "打开这个客户的 Follow Up", style: { fontWeight: 900, fontSize: 13, color: "#0f172a", cursor: "pointer" } }, r.customer),
+            h("div", { className: "dt-keep", style: { fontSize: 12.5, color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 60, overflow: "hidden", textTransform: "none", lineHeight: 1.45 } }, f.text),
+            h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4, alignItems: "center" } },
+              dtDlBadge(h, f, false),
+              f.next && h("span", { style: { fontSize: 11, fontWeight: 800, color: dtFuDue(f) ? "#dc2626" : "#64748b" } }, "📅 " + dtDMY(f.next)),
+              h("span", { style: { flex: 1 } }),
+              h("button", { onClick: () => { setEditId(f.id); setET(f.text || ""); setEDl(f.deadline || ""); }, style: sbtn("#eef2ff", "#4338ca", "#c7d2fe") }, "✎"),
+              h("button", { onClick: () => complete(r, f), style: sbtn("#16a34a", "#fff") }, "✓ Complete")))));
+    })));
 }
 function CustomerDocsPage({ currentUser }) {
   const h = React.createElement;
@@ -4074,7 +4128,7 @@ function CustomerDocsPage({ currentUser }) {
   };
   const TITLES = { bank: "🏦 Bank Check", agreement: "📝 Agreement", details: "👤 Customer Details", funder: "💸 Funder", settlement: "🧾 Settlement", card: "💳 Credit Card" };
   return h("div", { className: "cz-page" },
-    h("style", null, ".dt-keep,.dt-keep *{text-transform:none!important}.dt-namebtn{background:none!important;color:#1e293b!important;box-shadow:none!important;border:none!important;text-transform:none!important}"),
+    h("style", null, "@keyframes dtBlink{0%,100%{opacity:1}50%{opacity:.55}}.dt-keep,.dt-keep *{text-transform:none!important}.dt-namebtn{background:none!important;color:#1e293b!important;box-shadow:none!important;border:none!important;text-transform:none!important}"),
     h("div", { style: card },
       h("div", { style: { fontSize: 14, fontWeight: 900, color: "#1e1b4b", marginBottom: 10 } }, "➕ 新增客户"),
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
