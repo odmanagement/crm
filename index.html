@@ -1476,18 +1476,62 @@ const COSTING_TOOLS = [{
   file: "FUTURE_COSTING_PART.html",
   grp: "costing_car"
 }];
-/* OD Payment：文件 OD_PAYMENT.html 上传到 GitHub 后就会自动出现 */
-const OD_PAYMENT_FILE = "OD_PAYMENT.html";
+/* OD Payment：自动从 Lending Fee 拿资料 —— (A) Settlement 每一项 + 给客户的 TOTAL TO BANK（银行 + 户口）；每一项可以打勾「已付」 */
 function ODPaymentPage({ currentUser }) {
   const h = React.createElement;
-  const [ok, setOk] = React.useState(null);
-  React.useEffect(() => { fetch(OD_PAYMENT_FILE + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" }).then(r => setOk(r.ok)).catch(() => setOk(false)); }, []);
-  if (ok) return h(FormsPage, { key: "odpayment", currentUser, tools: [{ name: "OD Payment", file: OD_PAYMENT_FILE }] });
-  return h("div", { className: "cz-page" }, h("div", { style: { background: "#fff", borderRadius: 16, border: "1px dashed #cbd5e1", padding: "40px 20px", textAlign: "center", color: "#64748b" } },
-    h("div", { style: { fontSize: 34, marginBottom: 8 } }, "💳"),
-    h("div", { style: { fontWeight: 900, fontSize: 17, color: "#1e1b4b", marginBottom: 6 } }, "OD Payment"),
-    h("div", { style: { fontSize: 13.5, fontWeight: 600 } }, ok === null ? "载入中…" : "还没有 OD Payment 表格 — 把 " + OD_PAYMENT_FILE + " 上传到 GitHub 就会自动出现在这里")));
+  const me = canonUser(currentUser || "");
+  const ro = READONLY_USERS.includes(me);
+  const [list, save] = useCloudList("lending_fee");
+  const items = list || [];
+  const [q, setQ] = React.useState("");
+  const [f, setF] = React.useState("");
+  const ql = q.trim().toLowerCase();
+  const sidOf = (r, x) => x.id || (r.id + "_" + (x.desc || "") + (x.acc || "") + (x.amount || ""));
+  const toBank = r => r.calc && r.calc.tobank != null ? r.calc.tobank : lfStat(r).tobank;
+  const rowsOf = r => {
+    const rows = (r.settlement || []).filter(x => x.desc || x.acc || x.amount).map(x => ({ ...x, id: sidOf(r, x) }));
+    const tb = toBank(r);
+    if (tb) rows.push({ id: "__client", client: true, desc: String(r.name || "") + " · TO CLIENT", acc: [String(r.bank || "").toUpperCase(), r.acct || ""].filter(Boolean).join("  "), amount: lsFmt(tb), paid: r.clientPaid || null, paidBy: r.clientPaidBy || null });
+    return rows;
+  };
+  const recs = items.filter(r => rowsOf(r).length)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+  const togglePaid = (rid, sid) => { if (ro) return; if (sid === "__client") { save(items.map(r => r.id !== rid ? r : (r.clientPaid ? { ...r, clientPaid: null, clientPaidBy: null } : { ...r, clientPaid: Date.now(), clientPaidBy: me }))); monetSfx("save"); return; } save(items.map(r => r.id !== rid ? r : { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : (x.paid ? { ...x, paid: null, paidBy: null } : { ...x, paid: Date.now(), paidBy: me })) })); monetSfx("save"); };
+  const groups = recs.map(r => {
+    const rows = rowsOf(r);
+    const hit = !ql || [r.name, r.tel].join(" ").toLowerCase().includes(ql) || rows.some(x => [x.desc, x.acc].join(" ").toLowerCase().includes(ql));
+    const shownRows = rows.filter(x => !f || (f === "paid" ? x.paid : !x.paid));
+    return { r, rows, shownRows, hit };
+  }).filter(g => g.hit && g.shownRows.length);
+  const allRows = recs.flatMap(rowsOf);
+  const sum = a => a.reduce((t, x) => t + lsNum(x.amount), 0);
+  const tAll = sum(allRows), tPaid = sum(allRows.filter(x => x.paid));
+  const th = S.th, td = S.td;
+  const sel = { padding: "8px 10px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13, fontWeight: 700, background: "#fff" };
+  const tile = (t, v, c) => h("div", { style: { flex: "1 1 160px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, t), h("div", { style: { fontSize: 19, fontWeight: 900, color: c } }, "RM " + lsFmt(v)));
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" } }, tile("TOTAL OD PAYMENT", tAll, "#1e1b4b"), tile("已付 PAID", tPaid, "#15803d"), tile("还没付 UNPAID", tAll - tPaid, "#b91c1c")),
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search 客户名字 / 户口 / Bank Acc", value: q, onChange: e => setQ(e.target.value) })),
+      h("select", { value: f, onChange: e => setF(e.target.value), style: sel }, h("option", { value: "" }, "全部"), h("option", { value: "unpaid" }, "还没付"), h("option", { value: "paid" }, "已付"))),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["Name", "Date", "Pay To (Settlement / Client)", "Bank / Acc", "Amount", "已付"].map((x, i) => h("th", { key: i, style: i === 4 ? { ...th, ...S.thNum } : i === 5 ? { ...th, textAlign: "center" } : th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        groups.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, recs.length ? "找不到" : "还没有 — 在 Lending Fee 新增就会自动出现")) :
+        groups.flatMap(({ r, rows, shownRows }) => {
+          const gt = sum(rows), gp = sum(rows.filter(x => x.paid));
+          return shownRows.map((x, i) => h("tr", { key: r.id + "_" + x.id, style: x.paid ? { background: "#f0fdf4" } : null },
+            i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, verticalAlign: "top", borderRight: "1px solid #eef0f6" } }, r.name,
+              r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, r.tel),
+              h("div", { style: { fontSize: 11.5, fontWeight: 800, marginTop: 4, color: gp >= gt ? "#15803d" : "#b45309" } }, (gp >= gt ? "✅ 全部付了 · " : "未付 RM " + lsFmt(gt - gp) + " · ") + "总 RM " + lsFmt(gt))),
+            i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, verticalAlign: "top", whiteSpace: "nowrap" } }, r.date ? tpDate(dtDMY(r.date)) : "—"),
+            h("td", { style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : undefined } }, x.client ? "💰 " : "", String(x.desc || "").toUpperCase() || "—"),
+            h("td", { style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, ...(x.client ? { color: "#2c6fbb", fontWeight: 800 } : {}) } }, String(x.acc || "").toUpperCase() || "—"),
+            h("td", { style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
+            h("td", { style: { ...td, textAlign: "center" } }, h("button", { onClick: () => togglePaid(r.id, x.id), disabled: ro, title: x.paid ? "已付 · " + (x.paidBy || "") + " · " + new Date(x.paid).toLocaleDateString("en-GB") : "按一下 = 已付", style: { border: "1px solid " + (x.paid ? "#86efac" : "#e2e8f0"), background: x.paid ? "#dcfce7" : "#fff", color: x.paid ? "#15803d" : "#94a3b8", borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 12, cursor: ro ? "default" : "pointer", whiteSpace: "nowrap" } }, x.paid ? "✓ PAID" : "未付"))));
+        })))));
 }
+
 const PAYSLIP_TOOLS = [{
   name: "Amazing Leader",
   url: "https://docs.google.com/spreadsheets/d/1_Y4ULAmKR16-DSY3HxIwlSXR1aUL6DpC/edit"
@@ -3583,7 +3627,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v126"));
+    h("div", { className: "sb-ver" }, "v127"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
