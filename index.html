@@ -3640,7 +3640,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v136"));
+    h("div", { className: "sb-ver" }, "v137"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4588,7 +4588,7 @@ function lfCopyPics(ids, name) {
   ReactDOM.render(React.createElement(LfCopyPanel, { ids, name, onClose: close }), el);
 }
 const lfCopyBtn = (h, ids, name, small) => h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, disabled: !ids.length, title: ids.length ? ids.length + " 张照片" : "还没有照片",
-  style: { border: "1px solid " + (ids.length ? "#c4b5fd" : "#e2e8f0"), background: ids.length ? "#f5f3ff" : "#f8fafc", color: ids.length ? "#6d28d9" : "#cbd5e1", borderRadius: small ? 999 : 10, padding: small ? "3px 10px" : "7px 14px", fontWeight: 900, fontSize: small ? 11 : 12.5, cursor: ids.length ? "pointer" : "default", whiteSpace: "nowrap", marginTop: small ? 6 : 0 } }, "📋 Copy Pic" + (ids.length ? " (" + ids.length + ")" : ""));
+  style: { border: "1px solid " + (ids.length ? "#c4b5fd" : "#e2e8f0"), background: ids.length ? "#f5f3ff" : "#f8fafc", color: ids.length ? "#6d28d9" : "#cbd5e1", borderRadius: small ? 999 : 10, padding: small ? "3px 10px" : "7px 14px", fontWeight: 900, fontSize: small ? 11 : 12.5, cursor: ids.length ? "pointer" : "default", whiteSpace: "nowrap", marginTop: small === true ? 6 : 0 } }, "📋 Copy Pic" + (ids.length ? " (" + ids.length + ")" : ""));
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
 
@@ -4619,12 +4619,12 @@ function LendingFeePage({ currentUser }) {
   const inp = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid #cbd5e1", fontSize: 13.5, fontFamily: "inherit", outline: "none", background: "#fff" };
   const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, t);
   const fld = (t, k, extra, flex) => h("div", { style: { flex: flex || "1 1 160px" } }, lbl(t), h("input", { value: form[k] == null ? "" : form[k], onChange: e => setForm({ ...form, [k]: e.target.value }), style: inp, ...(extra || {}) }));
-  const sec = (title, key, cols, extra) => {
+  const sec = (title, key, cols, extra, headRight) => {
     const rows = form[key] || [];
     const setRow = (id, k, v) => setForm({ ...form, [key]: rows.map(x => x.id === id ? { ...x, [k]: v, ...(k === "photos" ? { photosBy: v.length ? (x.photosBy || me) : null } : {}) } : x) });
     const tot = rows.reduce((a, x) => a + lsNum(x.amount), 0);
     return h("div", { style: { border: "1px solid #fde68a", borderRadius: 12, marginTop: 14, overflow: "hidden" } },
-      h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f" } }, title),
+      h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f", display: "flex", alignItems: "center", gap: 8 } }, h("span", { style: { flex: 1 } }, title), headRight || null),
       h("div", { style: { padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 } },
         rows.map(x => h("div", { key: x.id, style: { display: "flex", gap: 6, alignItems: "center" } },
           cols.map(([k, ph, w, num]) => h("input", { key: k, value: x[k] || "", placeholder: ph, readOnly: key === "settlement" && lfLocked(x), title: key === "settlement" && lfLocked(x) ? "已上传照片，不能更改 —— 有变动请加多一行" : undefined, inputMode: num ? "decimal" : undefined, onChange: e => setRow(x.id, k, num ? e.target.value.replace(/[^\d.,]/g, "") : e.target.value), onBlur: num ? e => { const v = e.target.value.trim(); if (v) setRow(x.id, k, lsFmt(lsNum(v))); } : undefined, style: { ...inp, flex: w, minWidth: 0, textAlign: num ? "right" : "left", textTransform: "uppercase", ...(key === "settlement" && lfLocked(x) ? { background: "#f1f5f9", color: "#475569", cursor: "not-allowed" } : {}) } })),
@@ -4724,7 +4724,7 @@ function LendingFeePage({ currentUser }) {
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 820, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
           h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending"),
-          h("div", { style: { marginRight: 8, display: "flex", alignItems: "center", gap: 6 } }, h(LfPhotos, { ids: form.photos, ro: !lfCanEdit(form.photosBy, me), onChange: v => setForm({ ...form, photos: v, photosBy: v.length ? (form.photosBy || me) : null }) }), lfCopyBtn(h, lfAllPhotoIds(form), form.name)),
+          h("div", { style: { marginRight: 8, display: "flex", alignItems: "center", gap: 6 } }, h(LfPhotos, { ids: form.photos, ro: !lfCanEdit(form.photosBy, me), onChange: v => setForm({ ...form, photos: v, photosBy: v.length ? (form.photosBy || me) : null }) }), ),
           h("button", { onClick: () => !busy && setForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "14px 18px 18px" } },
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
@@ -4735,7 +4735,8 @@ function LendingFeePage({ currentUser }) {
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
-            h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: !lfCanEdit(x.photosBy || x.paidBy, me), onChange: v => set("photos", v) })]),
+            h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: !lfCanEdit(x.photosBy || x.paidBy, me), onChange: v => set("photos", v) })],
+            (() => { const ids = (form.settlement || []).flatMap(x => x.photos || []); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
           sumBox(),
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 } },
