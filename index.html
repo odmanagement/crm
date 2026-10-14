@@ -1552,7 +1552,7 @@ function ODPaymentPage({ currentUser }) {
   const sel = { padding: "8px 10px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13, fontWeight: 700, background: "#fff" };
   const tile = (t, v, c) => h("div", { style: { flex: "1 1 160px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, t), h("div", { style: { fontSize: 19, fontWeight: 900, color: c } }, "RM " + lsFmt(v)));
   return h("div", { className: "cz-page" },
-    h("style", null, ".cz-table td.od-pd{background:#fdf2f8 !important}"),
+    h("style", null, ".cz-table td.od-pd{background:#fdf2f8 !important} .od-tbl td{font-size:14.5px !important} .od-tbl td.od-num{font-size:17px !important} .od-tbl td.od-acc{font-size:15px !important} .od-tbl th{font-size:12.5px !important}"),
     h("div", { style: { display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" } }, tile("TOTAL OD PAYMENT", tAll, "#1e1b4b"), tile("已付 PAID", tPaid, "#15803d"), tile("还没付 UNPAID", tAll - tPaid, "#b91c1c")),
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search 客户名字 / 户口 / Bank Acc", value: q, onChange: e => setQ(e.target.value) })),
@@ -1573,14 +1573,14 @@ function ODPaymentPage({ currentUser }) {
             h("button", { onClick: () => setMForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "9px 16px", fontWeight: 800, cursor: "pointer" } }, "取消"),
             h("button", { onClick: mSave, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "9px 20px", fontWeight: 900, cursor: "pointer" } }, "💾 保存"))));
     })(),
-    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table od-tbl", style: S.dataTable },
       h("thead", null, h("tr", null, ["Name", "Date", "Pay To (Settlement / Client)", "Bank / Acc", "Amount", "付款日期", "照片", "已付"].map((x, i) => h("th", { key: i, style: i === 4 ? { ...th, ...S.thNum } : i === 7 ? { ...th, textAlign: "center" } : th }, x)))),
       h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 8, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
         groups.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, recs.length ? "找不到" : "还没有 — 在 Lending Fee 新增就会自动出现")) :
         groups.flatMap(({ r, rows, shownRows }) => {
           const gt = sum(rows), gp = sum(rows.filter(x => x.paid));
           return shownRows.map((x, i) => h("tr", { key: r.id + "_" + x.id, style: x.paid ? { background: "#fdf2f8" } : null },
-            i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, verticalAlign: "top", borderRight: "1px solid #eef0f6" } }, r.name,
+            i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, fontSize: 15.5, verticalAlign: "top", borderRight: "1px solid #eef0f6", ...(r.manual ? {} : { background: r.funder === "FUTURE" ? "#fff7ed" : "#eff6ff", borderLeft: "4px solid " + (r.funder === "FUTURE" ? "#ea580c" : "#2563eb") }) } }, r.name,
               r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel)),
               !r.manual && h("div", null, lfFunderTag(h, r.funder)),
               r.manual && h("div", { style: { display: "flex", gap: 4, marginTop: 4 } },
@@ -1590,8 +1590,8 @@ function ODPaymentPage({ currentUser }) {
               h("div", { style: { fontSize: 11.5, fontWeight: 800, marginTop: 4, color: gp >= gt ? "#15803d" : "#b45309" } }, (gp >= gt ? "✅ 全部付了 · " : "未付 RM " + lsFmt(gt - gp) + " · ") + "总 RM " + lsFmt(gt))),
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, verticalAlign: "top", whiteSpace: "nowrap" } }, r.date ? tpDate(dtDMY(r.date)) : "—"),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : x.bal ? "#b45309" : undefined, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: 320, overflow: "visible", textOverflow: "clip" } }, String(x.desc || "").toUpperCase() || "—"),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, fontWeight: 800, color: x.client ? "#2c6fbb" : "#1e293b" } }, lfAcc(String(x.acc || "").toUpperCase()) || "—"),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
+            h("td", { className: (x.paid ? "od-pd " : "") + "od-acc", style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, fontWeight: 800, color: x.client ? "#2c6fbb" : "#1e293b" } }, lfAcc(String(x.acc || "").toUpperCase()) || "—"),
+            h("td", { className: (x.paid ? "od-pd " : "") + "od-num", style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? tpDate(dtDMY(x.payDate)) : "—"),
             (() => { const owner = x.photosBy || x.paidBy || null, ok = !ro && lfCanEdit(owner, me), who = owner ? String(owner).toUpperCase() : "";
               return [
@@ -3697,7 +3697,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v143"));
+    h("div", { className: "sb-ver" }, "v144"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4669,7 +4669,7 @@ function LfCopyBtn({ ids, name, small }) {
     n > 1 && h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, title: "全部照片 · Share / 下载", style: { ...base, background: "#f5f3ff", color: "#6d28d9", borderLeft: "none", borderRadius: "0 999px 999px 0", padding: small ? "3px 7px" : "7px 9px" } }, "▾"));
 }
 const lfCopyBtn = (h, ids, name, small) => h(LfCopyBtn, { ids: ids || [], name, small });
-const lfFunderTag = (h, f) => h("div", { style: { display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 900, letterSpacing: .5, borderRadius: 999, padding: "1px 8px", color: "#fff", background: f === "FUTURE" ? "#db2777" : "#4f46e5" } }, f === "FUTURE" ? "FUTURE" : "FINPRO");
+const lfFunderTag = (h, f) => h("div", { style: { display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 900, letterSpacing: .5, borderRadius: 999, padding: "1px 8px", color: "#fff", background: f === "FUTURE" ? "#ea580c" : "#2563eb" } }, f === "FUTURE" ? "FUTURE" : "FINPRO");
 /* 户口号码：连续 8 个以上数字 → 每 4 个空一格 */
 const lfAcc = v => String(v || "").replace(/\d{8,}/g, d => d.replace(/(\d{4})(?=\d)/g, "$1 "));
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
@@ -4812,7 +4812,7 @@ function LendingFeePage({ currentUser }) {
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 820, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
           h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending",
-            h("div", { style: { display: "inline-flex", border: "1px solid #c7d2fe", borderRadius: 999, overflow: "hidden" } }, ["FINPRO", "FUTURE"].map(k => h("button", { key: k, type: "button", onClick: () => setForm({ ...form, funder: k }), style: { border: "none", padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: (form.funder || "FINPRO") === k ? (k === "FINPRO" ? "#4f46e5" : "#db2777") : "#fff", color: (form.funder || "FINPRO") === k ? "#fff" : "#64748b" } }, k)))),
+            h("div", { style: { display: "inline-flex", border: "1px solid #c7d2fe", borderRadius: 999, overflow: "hidden" } }, ["FINPRO", "FUTURE"].map(k => h("button", { key: k, type: "button", onClick: () => setForm({ ...form, funder: k }), style: { border: "none", padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: (form.funder || "FINPRO") === k ? (k === "FINPRO" ? "#2563eb" : "#ea580c") : "#fff", color: (form.funder || "FINPRO") === k ? "#fff" : "#64748b" } }, k)))),
           h("div", { style: { marginRight: 8, display: "flex", alignItems: "center", gap: 6 } }, h(LfPhotos, { ids: form.photos, noDel: !lfCanEdit(form.photosBy, me), ro: READONLY_USERS.includes(me), onChange: v => setForm({ ...form, photos: v, photosBy: v.length ? (form.photosBy || me) : null }) }), ),
           h("button", { onClick: () => !busy && setForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "14px 18px 18px" } },
