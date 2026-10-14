@@ -3732,7 +3732,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v159"));
+    h("div", { className: "sb-ver" }, "v160"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4828,7 +4828,17 @@ function LendingFeePage({ currentUser }) {
         const sub = { flexBasis: "100%", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginTop: 4, color: "#64748b", fontSize: 11.5, fontWeight: 800 };
         const canAdd = lfCanEdit(null, me);
         const tbIds = pays.flatMap(p => p.photos || []);
-        return h("div", { style: { flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2 } },
+        /* OD Payment 的 Return（打勾 / 照片 / 备注）也 show 在这里最后面 */
+        const retSrc = [...pays.map((p, k) => ({ label: "第 " + (k + 1) + " 笔", done: p.retDone, ph: p.retPhotos || [], note: p.note || "" })), { label: pays.length ? "差额" : "", done: form.toBankRetDone, ph: form.toBankRetPhotos || [], note: form.toBankNote || "" }].filter(x => x.done || x.ph.length || x.note);
+        const retBlock = retSrc.length > 0 && h("div", { style: { flexBasis: "100%", marginTop: 6, border: "1px dashed #86efac", background: "#f0fdf4", borderRadius: 10, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 4 } },
+          h("div", { style: { fontSize: 11, fontWeight: 900, color: "#15803d", letterSpacing: .5 } }, "↩ RETURN（OD Payment）"),
+          retSrc.map((x, k) => h("div", { key: k, style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: "#1e293b", fontWeight: 600 } },
+            x.label && h("span", { style: { fontWeight: 900, color: "#475569" } }, x.label),
+            h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: 5, background: x.done ? "#16a34a" : "#fff", border: "2px solid " + (x.done ? "#16a34a" : "#cbd5e1"), color: "#fff", fontSize: 12, fontWeight: 900 } }, x.done ? "✓" : ""),
+            x.done && h("span", { style: { fontSize: 11, color: "#15803d", fontWeight: 800 } }, String(x.done.by || "").toUpperCase()),
+            x.ph.length > 0 && h(LfPhotos, { ids: x.ph, ro: true, compact: true, onChange: () => {} }),
+            x.note && h("span", { style: { whiteSpace: "pre-wrap", background: "#fffbeb", borderRadius: 6, padding: "2px 8px" } }, x.note))));
+        return h(React.Fragment, null, h("div", { style: { flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2 } },
           tbIds.length > 0 && h("div", { style: { display: "flex", justifyContent: "flex-end", fontWeight: 600 } }, lfCopyBtn(h, tbIds, (form.name || "") + " to bank", "xs")),
           pays.map((p, k) => h("div", { key: p.id, style: { ...sub, background: "#f1f5f9", borderRadius: 8, padding: "4px 8px" } },
             h("span", { style: { flex: 1, color: "#15803d" } }, "🔒 第 " + (k + 1) + " 笔 · " + (p.date ? dtDMY(p.date) : "—") + (p.time ? " " + p.time : "") + (p.photosBy ? " · by " + String(p.photosBy).toUpperCase() : "")),
@@ -4841,7 +4851,7 @@ function LendingFeePage({ currentUser }) {
             !form.toBankSkip && h("input", { type: "date", value: form.toBankDate || "", title: "付款日期", disabled: !!form.toBankSkip, onChange: e => setForm({ ...form, toBankDate: e.target.value }), style: { ...inp, width: 132, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600, ...(form.toBankSkip ? { opacity: .4 } : {}) } }),
             !form.toBankSkip && h("input", { type: "time", value: form.toBankTime || "", title: "付款时间", onChange: e => setForm({ ...form, toBankTime: e.target.value }), style: { ...inp, width: 96, flex: "0 0 96px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600 } }),
             lfSkipBtn(h, !!form.toBankSkip, () => setForm({ ...form, toBankSkip: !form.toBankSkip })),
-            !form.toBankSkip && h(LfPhotos, { ids: [], ro: READONLY_USERS.includes(me), onChange: v => { if (!v.length) return; lfNotifyPhoto(form.by, me, form.name, "FUNDER FEE", lsFmt(pays.length ? remain : st.tobank)); setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), time: form.toBankTime || lfNowHM(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankTime: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
+            !form.toBankSkip && h(LfPhotos, { ids: [], ro: READONLY_USERS.includes(me), onChange: v => { if (!v.length) return; lfNotifyPhoto(form.by, me, form.name, "FUNDER FEE", lsFmt(pays.length ? remain : st.tobank)); setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), time: form.toBankTime || lfNowHM(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankTime: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } }))), retBlock);
       })())));
   const openPdf = r => setPdf(r);
   const onPdfLoad = () => {
