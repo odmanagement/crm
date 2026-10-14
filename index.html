@@ -1530,6 +1530,7 @@ function ODPaymentPage({ currentUser }) {
           return shownRows.map((x, i) => h("tr", { key: r.id + "_" + x.id, style: x.paid ? { background: "#f0fdf4" } : null },
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, verticalAlign: "top", borderRight: "1px solid #eef0f6" } }, r.name,
               r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel)),
+              lfAllPhotoIds(r).length > 0 && h("div", null, lfCopyBtn(h, lfAllPhotoIds(r), r.name, true)),
               h("div", { style: { fontSize: 11.5, fontWeight: 800, marginTop: 4, color: gp >= gt ? "#15803d" : "#b45309" } }, (gp >= gt ? "✅ 全部付了 · " : "未付 RM " + lsFmt(gt - gp) + " · ") + "总 RM " + lsFmt(gt))),
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, verticalAlign: "top", whiteSpace: "nowrap" } }, r.date ? tpDate(dtDMY(r.date)) : "—"),
             h("td", { style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : undefined } }, String(x.desc || "").toUpperCase() || "—"),
@@ -3639,7 +3640,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v134"));
+    h("div", { className: "sb-ver" }, "v135"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4550,6 +4551,33 @@ function lfNorm(r) {
     toBankDate: "", toBankPhotos: [], toBankPhotosBy: null, clientPaid: null, clientPaidBy: null };
 }
 const lfTbRemain = (r, tb) => lfR2(tb - (r.toBankPays || []).reduce((t, p) => t + (Number(p.amount) || 0), 0));
+/* Copy Pic：把这个客户所有上传的照片拼成一张图，copy 进剪贴板（不行就下载） */
+const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.settlement || []).flatMap(x => x.photos || []), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
+async function lfCopyPics(ids, name) {
+  ids = (ids || []).filter(Boolean);
+  if (!ids.length) { alert("还没有照片"); return; }
+  const srcs = [];
+  for (const id of ids) { let v = _photoCache[id]; if (!v) { try { v = await DB.get("mphoto_" + id); if (v) _photoCache[id] = v; } catch (e) {} } if (v) srcs.push(v); }
+  const imgs = await Promise.all(srcs.map(src => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; })));
+  const ok = imgs.filter(Boolean); if (!ok.length) { alert("照片载入失败"); return; }
+  const W = Math.min(1000, Math.max(...ok.map(im => im.width))), gap = 12;
+  const hs = ok.map(im => Math.round(im.height * (W / im.width)));
+  let H = hs.reduce((a, b) => a + b, 0) + gap * (ok.length - 1), sc = 1;
+  if (H > 30000) { sc = 30000 / H; H = 30000; }
+  const c = document.createElement("canvas"); c.width = Math.round(W * sc); c.height = Math.round(H);
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+  let y = 0; ok.forEach((im, i) => { ctx.drawImage(im, 0, y, c.width, hs[i] * sc); y += (hs[i] + gap) * sc; });
+  const blob = await new Promise(res => c.toBlob(res, "image/png"));
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    monetSfx("save"); alert("✅ 已 copy " + ok.length + " 张照片（拼成一张）— 去 WhatsApp 按 Ctrl+V 贴上");
+  } catch (e) {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (String(name || "photos").replace(/[^\w\- ]+/g, "").trim() || "photos") + ".png"; document.body.appendChild(a); a.click(); a.remove();
+    alert("浏览器不给 copy 图片，已经帮你下载成一张图。");
+  }
+}
+const lfCopyBtn = (h, ids, name, small) => h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, disabled: !ids.length, title: ids.length ? "把 " + ids.length + " 张照片拼成一张 copy" : "还没有照片",
+  style: { border: "1px solid " + (ids.length ? "#c4b5fd" : "#e2e8f0"), background: ids.length ? "#f5f3ff" : "#f8fafc", color: ids.length ? "#6d28d9" : "#cbd5e1", borderRadius: small ? 999 : 10, padding: small ? "3px 10px" : "7px 14px", fontWeight: 900, fontSize: small ? 11 : 12.5, cursor: ids.length ? "pointer" : "default", whiteSpace: "nowrap", marginTop: small ? 6 : 0 } }, "📋 Copy Pic" + (ids.length ? " (" + ids.length + ")" : ""));
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
 
@@ -4673,6 +4701,7 @@ function LendingFeePage({ currentUser }) {
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 820, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
           h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending"),
+          h("div", { style: { marginRight: 8 } }, lfCopyBtn(h, lfAllPhotoIds(form), form.name)),
           h("button", { onClick: () => !busy && setForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "14px 18px 18px" } },
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
