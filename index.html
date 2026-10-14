@@ -1583,6 +1583,7 @@ function ODPaymentPage({ currentUser }) {
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, fontSize: 15.5, verticalAlign: "top", borderRight: "1px solid #eef0f6", ...(r.manual ? {} : { background: r.funder === "FUTURE" ? "#fff7ed" : "#eff6ff", borderLeft: "4px solid " + (r.funder === "FUTURE" ? "#ea580c" : "#2563eb") }) } }, r.name,
               r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel)),
               !r.manual && h("div", null, lfFunderTag(h, r.funder)),
+              (r.manual ? r.m.by : r.by) && h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginTop: 5, fontSize: 11.5, color: "#64748b", fontWeight: 800 } }, czAvatar(r.manual ? r.m.by : r.by, 20), "ADMIN: " + String(r.manual ? r.m.by : r.by).toUpperCase()),
               r.manual && h("div", { style: { display: "flex", gap: 4, marginTop: 4 } },
                 h("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#7c3aed", background: "#f5f3ff", borderRadius: 999, padding: "1px 8px" } }, "ADD PAYMENT"),
                 !ro && lfCanEdit(r.m.by, me) && !(r.m.photos && r.m.photos.length) && !r.m.paid && h("button", { onClick: () => setMForm({ ...r.m, amount: lsFmt(r.m.amount) }), title: "编辑", style: { ...S.fuDel, padding: 0 } }, h(Edit3, { size: 13, color: "#6366f1" })),
@@ -1595,7 +1596,7 @@ function ODPaymentPage({ currentUser }) {
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? tpDate(dtDMY(x.payDate)) : "—"),
             (() => { const owner = x.photosBy || x.paidBy || null, ok = !ro && lfCanEdit(owner, me), who = owner ? String(owner).toUpperCase() : "";
               return [
-                h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, ro, noDel: !ok, onChange: v => updRow(r.id, x.id, { photos: v }) }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
+                h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, ro, noDel: !ok, onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(r.manual ? r.m.by : r.by, me, r.name, x.desc, x.amount); updRow(r.id, x.id, { photos: v }); } }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
                 h("td", { className: x.paid ? "od-pd" : undefined, key: "pd", style: { ...td, textAlign: "center" } }, h("button", { onClick: () => ok && togglePaid(r.id, x.id), disabled: !ok, title: !ok && owner ? "只有 " + who + " 可以更改" : x.paid ? "已付 · " + String(x.paidBy || "").toUpperCase() + " · " + new Date(x.paid).toLocaleDateString("en-GB") : "按一下 = 已付", style: { border: "1px solid " + (x.paid ? "#86efac" : "#e2e8f0"), background: x.paid ? "#dcfce7" : "#fff", color: x.paid ? "#15803d" : "#94a3b8", borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 12, cursor: ok ? "pointer" : "not-allowed", whiteSpace: "nowrap", opacity: ok ? 1 : .75 } }, x.paid ? "✓ PAID" : "未付", !ok && owner ? " 🔒" : ""),
                   x.canPart && !ro && h("button", { onClick: () => partPay(r.id, x.id), title: "先付一部分（会分成两格：已付 + Balance）", style: { marginLeft: 4, border: "1px dashed #f9a8d4", background: "#fff", color: "#db2777", borderRadius: 999, padding: "4px 8px", fontWeight: 900, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" } }, "½ 部分"))];
             })()));
@@ -3557,7 +3558,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
                 h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "d", onClick: () => onDone && onDone(it.m.id), style: btn("#16a34a", "#fff") }, h(Check, { size: 13 }), "Done")
               ] : [
-                it.n.kind === "ref" && h("button", { key: "rv", onClick: () => { setOpen(false); window.__crmGoPage && window.__crmGoPage("referral"); }, style: btn("#dc2626", "#fff") }, "🧧 去看看"),
+                it.n.kind === "ref" && h("button", { key: "rv", onClick: () => { setOpen(false); window.__crmGoPage && window.__crmGoPage(it.n.page || "referral"); }, style: btn(it.n.page ? "#7c3aed" : "#dc2626", "#fff") }, it.n.page ? "👀 去看看" : "🧧 去看看"),
                 it.n.kind === "mreply" && h("button", { key: "mv", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 isFu(it) && it.n.cid && h("button", { key: "v", onClick: () => { setOpen(false); window.__crmOpenClient && window.__crmOpenClient(it.n.cid, it.n.ltype); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "c", onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了")
@@ -3697,7 +3698,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v144"));
+    h("div", { className: "sb-ver" }, "v145"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4672,6 +4673,8 @@ const lfCopyBtn = (h, ids, name, small) => h(LfCopyBtn, { ids: ids || [], name, 
 const lfFunderTag = (h, f) => h("div", { style: { display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 900, letterSpacing: .5, borderRadius: 999, padding: "1px 8px", color: "#fff", background: f === "FUTURE" ? "#ea580c" : "#2563eb" } }, f === "FUTURE" ? "FUTURE" : "FINPRO");
 /* 户口号码：连续 8 个以上数字 → 每 4 个空一格 */
 const lfAcc = v => String(v || "").replace(/\d{8,}/g, d => d.replace(/(\d{4})(?=\d)/g, "$1 "));
+/* 上传付款照片 → 通知开这笔 Lending 的 Admin */
+const lfNotifyPhoto = (admin, me, client, what, amount) => { if (!admin || sameUser(admin, me)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "odpayment", to: canonUser(admin), from: me, title: String(me || "").toUpperCase() + " 上传了付款照片 📷", task: String(client || "").toUpperCase() + " · " + String(what || "").toUpperCase() + (amount ? " · RM " + amount : ""), at: Date.now() }); } catch (e) {} };
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
 
@@ -4763,7 +4766,7 @@ function LendingFeePage({ currentUser }) {
             !form.toBankSkip && h("span", null, "付款日期"),
             !form.toBankSkip && h("input", { type: "date", value: form.toBankDate || "", title: "付款日期", disabled: !!form.toBankSkip, onChange: e => setForm({ ...form, toBankDate: e.target.value }), style: { ...inp, width: 132, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600, ...(form.toBankSkip ? { opacity: .4 } : {}) } }),
             lfSkipBtn(h, !!form.toBankSkip, () => setForm({ ...form, toBankSkip: !form.toBankSkip })),
-            !form.toBankSkip && h(LfPhotos, { ids: [], ro: READONLY_USERS.includes(me), onChange: v => { if (!v.length) return; setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
+            !form.toBankSkip && h(LfPhotos, { ids: [], ro: READONLY_USERS.includes(me), onChange: v => { if (!v.length) return; lfNotifyPhoto(form.by, me, form.name, "FUNDER FEE", lsFmt(pays.length ? remain : st.tobank)); setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
       })())));
   const openPdf = r => setPdf(r);
   const onPdfLoad = () => {
@@ -4824,7 +4827,7 @@ function LendingFeePage({ currentUser }) {
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
-            h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: READONLY_USERS.includes(me), onChange: v => set("photos", v) })],
+            h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("photos", v); } })],
             (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
           sumBox(),
