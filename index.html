@@ -3494,6 +3494,18 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
   const h = React.createElement;
   const [open, setOpen] = React.useState(false);
   const [peek, setPeek] = React.useState(true);
+  /* 通知头像可以拖来拖去，位置记在这台电脑 */
+  const [pos, setPos] = React.useState(() => { try { const p = JSON.parse(localStorage.getItem("crm_mh_pos") || "null"); if (p && isFinite(p.r) && isFinite(p.b)) return p; } catch (e) {} return { r: 20, b: 20 }; });
+  const drag = React.useRef(null);
+  const clampPos = p => ({ r: Math.max(4, Math.min(window.innerWidth - 66, p.r)), b: Math.max(4, Math.min(window.innerHeight - 66, p.b)) });
+  React.useEffect(() => { const f = () => setPos(p => clampPos(p)); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
+  const onDown = e => {
+    if (e.button != null && e.button !== 0) return;
+    drag.current = { x: e.clientX, y: e.clientY, r: pos.r, b: pos.b, moved: false };
+    const mv = ev => { const d = drag.current; if (!d) return; const dx = ev.clientX - d.x, dy = ev.clientY - d.y; if (!d.moved && Math.abs(dx) + Math.abs(dy) < 6) return; d.moved = true; setPos(clampPos({ r: d.r - dx, b: d.b - dy })); };
+    const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); const d = drag.current; if (d && d.moved) { setPos(p => { try { localStorage.setItem("crm_mh_pos", JSON.stringify(p)); } catch (e) {} return p; }); setTimeout(() => { drag.current = null; }, 0); } else drag.current = null; };
+    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+  };
   const mine = (missions || []).filter(m => sameUser(m.owner, currentUser) && m.assignedBy && m.status !== "done");
   const myNotices = (notices || []).filter(n => sameUser(n.to, currentUser));
   const items = [
@@ -3538,10 +3550,11 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
   const first = items[0];
   const ago = t => { const d = Math.floor((Date.now() - (t || 0)) / 60000); return d < 1 ? "刚刚" : d < 60 ? d + " 分钟前" : d < 1440 ? Math.floor(d / 60) + " 小时前" : Math.floor(d / 1440) + " 天前"; };
   const btn = (bg, color) => ({ display: "flex", alignItems: "center", gap: 4, background: bg, color, border: "none", borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" });
-  return h("div", { style: { position: "fixed", right: 20, bottom: 20, zIndex: 9999, fontFamily: "inherit" } },
+  const onLeft = pos.r > window.innerWidth / 2, onTop = pos.b > window.innerHeight / 2;
+  return h("div", { style: { position: "fixed", right: pos.r, bottom: pos.b, zIndex: 9999, fontFamily: "inherit" } },
     h("style", null, "@keyframes mhPop{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}@keyframes mhIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}@keyframes mhPeek{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}"),
     open && h("div", {
-      style: { position: "absolute", right: 0, bottom: 72, width: 340, maxWidth: "calc(100vw - 40px)", background: "#fff", borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,.2)", overflow: "hidden", animation: "mhIn .2s ease-out" }
+      style: { position: "absolute", ...(onLeft ? { left: 0 } : { right: 0 }), ...(onTop ? { top: 72 } : { bottom: 72 }), width: 340, maxWidth: "calc(100vw - 40px)", background: "#fff", borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,.2)", overflow: "hidden", animation: "mhIn .2s ease-out" }
     },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #eef0f3" } },
         h("div", { style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#050505" } }, "通知 (" + items.length + ")"),
@@ -3566,15 +3579,16 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
               ])))))),
     !open && peek && h("div", {
       onClick: () => { askNotify(); setOpen(true); setPeek(false); },
-      style: { position: "absolute", right: 70, bottom: 6, width: 240, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
+      style: { position: "absolute", ...(onLeft ? { left: 70 } : { right: 70 }), bottom: 6, width: 240, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
     },
       h("div", { style: { fontSize: 13, fontWeight: 700, color: isFu(first) ? "#0369a1" : first.kind === "n" ? "#15803d" : "#050505" } }, titleOf(first)),
       h("div", { style: { fontSize: 13, color: "#65676b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, textOf(first)),
       h("button", { onClick: e => { e.stopPropagation(); setPeek(false); }, style: { position: "absolute", top: 6, right: 6, background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" } }, h(X, { size: 13, color: "#94a3b8" }))),
     h("div", {
-      onClick: () => { askNotify(); setOpen(!open); setPeek(false); },
-      title: "通知",
-      style: { position: "relative", cursor: "pointer", borderRadius: "50%", boxShadow: "0 4px 14px rgba(0,0,0,.25)", animation: "mhPop .35s ease-out" }
+      onPointerDown: onDown,
+      onClick: () => { if (drag.current && drag.current.moved) return; askNotify(); setOpen(!open); setPeek(false); },
+      title: "通知（可以拖动）",
+      style: { position: "relative", cursor: "grab", touchAction: "none", userSelect: "none", borderRadius: "50%", boxShadow: "0 4px 14px rgba(0,0,0,.25)", animation: "mhPop .35s ease-out" }
     }, avatar(first.name, 58, first.kind === "n" && !isFu(first)),
       h("div", { style: { position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 10, background: "#fa3e3e", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", boxSizing: "border-box" } }, items.length)));
 }
@@ -3699,7 +3713,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v151"));
+    h("div", { className: "sb-ver" }, "v152"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
