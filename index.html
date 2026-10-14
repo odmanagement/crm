@@ -1092,7 +1092,7 @@ function CountUp({ value }) {
   return m[1] + Math.round(n).toLocaleString() + m[3];
 }
 /* ===== 个人主题（登录名 → 主题） ===== */
-const USER_THEMES = { vv: "pink", money: "star", joey: "cat", alice: "monet" };
+const USER_THEMES = { vv: "pink", money: "star", joey: "cat", alice: "monet", chialing: "sky" };
 const CatSvg = ({ c = "#f97316", size = 60 }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 60 60" },
   React.createElement("path", { d: "M10 22 L14 6 L24 16 Q30 14 36 16 L46 6 L50 22 Q54 30 50 40 Q44 52 30 52 Q16 52 10 40 Q6 30 10 22Z", fill: c }),
   React.createElement("path", { d: "M15 12 L20 18 L16 20Z M45 12 L40 18 L44 20Z", fill: "#fff", opacity: .55 }),
@@ -1182,6 +1182,9 @@ function ThemeFx({ theme, page }) {
   if (theme === "pink") kids = make(30, (i, a, b, c) => i % 5 !== 4
     ? h("span", { key: i, className: "tf-fall tf-spin", style: { left: a * 100 + "%", animationDuration: 8 + c * 9 + "s", animationDelay: -c * 16 + "s" } }, h(LuckyCoin, { size: 22 + b * 22, mark: ["$", "RM", "¥"][i % 3] }))
     : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 14 + b * 16, animationDuration: 10 + c * 12 + "s", animationDelay: -c * 20 + "s", color: "#f472b6" } }, ["💗", "♡", "✦"][i % 3]));
+  if (theme === "sky") kids = make(30, (i, a, b, c) => i % 3 === 0
+    ? h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 26 + b * 26, animationDuration: 22 + c * 18 + "s", animationDelay: -c * 30 + "s", opacity: .75 } }, "☁️")
+    : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 10 + b * 14, animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s", color: ["#7dd3fc", "#93c5fd", "#a5f3fc", "#bae6fd"][i % 4] } }, ["✦", "●", "💧", "✧"][i % 4]));
   if (theme === "honey") kids = make(20, (i, a, b, c) => h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 16 + b * 18, animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s" } }, ["🍯", "🌼", "🐝", "🍪", "🌻"][i % 5]));
   if (theme === "star") kids = make(40, (i, a, b, c) => i % 3 !== 2
     ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 12 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, i % 4 === 0 ? h(CaishenSvg, { size: 40 + b * 30 }) : h(StarBuddy, { c: ["#fde68a", "#fcd77f", "#fef3c7", "#f9e08e", "#fdeaa7"][i % 5], size: 30 + b * 38 }))
@@ -3262,7 +3265,7 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star", "monet"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
+  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star", "monet", "sky"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
     theme: USER_THEMES[canonUser(currentUser)],
     page: page
   }) : /*#__PURE__*/React.createElement(PageFx, {
@@ -3698,7 +3701,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v145"));
+    h("div", { className: "sb-ver" }, "v146"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5724,7 +5727,7 @@ function StageTimeline({ stage, onSet }) {
       h("button", { className: "tl-rej" + (rej ? " on" : ""), onClick: () => onSet(rej ? "pending" : "rejected") }, rej ? "取消 Rejected" : "标为 Rejected")),
     h("style", null, `
     .tl{--c:#6366f1;--c2:#8b5cf6;margin:4px 0 16px;padding:16px 16px 12px;border-radius:16px;background:#fff;border:1px solid #eef0f6}
-    .theme-pink .tl{--c:#ec4899;--c2:#f472b6} .theme-cat .tl{--c:#dc2626;--c2:#f59e0b} .theme-star .tl{--c:#d4a52c;--c2:#e9c46a} .theme-monet .tl{--c:#6f9c8a;--c2:#9fb7d9} .theme-gold .tl{--c:#b8901f;--c2:#e8c96a}
+    .theme-pink .tl{--c:#ec4899;--c2:#f472b6} .theme-cat .tl{--c:#dc2626;--c2:#f59e0b} .theme-star .tl{--c:#d4a52c;--c2:#e9c46a} .theme-monet .tl{--c:#6f9c8a;--c2:#9fb7d9} .theme-sky .tl{--c:#0ea5e9;--c2:#7dd3fc} .theme-gold .tl{--c:#b8901f;--c2:#e8c96a}
     .tl-track{display:flex;align-items:flex-start}
     .tl-line{flex:1;height:3px;border-radius:3px;margin-top:14px;background:#e9ecf3;transition:background .4s}
     .tl-line.on{background:linear-gradient(90deg,var(--c),var(--c2))}
@@ -5759,7 +5762,7 @@ function TodoPage({ currentUser }) {
   const save = list => { setItems(list); DB.set(KEY, JSON.stringify(list)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: KEY, next: list } })); } catch (e) {} };
   React.useEffect(() => { const f = e => { if (e.detail && e.detail.key === KEY) setItems(e.detail.next); }; window.addEventListener("crm-cloudlist", f); return () => window.removeEventListener("crm-cloudlist", f); }, [KEY]);
   const theme = USER_THEMES[canonUser(currentUser)];
-  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#ca8a04", "#facc15"], gold: ["#b8901f", "#e8c96a"], monet: ["#6f9c8a", "#9fb7d9"] }[theme] || ["#4f46e5", "#0ea5e9"];
+  const ac = { pink: ["#ec4899", "#f472b6"], cat: ["#dc2626", "#f59e0b"], star: ["#ca8a04", "#facc15"], gold: ["#b8901f", "#e8c96a"], monet: ["#6f9c8a", "#9fb7d9"], sky: ["#0ea5e9", "#7dd3fc"] }[theme] || ["#4f46e5", "#0ea5e9"];
   const list = items || [];
   const add = () => { const t = text.trim(); if (!t) return; if (list.some(x => !x.done && String(x.text).trim().toLowerCase() === t.toLowerCase())) { alert("已经有一样的 To-Do 了"); return; } save([{ id: uid(), text: t, done: false, at: Date.now() }, ...list]); setText(""); monetSfx("create"); try { window.dispatchEvent(new Event("todo-added")); } catch (e) {} };
   const toggle = id => { const it = list.find(x => x.id === id); if (it && !it.done) { setJustDone(id); setTimeout(() => setJustDone(null), 700); monetSfx(list.filter(x => !x.done).length <= 1 ? "allDone" : "complete"); } save(list.map(x => x.id === id ? { ...x, done: !x.done, doneAt: x.done ? null : Date.now() } : x)); };
@@ -6382,6 +6385,7 @@ function CompanyFilesPage() {
   const css = `
   .co-wrap{margin:-28px;padding:30px 28px;min-height:calc(100vh - 67px);background:transparent;--a1:#6366f1;--a2:#8b5cf6;--ink:#1e1b4b;--soft:#eef2ff}
   .theme-pink .co-wrap{--a1:#ec4899;--a2:#f472b6;--ink:#831843;--soft:#fdf2f8}
+  .theme-sky .co-wrap{--a1:#0ea5e9;--a2:#7dd3fc;--ink:#0c4a6e;--soft:#f0f9ff}
   .theme-cat .co-wrap{--a1:#dc2626;--a2:#f59e0b;--ink:#7f1d1d;--soft:#fff7ed}
   .theme-star .co-wrap{--a1:#d4a52c;--a2:#f6d77a;--ink:#5c4312;--soft:#fffbeb}
   .co-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;background:rgba(255,255,255,.88);border:1px solid rgba(0,0,0,.05);border-radius:18px;padding:18px 20px;box-shadow:0 8px 24px -12px rgba(0,0,0,.15)}
@@ -6421,7 +6425,8 @@ function CompanyFilesPage() {
     pink: ["#ec4899", "#a855f7", "#f43f5e", "#d946ef", "#fb7185", "#8b5cf6", "#f472b6"],
     star: ["#d4a52c", "#e09f5a", "#a3b18a", "#c08552", "#e6b800", "#d08c60", "#b5a642"],
     gold: ["#b8901f", "#3a3020", "#8a6d1c", "#1f1b14", "#c9a227", "#5c4a1f"],
-    monet: ["#6f9c8a", "#8c7cc4", "#6a9bbd", "#d0819b", "#c9a24f", "#5e8f6e", "#a07fb8"]
+    monet: ["#6f9c8a", "#8c7cc4", "#6a9bbd", "#d0819b", "#c9a24f", "#5e8f6e", "#a07fb8"],
+    sky: ["#0ea5e9", "#3b82f6", "#06b6d4", "#6366f1", "#38bdf8", "#0284c7", "#22d3ee"]
   }[USER_THEMES[canonUser(window.__crmUser)]] || ["#6366f1", "#0ea5e9", "#14b8a6", "#8b5cf6", "#f43f5e", "#f59e0b", "#10b981", "#ec4899"];
   const colorOf = (c, i) => PAL[i % PAL.length];
   const doc = (label, url, c) => url
@@ -10446,6 +10451,25 @@ button:active, a:active { transform: scale(.97); }
   .sb-sub { margin-left: 0; padding-left: 0; border-left: none; }
 }
 /* 主题配色 */
+/* ===== CHIALING：浅蓝色系 ===== */
+.theme-sky { background: #f0f9ff !important; }
+.theme-sky .app-sidebar, .theme-sky .sb { background: linear-gradient(180deg,#bae6fd,#7dd3fc) !important; border-right: 1px solid #7dd3fc !important; }
+.theme-sky .sb-item, .theme-sky nav button { color: #075985 !important; } .theme-sky .sb-item:hover { background: rgba(255,255,255,.45) !important; }
+.theme-sky .sb-item.on { background: #fff !important; color: #0369a1 !important; box-shadow: 0 6px 16px rgba(14,165,233,.28) !important; }
+.theme-sky .sb-name { color: #075985 !important; } .theme-sky .sb-role { color: #0284c7 !important; } .theme-sky .sb-prof { border-color: rgba(7,89,133,.15) !important; } .theme-sky .sb-sub { border-color: rgba(7,89,133,.25) !important; }
+.theme-sky .app-header { background: linear-gradient(90deg,#e0f2fe,#bae6fd 60%,#cffafe) !important; border-bottom: 1px solid #7dd3fc !important; }
+.theme-sky .app-header > :first-child, .theme-sky .app-header > :first-child * { -webkit-text-fill-color: #0369a1 !important; color: #0369a1 !important; text-shadow: none !important; }
+.theme-sky .app-header button:not([style*="gradient"]), .theme-sky .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.75) !important; color: #0369a1 !important; border: 1px solid #7dd3fc !important; }
+.theme-sky button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#38bdf8,#0ea5e9 60%,#22d3ee) !important; color: #fff !important; box-shadow: 0 6px 16px -6px rgba(14,165,233,.55) !important; }
+.theme-sky .stat-card:nth-child(1) { background: linear-gradient(135deg,#7dd3fc,#0ea5e9) !important; box-shadow: 0 12px 30px rgba(14,165,233,.35) !important; }
+.theme-sky .stat-card:nth-child(2) { background: linear-gradient(135deg,#a5b4fc,#6366f1) !important; box-shadow: 0 12px 30px rgba(99,102,241,.3) !important; }
+.theme-sky .stat-card:nth-child(3) { background: linear-gradient(135deg,#67e8f9,#06b6d4) !important; box-shadow: 0 12px 30px rgba(6,182,212,.3) !important; }
+.theme-sky .stat-card:nth-child(4) { background: linear-gradient(135deg,#93c5fd,#3b82f6) !important; box-shadow: 0 12px 30px rgba(59,130,246,.3) !important; }
+.theme-sky .dk-dash { background: transparent !important; }
+.theme-sky .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(14,165,233,.25) 2px, transparent 2px), linear-gradient(90deg, rgba(14,165,233,.25) 2px, transparent 2px) !important; }
+.theme-sky .dk-dash .dash3d { background: rgba(255,255,255,.78) !important; border-color: #bae6fd !important; box-shadow: 0 10px 30px rgba(14,165,233,.15) !important; }
+.theme-sky .dk-dash .dash3d, .theme-sky .dk-dash .dash3d button, .theme-sky .dk-dash .dash3d div { color: #0c4a6e !important; }
+.theme-sky .dk-dash .dash3d button div:last-child, .theme-sky .dk-dash .dash3d span { color: #0369a1 !important; }
 .theme-pink .sb { background: linear-gradient(180deg,#fbcfe8,#f9a8d4) !important; border-right: 1px solid #f9a8d4 !important; }
 .theme-pink .sb-item { color: #9d174d !important; } .theme-pink .sb-item:hover { background: rgba(255,255,255,.45); }
 .theme-pink .sb-item.on { background: #fff !important; color: #be185d !important; box-shadow: 0 6px 16px rgba(236,72,153,.25) !important; }
@@ -10663,7 +10687,7 @@ html body .cz-table thead th, html body table.tp-table thead th, html body [clas
   font-size: 11.5px !important; font-weight: 800 !important; letter-spacing: .06em !important;
   border: none !important; border-right: 1px solid rgba(255,255,255,.12) !important; padding-top: 13px !important; padding-bottom: 12px !important; }
 html body table.tp-table thead th[style*="sticky"] { box-shadow: 3px 0 6px -2px rgba(0,0,0,.18); }
-.theme-pink { --th-bg: #ec4899; } .theme-cat { --th-bg: #c81e1e; } .theme-star { --th-bg: #e9b949; --th-fg: #4a3610; } .theme-monet { --th-bg: #6f9c8a; } .theme-gold { --th-bg: #1a1610; --th-fg: #e8c96a; }
+.theme-pink { --th-bg: #ec4899; } .theme-cat { --th-bg: #c81e1e; } .theme-star { --th-bg: #e9b949; --th-fg: #4a3610; } .theme-monet { --th-bg: #6f9c8a; } .theme-sky { --th-bg: #0ea5e9; } .theme-gold { --th-bg: #1a1610; --th-fg: #e8c96a; }
 html body .vf-head { background: var(--th-bg, #4f46e5) !important; }
 html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5px !important; letter-spacing: .06em; }
 .tp-table td { padding-top: 11px !important; padding-bottom: 11px !important; border-color: #eef0f6 !important; font-size: 13px; }
