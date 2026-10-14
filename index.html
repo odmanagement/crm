@@ -3640,7 +3640,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v137"));
+    h("div", { className: "sb-ver" }, "v138"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4587,8 +4587,31 @@ function lfCopyPics(ids, name) {
   const close = () => { ReactDOM.unmountComponentAtNode(el); el.remove(); };
   ReactDOM.render(React.createElement(LfCopyPanel, { ids, name, onClose: close }), el);
 }
-const lfCopyBtn = (h, ids, name, small) => h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, disabled: !ids.length, title: ids.length ? ids.length + " 张照片" : "还没有照片",
-  style: { border: "1px solid " + (ids.length ? "#c4b5fd" : "#e2e8f0"), background: ids.length ? "#f5f3ff" : "#f8fafc", color: ids.length ? "#6d28d9" : "#cbd5e1", borderRadius: small ? 999 : 10, padding: small ? "3px 10px" : "7px 14px", fontWeight: 900, fontSize: small ? 11 : 12.5, cursor: ids.length ? "pointer" : "default", whiteSpace: "nowrap", marginTop: small === true ? 6 : 0 } }, "📋 Copy Pic" + (ids.length ? " (" + ids.length + ")" : ""));
+/* Copy Pic：按一下就直接 copy 一张（剪贴板一次只能放一张图）→ 去 WhatsApp Ctrl+V → 再按就 copy 下一张；▾ = Share / 下载全部 */
+function LfCopyBtn({ ids, name, small }) {
+  const h = React.createElement;
+  const n = ids.length;
+  const [idx, setIdx] = React.useState(0), [msg, setMsg] = React.useState(""), [busy, setBusy] = React.useState(false);
+  React.useEffect(() => { setIdx(0); }, [n]);
+  const cur = n ? idx % n : 0;
+  const go = async e => {
+    e.stopPropagation(); if (!n || busy) return;
+    setBusy(true);
+    try {
+      const src = await lfPhotoSrc(ids[cur]); const blob = await lfPngBlob(src);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      monetSfx("save"); setMsg("✓ Copied " + (cur + 1) + "/" + n + " · 去 Ctrl+V"); setIdx(cur + 1 >= n ? 0 : cur + 1);
+      setTimeout(() => setMsg(""), 1800);
+    } catch (er) { lfCopyPics(ids, name); }
+    setBusy(false);
+  };
+  const base = { border: "1px solid " + (n ? "#c4b5fd" : "#e2e8f0"), background: msg ? "#dcfce7" : n ? "#f5f3ff" : "#f8fafc", color: msg ? "#15803d" : n ? "#6d28d9" : "#cbd5e1", fontWeight: 900, fontSize: small ? 11 : 12.5, cursor: n ? "pointer" : "default", whiteSpace: "nowrap", padding: small ? "3px 10px" : "7px 14px" };
+  return h("span", { style: { display: "inline-flex", marginTop: small === true ? 6 : 0 } },
+    h("button", { type: "button", onClick: go, disabled: !n, title: n ? "按一下 copy 第 " + (cur + 1) + " 张，再去 WhatsApp 按 Ctrl+V" : "还没有照片", style: { ...base, borderRadius: n > 1 ? "999px 0 0 999px" : 999 } },
+      busy ? "⏳ Copying…" : msg || ("📋 Copy Pic" + (n > 1 ? " " + (cur + 1) + "/" + n : n ? "" : ""))),
+    n > 1 && h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, title: "全部照片 · Share / 下载", style: { ...base, background: "#f5f3ff", color: "#6d28d9", borderLeft: "none", borderRadius: "0 999px 999px 0", padding: small ? "3px 7px" : "7px 9px" } }, "▾"));
+}
+const lfCopyBtn = (h, ids, name, small) => h(LfCopyBtn, { ids: ids || [], name, small });
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
 
