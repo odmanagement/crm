@@ -1504,20 +1504,20 @@ function ODPaymentPage({ currentUser }) {
   const sidOf = (r, x) => x.id || (r.id + "_" + (x.desc || "") + (x.acc || "") + (x.amount || ""));
   const toBank = lfToBankOf;
   const rowsOf = r0 => {
-    if (r0 && r0.manual) { const m = r0.m; return [{ id: "__m", desc: m.remark || "—", acc: m.acc || "", amount: lsFmt(m.amount), paid: m.paid || null, paidBy: m.paidBy || null, payDate: m.payDate || "", photos: m.photos || [], photosBy: m.photosBy || null }]; }
+    if (r0 && r0.manual) { const m = r0.m; return [{ id: "__m", desc: m.remark || "—", acc: m.acc || "", amount: lsFmt(m.amount), paid: m.paid || null, paidBy: m.paidBy || null, payDate: m.payDate || "", payTime: m.payTime || "", photos: m.photos || [], photosBy: m.photosBy || null }]; }
     const r = lfNorm(r0);
     const rows = [];
     (r.settlement || []).filter(x => x.desc || x.acc || x.amount).forEach(x => {
       const sid = sidOf(r, x), ps = x.pays || [];
       if (!ps.length) { rows.push({ ...x, id: sid, canPart: !x.paid && !(x.photos && x.photos.length) }); return; }
-      ps.forEach((p, k) => rows.push({ id: sid + "|p|" + p.id, desc: (x.desc || "") + " (" + (k + 1) + ")", acc: x.acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, payDate: p.date || "", photos: p.photos || [], photosBy: p.photosBy || null, part: true }));
+      ps.forEach((p, k) => rows.push({ id: sid + "|p|" + p.id, desc: (x.desc || "") + " (" + (k + 1) + ")", acc: x.acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, payDate: p.date || "", payTime: p.time || "", photos: p.photos || [], photosBy: p.photosBy || null, part: true }));
       const rem = lfR2(lsNum(x.amount) - ps.reduce((t, p) => t + (Number(p.amount) || 0), 0));
       if (Math.abs(rem) >= 0.005) rows.push({ id: sid + "|bal", desc: (x.desc || "") + " (BALANCE)", acc: x.acc, amount: lsFmt(rem), rem, bal: true, canPart: true, paid: null, photos: [], photosBy: null });
     });
     const tb = toBank(r), pays = r.toBankPays || [], acc = [String(r.bank || "").toUpperCase(), r.acct || ""].filter(Boolean).join("  "), nm = String(r.name || "") + " - FUNDER FEE";
-    pays.forEach((p, k) => rows.push({ id: "__pay_" + p.id, client: true, desc: nm + (pays.length > 1 || lfTbRemain(r, tb) ? " (" + (k + 1) + ")" : ""), acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, payDate: p.date || "", photos: p.photos || [], photosBy: p.photosBy || null }));
+    pays.forEach((p, k) => rows.push({ id: "__pay_" + p.id, client: true, desc: nm + (pays.length > 1 || lfTbRemain(r, tb) ? " (" + (k + 1) + ")" : ""), acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, payDate: p.date || "", payTime: p.time || "", photos: p.photos || [], photosBy: p.photosBy || null }));
     const remain = lfTbRemain(r, tb);
-    if (tb && !r.toBankSkip && (!pays.length || Math.abs(remain) >= 0.005)) rows.push({ id: "__client", client: true, desc: nm + (pays.length ? " (差额)" : ""), acc, amount: lsFmt(remain), remain, paid: r.clientPaid || null, paidBy: r.clientPaidBy || null, payDate: r.toBankDate || "", photos: [], photosBy: null });
+    if (tb && !r.toBankSkip && (!pays.length || Math.abs(remain) >= 0.005)) rows.push({ id: "__client", client: true, desc: nm + (pays.length ? " (差额)" : ""), acc, amount: lsFmt(remain), remain, paid: r.clientPaid || null, paidBy: r.clientPaidBy || null, payDate: r.toBankDate || "", payTime: r.toBankTime || "", photos: [], photosBy: null });
     return rows;
   };
   const recs = [...items.filter(r => rowsOf(r).length), ...mItems.map(m => ({ id: "m:" + m.id, manual: true, m, name: m.name, date: m.date, at: m.at }))]
@@ -1529,19 +1529,19 @@ function ODPaymentPage({ currentUser }) {
     const x = (r.settlement || []).find(y => sidOf(r, y) === base); if (!x) return;
     const rem = remOf(x), v = window.prompt("先付了多少？(RM)\n剩下 RM " + lsFmt(rem), ""); if (v == null) return;
     const amt = lfR2(lsNum(v)); if (!amt || amt <= 0) return; if (amt > rem + 0.005) { alert("不能超过剩下的 RM " + lsFmt(rem)); return; }
-    patchSet(rid, base, y => ({ ...y, pays: [...(y.pays || []), { id: uid(), amount: amt, date: today() }] })); monetSfx("save");
+    patchSet(rid, base, y => ({ ...y, pays: [...(y.pays || []), { id: uid(), amount: amt, date: today(), time: lfNowHM() }] })); monetSfx("save");
   };
   const updRow = (rid, sid, patch) => { if (ro) return;
     if (!isM(rid) && sid.indexOf("|p|") > 0) { const [base, pid] = sid.split("|p|"); patchSet(rid, base, x => ({ ...x, pays: (x.pays || []).map(p => p.id !== pid ? p : { ...p, ...("photos" in patch ? { photos: patch.photos, photosBy: patch.photos.length ? (p.photosBy || me) : null } : {}) }) })); return; }
-    if (!isM(rid) && /\|bal$/.test(sid)) { if (!(patch.photos && patch.photos.length)) return; const base = sid.replace(/\|bal$/, ""); patchSet(rid, base, x => ({ ...x, pays: [...(x.pays || []), { id: uid(), amount: remOf(x), date: today(), photos: patch.photos, photosBy: me }] })); return; }
+    if (!isM(rid) && /\|bal$/.test(sid)) { if (!(patch.photos && patch.photos.length)) return; const base = sid.replace(/\|bal$/, ""); patchSet(rid, base, x => ({ ...x, pays: [...(x.pays || []), { id: uid(), amount: remOf(x), date: today(), time: lfNowHM(), photos: patch.photos, photosBy: me }] })); return; }
     if (isM(rid)) { updM(rid, m => ({ ...m, ...("photos" in patch ? { photos: patch.photos, photosBy: patch.photos.length ? (m.photosBy || me) : null } : {}), ...("payDate" in patch ? { payDate: patch.payDate } : {}) })); return; } save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0);
-    if (sid === "__client") { if (!(patch.photos && patch.photos.length)) return r; const pays = r.toBankPays || []; return { ...r, toBankPays: [...pays, { id: uid(), amount: pays.length ? lfTbRemain(r, lfToBankOf(r)) : lfToBankOf(r), date: r.toBankDate || today(), photos: patch.photos, photosBy: me, paid: r.clientPaid || null, paidBy: r.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }; }
+    if (sid === "__client") { if (!(patch.photos && patch.photos.length)) return r; const pays = r.toBankPays || []; return { ...r, toBankPays: [...pays, { id: uid(), amount: pays.length ? lfTbRemain(r, lfToBankOf(r)) : lfToBankOf(r), date: r.toBankDate || today(), time: r.toBankTime || lfNowHM(), photos: patch.photos, photosBy: me, paid: r.clientPaid || null, paidBy: r.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }; }
     if (sid.indexOf("__pay_") === 0) { const pid = sid.slice(6); return { ...r, toBankPays: (r.toBankPays || []).map(p => p.id !== pid ? p : { ...p, ...("photos" in patch ? { photos: patch.photos } : {}) }) }; }
     return { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : { ...x, id: x.id || sid, ...patch, ...("photos" in patch ? { photosBy: patch.photos.length ? (x.photosBy || me) : null } : {}) }) }; })); };
   const togglePaid = (rid, sid) => { if (ro) return;
     if (!isM(rid) && sid.indexOf("|p|") > 0) { const [base, pid] = sid.split("|p|"); patchSet(rid, base, x => ({ ...x, pays: (x.pays || []).map(p => p.id !== pid ? p : (p.paid ? { ...p, paid: null, paidBy: null } : { ...p, paid: Date.now(), paidBy: me })) })); monetSfx("save"); return; }
-    if (!isM(rid) && /\|bal$/.test(sid)) { const base = sid.replace(/\|bal$/, ""); patchSet(rid, base, x => ({ ...x, pays: [...(x.pays || []), { id: uid(), amount: remOf(x), date: today(), paid: Date.now(), paidBy: me }] })); monetSfx("save"); return; }
-    if (isM(rid)) { updM(rid, m => m.paid ? { ...m, paid: null, paidBy: null } : { ...m, paid: Date.now(), paidBy: me, payDate: m.payDate || today() }); monetSfx("save"); return; } if (sid.indexOf("__pay_") === 0) { const pid = sid.slice(6); save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0); return { ...r, toBankPays: (r.toBankPays || []).map(p => p.id !== pid ? p : (p.paid ? { ...p, paid: null, paidBy: null } : { ...p, paid: Date.now(), paidBy: me })) }; })); monetSfx("save"); return; } if (sid === "__client") { save(items.map(r => r.id !== rid ? r : (r.clientPaid ? { ...r, clientPaid: null, clientPaidBy: null } : { ...r, clientPaid: Date.now(), clientPaidBy: me }))); monetSfx("save"); return; } save(items.map(r => r.id !== rid ? r : { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : (x.paid ? { ...x, paid: null, paidBy: null } : { ...x, paid: Date.now(), paidBy: me })) })); monetSfx("save"); };
+    if (!isM(rid) && /\|bal$/.test(sid)) { const base = sid.replace(/\|bal$/, ""); patchSet(rid, base, x => ({ ...x, pays: [...(x.pays || []), { id: uid(), amount: remOf(x), date: today(), time: lfNowHM(), paid: Date.now(), paidBy: me }] })); monetSfx("save"); return; }
+    if (isM(rid)) { updM(rid, m => m.paid ? { ...m, paid: null, paidBy: null } : { ...m, paid: Date.now(), paidBy: me, payDate: m.payDate || today(), payTime: m.payTime || lfNowHM() }); monetSfx("save"); return; } if (sid.indexOf("__pay_") === 0) { const pid = sid.slice(6); save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0); return { ...r, toBankPays: (r.toBankPays || []).map(p => p.id !== pid ? p : (p.paid ? { ...p, paid: null, paidBy: null } : { ...p, paid: Date.now(), paidBy: me })) }; })); monetSfx("save"); return; } if (sid === "__client") { save(items.map(r => r.id !== rid ? r : (r.clientPaid ? { ...r, clientPaid: null, clientPaidBy: null } : { ...r, clientPaid: Date.now(), clientPaidBy: me }))); monetSfx("save"); return; } save(items.map(r => r.id !== rid ? r : { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : (x.paid ? { ...x, paid: null, paidBy: null } : { ...x, paid: Date.now(), paidBy: me })) })); monetSfx("save"); };
   const groups = recs.map(r => {
     const rows = rowsOf(r);
     const hit = !ql || [r.name, r.tel].join(" ").toLowerCase().includes(ql) || rows.some(x => [x.desc, x.acc].join(" ").toLowerCase().includes(ql));
@@ -1560,7 +1560,7 @@ function ODPaymentPage({ currentUser }) {
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search 客户名字 / 户口 / Bank Acc", value: q, onChange: e => setQ(e.target.value) })),
       h("select", { value: f, onChange: e => setF(e.target.value), style: sel }, h("option", { value: "" }, "全部"), h("option", { value: "unpaid" }, "还没付"), h("option", { value: "paid" }, "已付")),
-      !ro && h("button", { style: S.addBtn, onClick: () => setMForm({ name: "", remark: "", amount: "", acc: "", date: today() }) }, h(Plus, { size: 16 }), " Add Payment")),
+      !ro && h("button", { style: S.addBtn, onClick: () => setMForm({ name: "", remark: "", amount: "", acc: "", date: today(), time: lfNowHM() }) }, h(Plus, { size: 16 }), " Add Payment")),
     mForm && (() => {
       const inp = { width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 14, fontFamily: "inherit", outline: "none" };
       const fl = (t, k, ex) => h("div", { style: { marginBottom: 10 } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, t), h("input", { value: mForm[k] || "", onChange: e => setMForm({ ...mForm, [k]: e.target.value }), style: inp, ...(ex || {}) }));
@@ -1594,7 +1594,7 @@ function ODPaymentPage({ currentUser }) {
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : x.bal ? "#b45309" : undefined, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: 320, overflow: "visible", textOverflow: "clip" } }, String(x.desc || "").toUpperCase() || "—"),
             h("td", { className: (x.paid ? "od-pd " : "") + "od-acc", style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, fontWeight: 800, color: x.client ? "#2c6fbb" : "#1e293b" } }, lfAcc(String(x.acc || "").toUpperCase()) || "—"),
             h("td", { className: (x.paid ? "od-pd " : "") + "od-num", style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? tpDate(dtDMY(x.payDate)) : "—"),
+            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? h("span", null, tpDate(dtDMY(x.payDate)), x.payTime && h("span", { style: { marginLeft: 6, fontSize: 13, color: "#475569", fontWeight: 800 } }, "🕒 " + x.payTime)) : "—"),
             (() => { const owner = x.photosBy || x.paidBy || null, ok = !ro && lfCanEdit(owner, me), who = owner ? String(owner).toUpperCase() : "";
               return [
                 h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, ro, noDel: !ok, onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(r.manual ? r.m.by : r.by, me, r.name, x.desc, x.amount); updRow(r.id, x.id, { photos: v }); } }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
@@ -3699,7 +3699,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v150"));
+    h("div", { className: "sb-ver" }, "v151"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4601,6 +4601,7 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
 const lfSkipBtn = (h, on, toggle) => h("button", { type: "button", onClick: toggle, title: on ? "已 Skip（不会出现在 OD Payment）· 再按取消" : "Skip = 不需要出现在 OD Payment", style: { flex: "0 0 auto", border: "1px solid " + (on ? "#f59e0b" : "#e2e8f0"), background: on ? "#fef3c7" : "#fff", color: on ? "#b45309" : "#94a3b8", borderRadius: 8, padding: "0 8px", height: 34, fontWeight: 900, fontSize: 11, cursor: "pointer" } }, on ? "SKIPPED" : "SKIP");
 const lfLocked = x => !!(x && ((x.photos && x.photos.length) || (x.pays && x.pays.length) || x.paid));
 /* TOTAL TO BANK 分批：上传照片后那一笔就锁住（toBankPays），数目有变就在下面多一行「差额」 */
+const lfNowHM = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
 const lfR2 = x => Math.round((Number(x) || 0) * 100) / 100;
 const lfToBankOf = r => r.calc && r.calc.tobank != null ? r.calc.tobank : lfStat(r).tobank;
 function lfNorm(r) {
@@ -4766,7 +4767,7 @@ function LendingFeePage({ currentUser }) {
         return h("div", { style: { flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2 } },
           tbIds.length > 0 && h("div", { style: { display: "flex", justifyContent: "flex-end", fontWeight: 600 } }, lfCopyBtn(h, tbIds, (form.name || "") + " to bank", "xs")),
           pays.map((p, k) => h("div", { key: p.id, style: { ...sub, background: "#f1f5f9", borderRadius: 8, padding: "4px 8px" } },
-            h("span", { style: { flex: 1, color: "#15803d" } }, "🔒 第 " + (k + 1) + " 笔 · " + (p.date ? dtDMY(p.date) : "—") + (p.photosBy ? " · by " + String(p.photosBy).toUpperCase() : "")),
+            h("span", { style: { flex: 1, color: "#15803d" } }, "🔒 第 " + (k + 1) + " 笔 · " + (p.date ? dtDMY(p.date) : "—") + (p.time ? " " + p.time : "") + (p.photosBy ? " · by " + String(p.photosBy).toUpperCase() : "")),
             h("span", { style: { color: "#1e293b", fontSize: 13, fontWeight: 900 } }, lsFmt(p.amount)),
             h(LfPhotos, { ids: p.photos, noDel: true, ro: READONLY_USERS.includes(me), onChange: v => setForm({ ...form, toBankPays: pays.map(y => y.id === p.id ? { ...y, photos: v } : y) }) }))),
           showOpen && h("div", { style: sub },
@@ -4774,8 +4775,9 @@ function LendingFeePage({ currentUser }) {
             pays.length > 0 && h("span", { style: { color: "#c00", fontSize: 13, fontWeight: 900 } }, lsFmt(remain)),
             !form.toBankSkip && h("span", null, "付款日期"),
             !form.toBankSkip && h("input", { type: "date", value: form.toBankDate || "", title: "付款日期", disabled: !!form.toBankSkip, onChange: e => setForm({ ...form, toBankDate: e.target.value }), style: { ...inp, width: 132, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600, ...(form.toBankSkip ? { opacity: .4 } : {}) } }),
+            !form.toBankSkip && h("input", { type: "time", value: form.toBankTime || "", title: "付款时间", onChange: e => setForm({ ...form, toBankTime: e.target.value }), style: { ...inp, width: 96, flex: "0 0 96px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600 } }),
             lfSkipBtn(h, !!form.toBankSkip, () => setForm({ ...form, toBankSkip: !form.toBankSkip })),
-            !form.toBankSkip && h(LfPhotos, { ids: [], ro: READONLY_USERS.includes(me), onChange: v => { if (!v.length) return; lfNotifyPhoto(form.by, me, form.name, "FUNDER FEE", lsFmt(pays.length ? remain : st.tobank)); setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
+            !form.toBankSkip && h(LfPhotos, { ids: [], ro: READONLY_USERS.includes(me), onChange: v => { if (!v.length) return; lfNotifyPhoto(form.by, me, form.name, "FUNDER FEE", lsFmt(pays.length ? remain : st.tobank)); setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), time: form.toBankTime || lfNowHM(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankTime: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
       })())));
   const openPdf = r => setPdf(r);
   const onPdfLoad = () => {
@@ -4791,7 +4793,7 @@ function LendingFeePage({ currentUser }) {
         if (pays.length && tbEl) {
           const tb = lsNum(tbEl.textContent), remain = lfTbRemain(n, tb), ord = k => ["1ST", "2ND", "3RD"][k] || (k + 1) + "TH";
           const row = (label, amt, col) => '<div class="totrow lf-tb" style="border:none;"><div class="tlbl" style="text-align:left; padding-left:14px; font-weight:normal;">' + label + '</div><div class="pamt" style="' + (col ? "color:" + col + ";" : "") + '">' + amt + '</div></div>';
-          let html = pays.map((p, k) => row("↳ " + ord(k) + " PAYMENT" + (p.date ? " (" + dtDMY(p.date) + ")" : ""), lsFmt(p.amount))).join("");
+          let html = pays.map((p, k) => row("↳ " + ord(k) + " PAYMENT" + (p.date ? " (" + dtDMY(p.date) + (p.time ? " " + p.time : "") + ")" : ""), lsFmt(p.amount))).join("");
           if (Math.abs(remain) >= 0.005) html += row("↳ BALANCE" + (n.toBankSkip ? " (SKIP)" : n.toBankDate ? " (" + dtDMY(n.toBankDate) + ")" : ""), lsFmt(remain), "#c00");
           d.querySelectorAll(".lf-tb").forEach(x => x.remove());
           tbEl.parentElement.insertAdjacentHTML("afterend", html);
@@ -4836,6 +4838,7 @@ function LendingFeePage({ currentUser }) {
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
+            h("input", { key: "pt", type: "time", value: x.payTime || "", title: "付款时间", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payTime", e.target.value); }, style: { ...inp, flex: "0 0 96px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
             h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("photos", v); } })],
             (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
