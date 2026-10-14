@@ -1509,7 +1509,7 @@ function ODPaymentPage({ currentUser }) {
     const rows = [];
     (r.settlement || []).filter(x => x.desc || x.acc || x.amount).forEach(x => {
       const sid = sidOf(r, x), ps = x.pays || [];
-      if (!ps.length) { rows.push({ ...x, id: sid, canPart: !x.paid && !(x.photos && x.photos.length) }); return; }
+      if (!ps.length) { rows.push({ ...x, id: sid, canPart: !x.paid && !(x.photos && x.photos.length) && !(x.lfPhotos && x.lfPhotos.length) }); return; }
       ps.forEach((p, k) => rows.push({ id: sid + "|p|" + p.id, desc: (x.desc || "") + " (" + (k + 1) + ")", acc: x.acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, note: p.note || "", retPhotos: p.retPhotos || [], retDone: p.retDone || null, payDate: p.date || "", payTime: p.time || "", photos: p.photos || [], photosBy: p.photosBy || null, part: true }));
       const rem = lfR2(lsNum(x.amount) - ps.reduce((t, p) => t + (Number(p.amount) || 0), 0));
       if (Math.abs(rem) >= 0.005) rows.push({ id: sid + "|bal", desc: (x.desc || "") + " (BALANCE)", acc: x.acc, amount: lsFmt(rem), rem, bal: true, note: x.balNote || "", retPhotos: x.balRetPhotos || [], retDone: x.balRetDone || null, canPart: true, paid: null, photos: [], photosBy: null });
@@ -1609,14 +1609,14 @@ function ODPaymentPage({ currentUser }) {
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? h("span", null, tpDate(dtDMY(x.payDate)), x.client && x.payTime && h("span", { style: { marginLeft: 6, fontSize: 13, color: "#475569", fontWeight: 800 } }, "🕒 " + x.payTime)) : "—"),
             (() => { const owner = x.photosBy || x.paidBy || null, ok = !ro && lfCanEdit(owner, me), who = owner ? String(owner).toUpperCase() : "";
               return [
-                h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, ro, noDel: !ok, onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(r.manual ? r.m.by : r.by, me, r.name, x.desc, x.amount); updRow(r.id, x.id, { photos: v }); } }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
+                h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, post: x.part || x.bal || x.client ? [] : (x.lfPhotos || []), ro, noDel: !ok, onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(r.manual ? r.m.by : r.by, me, r.name, x.desc, x.amount); updRow(r.id, x.id, { photos: v }); } }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
                 h("td", { className: x.paid ? "od-pd" : undefined, key: "pd", style: { ...td, textAlign: "center" } }, h("button", { onClick: () => ok && togglePaid(r.id, x.id), disabled: !ok, title: !ok && owner ? "只有 " + who + " 可以更改" : x.paid ? "已付 · " + String(x.paidBy || "").toUpperCase() + " · " + new Date(x.paid).toLocaleDateString("en-GB") : "按一下 = 已付", style: { border: "1px solid " + (x.paid ? "#86efac" : "#e2e8f0"), background: x.paid ? "#dcfce7" : "#fff", color: x.paid ? "#15803d" : "#94a3b8", borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 12, cursor: ok ? "pointer" : "not-allowed", whiteSpace: "nowrap", opacity: ok ? 1 : .75 } }, x.paid ? "✓ PAID" : "未付", !ok && owner ? " 🔒" : ""),
                   x.canPart && !ro && h("button", { onClick: () => partPay(r.id, x.id), title: "先付一部分（会分成两格：已付 + Balance）", style: { marginLeft: 4, border: "1px dashed #f9a8d4", background: "#fff", color: "#db2777", borderRadius: 999, padding: "4px 8px", fontWeight: 900, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" } }, "½ 部分")),
                 h("td", { key: "nt", className: x.paid ? "od-pd" : undefined, style: { ...td, minWidth: 230, background: x.retDone ? "#ecfdf5" : undefined } },
                   h("div", { style: { display: "flex", alignItems: "flex-start", gap: 6 } },
                     h("label", { title: x.retDone ? "已 Return · " + String(x.retDone.by || "").toUpperCase() + " · " + new Date(x.retDone.at || 0).toLocaleDateString("en-GB") : "打勾 = 已 Return", style: { display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, flex: "0 0 30px", borderRadius: 8, border: "2px solid " + (x.retDone ? "#16a34a" : "#cbd5e1"), background: x.retDone ? "#16a34a" : "#fff", color: "#fff", cursor: ro ? "default" : "pointer", fontWeight: 900, fontSize: 16 } },
                       h("input", { type: "checkbox", checked: !!x.retDone, disabled: ro, onChange: e => saveRet(r.id, x.id, { retDone: e.target.checked ? { by: me, at: Date.now() } : null }), style: { display: "none" } }), x.retDone ? "✓" : ""),
-                    h(LfPhotos, { ids: x.retPhotos, ro, noDel: false, onChange: v => saveRet(r.id, x.id, { retPhotos: v }) }),
+                    h(LfPhotos, { ids: x.retPhotos, ro, noDel: false, compact: true, onChange: v => saveRet(r.id, x.id, { retPhotos: v }) }),
                     ro ? h("span", { style: { whiteSpace: "pre-wrap", fontSize: 13, flex: 1 } }, x.note || "—") : h("textarea", { key: (x.note || "") + "|" + x.id, defaultValue: x.note || "", rows: 1, placeholder: "写备注…", onBlur: e => { const v = e.target.value.trim(); if (v !== (x.note || "")) saveNote(r.id, x.id, v); }, onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }, ref: el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, style: { flex: 1, minWidth: 120, boxSizing: "border-box", padding: "6px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", resize: "none", overflow: "hidden", lineHeight: 1.4, background: x.note ? "#fffbeb" : "#fff" } })),
                   x.retDone && h("div", { style: { fontSize: 10.5, color: "#15803d", fontWeight: 800, marginTop: 3 } }, "✓ RETURN · " + String(x.retDone.by || "").toUpperCase()))];
             })()));
@@ -3732,7 +3732,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v158"));
+    h("div", { className: "sb-ver" }, "v159"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4615,7 +4615,7 @@ function LfThumb({ id, style, onImg }) {
   return h(PhotoImg, { id, style, onClick: onImg });
 }
 /* 付款照片：一个相机格 —— 点一下 = 上传；鼠标放在上面 / 点过之后按 Ctrl+V = 贴上 */
-function LfPhotos({ ids, onChange, ro, noDel }) {
+function LfPhotos({ ids, onChange, ro, noDel, pre, post, compact }) {
   const h = React.createElement;
   const list = ids || [];
   const [busy, setBusy] = React.useState(false), [big, setBig] = React.useState(null), [hot, setHot] = React.useState(false);
@@ -4630,8 +4630,10 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
   const on = () => { tgt.current.el = elRef.current; _lfPasteTarget = tgt.current; setHot(true); };
   const off = () => { if (_lfPasteTarget === tgt.current && document.activeElement !== elRef.current) _lfPasteTarget = null; setHot(false); };
   React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
-  return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 72, justifyContent: "flex-end" } },
+  return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", ...(compact ? {} : { minWidth: 72, justifyContent: "flex-end" }) } },
+    (pre || []).map(id => h(LfThumb, { key: "pre" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } })),
     list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), !ro && !noDel && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
+    (post || []).map(id => h(LfThumb, { key: "post" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #c7d2fe" } })),
     !ro && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片 / PDF\n鼠标放在这里按 Ctrl+V = 贴上截图",
       onMouseEnter: on, onMouseLeave: off, onFocus: on, onBlur: () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); },
       onClick: () => { if (!busy && fileRef.current) fileRef.current.click(); },
@@ -4640,11 +4642,11 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
       h("input", { ref: fileRef, type: "file", accept: "image/*,application/pdf", multiple: true, style: { display: "none" }, onClick: e => e.stopPropagation(), onChange: e => { add(e.target.files); e.target.value = ""; } })),
     big && h("div", { onClick: () => setBig(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.88)", zIndex: 10050, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, gap: 12, cursor: "zoom-out" } },
       h(PhotoImg, { id: big, style: { maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, width: "auto", height: "auto", minWidth: 60, minHeight: 60 } }),
-      !ro && !noDel && h("button", { onClick: e => { e.stopPropagation(); if (window.confirm("删除这张照片？")) { const id = big; setBig(null); onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { border: "none", background: "#dc2626", color: "#fff", borderRadius: 10, padding: "8px 18px", fontWeight: 800, cursor: "pointer" } }, "🗑 删除照片")));
+      !ro && !noDel && list.includes(big) && h("button", { onClick: e => { e.stopPropagation(); if (window.confirm("删除这张照片？")) { const id = big; setBig(null); onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { border: "none", background: "#dc2626", color: "#fff", borderRadius: 10, padding: "8px 18px", fontWeight: 800, cursor: "pointer" } }, "🗑 删除照片")));
 }
 /* Skip 按钮：Skip 了就不会出现在 OD Payment */
 const lfSkipBtn = (h, on, toggle) => h("button", { type: "button", onClick: toggle, title: on ? "已 Skip（不会出现在 OD Payment）· 再按取消" : "Skip = 不需要出现在 OD Payment", style: { flex: "0 0 auto", border: "1px solid " + (on ? "#f59e0b" : "#e2e8f0"), background: on ? "#fef3c7" : "#fff", color: on ? "#b45309" : "#94a3b8", borderRadius: 8, padding: "0 8px", height: 34, fontWeight: 900, fontSize: 11, cursor: "pointer" } }, on ? "SKIPPED" : "SKIP");
-const lfLocked = x => !!(x && ((x.photos && x.photos.length) || (x.pays && x.pays.length) || x.paid));
+const lfLocked = x => !!(x && ((x.photos && x.photos.length) || (x.lfPhotos && x.lfPhotos.length) || (x.pays && x.pays.length) || x.paid));
 /* TOTAL TO BANK 分批：上传照片后那一笔就锁住（toBankPays），数目有变就在下面多一行「差额」 */
 const lfNowHM = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
 const lfR2 = x => Math.round((Number(x) || 0) * 100) / 100;
@@ -4657,7 +4659,7 @@ function lfNorm(r) {
 }
 const lfTbRemain = (r, tb) => lfR2(tb - (r.toBankPays || []).reduce((t, p) => t + (Number(p.amount) || 0), 0));
 /* Copy Pic：把这个客户所有上传的照片拼成一张图，copy 进剪贴板（不行就下载） */
-const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.photos || []), ...(n.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
+const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.photos || []), ...(n.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || []), ...(x.lfPhotos || [])]), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
 async function lfPhotoSrc(id) { let v = _photoCache[id]; if (!v) { try { v = await DB.get("mphoto_" + id); if (v) _photoCache[id] = v; } catch (e) {} } return v || null; }
 async function lfPngBlob(src) { const im = await new Promise((res, rej) => { const x = new Image(); x.onload = () => res(x); x.onerror = rej; x.src = src; }); const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; c.getContext("2d").drawImage(im, 0, 0); return await new Promise(res => c.toBlob(res, "image/png")); }
 /* Copy Pic：每张照片分开 —— 一张一张 Copy，或一次 Share / 下载全部 */
@@ -4900,8 +4902,8 @@ function LendingFeePage({ currentUser }) {
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
-            h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("photos", v); } })],
-            (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
+            h(LfPhotos, { key: "ph", ids: x.lfPhotos, pre: [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])], noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.lfPhotos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("lfPhotos", v); } })],
+            (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || []), ...(x.lfPhotos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
           sumBox(),
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 } },
