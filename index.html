@@ -1213,7 +1213,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", costing: "bars", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1401,6 +1401,10 @@ const NAV = [{
   label: "Bank Statement",
   icon: Wallet
 }, {
+  id: "costing",
+  label: "Costing",
+  icon: BarChart3
+}, {
   id: "returnsalary",
   label: "Return Salary",
   icon: Wallet
@@ -1445,6 +1449,17 @@ const FORMS_TOOLS = [{
   file: "PL_COSTING.html"
 }];
 const HTML_TOOLS = FORMS_TOOLS;
+/* COSTING 页面：PL Costing + Car Costing Part */
+const COSTING_TOOLS = [{
+  name: "PL Costing",
+  file: "PL_COSTING.html"
+}, {
+  name: "Car Costing Part · Finpro",
+  file: "FINPRO_COSTING_PART.html"
+}, {
+  name: "Car Costing Part · Future",
+  file: "FUTURE_COSTING_PART.html"
+}];
 const PAYSLIP_TOOLS = [{
   name: "Amazing Leader",
   url: "https://docs.google.com/spreadsheets/d/1_Y4ULAmKR16-DSY3HxIwlSXR1aUL6DpC/edit"
@@ -3153,6 +3168,10 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c))
+  }) : page === "costing" ? /*#__PURE__*/React.createElement(FormsPage, {
+    key: "costing",
+    currentUser: currentUser,
+    tools: COSTING_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
   }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
@@ -3534,7 +3553,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v125"));
+    h("div", { className: "sb-ver" }, "v126"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4339,6 +4358,28 @@ const lsEsc = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/
 const lsDMY = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? (+m[3]) + "/" + (+m[2]) + "/" + m[1] : ""; };
 const lsTitle = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return ""; const d = +m[3], suf = (d % 10 === 1 && d !== 11) ? "ST" : (d % 10 === 2 && d !== 12) ? "ND" : (d % 10 === 3 && d !== 13) ? "RD" : "TH"; return "FINPRO AGREEMENT " + d + suf + " " + RC_MONTHS[+m[2] - 1] + " " + m[1]; };
 const LS_BANKS = ["MAYBANK", "CIMB BANK", "PUBLIC BANK", "RHB BANK", "HONG LEONG BANK", "AMBANK", "BANK ISLAM", "BANK RAKYAT", "BSN", "OCBC BANK", "HSBC BANK", "UOB BANK", "STANDARD CHARTERED", "AFFIN BANK", "ALLIANCE BANK", "MBSB BANK", "AGROBANK", "CITIBANK"];
+/* 跟 Lending Sheet 一样的算法：EPF 24%、SOCSO+EIS（官方表）、PCB（single 自动估算）× 月数 */
+const LF_SOCSO = [[30,0.40,0.10],[50,0.70,0.20],[70,1.10,0.30],[100,1.50,0.40],[140,2.10,0.60],[200,2.95,0.85],[300,4.35,1.25],[400,6.15,1.75],[500,7.85,2.25],[600,9.65,2.75],[700,11.35,3.25],[800,13.15,3.75],[900,14.85,4.25],[1000,16.65,4.75],[1100,18.35,5.25],[1200,20.15,5.75],[1300,21.85,6.25],[1400,23.65,6.75],[1500,25.35,7.25],[1600,27.15,7.75],[1700,28.85,8.25],[1800,30.65,8.75],[1900,32.35,9.25],[2000,34.15,9.75],[2100,35.85,10.25],[2200,37.65,10.75],[2300,39.35,11.25],[2400,41.15,11.75],[2500,42.85,12.25],[2600,44.65,12.75],[2700,46.35,13.25],[2800,48.15,13.75],[2900,49.85,14.25],[3000,51.65,14.75],[3100,53.35,15.25],[3200,55.15,15.75],[3300,56.85,16.25],[3400,58.65,16.75],[3500,60.35,17.25],[3600,62.15,17.75],[3700,63.85,18.25],[3800,65.65,18.75],[3900,67.35,19.25],[4000,69.15,19.75],[4100,70.85,20.25],[4200,72.65,20.75],[4300,74.35,21.25],[4400,76.15,21.75],[4500,77.85,22.25],[4600,79.65,22.75],[4700,81.35,23.25],[4800,83.15,23.75],[4900,84.85,24.25],[5000,86.65,24.75],[5100,88.35,25.25],[5200,90.15,25.75],[5300,91.85,26.25],[5400,93.65,26.75],[5500,95.35,27.25],[5600,97.15,27.75],[5700,98.85,28.25],[5800,100.65,28.75],[5900,102.35,29.25],[6000,104.15,74.40]];
+const LF_EIS = [[30,0.05],[50,0.10],[100,0.20],[200,0.30],[300,0.50],[400,0.70],[500,0.90],[600,1.10],[700,1.30],[800,1.50],[900,1.70],[1000,1.90],[1100,2.10],[1200,2.30],[1300,2.50],[1400,2.70],[1500,2.90],[1600,3.10],[1700,3.30],[1800,3.50],[1900,3.70],[2000,3.90],[2100,4.10],[2200,4.30],[2300,4.50],[2400,4.70],[2500,4.90],[2600,5.10],[2700,5.30],[2800,5.50],[2900,5.70],[3000,5.90],[3100,6.10],[3200,6.30],[3300,6.50],[3400,6.70],[3500,6.90],[3600,7.10],[3700,7.30],[3800,7.50],[3900,7.70],[4000,7.90],[4100,8.10],[4200,8.30],[4300,8.50],[4400,8.70],[4500,8.90],[4600,9.10],[4700,9.30],[4800,9.50],[4900,9.70],[5000,9.90],[5200,10.30],[5400,10.70],[5600,11.10],[5800,11.50],[6000,11.90]];
+const lfSocso = w => { if (w <= 0) return [0, 0]; for (const r of LF_SOCSO) if (w <= r[0]) return [r[1], r[2]]; return [104.15, 74.40]; };
+const lfEis = w => { if (w <= 0) return [0, 0]; for (const r of LF_EIS) if (w <= r[0]) return [r[1], r[1]]; return [11.90, 11.90]; };
+const lfPCB = w => { if (w <= 0) return 0; const epfEe = Math.min(w * 0.11 * 12, 4000); const ch = w * 12 - 9000 - epfEe; if (ch <= 5000) return 0;
+  const bands = [[5000, 20000, 0.01, 0], [20000, 35000, 0.03, 150], [35000, 50000, 0.06, 600], [50000, 70000, 0.11, 1500], [70000, 100000, 0.19, 3700], [100000, 400000, 0.25, 9400], [400000, 600000, 0.26, 84400], [600000, 2000000, 0.28, 136400], [2000000, Infinity, 0.30, 528400]];
+  let tax = 0; for (const [lo, hi, rate, base] of bands) if (ch > lo && ch <= hi) { tax = base + (ch - lo) * rate; break; } return Math.max(tax / 12, 0); };
+const lfR = x => lsNum(lsFmt(x));
+function lfStat(r) {
+  const m = parseInt(r.months) || 3, wage = lsNum(r.basic);
+  const epfAuto = lfR(wage > 0 ? wage * 0.24 * m : 0);
+  const [se, sw] = lfSocso(wage), [ee, ew] = lfEis(wage);
+  const pcbAuto = lfPCB(wage), pcbM = String(r.pcb || "").trim() === "" ? pcbAuto : lsNum(r.pcb);
+  const socAuto = lfR((se + sw + ee + ew) * m + pcbM * m);
+  const epf = r.epfManual ? lsNum(r.epf) : epfAuto, socso = r.socsoManual ? lsNum(r.socso) : socAuto;
+  const r2 = x => Math.round(x * 100) / 100;
+  const a = r2((r.settlement || []).reduce((t, x) => t + lsNum(x.amount), 0));
+  const b = r2(epf + socso + (r.charges || []).reduce((t, x) => t + lsNum(x.amount), 0));
+  const principal = r2(a + b), pct = lsNum(r.interest), intAmt = r2(principal * pct / 100);
+  return { m, pcbAuto, epfAuto, socAuto, epf, socso, a, b, principal, pct, intAmt, grand: r2(principal + intAmt), tobank: r2(b + intAmt) };
+}
 /* 把资料填进 Lending Sheet，读回计算好的数目 */
 function lsFill(win, r) {
   const d = win.document, g = id => d.getElementById(id);
@@ -4346,13 +4387,13 @@ function lsFill(win, r) {
   set("hdr", lsTitle(r.date) || g("hdr").value);
   set("name", String(r.name || "").toUpperCase()); set("tel", r.tel || "");
   set("doa", lsDMY(r.date) || g("doa").value); set("months", r.months || "3"); set("interest", r.interest == null || r.interest === "" ? "30" : r.interest);
-  set("basic", r.basic ? lsFmt(lsNum(r.basic)) : ""); set("pcb", "");
+  set("basic", r.basic ? lsFmt(lsNum(r.basic)) : ""); set("pcb", String(r.pcb || "").trim() === "" ? "" : lsFmt(lsNum(r.pcb)));
   g("settlement").innerHTML = (r.settlement || []).filter(x => x.desc || x.acc || x.amount).map(x => win.rowHTML2(lsEsc(String(x.desc || "").toUpperCase()), lsEsc(String(x.acc || "").toUpperCase()), x.amount !== "" && x.amount != null ? lsFmt(lsNum(x.amount)) : "")).join("");
   g("chargesBottom").innerHTML = (r.charges || []).filter(x => x.desc || x.amount).map(x => win.rowHTML(lsEsc(String(x.desc || "").toUpperCase()), x.amount !== "" && x.amount != null ? lsFmt(lsNum(x.amount)) : "")).join("");
   const sel = g("bank"), oth = g("bankOther"), bk = String(r.bank || "").toUpperCase();
   if (sel && oth) { if (!bk || LS_BANKS.includes(bk)) { sel.value = bk; sel.style.display = "inline-block"; oth.style.display = "none"; oth.value = ""; } else { sel.value = "__OTHER__"; sel.style.display = "none"; oth.style.display = "inline-block"; oth.value = bk; } }
   set("acct", r.acct || "");
-  ["epfAmt", "socsoAmt"].forEach(id => { const el = g(id); if (el) delete el.dataset.manual; });
+  [["epfAmt", "epfManual", "epf"], ["socsoAmt", "socsoManual", "socso"]].forEach(([id, mk, vk]) => { const el = g(id); if (!el) return; if (r[mk]) { el.dataset.manual = "1"; el.value = lsFmt(lsNum(r[vk])); } else delete el.dataset.manual; });
   try { win.calcDue(); win.calcStat(); } catch (e) {}
   const t = id => lsNum((g(id) || {}).textContent);
   return { totA: t("totA"), totB: t("totB"), principal: t("principal"), intAmt: t("intAmt"), grand: t("grand"), tobank: t("tobank") };
@@ -4410,6 +4451,33 @@ function LendingFeePage({ currentUser }) {
           h("span", { style: { flex: 1 } }),
           h("b", { style: { fontSize: 13 } }, "TOTAL : " + lsFmt(tot)))));
   };
+  const st = form ? lfStat(form) : null;
+  const reset = (t, fn) => h("span", { onClick: fn, title: "恢复自动计算", style: { cursor: "pointer", color: "#2563eb", fontSize: 12, marginLeft: 4 } }, "↺");
+  const secB = () => {
+    const rows = form.charges || [];
+    const setRow = (id, k, v) => setForm({ ...form, charges: rows.map(x => x.id === id ? { ...x, [k]: v } : x) });
+    const line = (label, input, small) => h("div", { style: { display: "flex", gap: 6, alignItems: "center", ...(small ? { fontSize: 12, color: "#64748b" } : {}) } },
+      h("div", { style: { flex: 2.4, fontWeight: small ? 600 : 800, fontSize: small ? 12 : 13, paddingLeft: small ? 14 : 2 } }, label),
+      h("div", { style: { flex: 1 } }, input), h("span", { style: { width: 24 } }));
+    const num = (val, ph, on, manual) => h("input", { value: val, placeholder: ph, inputMode: "decimal", onChange: e => on(e.target.value.replace(/[^\d.,]/g, "")), onBlur: e => { const v = e.target.value.trim(); if (v) on(lsFmt(lsNum(v))); }, style: { ...inp, textAlign: "right", fontWeight: 700, ...(manual ? { background: "#fff7ed", borderColor: "#fdba74" } : {}) } });
+    return h("div", { style: { border: "1px solid #fde68a", borderRadius: 12, marginTop: 14, overflow: "hidden" } },
+      h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f" } }, "(B) OTHERS CHARGES"),
+      h("div", { style: { padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 } },
+        line("BASIC SALARY (PER MONTH)", num(form.basic || "", "0.00", v => setForm({ ...form, basic: v }))),
+        line(h("span", null, "↳ PCB (AUTO·SINGLE, ×" + st.m + ")", reset("", () => setForm({ ...form, pcb: "" }))), num(form.pcb || "", lsFmt(st.pcbAuto), v => setForm({ ...form, pcb: v }), String(form.pcb || "").trim() !== ""), true),
+        line(h("span", null, "EPF", reset("", () => setForm({ ...form, epfManual: false, epf: "" }))), num(form.epfManual ? form.epf : lsFmt(st.epfAuto), "0.00", v => setForm({ ...form, epfManual: true, epf: v }), form.epfManual)),
+        line(h("span", null, "SOCSO+EIS+PCB", reset("", () => setForm({ ...form, socsoManual: false, socso: "" }))), num(form.socsoManual ? form.socso : lsFmt(st.socAuto), "0.00", v => setForm({ ...form, socsoManual: true, socso: v }), form.socsoManual)),
+        rows.map(x => h("div", { key: x.id, style: { display: "flex", gap: 6, alignItems: "center" } },
+          h("input", { value: x.desc || "", placeholder: "Description", onChange: e => setRow(x.id, "desc", e.target.value), style: { ...inp, flex: 2.4, textTransform: "uppercase" } }),
+          h("input", { value: x.amount || "", placeholder: "0.00", inputMode: "decimal", onChange: e => setRow(x.id, "amount", e.target.value.replace(/[^\d.,]/g, "")), onBlur: e => { const v = e.target.value.trim(); if (v) setRow(x.id, "amount", lsFmt(lsNum(v))); }, style: { ...inp, flex: 1, textAlign: "right" } }),
+          h("button", { onClick: () => setForm({ ...form, charges: rows.filter(y => y.id !== x.id) }), title: "删除", style: { border: "none", background: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", width: 24 } }, "×"))),
+        h("div", { style: { display: "flex", alignItems: "center" } },
+          h("button", { onClick: () => setForm({ ...form, charges: [...rows, { id: uid(), desc: "", amount: "" }] }), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "4px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Add Item"),
+          h("span", { style: { flex: 1 } }),
+          h("b", { style: { fontSize: 13 } }, "TOTAL : " + lsFmt(st.b)))));
+  };
+  const sumBox = () => h("div", { style: { marginTop: 14, border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 14px", background: "#f8fafc", display: "flex", flexDirection: "column", gap: 4, fontSize: 13.5 } },
+    [["PRINCIPAL AMOUNT (A+B)", st.principal], [st.pct + "% INTEREST (FUNDER FEE)", st.intAmt], ["TOTAL", st.grand, true], ["TOTAL TO BANK IN CLIENT'S ACCT", st.tobank, false, "#c00"]].map(([k, v, bold, col], i) => h("div", { key: i, style: { display: "flex", fontWeight: bold || col ? 900 : 700, color: col || "#1e293b" } }, h("span", { style: { flex: 1 } }, k), h("span", null, lsFmt(v)))));
   const openPdf = r => setPdf(r);
   const onPdfLoad = () => {
     const f = frameRef.current; if (!f || !pdf) return;
@@ -4447,15 +4515,11 @@ function LendingFeePage({ currentUser }) {
             fld("NAME", "name", { style: { ...inp, textTransform: "uppercase", fontWeight: 800 } }, "2 1 240px"),
             fld("TEL", "tel"),
             h("div", { style: { flex: "1 1 150px" } }, lbl("DATE OF AGREEMENT"), h("input", { type: "date", value: form.date || "", onChange: e => setForm({ ...form, date: e.target.value }), style: inp })),
-            fld("BY MONTH(S)", "months", { inputMode: "numeric" }, "0 1 100px"),
+            fld("BY MONTH(S)", "months", { inputMode: "numeric", onChange: e => { const v = e.target.value.replace(/[^\d]/g, ""); setForm({ ...form, months: v, ...(v ? { interest: String(+v * 10) } : {}) }); } }, "0 1 100px"),
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]]),
-          h("div", { style: { border: "1px solid #fde68a", borderRadius: 12, marginTop: 14, overflow: "hidden" } },
-            h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f" } }, "(B) OTHERS CHARGES"),
-            h("div", { style: { padding: "8px 12px", display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" } },
-              h("div", { style: { flex: "0 1 220px" } }, lbl("BASIC SALARY (PER MONTH)"), h("input", { value: form.basic || "", inputMode: "decimal", onChange: e => setForm({ ...form, basic: e.target.value.replace(/[^\d.,]/g, "") }), style: { ...inp, textAlign: "right" } })),
-              h("div", { style: { fontSize: 12, color: "#64748b", fontWeight: 600, paddingBottom: 8 } }, "EPF、SOCSO+EIS+PCB 会照 Lending Sheet 自动算"))),
-          sec("(B) OTHERS CHARGES · 其他项目", "charges", [["desc", "Description", 2.4], ["amount", "0.00", 1, true]]),
+          secB(),
+          sumBox(),
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 } },
             h("div", { style: { flex: "1 1 200px" } }, lbl("ACCOUNT RECORD · BANK"), h("input", { list: "ls-banks", value: form.bank || "", onChange: e => setForm({ ...form, bank: e.target.value }), style: { ...inp, textTransform: "uppercase" } }), h("datalist", { id: "ls-banks" }, LS_BANKS.map(b => h("option", { key: b, value: b })))),
             fld("ACCOUNT NO.", "acct")),
