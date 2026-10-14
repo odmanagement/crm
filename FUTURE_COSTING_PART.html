@@ -272,18 +272,21 @@ function updateTitle(){
   document.getElementById('printAgent').textContent = ag? ('Agent : '+ag) : '';
   applyMvLock();
 }
-// M&V：只有 Agent 是 ALEX 才可以改数目
+// M&V：数目大家都可以改；Agent 是 ALEX 的话，M&V 那行褐色的 Agent 数目可以自己填
 function applyMvLock(){
   const ag=(document.getElementById('agentName').value||'').trim().toUpperCase();
   const ok = ag==='ALEX';
   document.querySelectorAll('#partABody tr.pinned-row').forEach(tr=>{
     const nm=(tr.querySelector('.name-input')||{}).value||'';
     if(nm.trim().toUpperCase()!=='M&V') return;
-    const inp=tr.querySelector('.amt-input'); if(!inp) return;
-    if(ok){ inp.removeAttribute('readonly'); inp.style.background=''; inp.style.color=''; inp.title='';
-      inp.oninput=()=>calc(); inp.onblur=()=>fmtInput(inp); }
-    else { inp.setAttribute('readonly',''); inp.style.background='#eee'; inp.style.color='#555'; inp.title='只有 Agent ALEX 可以改 M&V'; }
+    const inp=tr.querySelector('.amt-input');
+    if(inp && inp.hasAttribute('readonly')){ inp.removeAttribute('readonly'); inp.style.background=''; inp.style.color=''; inp.title=''; inp.oninput=()=>calc(); inp.onblur=()=>fmtInput(inp); }
+    const cell=tr.querySelector('.agentCell'); if(!cell) return;
+    const cur=cell.querySelector('.agent-amt');
+    if(ok && !cur){ const v=tr.dataset.agentAmt||''; cell.innerHTML='<input class="agent-amt amt-input2 num" type="text" inputmode="decimal" placeholder="0.00" style="width:90px;text-align:right;border:1px solid #d6c3a5;border-radius:5px;padding:4px 6px;color:#7a5c2e;font-weight:600">'; const a=cell.querySelector('.agent-amt'); a.value=v; a.oninput=()=>{tr.dataset.agentAmt=a.value; calc();}; a.onblur=()=>{ if(a.value.trim()) a.value=fmt(parseNum(a.value)); tr.dataset.agentAmt=a.value; calc(); }; }
+    if(!ok && cur){ tr.dataset.agentAmt=''; cell.textContent=fmt(0); }
   });
+  calc();
 }
 const PARTS_WITH_MULT = ['partABody'];
 function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
@@ -332,7 +335,7 @@ function calcPartA(){
   const rows=[...document.getElementById('partABody').querySelectorAll('tr')];
   const lRate=parseFloat(document.getElementById('lucasRate').value)/100||0;
   const aRate=parseFloat(document.getElementById('agentRate').value)/100||0;
-  let resSum=0;
+  let resSum=0, rowAgent=0;
   // Lucas 拿全部 Result；Total % 那份钱再由 Lucas % 和 Agent % 来分（两个加起来 = Total %）
   const tpRaw=document.getElementById('aFinalPct').value;
   const lpRaw=document.getElementById('aLucasPct').value, apRaw=document.getElementById('aAgentPct').value;
@@ -346,9 +349,11 @@ function calcPartA(){
     const hasMult = multEl && multEl.value.trim()!=='';
     const res = hasMult ? amt*parseNum(multEl.value) : amt;
     resSum+=res;
+    const agEl=r.querySelector('.agent-amt'); const agAmt=agEl?parseNum(agEl.value):0;
+    rowAgent+=agAmt;
     r.querySelector('.resultCell').textContent=fmt(res);
-    r.querySelector('.lucasCell').textContent=fmt(res);
-    r.querySelector('.agentCell').textContent=fmt(0);
+    r.querySelector('.lucasCell').textContent=fmt(res-agAmt);
+    if(!agEl) r.querySelector('.agentCell').textContent=fmt(0);
   });
   const pctRaw = document.getElementById('aFinalPct').value;
   const finalPct=parseFloat(pctRaw)/100;
@@ -361,15 +366,15 @@ function calcPartA(){
       <td colspan="2"></td>
       <td class="num">${fmt(resSum)} &nbsp;×&nbsp; ${pctShow}</td>
       <td class="num lucas-col">= ${fmt(resSum*lp)}</td>
-      <td class="num agent-col">${fmt(resSum*ap)}</td>
+      <td class="num agent-col">${fmt(resSum*ap + rowAgent)}</td>
       <td></td>
     </tr>
     <tr class="grand">
       <td>TOTAL (Subtotal + ${pctShow})</td>
       <td colspan="2"></td>
       <td class="num">${fmt(grand)}</td>
-      <td class="num lucas-col">${fmt(resSum + resSum*lp)}</td>
-      <td class="num agent-col">${fmt(resSum*ap)}</td>
+      <td class="num lucas-col">${fmt(resSum + resSum*lp - rowAgent)}</td>
+      <td class="num agent-col">${fmt(resSum*ap + rowAgent)}</td>
       <td></td>
     </tr>`;
   return grand;
@@ -526,6 +531,7 @@ function collectData(){
         mult:multEl?multEl.value:'',
         hasMult:!!multEl,
         pinned:r.classList.contains('pinned-row'),
+        agentAmt:(r.querySelector('.agent-amt')||{}).value||r.dataset.agentAmt||'',
         lock:r.querySelector('.amt-input').hasAttribute('readonly')
       };
     });
@@ -551,6 +557,7 @@ function restoreData(d){
       const tr=addRow(id,row.name,row.amt,row.pinned,row.lock,noMult);
       const multEl=tr.querySelector('.mult-input');
       if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
+      if(row.agentAmt) tr.dataset.agentAmt=row.agentAmt;
     });
   });
   document.getElementById('balBody').innerHTML='';
