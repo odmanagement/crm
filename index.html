@@ -1580,7 +1580,7 @@ function ODPaymentPage({ currentUser }) {
             h("textarea", { value: mForm.remark || "", rows: 2, onChange: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; setMForm({ ...mForm, remark: e.target.value }); }, ref: el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, style: { ...inp, resize: "vertical", minHeight: 44, overflow: "hidden", wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.4 } })),
           fl("RM", "amount", { inputMode: "decimal", onBlur: e => { const v = e.target.value.trim(); if (v) setMForm({ ...mForm, amount: lsFmt(lsNum(v)) }); }, style: { ...inp, textAlign: "right", fontWeight: 800 } }),
           h("div", { style: { marginBottom: 10 } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "ACC（名字 / 银行 / 户口 — 按 Enter 换行）"),
-            h("textarea", { value: mForm.acc || "", rows: 3, placeholder: "THE ROOF REALTY SDN BHD\nHONG LEONG BANK\n040-001-102-95", onChange: e => setMForm({ ...mForm, acc: e.target.value }), style: { ...inp, resize: "vertical", textTransform: "uppercase", lineHeight: 1.45 } })),
+            h("textarea", { value: mForm.acc || "", rows: 3, onChange: e => setMForm({ ...mForm, acc: e.target.value }), style: { ...inp, resize: "vertical", textTransform: "uppercase", lineHeight: 1.45 } })),
           h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 } },
             h("button", { onClick: () => setMForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "9px 16px", fontWeight: 800, cursor: "pointer" } }, "取消"),
             h("button", { onClick: mSave, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "9px 20px", fontWeight: 900, cursor: "pointer" } }, "💾 保存"))));
@@ -3723,7 +3723,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v154"));
+    h("div", { className: "sb-ver" }, "v155"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
