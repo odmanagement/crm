@@ -358,8 +358,8 @@ function calcPartA(){
   const pctRaw = document.getElementById('aFinalPct').value;
   const finalPct=parseFloat(pctRaw)/100;
   // M&V Agent Amount（只有 ALEX）：直接 × Total %（例如 70%），全部给 Agent，不扣 Lucas、不再 × Agent %
-  const mvAgent = isNaN(finalPct) ? 0 : rowAgent*finalPct;
-  document.querySelectorAll('#partABody .agent-mv-hint').forEach(el=>{ const a=parseNum((el.closest('td').querySelector('.agent-amt')||{}).value); el.textContent = a ? ('× '+(isNaN(finalPct)?'—':parseFloat(pctRaw)+'%')+' = '+fmt(a*(isNaN(finalPct)?0:finalPct))) : ''; });
+  const mvAgent = isNaN(finalPct) ? 0 : rowAgent*finalPct;   // + 原本填的数目（rowAgent）也加进 Agent 总数
+  document.querySelectorAll('#partABody .agent-mv-hint').forEach(el=>{ const a=parseNum((el.closest('td').querySelector('.agent-amt')||{}).value); el.textContent = a ? ('× '+(isNaN(finalPct)?'—':parseFloat(pctRaw)+'%')+' = '+fmt(a*(isNaN(finalPct)?0:finalPct))+' ＋ '+fmt(a)) : ''; });
   const pctAmt = isNaN(finalPct) ? 0 : resSum*finalPct;
   const grand = resSum + pctAmt;
   const pctShow = isNaN(finalPct) ? '—' : `${parseFloat(pctRaw)}%`;
@@ -369,7 +369,7 @@ function calcPartA(){
       <td colspan="2"></td>
       <td class="num">${fmt(resSum)} &nbsp;×&nbsp; ${pctShow}</td>
       <td class="num lucas-col">= ${fmt(resSum*lp)}</td>
-      <td class="num agent-col">${fmt(resSum*ap + mvAgent)}</td>
+      <td class="num agent-col">${fmt(resSum*ap + mvAgent + rowAgent)}</td>
       <td></td>
     </tr>
     <tr class="grand">
@@ -377,7 +377,7 @@ function calcPartA(){
       <td colspan="2"></td>
       <td class="num">${fmt(grand)}</td>
       <td class="num lucas-col">${fmt(resSum + resSum*lp)}</td>
-      <td class="num agent-col">${fmt(resSum*ap + mvAgent)}</td>
+      <td class="num agent-col">${fmt(resSum*ap + mvAgent + rowAgent)}</td>
       <td></td>
     </tr>`;
   return grand;
