@@ -3639,7 +3639,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v133"));
+    h("div", { className: "sb-ver" }, "v134"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4527,7 +4527,7 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
   React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
   return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 72, justifyContent: "flex-end" } },
     list.map(id => h(PhotoImg, { key: id, id, onClick: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } })),
-    !ro && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片\n鼠标放在这里按 Ctrl+V = 贴上截图",
+    !ro && !list.length && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片\n鼠标放在这里按 Ctrl+V = 贴上截图",
       onMouseEnter: on, onMouseLeave: off, onFocus: on, onBlur: () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); },
       onClick: () => { if (!busy && fileRef.current) fileRef.current.click(); },
       style: { width: 34, height: 34, boxSizing: "border-box", borderRadius: 8, border: "1px dashed " + (hot ? "#7c3aed" : "#c4b5fd"), background: hot ? "#ede9fe" : "#faf5ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "wait" : "pointer", outline: "none", flex: "0 0 34px" } },
@@ -4636,10 +4636,10 @@ function LendingFeePage({ currentUser }) {
           showOpen && h("div", { style: sub },
             pays.length > 0 && h("span", { style: { flex: 1, color: remain < 0 ? "#b91c1c" : "#b45309" } }, remain < 0 ? "⚠ 多付了（差额）" : "差额 · 还要 bank in"),
             pays.length > 0 && h("span", { style: { color: "#c00", fontSize: 13, fontWeight: 900 } }, lsFmt(remain)),
-            h("span", null, "付款日期"),
-            h("input", { type: "date", value: form.toBankDate || "", title: "付款日期", disabled: !!form.toBankSkip, onChange: e => setForm({ ...form, toBankDate: e.target.value }), style: { ...inp, width: 132, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600, ...(form.toBankSkip ? { opacity: .4 } : {}) } }),
+            !form.toBankSkip && h("span", null, "付款日期"),
+            !form.toBankSkip && h("input", { type: "date", value: form.toBankDate || "", title: "付款日期", disabled: !!form.toBankSkip, onChange: e => setForm({ ...form, toBankDate: e.target.value }), style: { ...inp, width: 132, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, color: "#1e293b", fontWeight: 600, ...(form.toBankSkip ? { opacity: .4 } : {}) } }),
             lfSkipBtn(h, !!form.toBankSkip, () => setForm({ ...form, toBankSkip: !form.toBankSkip })),
-            h(LfPhotos, { ids: [], ro: !canAdd || !!form.toBankSkip, onChange: v => { if (!v.length) return; setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
+            !form.toBankSkip && h(LfPhotos, { ids: [], ro: !canAdd, onChange: v => { if (!v.length) return; setForm({ ...form, toBankPays: [...pays, { id: uid(), amount: pays.length ? remain : st.tobank, date: form.toBankDate || today(), photos: v, photosBy: me, paid: form.clientPaid || null, paidBy: form.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }); } })));
       })())));
   const openPdf = r => setPdf(r);
   const onPdfLoad = () => {
