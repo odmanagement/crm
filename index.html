@@ -1503,7 +1503,14 @@ function ODPaymentPage({ currentUser }) {
   const rowsOf = r0 => {
     if (r0 && r0.manual) { const m = r0.m; return [{ id: "__m", desc: m.remark || "—", acc: m.acc || "", amount: lsFmt(m.amount), paid: m.paid || null, paidBy: m.paidBy || null, payDate: m.payDate || "", photos: m.photos || [], photosBy: m.photosBy || null }]; }
     const r = lfNorm(r0);
-    const rows = (r.settlement || []).filter(x => x.desc || x.acc || x.amount).map(x => ({ ...x, id: sidOf(r, x) }));
+    const rows = [];
+    (r.settlement || []).filter(x => x.desc || x.acc || x.amount).forEach(x => {
+      const sid = sidOf(r, x), ps = x.pays || [];
+      if (!ps.length) { rows.push({ ...x, id: sid, canPart: !x.paid && !(x.photos && x.photos.length) }); return; }
+      ps.forEach((p, k) => rows.push({ id: sid + "|p|" + p.id, desc: (x.desc || "") + " (" + (k + 1) + ")", acc: x.acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, payDate: p.date || "", photos: p.photos || [], photosBy: p.photosBy || null, part: true }));
+      const rem = lfR2(lsNum(x.amount) - ps.reduce((t, p) => t + (Number(p.amount) || 0), 0));
+      if (Math.abs(rem) >= 0.005) rows.push({ id: sid + "|bal", desc: (x.desc || "") + " (BALANCE)", acc: x.acc, amount: lsFmt(rem), rem, bal: true, canPart: true, paid: null, photos: [], photosBy: null });
+    });
     const tb = toBank(r), pays = r.toBankPays || [], acc = [String(r.bank || "").toUpperCase(), r.acct || ""].filter(Boolean).join("  "), nm = String(r.name || "") + " - FUNDER FEE";
     pays.forEach((p, k) => rows.push({ id: "__pay_" + p.id, client: true, desc: nm + (pays.length > 1 || lfTbRemain(r, tb) ? " (" + (k + 1) + ")" : ""), acc, amount: lsFmt(p.amount), paid: p.paid || null, paidBy: p.paidBy || null, payDate: p.date || "", photos: p.photos || [], photosBy: p.photosBy || null }));
     const remain = lfTbRemain(r, tb);
@@ -1512,11 +1519,26 @@ function ODPaymentPage({ currentUser }) {
   };
   const recs = [...items.filter(r => rowsOf(r).length), ...mItems.map(m => ({ id: "m:" + m.id, manual: true, m, name: m.name, date: m.date, at: m.at }))]
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
-  const updRow = (rid, sid, patch) => { if (ro) return; if (isM(rid)) { updM(rid, m => ({ ...m, ...("photos" in patch ? { photos: patch.photos, photosBy: patch.photos.length ? (m.photosBy || me) : null } : {}), ...("payDate" in patch ? { payDate: patch.payDate } : {}) })); return; } save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0);
+  const remOf = x => lfR2(lsNum(x.amount) - (x.pays || []).reduce((t, p) => t + (Number(p.amount) || 0), 0));
+  const patchSet = (rid, base, fn) => save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0); return { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== base ? x : { ...fn(x), id: x.id || base }) }; }));
+  const partPay = (rid, sid) => {
+    const base = sid.replace(/\|bal$/, ""), r = items.find(y => y.id === rid); if (!r) return;
+    const x = (r.settlement || []).find(y => sidOf(r, y) === base); if (!x) return;
+    const rem = remOf(x), v = window.prompt("先付了多少？(RM)\n剩下 RM " + lsFmt(rem), ""); if (v == null) return;
+    const amt = lfR2(lsNum(v)); if (!amt || amt <= 0) return; if (amt > rem + 0.005) { alert("不能超过剩下的 RM " + lsFmt(rem)); return; }
+    patchSet(rid, base, y => ({ ...y, pays: [...(y.pays || []), { id: uid(), amount: amt, date: today() }] })); monetSfx("save");
+  };
+  const updRow = (rid, sid, patch) => { if (ro) return;
+    if (!isM(rid) && sid.indexOf("|p|") > 0) { const [base, pid] = sid.split("|p|"); patchSet(rid, base, x => ({ ...x, pays: (x.pays || []).map(p => p.id !== pid ? p : { ...p, ...("photos" in patch ? { photos: patch.photos, photosBy: patch.photos.length ? (p.photosBy || me) : null } : {}) }) })); return; }
+    if (!isM(rid) && /\|bal$/.test(sid)) { if (!(patch.photos && patch.photos.length)) return; const base = sid.replace(/\|bal$/, ""); patchSet(rid, base, x => ({ ...x, pays: [...(x.pays || []), { id: uid(), amount: remOf(x), date: today(), photos: patch.photos, photosBy: me }] })); return; }
+    if (isM(rid)) { updM(rid, m => ({ ...m, ...("photos" in patch ? { photos: patch.photos, photosBy: patch.photos.length ? (m.photosBy || me) : null } : {}), ...("payDate" in patch ? { payDate: patch.payDate } : {}) })); return; } save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0);
     if (sid === "__client") { if (!(patch.photos && patch.photos.length)) return r; const pays = r.toBankPays || []; return { ...r, toBankPays: [...pays, { id: uid(), amount: pays.length ? lfTbRemain(r, lfToBankOf(r)) : lfToBankOf(r), date: r.toBankDate || today(), photos: patch.photos, photosBy: me, paid: r.clientPaid || null, paidBy: r.clientPaidBy || null }], toBankDate: "", toBankSkip: false, clientPaid: null, clientPaidBy: null }; }
     if (sid.indexOf("__pay_") === 0) { const pid = sid.slice(6); return { ...r, toBankPays: (r.toBankPays || []).map(p => p.id !== pid ? p : { ...p, ...("photos" in patch ? { photos: patch.photos } : {}) }) }; }
     return { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : { ...x, id: x.id || sid, ...patch, ...("photos" in patch ? { photosBy: patch.photos.length ? (x.photosBy || me) : null } : {}) }) }; })); };
-  const togglePaid = (rid, sid) => { if (ro) return; if (isM(rid)) { updM(rid, m => m.paid ? { ...m, paid: null, paidBy: null } : { ...m, paid: Date.now(), paidBy: me, payDate: m.payDate || today() }); monetSfx("save"); return; } if (sid.indexOf("__pay_") === 0) { const pid = sid.slice(6); save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0); return { ...r, toBankPays: (r.toBankPays || []).map(p => p.id !== pid ? p : (p.paid ? { ...p, paid: null, paidBy: null } : { ...p, paid: Date.now(), paidBy: me })) }; })); monetSfx("save"); return; } if (sid === "__client") { save(items.map(r => r.id !== rid ? r : (r.clientPaid ? { ...r, clientPaid: null, clientPaidBy: null } : { ...r, clientPaid: Date.now(), clientPaidBy: me }))); monetSfx("save"); return; } save(items.map(r => r.id !== rid ? r : { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : (x.paid ? { ...x, paid: null, paidBy: null } : { ...x, paid: Date.now(), paidBy: me })) })); monetSfx("save"); };
+  const togglePaid = (rid, sid) => { if (ro) return;
+    if (!isM(rid) && sid.indexOf("|p|") > 0) { const [base, pid] = sid.split("|p|"); patchSet(rid, base, x => ({ ...x, pays: (x.pays || []).map(p => p.id !== pid ? p : (p.paid ? { ...p, paid: null, paidBy: null } : { ...p, paid: Date.now(), paidBy: me })) })); monetSfx("save"); return; }
+    if (!isM(rid) && /\|bal$/.test(sid)) { const base = sid.replace(/\|bal$/, ""); patchSet(rid, base, x => ({ ...x, pays: [...(x.pays || []), { id: uid(), amount: remOf(x), date: today(), paid: Date.now(), paidBy: me }] })); monetSfx("save"); return; }
+    if (isM(rid)) { updM(rid, m => m.paid ? { ...m, paid: null, paidBy: null } : { ...m, paid: Date.now(), paidBy: me, payDate: m.payDate || today() }); monetSfx("save"); return; } if (sid.indexOf("__pay_") === 0) { const pid = sid.slice(6); save(items.map(r0 => { if (r0.id !== rid) return r0; const r = lfNorm(r0); return { ...r, toBankPays: (r.toBankPays || []).map(p => p.id !== pid ? p : (p.paid ? { ...p, paid: null, paidBy: null } : { ...p, paid: Date.now(), paidBy: me })) }; })); monetSfx("save"); return; } if (sid === "__client") { save(items.map(r => r.id !== rid ? r : (r.clientPaid ? { ...r, clientPaid: null, clientPaidBy: null } : { ...r, clientPaid: Date.now(), clientPaidBy: me }))); monetSfx("save"); return; } save(items.map(r => r.id !== rid ? r : { ...r, settlement: (r.settlement || []).map(x => sidOf(r, x) !== sid ? x : (x.paid ? { ...x, paid: null, paidBy: null } : { ...x, paid: Date.now(), paidBy: me })) })); monetSfx("save"); };
   const groups = recs.map(r => {
     const rows = rowsOf(r);
     const hit = !ql || [r.name, r.tel].join(" ").toLowerCase().includes(ql) || rows.some(x => [x.desc, x.acc].join(" ").toLowerCase().includes(ql));
@@ -1560,20 +1582,22 @@ function ODPaymentPage({ currentUser }) {
           return shownRows.map((x, i) => h("tr", { key: r.id + "_" + x.id, style: x.paid ? { background: "#fdf2f8" } : null },
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, verticalAlign: "top", borderRight: "1px solid #eef0f6" } }, r.name,
               r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel)),
+              !r.manual && h("div", null, lfFunderTag(h, r.funder)),
               r.manual && h("div", { style: { display: "flex", gap: 4, marginTop: 4 } },
                 h("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#7c3aed", background: "#f5f3ff", borderRadius: 999, padding: "1px 8px" } }, "ADD PAYMENT"),
                 !ro && lfCanEdit(r.m.by, me) && !(r.m.photos && r.m.photos.length) && !r.m.paid && h("button", { onClick: () => setMForm({ ...r.m, amount: lsFmt(r.m.amount) }), title: "编辑", style: { ...S.fuDel, padding: 0 } }, h(Edit3, { size: 13, color: "#6366f1" })),
                 !ro && lfCanEdit(r.m.by, me) && !(r.m.photos && r.m.photos.length) && !r.m.paid && h("button", { onClick: () => { if (window.confirm("删除「" + r.m.name + "」这笔？")) saveM(mItems.filter(m => m.id !== r.m.id)); }, title: "删除", style: { ...S.fuDel, padding: 0 } }, h(Trash2, { size: 13, color: "#cbd5e1" }))),
               h("div", { style: { fontSize: 11.5, fontWeight: 800, marginTop: 4, color: gp >= gt ? "#15803d" : "#b45309" } }, (gp >= gt ? "✅ 全部付了 · " : "未付 RM " + lsFmt(gt - gp) + " · ") + "总 RM " + lsFmt(gt))),
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, verticalAlign: "top", whiteSpace: "nowrap" } }, r.date ? tpDate(dtDMY(r.date)) : "—"),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : undefined, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: 320, overflow: "visible", textOverflow: "clip" } }, String(x.desc || "").toUpperCase() || "—"),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, ...(x.client ? { color: "#2c6fbb", fontWeight: 800 } : {}) } }, String(x.acc || "").toUpperCase() || "—"),
+            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : x.bal ? "#b45309" : undefined, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: 320, overflow: "visible", textOverflow: "clip" } }, String(x.desc || "").toUpperCase() || "—"),
+            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, fontWeight: 800, color: x.client ? "#2c6fbb" : "#1e293b" } }, lfAcc(String(x.acc || "").toUpperCase()) || "—"),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? tpDate(dtDMY(x.payDate)) : "—"),
             (() => { const owner = x.photosBy || x.paidBy || null, ok = !ro && lfCanEdit(owner, me), who = owner ? String(owner).toUpperCase() : "";
               return [
                 h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, ro: !ok, onChange: v => updRow(r.id, x.id, { photos: v }) }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
-                h("td", { className: x.paid ? "od-pd" : undefined, key: "pd", style: { ...td, textAlign: "center" } }, h("button", { onClick: () => ok && togglePaid(r.id, x.id), disabled: !ok, title: !ok && owner ? "只有 " + who + " 可以更改" : x.paid ? "已付 · " + String(x.paidBy || "").toUpperCase() + " · " + new Date(x.paid).toLocaleDateString("en-GB") : "按一下 = 已付", style: { border: "1px solid " + (x.paid ? "#86efac" : "#e2e8f0"), background: x.paid ? "#dcfce7" : "#fff", color: x.paid ? "#15803d" : "#94a3b8", borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 12, cursor: ok ? "pointer" : "not-allowed", whiteSpace: "nowrap", opacity: ok ? 1 : .75 } }, x.paid ? "✓ PAID" : "未付", !ok && owner ? " 🔒" : ""))];
+                h("td", { className: x.paid ? "od-pd" : undefined, key: "pd", style: { ...td, textAlign: "center" } }, h("button", { onClick: () => ok && togglePaid(r.id, x.id), disabled: !ok, title: !ok && owner ? "只有 " + who + " 可以更改" : x.paid ? "已付 · " + String(x.paidBy || "").toUpperCase() + " · " + new Date(x.paid).toLocaleDateString("en-GB") : "按一下 = 已付", style: { border: "1px solid " + (x.paid ? "#86efac" : "#e2e8f0"), background: x.paid ? "#dcfce7" : "#fff", color: x.paid ? "#15803d" : "#94a3b8", borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 12, cursor: ok ? "pointer" : "not-allowed", whiteSpace: "nowrap", opacity: ok ? 1 : .75 } }, x.paid ? "✓ PAID" : "未付", !ok && owner ? " 🔒" : ""),
+                  x.canPart && !ro && h("button", { onClick: () => partPay(r.id, x.id), title: "先付一部分（会分成两格：已付 + Balance）", style: { marginLeft: 4, border: "1px dashed #f9a8d4", background: "#fff", color: "#db2777", borderRadius: 999, padding: "4px 8px", fontWeight: 900, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" } }, "½ 部分"))];
             })()));
         })))));
 }
@@ -3673,7 +3697,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v141"));
+    h("div", { className: "sb-ver" }, "v142"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4476,7 +4500,7 @@ const lsNum = v => Number(String(v == null ? "" : v).replace(/,/g, "")) || 0;
 const lsFmt = n => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const lsEsc = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 const lsDMY = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? (+m[3]) + "/" + (+m[2]) + "/" + m[1] : ""; };
-const lsTitle = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return ""; const d = +m[3], suf = (d % 10 === 1 && d !== 11) ? "ST" : (d % 10 === 2 && d !== 12) ? "ND" : (d % 10 === 3 && d !== 13) ? "RD" : "TH"; return "FINPRO AGREEMENT " + d + suf + " " + RC_MONTHS[+m[2] - 1] + " " + m[1]; };
+const lsTitle = (iso, funder) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return ""; const d = +m[3], suf = (d % 10 === 1 && d !== 11) ? "ST" : (d % 10 === 2 && d !== 12) ? "ND" : (d % 10 === 3 && d !== 13) ? "RD" : "TH"; return (funder === "FUTURE" ? "FUTURE" : "FINPRO") + " AGREEMENT " + d + suf + " " + RC_MONTHS[+m[2] - 1] + " " + m[1]; };
 const LS_BANKS = ["MAYBANK", "CIMB BANK", "PUBLIC BANK", "RHB BANK", "HONG LEONG BANK", "AMBANK", "BANK ISLAM", "BANK RAKYAT", "BSN", "OCBC BANK", "HSBC BANK", "UOB BANK", "STANDARD CHARTERED", "AFFIN BANK", "ALLIANCE BANK", "MBSB BANK", "AGROBANK", "CITIBANK"];
 /* 跟 Lending Sheet 一样的算法：EPF 24%、SOCSO+EIS（官方表）、PCB（single 自动估算）× 月数 */
 const LF_SOCSO = [[30,0.40,0.10],[50,0.70,0.20],[70,1.10,0.30],[100,1.50,0.40],[140,2.10,0.60],[200,2.95,0.85],[300,4.35,1.25],[400,6.15,1.75],[500,7.85,2.25],[600,9.65,2.75],[700,11.35,3.25],[800,13.15,3.75],[900,14.85,4.25],[1000,16.65,4.75],[1100,18.35,5.25],[1200,20.15,5.75],[1300,21.85,6.25],[1400,23.65,6.75],[1500,25.35,7.25],[1600,27.15,7.75],[1700,28.85,8.25],[1800,30.65,8.75],[1900,32.35,9.25],[2000,34.15,9.75],[2100,35.85,10.25],[2200,37.65,10.75],[2300,39.35,11.25],[2400,41.15,11.75],[2500,42.85,12.25],[2600,44.65,12.75],[2700,46.35,13.25],[2800,48.15,13.75],[2900,49.85,14.25],[3000,51.65,14.75],[3100,53.35,15.25],[3200,55.15,15.75],[3300,56.85,16.25],[3400,58.65,16.75],[3500,60.35,17.25],[3600,62.15,17.75],[3700,63.85,18.25],[3800,65.65,18.75],[3900,67.35,19.25],[4000,69.15,19.75],[4100,70.85,20.25],[4200,72.65,20.75],[4300,74.35,21.25],[4400,76.15,21.75],[4500,77.85,22.25],[4600,79.65,22.75],[4700,81.35,23.25],[4800,83.15,23.75],[4900,84.85,24.25],[5000,86.65,24.75],[5100,88.35,25.25],[5200,90.15,25.75],[5300,91.85,26.25],[5400,93.65,26.75],[5500,95.35,27.25],[5600,97.15,27.75],[5700,98.85,28.25],[5800,100.65,28.75],[5900,102.35,29.25],[6000,104.15,74.40]];
@@ -4504,7 +4528,7 @@ function lfStat(r) {
 function lsFill(win, r) {
   const d = win.document, g = id => d.getElementById(id);
   const set = (id, v) => { const el = g(id); if (el) el.value = v == null ? "" : v; };
-  set("hdr", lsTitle(r.date) || g("hdr").value);
+  set("hdr", lsTitle(r.date, r.funder) || g("hdr").value);
   set("name", String(r.name || "").toUpperCase()); set("tel", lfTel(r.tel));
   set("doa", lsDMY(r.date) || g("doa").value); set("months", r.months || "3"); set("interest", r.interest == null || r.interest === "" ? "30" : r.interest);
   set("basic", r.basic ? lsFmt(lsNum(r.basic)) : ""); set("pcb", String(r.pcb || "").trim() === "" ? "" : lsFmt(lsNum(r.pcb)));
@@ -4573,7 +4597,7 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
 }
 /* Skip 按钮：Skip 了就不会出现在 OD Payment */
 const lfSkipBtn = (h, on, toggle) => h("button", { type: "button", onClick: toggle, title: on ? "已 Skip（不会出现在 OD Payment）· 再按取消" : "Skip = 不需要出现在 OD Payment", style: { flex: "0 0 auto", border: "1px solid " + (on ? "#f59e0b" : "#e2e8f0"), background: on ? "#fef3c7" : "#fff", color: on ? "#b45309" : "#94a3b8", borderRadius: 8, padding: "0 8px", height: 34, fontWeight: 900, fontSize: 11, cursor: "pointer" } }, on ? "SKIPPED" : "SKIP");
-const lfLocked = x => !!(x && x.photos && x.photos.length);
+const lfLocked = x => !!(x && ((x.photos && x.photos.length) || (x.pays && x.pays.length) || x.paid));
 /* TOTAL TO BANK 分批：上传照片后那一笔就锁住（toBankPays），数目有变就在下面多一行「差额」 */
 const lfR2 = x => Math.round((Number(x) || 0) * 100) / 100;
 const lfToBankOf = r => r.calc && r.calc.tobank != null ? r.calc.tobank : lfStat(r).tobank;
@@ -4585,7 +4609,7 @@ function lfNorm(r) {
 }
 const lfTbRemain = (r, tb) => lfR2(tb - (r.toBankPays || []).reduce((t, p) => t + (Number(p.amount) || 0), 0));
 /* Copy Pic：把这个客户所有上传的照片拼成一张图，copy 进剪贴板（不行就下载） */
-const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.photos || []), ...(n.settlement || []).flatMap(x => x.photos || []), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
+const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.photos || []), ...(n.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
 async function lfPhotoSrc(id) { let v = _photoCache[id]; if (!v) { try { v = await DB.get("mphoto_" + id); if (v) _photoCache[id] = v; } catch (e) {} } return v || null; }
 async function lfPngBlob(src) { const im = await new Promise((res, rej) => { const x = new Image(); x.onload = () => res(x); x.onerror = rej; x.src = src; }); const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; c.getContext("2d").drawImage(im, 0, 0); return await new Promise(res => c.toBlob(res, "image/png")); }
 /* Copy Pic：每张照片分开 —— 一张一张 Copy，或一次 Share / 下载全部 */
@@ -4645,6 +4669,9 @@ function LfCopyBtn({ ids, name, small }) {
     n > 1 && h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, title: "全部照片 · Share / 下载", style: { ...base, background: "#f5f3ff", color: "#6d28d9", borderLeft: "none", borderRadius: "0 999px 999px 0", padding: small ? "3px 7px" : "7px 9px" } }, "▾"));
 }
 const lfCopyBtn = (h, ids, name, small) => h(LfCopyBtn, { ids: ids || [], name, small });
+const lfFunderTag = (h, f) => h("div", { style: { display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 900, letterSpacing: .5, borderRadius: 999, padding: "1px 8px", color: "#fff", background: f === "FUTURE" ? "#db2777" : "#4f46e5" } }, f === "FUTURE" ? "FUTURE" : "FINPRO");
+/* 户口号码：连续 8 个以上数字 → 每 4 个空一格 */
+const lfAcc = v => String(v || "").replace(/\d{8,}/g, d => d.replace(/(\d{4})(?=\d)/g, "$1 "));
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
 
@@ -4658,7 +4685,7 @@ function LendingFeePage({ currentUser }) {
   const [busy, setBusy] = React.useState(false);
   const [pdf, setPdf] = React.useState(null);
   const frameRef = React.useRef(null);
-  const blank = () => ({ name: "", tel: "", date: today(), months: "3", interest: "30", basic: "", settlement: [{ id: uid(), desc: "", acc: "", amount: "" }], charges: [{ id: uid(), desc: "MAJIKAN & VERIFY", amount: "" }, { id: uid(), desc: "LAWYER FEES", amount: "800" }], bank: "", acct: "" });
+  const blank = () => ({ funder: "FINPRO", name: "", tel: "", date: today(), months: "3", interest: "30", basic: "", settlement: [{ id: uid(), desc: "", acc: "", amount: "" }], charges: [{ id: uid(), desc: "MAJIKAN & VERIFY", amount: "" }, { id: uid(), desc: "LAWYER FEES", amount: "800" }], bank: "", acct: "" });
   const submit = async () => {
     if (!form.name.trim()) { alert("请填 NAME"); return; }
     setBusy(true);
@@ -4771,7 +4798,7 @@ function LendingFeePage({ currentUser }) {
         shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 按「新增 Lending」")) :
         shown.map(r => h("tr", { key: r.id },
           h("td", { style: td }, h("button", { onClick: () => openPdf(r), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
-          h("td", { style: { ...td, fontWeight: 800 } }, r.name, r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel))),
+          h("td", { style: { ...td, fontWeight: 800 } }, r.name, r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel)), h("div", null, lfFunderTag(h, r.funder))),
           h("td", { style: td }, r.date ? tpDate(dtDMY(r.date)) : "—"),
           h("td", { style: { ...td, ...S.tdNum, fontWeight: 800 } }, "RM " + lsFmt(r.settleTotal != null ? r.settleTotal : (r.settlement || []).reduce((a, x) => a + lsNum(x.amount), 0))),
           h("td", { style: { ...td, ...S.tdNum, fontWeight: 900, color: "#b91c1c" } }, "RM " + lsFmt(r.calc && r.calc.tobank != null ? r.calc.tobank : lfStat(r).tobank), r.interest && h("div", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 700 } }, r.interest + "%")),
@@ -4781,7 +4808,8 @@ function LendingFeePage({ currentUser }) {
     form && h("div", { onClick: () => !busy && setForm(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 14px", overflowY: "auto" } },
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 820, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
-          h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending"),
+          h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending",
+            h("div", { style: { display: "inline-flex", border: "1px solid #c7d2fe", borderRadius: 999, overflow: "hidden" } }, ["FINPRO", "FUTURE"].map(k => h("button", { key: k, type: "button", onClick: () => setForm({ ...form, funder: k }), style: { border: "none", padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: (form.funder || "FINPRO") === k ? (k === "FINPRO" ? "#4f46e5" : "#db2777") : "#fff", color: (form.funder || "FINPRO") === k ? "#fff" : "#64748b" } }, k)))),
           h("div", { style: { marginRight: 8, display: "flex", alignItems: "center", gap: 6 } }, h(LfPhotos, { ids: form.photos, ro: !lfCanEdit(form.photosBy, me), onChange: v => setForm({ ...form, photos: v, photosBy: v.length ? (form.photosBy || me) : null }) }), ),
           h("button", { onClick: () => !busy && setForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "14px 18px 18px" } },
@@ -4794,7 +4822,7 @@ function LendingFeePage({ currentUser }) {
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
             h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: !lfCanEdit(x.photosBy || x.paidBy, me), onChange: v => set("photos", v) })],
-            (() => { const ids = (form.settlement || []).flatMap(x => x.photos || []); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
+            (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
           sumBox(),
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 } },
