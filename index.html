@@ -3640,7 +3640,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v135"));
+    h("div", { className: "sb-ver" }, "v136"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4528,7 +4528,7 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
   React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
   return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 72, justifyContent: "flex-end" } },
     list.map(id => h(PhotoImg, { key: id, id, onClick: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } })),
-    !ro && !list.length && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片\n鼠标放在这里按 Ctrl+V = 贴上截图",
+    !ro && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片\n鼠标放在这里按 Ctrl+V = 贴上截图",
       onMouseEnter: on, onMouseLeave: off, onFocus: on, onBlur: () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); },
       onClick: () => { if (!busy && fileRef.current) fileRef.current.click(); },
       style: { width: 34, height: 34, boxSizing: "border-box", borderRadius: 8, border: "1px dashed " + (hot ? "#7c3aed" : "#c4b5fd"), background: hot ? "#ede9fe" : "#faf5ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "wait" : "pointer", outline: "none", flex: "0 0 34px" } },
@@ -4552,31 +4552,42 @@ function lfNorm(r) {
 }
 const lfTbRemain = (r, tb) => lfR2(tb - (r.toBankPays || []).reduce((t, p) => t + (Number(p.amount) || 0), 0));
 /* Copy Pic：把这个客户所有上传的照片拼成一张图，copy 进剪贴板（不行就下载） */
-const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.settlement || []).flatMap(x => x.photos || []), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
-async function lfCopyPics(ids, name) {
-  ids = (ids || []).filter(Boolean);
-  if (!ids.length) { alert("还没有照片"); return; }
-  const srcs = [];
-  for (const id of ids) { let v = _photoCache[id]; if (!v) { try { v = await DB.get("mphoto_" + id); if (v) _photoCache[id] = v; } catch (e) {} } if (v) srcs.push(v); }
-  const imgs = await Promise.all(srcs.map(src => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; })));
-  const ok = imgs.filter(Boolean); if (!ok.length) { alert("照片载入失败"); return; }
-  const W = Math.min(1000, Math.max(...ok.map(im => im.width))), gap = 12;
-  const hs = ok.map(im => Math.round(im.height * (W / im.width)));
-  let H = hs.reduce((a, b) => a + b, 0) + gap * (ok.length - 1), sc = 1;
-  if (H > 30000) { sc = 30000 / H; H = 30000; }
-  const c = document.createElement("canvas"); c.width = Math.round(W * sc); c.height = Math.round(H);
-  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
-  let y = 0; ok.forEach((im, i) => { ctx.drawImage(im, 0, y, c.width, hs[i] * sc); y += (hs[i] + gap) * sc; });
-  const blob = await new Promise(res => c.toBlob(res, "image/png"));
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-    monetSfx("save"); alert("✅ 已 copy " + ok.length + " 张照片（拼成一张）— 去 WhatsApp 按 Ctrl+V 贴上");
-  } catch (e) {
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (String(name || "photos").replace(/[^\w\- ]+/g, "").trim() || "photos") + ".png"; document.body.appendChild(a); a.click(); a.remove();
-    alert("浏览器不给 copy 图片，已经帮你下载成一张图。");
-  }
+const lfAllPhotoIds = r => { const n = lfNorm(r) || {}; return [...(n.photos || []), ...(n.settlement || []).flatMap(x => x.photos || []), ...(n.toBankPays || []).flatMap(p => p.photos || []), ...(n.toBankPhotos || [])]; };
+async function lfPhotoSrc(id) { let v = _photoCache[id]; if (!v) { try { v = await DB.get("mphoto_" + id); if (v) _photoCache[id] = v; } catch (e) {} } return v || null; }
+async function lfPngBlob(src) { const im = await new Promise((res, rej) => { const x = new Image(); x.onload = () => res(x); x.onerror = rej; x.src = src; }); const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; c.getContext("2d").drawImage(im, 0, 0); return await new Promise(res => c.toBlob(res, "image/png")); }
+/* Copy Pic：每张照片分开 —— 一张一张 Copy，或一次 Share / 下载全部 */
+function LfCopyPanel({ ids, name, onClose }) {
+  const h = React.createElement;
+  const [done, setDone] = React.useState({});
+  const fname = i => (String(name || "photo").replace(/[^\w\- ]+/g, "").trim() || "photo") + "_" + (i + 1) + ".png";
+  const copyOne = async (id, i) => {
+    try { const src = await lfPhotoSrc(id); const blob = await lfPngBlob(src); await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); setDone(d => ({ ...d, [i]: "copied" })); monetSfx("save"); }
+    catch (e) { alert("浏览器不给 copy 图片，请用「⬇ 下载全部」"); }
+  };
+  const files = async () => { const out = []; for (let i = 0; i < ids.length; i++) { const src = await lfPhotoSrc(ids[i]); if (src) out.push(new File([await lfPngBlob(src)], fname(i), { type: "image/png" })); } return out; };
+  const shareAll = async () => { try { const fs = await files(); if (navigator.canShare && navigator.canShare({ files: fs })) await navigator.share({ files: fs, title: name || "" }); else alert("这个浏览器不支援 Share，请用「⬇ 下载全部」或一张一张 Copy"); } catch (e) {} };
+  const dlAll = async () => { const fs = await files(); fs.forEach((f, i) => setTimeout(() => { const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 350)); };
+  const btn = (bg, col) => ({ border: "none", background: bg, color: col, borderRadius: 10, padding: "8px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" });
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 10060, background: "rgba(15,15,40,.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "88vh", overflow: "auto", boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderBottom: "1px solid #eef0f6", position: "sticky", top: 0, background: "#fff", flexWrap: "wrap" } },
+        h("div", { style: { flex: 1, fontWeight: 900, color: "#1e1b4b" } }, "📋 Copy Pic · " + (name || "") + " (" + ids.length + ")"),
+        h("button", { onClick: shareAll, style: btn("linear-gradient(135deg,#22c55e,#15803d)", "#fff") }, "📤 Share 全部"),
+        h("button", { onClick: dlAll, style: btn("#eef2ff", "#4338ca") }, "⬇ 下载全部"),
+        h("button", { onClick: onClose, style: btn("#f1f5f9", "#475569") }, "✕")),
+      h("div", { style: { padding: 14, fontSize: 12, color: "#64748b", fontWeight: 600 } }, "按每张照片的「Copy」→ 去 WhatsApp 按 Ctrl+V，一张一张贴；或按「Share 全部」一次分享。"),
+      h("div", { style: { padding: "0 14px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10 } },
+        ids.map((id, i) => h("div", { key: i, style: { border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" } },
+          h(PhotoImg, { id, style: { width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" } }),
+          h("button", { onClick: () => copyOne(id, i), style: { border: "none", borderTop: "1px solid #eef0f6", background: done[i] ? "#dcfce7" : "#f5f3ff", color: done[i] ? "#15803d" : "#6d28d9", padding: "8px 0", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, done[i] ? "✓ Copied · " + (i + 1) : "📋 Copy " + (i + 1)))))));
 }
-const lfCopyBtn = (h, ids, name, small) => h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, disabled: !ids.length, title: ids.length ? "把 " + ids.length + " 张照片拼成一张 copy" : "还没有照片",
+function lfCopyPics(ids, name) {
+  ids = (ids || []).filter(Boolean); if (!ids.length) { alert("还没有照片"); return; }
+  const el = document.createElement("div"); document.body.appendChild(el);
+  const close = () => { ReactDOM.unmountComponentAtNode(el); el.remove(); };
+  ReactDOM.render(React.createElement(LfCopyPanel, { ids, name, onClose: close }), el);
+}
+const lfCopyBtn = (h, ids, name, small) => h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, disabled: !ids.length, title: ids.length ? ids.length + " 张照片" : "还没有照片",
   style: { border: "1px solid " + (ids.length ? "#c4b5fd" : "#e2e8f0"), background: ids.length ? "#f5f3ff" : "#f8fafc", color: ids.length ? "#6d28d9" : "#cbd5e1", borderRadius: small ? 999 : 10, padding: small ? "3px 10px" : "7px 14px", fontWeight: 900, fontSize: small ? 11 : 12.5, cursor: ids.length ? "pointer" : "default", whiteSpace: "nowrap", marginTop: small ? 6 : 0 } }, "📋 Copy Pic" + (ids.length ? " (" + ids.length + ")" : ""));
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
@@ -4677,6 +4688,18 @@ function LendingFeePage({ currentUser }) {
       d.querySelectorAll(".toolbar button").forEach(b => { if (/存档|读取|Reset/i.test(b.textContent)) b.style.display = "none"; });
       const css = d.createElement("style"); css.textContent = ".page .noprint{display:none !important} [title='reset to auto'],.rst,.page .additem{display:none !important} .page .del{visibility:hidden !important}"; d.head.appendChild(css);
       lsFill(f.contentWindow, pdf);
+      try {
+        const n = lfNorm(pdf), pays = n.toBankPays || [];
+        const tbEl = d.getElementById("tobank");
+        if (pays.length && tbEl) {
+          const tb = lsNum(tbEl.textContent), remain = lfTbRemain(n, tb), ord = k => ["1ST", "2ND", "3RD"][k] || (k + 1) + "TH";
+          const row = (label, amt, col) => '<div class="totrow lf-tb" style="border:none;"><div class="tlbl" style="text-align:left; padding-left:14px; font-weight:normal;">' + label + '</div><div class="pamt" style="' + (col ? "color:" + col + ";" : "") + '">' + amt + '</div></div>';
+          let html = pays.map((p, k) => row("↳ " + ord(k) + " PAYMENT" + (p.date ? " (" + dtDMY(p.date) + ")" : ""), lsFmt(p.amount))).join("");
+          if (Math.abs(remain) >= 0.005) html += row("↳ BALANCE" + (n.toBankSkip ? " (SKIP)" : n.toBankDate ? " (" + dtDMY(n.toBankDate) + ")" : ""), lsFmt(remain), "#c00");
+          d.querySelectorAll(".lf-tb").forEach(x => x.remove());
+          tbEl.parentElement.insertAdjacentHTML("afterend", html);
+        }
+      } catch (e2) {}
     } catch (e) { alert("Lending Sheet 打不开：" + (e.message || e)); }
   };
   const th = S.th, td = S.td;
@@ -4701,7 +4724,7 @@ function LendingFeePage({ currentUser }) {
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 820, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0" } },
           h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, form.id ? "✏️ 编辑 Lending" : "➕ 新增 Lending"),
-          h("div", { style: { marginRight: 8 } }, lfCopyBtn(h, lfAllPhotoIds(form), form.name)),
+          h("div", { style: { marginRight: 8, display: "flex", alignItems: "center", gap: 6 } }, h(LfPhotos, { ids: form.photos, ro: !lfCanEdit(form.photosBy, me), onChange: v => setForm({ ...form, photos: v, photosBy: v.length ? (form.photosBy || me) : null }) }), lfCopyBtn(h, lfAllPhotoIds(form), form.name)),
           h("button", { onClick: () => !busy && setForm(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, width: 34, height: 34, cursor: "pointer" } }, h(X, { size: 16 }))),
         h("div", { style: { padding: "14px 18px 18px" } },
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
