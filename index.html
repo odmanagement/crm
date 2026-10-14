@@ -1213,7 +1213,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1396,6 +1396,10 @@ const NAV = [{
   id: "lendingfee",
   label: "Lending Fee",
   icon: Receipt
+}, {
+  id: "bankstmt",
+  label: "Bank Statement",
+  icon: Wallet
 }, {
   id: "returnsalary",
   label: "Return Salary",
@@ -3145,6 +3149,10 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "returnsalary" && RETURN_SALARY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(ReturnSalaryPage, {
     currentUser: currentUser
+  }) : page === "bankstmt" && !READONLY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(BankStmtPage, {
+    clients: clients,
+    onOpen: cid => { setPage("personal"); setOpenId(cid); },
+    onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c))
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
   }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
@@ -3502,7 +3510,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const h = React.createElement;
   const me = canonUser(currentUser);
   const role = ROLE_LABELS[me] || "Staff";
-  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)));
+  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)) && !(n.id === "bankstmt" && READONLY_USERS.includes(me)));
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
       h("div", { className: "sb-ava" }, czAvatar(currentUser || "?", 64)),
@@ -3526,7 +3534,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v124"));
+    h("div", { className: "sb-ver" }, "v125"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4529,6 +4537,60 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
         h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 } },
           h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "10px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
           h("button", { onClick: () => { onSave({ ...d, fees: d.fees.filter(x => x.desc || x.amount), credits: d.credits.filter(x => x.date || x.amount), received: d.received.filter(x => x.date || x.amount) }); monetSfx("save"); onClose(); }, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "10px 22px", fontWeight: 900, cursor: "pointer" } }, "💾 保存")))));
+}
+/* ---------- Bank Statement 页面（只给公司员工，admin 外人看不到）---------- */
+function BankStmtPage({ clients, onOpen, onSaveStmt }) {
+  const h = React.createElement;
+  const [q, setQ] = React.useState("");
+  const [only, setOnly] = React.useState("");
+  const [stmtId, setStmtId] = React.useState(null);
+  const rows = [];
+  (clients || []).forEach(c => {
+    const banks = new Set();
+    (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) banks.add(k); }));
+    if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null });
+  });
+  const ql = q.trim().toLowerCase();
+  const shown = rows.filter(r => {
+    const bal = bsBalance(r.bs);
+    if (only === "owe" && !(bal > 0.004)) return false;
+    if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
+    if (only === "none" && r.bs) return false;
+    return !ql || [r.c.name, r.bs && r.bs.bankAcc, r.bs && r.bs.company, r.bs && r.bs.agent].join(" ").toLowerCase().includes(ql);
+  }).sort((a, b) => (bsBalance(b.bs) || 0) - (bsBalance(a.bs) || 0) || String(a.c.name).localeCompare(String(b.c.name)));
+  const sum = k => shown.reduce((a, r) => a + (r.bs ? (k === "bal" ? bsBalance(r.bs) : bsTot(r.bs[k])) : 0), 0);
+  const chip = (k, l) => h("button", { key: k, onClick: () => setOnly(k), style: { border: only === k ? "2px solid #ca8a04" : "1px solid #e2e8f0", background: only === k ? "#fef9c3" : "#fff", color: only === k ? "#713f12" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l);
+  const num = { ...S.td, ...S.tdNum };
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
+      h("div", { style: { ...S.searchWrap, flex: "1 1 240px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / bank acc / company / agent", value: q, onChange: e => setQ(e.target.value) })),
+      chip("", "全部 " + rows.length), chip("owe", "🔴 还有余额"), chip("clear", "✅ 已结清"), chip("none", "＋ 还没填")),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Name & Details", "Agent", "Charges & Fees", "Credited (+)", "Received", "Balance", "Remark"].map((x, i) => h("th", { key: i, style: i >= 3 && i <= 6 ? { ...S.th, ...S.thNum } : i === 0 ? { ...S.th, ...S.thNumCol } : S.th }, x)))),
+      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "找不到" : "还没有 — Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现")) : [
+        ...shown.map((r, i) => { const bs = r.bs, bal = bsBalance(bs), stop = bs && (bs.credits || []).some(x => x.stop);
+          return h("tr", { key: r.c.id, style: { ...S.tr, cursor: "pointer" }, onClick: () => setStmtId(r.c.id) },
+            h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
+            h("td", { style: { ...S.td, minWidth: 200 } },
+              h("div", { style: { fontWeight: 900, color: "#0f172a" } }, String(r.c.name).toUpperCase(), stop && h("span", { style: { marginLeft: 6, fontSize: 10.5, fontWeight: 900, color: "#dc2626" } }, "⛔ STOP SALARY")),
+              bs && bs.bankAcc && h("div", { style: { fontSize: 11.5, color: "#475569", fontWeight: 700 } }, "🏦 " + bs.bankAcc),
+              bs && (bs.company || bs.position) && h("div", { style: { fontSize: 11, color: "#94a3b8" } }, [bs.company, bs.position].filter(Boolean).join(" · ")),
+              !bs && h("div", { style: { fontSize: 11, color: "#ca8a04", fontWeight: 800 } }, "＋ 按一下填写")),
+            h("td", { style: S.td }, (bs && bs.agent) || "—"),
+            h("td", { style: num }, bs ? lsFmt(bsTot(bs.fees)) : "—"),
+            h("td", { style: { ...num, color: "#15803d", fontWeight: 800 } }, bs ? lsFmt(bsTot(bs.credits)) : "—"),
+            h("td", { style: { ...num, color: "#0369a1", fontWeight: 800 } }, bs ? lsFmt(bsTot(bs.received)) : "—"),
+            h("td", { style: { ...num, fontWeight: 900 } }, bs ? h("span", { style: { background: bal > 0.004 ? "#fee2e2" : "#fef9c3", color: bal > 0.004 ? "#b91c1c" : "#713f12", borderRadius: 8, padding: "3px 8px" } }, lsFmt(bal)) : "—"),
+            h("td", { style: { ...S.td, maxWidth: 220, fontSize: 12, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: bs && bs.remark }, (bs && bs.remark) || ""));
+        }),
+        h("tr", { key: "tot", style: { background: "#fef9c3" } },
+          h("td", { colSpan: 3, style: { ...S.td, fontWeight: 900, textAlign: "right" } }, "TOTAL"),
+          h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("fees"))),
+          h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("credits"))),
+          h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("received"))),
+          h("td", { style: { ...num, fontWeight: 900, color: "#b91c1c" } }, lsFmt(sum("bal"))),
+          h("td", { style: S.td }))]))),
+    stmtId && (() => { const r = rows.find(x => x.c.id === stmtId); return r && h(BankStmtModal, { c: r.c, banks: r.banks, onSave: bs => onSaveStmt(r.c.id, bs), onClose: () => setStmtId(null) }); })());
 }
 function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser }) {
   const h = React.createElement;
