@@ -1543,7 +1543,8 @@ function ODPaymentPage({ currentUser }) {
         h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, padding: "16px 18px", boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
           h("div", { style: { fontWeight: 900, fontSize: 16, color: "#1e1b4b", marginBottom: 12 } }, mForm.id ? "✏️ 编辑 Payment" : "➕ Add Payment"),
           fl("NAME", "name", { style: { ...inp, textTransform: "uppercase", fontWeight: 800 } }),
-          fl("REMARK", "remark"),
+          h("div", { style: { marginBottom: 10 } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "REMARK"),
+            h("textarea", { value: mForm.remark || "", rows: 2, onChange: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; setMForm({ ...mForm, remark: e.target.value }); }, ref: el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, style: { ...inp, resize: "vertical", minHeight: 44, overflow: "hidden", wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.4 } })),
           fl("RM", "amount", { inputMode: "decimal", onBlur: e => { const v = e.target.value.trim(); if (v) setMForm({ ...mForm, amount: lsFmt(lsNum(v)) }); }, style: { ...inp, textAlign: "right", fontWeight: 800 } }),
           fl("ACC (Bank / Account No.)", "acc", { style: { ...inp, textTransform: "uppercase" } }),
           h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 } },
@@ -1565,7 +1566,7 @@ function ODPaymentPage({ currentUser }) {
                 !ro && lfCanEdit(r.m.by, me) && !(r.m.photos && r.m.photos.length) && !r.m.paid && h("button", { onClick: () => { if (window.confirm("删除「" + r.m.name + "」这笔？")) saveM(mItems.filter(m => m.id !== r.m.id)); }, title: "删除", style: { ...S.fuDel, padding: 0 } }, h(Trash2, { size: 13, color: "#cbd5e1" }))),
               h("div", { style: { fontSize: 11.5, fontWeight: 800, marginTop: 4, color: gp >= gt ? "#15803d" : "#b45309" } }, (gp >= gt ? "✅ 全部付了 · " : "未付 RM " + lsFmt(gt - gp) + " · ") + "总 RM " + lsFmt(gt))),
             i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, verticalAlign: "top", whiteSpace: "nowrap" } }, r.date ? tpDate(dtDMY(r.date)) : "—"),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : undefined } }, String(x.desc || "").toUpperCase() || "—"),
+            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : undefined, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: 320, overflow: "visible", textOverflow: "clip" } }, String(x.desc || "").toUpperCase() || "—"),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, ...(x.client ? { color: "#2c6fbb", fontWeight: 800 } : {}) } }, String(x.acc || "").toUpperCase() || "—"),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? tpDate(dtDMY(x.payDate)) : "—"),
@@ -3672,7 +3673,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v140"));
+    h("div", { className: "sb-ver" }, "v141"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
