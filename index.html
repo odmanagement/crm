@@ -1583,12 +1583,11 @@ function ODPaymentPage({ currentUser }) {
         groups.flatMap(({ r, rows, shownRows }) => {
           const gt = sum(rows), gp = sum(rows.filter(x => x.paid));
           return shownRows.map((x, i) => h("tr", { key: r.id + "_" + x.id, style: x.paid ? { background: "#fdf2f8" } : null },
-            i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, fontWeight: 900, fontSize: 15.5, verticalAlign: "top", borderRight: "1px solid #eef0f6", ...(r.manual ? {} : { background: r.funder === "FUTURE" ? "#fff7ed" : "#eff6ff", borderLeft: "4px solid " + (r.funder === "FUTURE" ? "#ea580c" : "#2563eb") }) } }, r.name,
+            i === 0 && h("td", { rowSpan: shownRows.length, style: { ...td, position: "relative", fontWeight: 900, fontSize: 15.5, verticalAlign: "top", borderRight: "1px solid #eef0f6", ...(r.manual ? {} : { background: r.funder === "FUTURE" ? "#fff7ed" : "#eff6ff", borderLeft: "4px solid " + (r.funder === "FUTURE" ? "#ea580c" : "#2563eb") }) } }, r.name,
               r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, lfTel(r.tel)),
               !r.manual && h("div", null, lfFunderTag(h, r.funder)),
-              (r.manual ? r.m.by : r.by) && h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginTop: 5, fontSize: 11.5, color: "#64748b", fontWeight: 800 } }, czAvatar(r.manual ? r.m.by : r.by, 20), "ADMIN: " + String(r.manual ? r.m.by : r.by).toUpperCase()),
-              r.manual && h("div", { style: { display: "flex", gap: 4, marginTop: 4 } },
-                h("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#7c3aed", background: "#f5f3ff", borderRadius: 999, padding: "1px 8px" } }, "ADD PAYMENT"),
+              (r.manual ? r.m.by : r.by) && h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginTop: 5, fontSize: 11.5, color: "#64748b", fontWeight: 800 } }, czAvatar(r.manual ? r.m.by : r.by, 20), String(r.manual ? r.m.by : r.by).toUpperCase()),
+              r.manual && h("div", { style: { position: "absolute", top: 6, right: 6, display: "flex", gap: 2 } },
                 !ro && lfCanEdit(r.m.by, me) && !(r.m.photos && r.m.photos.length) && !r.m.paid && h("button", { onClick: () => setMForm({ ...r.m, amount: lsFmt(r.m.amount) }), title: "编辑", style: { ...S.fuDel, padding: 0 } }, h(Edit3, { size: 13, color: "#6366f1" })),
                 !ro && lfCanEdit(r.m.by, me) && !(r.m.photos && r.m.photos.length) && !r.m.paid && h("button", { onClick: () => { if (window.confirm("删除「" + r.m.name + "」这笔？")) saveM(mItems.filter(m => m.id !== r.m.id)); }, title: "删除", style: { ...S.fuDel, padding: 0 } }, h(Trash2, { size: 13, color: "#cbd5e1" }))),
               h("div", { style: { fontSize: 11.5, fontWeight: 800, marginTop: 4, color: gp >= gt ? "#15803d" : "#b45309" } }, (gp >= gt ? "✅ 全部付了 · " : "未付 RM " + lsFmt(gt - gp) + " · ") + "总 RM " + lsFmt(gt))),
@@ -3701,7 +3700,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v146"));
+    h("div", { className: "sb-ver" }, "v147"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4626,6 +4625,14 @@ function LfCopyPanel({ ids, name, onClose }) {
     catch (e) { alert("浏览器不给 copy 图片，请用「⬇ 下载全部」"); }
   };
   const files = async () => { const out = []; for (let i = 0; i < ids.length; i++) { const src = await lfPhotoSrc(ids[i]); if (src) out.push(new File([await lfPngBlob(src)], fname(i), { type: "image/png" })); } return out; };
+  const pdfAll = async () => {
+    const srcs = []; for (const id of ids) { const v = await lfPhotoSrc(id); if (v) srcs.push(v); }
+    if (!srcs.length) return;
+    const w = window.open("", "_blank"); if (!w) { alert("浏览器挡住了弹出视窗，请允许后再按"); return; }
+    const title = String(name || "photos").replace(/[<>&"]/g, "");
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + title + '</title><style>@page{size:A4;margin:10mm}body{margin:0;font-family:sans-serif}.pg{page-break-after:always;display:flex;align-items:center;justify-content:center;height:265mm}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body>' + srcs.map(src => '<div class="pg"><img src="' + src + '"></div>').join("") + '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
+    w.document.close();
+  };
   const shareAll = async () => { try { const fs = await files(); if (navigator.canShare && navigator.canShare({ files: fs })) await navigator.share({ files: fs, title: name || "" }); else alert("这个浏览器不支援 Share，请用「⬇ 下载全部」或一张一张 Copy"); } catch (e) {} };
   const dlAll = async () => { const fs = await files(); fs.forEach((f, i) => setTimeout(() => { const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 350)); };
   const btn = (bg, col) => ({ border: "none", background: bg, color: col, borderRadius: 10, padding: "8px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" });
@@ -4633,10 +4640,10 @@ function LfCopyPanel({ ids, name, onClose }) {
     h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "88vh", overflow: "auto", boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderBottom: "1px solid #eef0f6", position: "sticky", top: 0, background: "#fff", flexWrap: "wrap" } },
         h("div", { style: { flex: 1, fontWeight: 900, color: "#1e1b4b" } }, "📋 Copy Pic · " + (name || "") + " (" + ids.length + ")"),
-        h("button", { onClick: shareAll, style: btn("linear-gradient(135deg,#22c55e,#15803d)", "#fff") }, "📤 Share 全部"),
-        h("button", { onClick: dlAll, style: btn("#eef2ff", "#4338ca") }, "⬇ 下载全部"),
+        h("button", { onClick: dlAll, style: btn("linear-gradient(135deg,#22c55e,#15803d)", "#fff") }, "💾 Save Pic"),
+        h("button", { onClick: pdfAll, style: btn("linear-gradient(135deg,#ef4444,#b91c1c)", "#fff") }, "📄 Save PDF"),
         h("button", { onClick: onClose, style: btn("#f1f5f9", "#475569") }, "✕")),
-      h("div", { style: { padding: 14, fontSize: 12, color: "#64748b", fontWeight: 600 } }, "按每张照片的「Copy」→ 去 WhatsApp 按 Ctrl+V，一张一张贴；或按「Share 全部」一次分享。"),
+      h("div", { style: { padding: 14, fontSize: 12, color: "#64748b", fontWeight: 600 } }, "按每张照片的「Copy」→ 去 WhatsApp 按 Ctrl+V；或按「Save Pic」把全部照片存下来，「Save PDF」存成一个 PDF（每张一页）。"),
       h("div", { style: { padding: "0 14px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10 } },
         ids.map((id, i) => h("div", { key: i, style: { border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" } },
           h(PhotoImg, { id, style: { width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" } }),
@@ -4670,7 +4677,7 @@ function LfCopyBtn({ ids, name, small }) {
   return h("span", { style: { display: "inline-flex", marginTop: small === true ? 6 : 0 } },
     h("button", { type: "button", onClick: go, disabled: !n, title: n ? "按一下 copy 第 " + (cur + 1) + " 张，再去 WhatsApp 按 Ctrl+V" : "还没有照片", style: { ...base, borderRadius: n > 1 ? "999px 0 0 999px" : 999 } },
       busy ? "⏳ Copying…" : msg || ("📋 Copy Pic" + (n > 1 ? " " + (cur + 1) + "/" + n : n ? "" : ""))),
-    n > 1 && h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, title: "全部照片 · Share / 下载", style: { ...base, background: "#f5f3ff", color: "#6d28d9", borderLeft: "none", borderRadius: "0 999px 999px 0", padding: small ? "3px 7px" : "7px 9px" } }, "▾"));
+    n > 1 && h("button", { type: "button", onClick: e => { e.stopPropagation(); lfCopyPics(ids, name); }, title: "全部照片 · Save Pic / PDF", style: { ...base, background: "#f5f3ff", color: "#6d28d9", borderLeft: "none", borderRadius: "0 999px 999px 0", padding: small ? "3px 7px" : "7px 9px" } }, "▾"));
 }
 const lfCopyBtn = (h, ids, name, small) => h(LfCopyBtn, { ids: ids || [], name, small });
 const lfFunderTag = (h, f) => h("div", { style: { display: "inline-block", marginTop: 3, fontSize: 10.5, fontWeight: 900, letterSpacing: .5, borderRadius: 999, padding: "1px 8px", color: "#fff", background: f === "FUTURE" ? "#ea580c" : "#2563eb" } }, f === "FUTURE" ? "FUTURE" : "FINPRO");
