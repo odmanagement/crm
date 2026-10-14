@@ -23,6 +23,7 @@
   .lbl { font-weight:bold; }
   .blue { color:#2c6fbb; font-weight:bold; }
   .blue input { color:#2c6fbb; font-weight:bold; }
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
   .sec-head { background:#fce9c8; font-weight:bold; border:1px solid #000; padding:4px 6px; font-size:13px; margin-top:6px; }
   input.num, .totrow .tamt, .pamt { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
   .row { display:flex; align-items:center; padding:2px 0; font-size:13px; }
@@ -45,6 +46,7 @@
     .toolbar { display:none; }
     .page { box-shadow:none; width:100%; min-height:auto; padding:0; }
     .additem, .noprint { display:none; }
+    .rst { display:none !important; }
     .del { visibility:hidden; }
     input { border-bottom:none !important; }
     @page { size:A4; margin:14mm; }
@@ -167,8 +169,8 @@ function addItem(sec){
 // seed default rows
 document.getElementById('settlement').innerHTML = '';
 document.getElementById('chargesTop').innerHTML =
-  `<div class="row"><div class="name">EPF <span style="cursor:pointer;color:#2c6fbb;font-size:11px" onclick="document.getElementById('epfAmt').dataset.manual='';calcStat()" title="reset to auto">↺</span></div><div class="amt"><input class="num" id="epfAmt" value="0.00" oninput="this.dataset.manual='1';calc()" onblur="fmtInput(this)" style="width:108px"></div><span style="width:22px;flex:0 0 22px;display:inline-block"></span></div>` +
-  `<div class="row"><div class="name">SOCSO+EIS+PCB <span style="cursor:pointer;color:#2c6fbb;font-size:11px" onclick="document.getElementById('socsoAmt').dataset.manual='';calcStat()" title="reset to auto">↺</span></div><div class="amt"><input class="num" id="socsoAmt" value="0.00" oninput="this.dataset.manual='1';calc()" onblur="fmtInput(this)" style="width:108px"></div><span style="width:22px;flex:0 0 22px;display:inline-block"></span></div>`;
+  `<div class="row"><div class="name">EPF <span class="rst" style="cursor:pointer;color:#2c6fbb;font-size:11px" onclick="document.getElementById('epfAmt').dataset.manual='';calcStat()" title="reset to auto">↺</span></div><div class="amt"><input class="num" id="epfAmt" value="0.00" oninput="this.dataset.manual='1';calc()" onblur="fmtInput(this)" style="width:108px"></div><span style="width:22px;flex:0 0 22px;display:inline-block"></span></div>` +
+  `<div class="row"><div class="name">SOCSO+EIS+PCB <span class="rst" style="cursor:pointer;color:#2c6fbb;font-size:11px" onclick="document.getElementById('socsoAmt').dataset.manual='';calcStat()" title="reset to auto">↺</span></div><div class="amt"><input class="num" id="socsoAmt" value="0.00" oninput="this.dataset.manual='1';calc()" onblur="fmtInput(this)" style="width:108px"></div><span style="width:22px;flex:0 0 22px;display:inline-block"></span></div>`;
 document.getElementById('chargesBottom').innerHTML =
   rowHTML('MAJIKAN & VERIFY','') +
   rowHTML('LAWYER FEES','800.00');
