@@ -3732,7 +3732,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v157"));
+    h("div", { className: "sb-ver" }, "v158"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4597,11 +4597,23 @@ if (typeof document !== "undefined" && !window.__lfPasteHook) {
   document.addEventListener("paste", e => {
     const t = _lfPasteTarget; if (!t) return;
     const a = document.activeElement; if (a && a !== t.el && (a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && a.type !== "file") || a.isContentEditable)) return;
-    const its = Array.from((e.clipboardData && e.clipboardData.items) || []).filter(it => it.kind === "file" && it.type.startsWith("image/"));
+    const its = Array.from((e.clipboardData && e.clipboardData.items) || []).filter(it => it.kind === "file" && (it.type.startsWith("image/") || it.type === "application/pdf"));
     if (!its.length) return; e.preventDefault(); e.stopImmediatePropagation(); t.add(its.map(it => it.getAsFile()));
   }, true);
 }
 const LF_CAM = h => h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" }), h("circle", { cx: 12, cy: 13, r: 3 }));
+/* 照片也可以是 PDF：存成 data URL；小图显示红色 PDF 格，点一下打开 */
+const lfIsPdf = src => /^data:application\/pdf/i.test(String(src || ""));
+const lfDataBlob = src => { const [hd, b64] = String(src).split(","); const mime = (/data:([^;]+)/.exec(hd) || [])[1] || "application/octet-stream"; const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type: mime }); };
+const lfOpenPdf = src => { try { const url = URL.createObjectURL(lfDataBlob(src)); const w = window.open(url, "_blank"); if (!w) { const a = document.createElement("a"); a.href = url; a.download = "file.pdf"; document.body.appendChild(a); a.click(); a.remove(); } } catch (e) { alert("PDF 打不开"); } };
+const lfReadFile = f => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(f); });
+function LfThumb({ id, style, onImg }) {
+  const h = React.createElement;
+  const [src, setSrc] = React.useState(_photoCache[id] || null);
+  React.useEffect(() => { let on = true; if (!_photoCache[id]) DB.get("mphoto_" + id).then(v => { if (v) { _photoCache[id] = v; on && setSrc(v); } }).catch(() => {}); return () => { on = false; }; }, [id]);
+  if (src && lfIsPdf(src)) return h("div", { onClick: () => lfOpenPdf(src), title: "打开 PDF", style: { ...style, objectFit: undefined, background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: Math.max(9, (parseInt(style.width) || 34) * 0.28), cursor: "pointer", letterSpacing: .3 } }, "PDF");
+  return h(PhotoImg, { id, style, onClick: onImg });
+}
 /* 付款照片：一个相机格 —— 点一下 = 上传；鼠标放在上面 / 点过之后按 Ctrl+V = 贴上 */
 function LfPhotos({ ids, onChange, ro, noDel }) {
   const h = React.createElement;
@@ -4609,9 +4621,9 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
   const [busy, setBusy] = React.useState(false), [big, setBig] = React.useState(null), [hot, setHot] = React.useState(false);
   const elRef = React.useRef(null), fileRef = React.useRef(null);
   const add = async files => {
-    const fs = Array.from(files || []).filter(f => f && f.type && f.type.startsWith("image/")); if (!fs.length) return;
+    const fs = Array.from(files || []).filter(f => f && f.type && (f.type.startsWith("image/") || f.type === "application/pdf")); if (!fs.length) return;
     setBusy(true); const nid = [];
-    for (const f of fs) { try { const data = await compressImage(f); const id = uid(); _photoCache[id] = data; await DB.set("mphoto_" + id, data); nid.push(id); } catch (e) { alert("照片上传失败：" + (e.message || e)); } }
+    for (const f of fs) { try { if (f.type === "application/pdf" && f.size > 8 * 1024 * 1024) { alert("PDF 太大（最多 8MB）：" + f.name); continue; } const data = f.type === "application/pdf" ? await lfReadFile(f) : await compressImage(f); const id = uid(); _photoCache[id] = data; await DB.set("mphoto_" + id, data); nid.push(id); } catch (e) { alert("照片上传失败：" + (e.message || e)); } }
     if (nid.length) onChange([...list, ...nid]); setBusy(false);
   };
   const tgt = React.useRef({}); tgt.current.add = add; tgt.current.el = elRef.current;
@@ -4619,13 +4631,13 @@ function LfPhotos({ ids, onChange, ro, noDel }) {
   const off = () => { if (_lfPasteTarget === tgt.current && document.activeElement !== elRef.current) _lfPasteTarget = null; setHot(false); };
   React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
   return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 72, justifyContent: "flex-end" } },
-    list.map(id => h(PhotoImg, { key: id, id, onClick: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } })),
-    !ro && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片\n鼠标放在这里按 Ctrl+V = 贴上截图",
+    list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), !ro && !noDel && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
+    !ro && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片 / PDF\n鼠标放在这里按 Ctrl+V = 贴上截图",
       onMouseEnter: on, onMouseLeave: off, onFocus: on, onBlur: () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); },
       onClick: () => { if (!busy && fileRef.current) fileRef.current.click(); },
       style: { width: 34, height: 34, boxSizing: "border-box", borderRadius: 8, border: "1px dashed " + (hot ? "#7c3aed" : "#c4b5fd"), background: hot ? "#ede9fe" : "#faf5ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "wait" : "pointer", outline: "none", flex: "0 0 34px" } },
       busy ? h("span", { style: { fontSize: 13 } }, "⏳") : LF_CAM(h),
-      h("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onClick: e => e.stopPropagation(), onChange: e => { add(e.target.files); e.target.value = ""; } })),
+      h("input", { ref: fileRef, type: "file", accept: "image/*,application/pdf", multiple: true, style: { display: "none" }, onClick: e => e.stopPropagation(), onChange: e => { add(e.target.files); e.target.value = ""; } })),
     big && h("div", { onClick: () => setBig(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.88)", zIndex: 10050, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, gap: 12, cursor: "zoom-out" } },
       h(PhotoImg, { id: big, style: { maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, width: "auto", height: "auto", minWidth: 60, minHeight: 60 } }),
       !ro && !noDel && h("button", { onClick: e => { e.stopPropagation(); if (window.confirm("删除这张照片？")) { const id = big; setBig(null); onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { border: "none", background: "#dc2626", color: "#fff", borderRadius: 10, padding: "8px 18px", fontWeight: 800, cursor: "pointer" } }, "🗑 删除照片")));
@@ -4654,13 +4666,13 @@ function LfCopyPanel({ ids, name, onClose }) {
   const [done, setDone] = React.useState({});
   const fname = i => (String(name || "photo").replace(/[^\w\- ]+/g, "").trim() || "photo") + "_" + (i + 1) + ".png";
   const copyOne = async (id, i) => {
-    try { const src = await lfPhotoSrc(id); const blob = await lfPngBlob(src); await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); setDone(d => ({ ...d, [i]: "copied" })); monetSfx("save"); }
+    try { const src = await lfPhotoSrc(id); if (lfIsPdf(src)) { lfOpenPdf(src); return; } const blob = await lfPngBlob(src); await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); setDone(d => ({ ...d, [i]: "copied" })); monetSfx("save"); }
     catch (e) { alert("浏览器不给 copy 图片，请用「⬇ 下载全部」"); }
   };
-  const files = async () => { const out = []; for (let i = 0; i < ids.length; i++) { const src = await lfPhotoSrc(ids[i]); if (src) out.push(new File([await lfPngBlob(src)], fname(i), { type: "image/png" })); } return out; };
+  const files = async () => { const out = []; for (let i = 0; i < ids.length; i++) { const src = await lfPhotoSrc(ids[i]); if (!src) continue; if (lfIsPdf(src)) out.push(new File([lfDataBlob(src)], fname(i).replace(/\.png$/, ".pdf"), { type: "application/pdf" })); else out.push(new File([await lfPngBlob(src)], fname(i), { type: "image/png" })); } return out; };
   const pdfAll = async () => {
-    const srcs = []; for (const id of ids) { const v = await lfPhotoSrc(id); if (v) srcs.push(v); }
-    if (!srcs.length) return;
+    const srcs = []; for (const id of ids) { const v = await lfPhotoSrc(id); if (v && !lfIsPdf(v)) srcs.push(v); }
+    if (!srcs.length) { alert("没有照片（PDF 请用 Save Pic 下载）"); return; }
     const w = window.open("", "_blank"); if (!w) { alert("浏览器挡住了弹出视窗，请允许后再按"); return; }
     const title = String(name || "photos").replace(/[<>&"]/g, "");
     w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + title + '</title><style>@page{size:A4;margin:10mm}body{margin:0;font-family:sans-serif}.pg{page-break-after:always;display:flex;align-items:center;justify-content:center;height:265mm}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body>' + srcs.map(src => '<div class="pg"><img src="' + src + '"></div>').join("") + '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
@@ -4679,7 +4691,7 @@ function LfCopyPanel({ ids, name, onClose }) {
       h("div", { style: { padding: 14, fontSize: 12, color: "#64748b", fontWeight: 600 } }, "按每张照片的「Copy」→ 去 WhatsApp 按 Ctrl+V；或按「Save Pic」把全部照片存下来，「Save PDF」存成一个 PDF（每张一页）。"),
       h("div", { style: { padding: "0 14px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10 } },
         ids.map((id, i) => h("div", { key: i, style: { border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" } },
-          h(PhotoImg, { id, style: { width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" } }),
+          h(LfThumb, { id, style: { width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" } }),
           h("button", { onClick: () => copyOne(id, i), style: { border: "none", borderTop: "1px solid #eef0f6", background: done[i] ? "#dcfce7" : "#f5f3ff", color: done[i] ? "#15803d" : "#6d28d9", padding: "8px 0", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, done[i] ? "✓ Copied · " + (i + 1) : "📋 Copy " + (i + 1)))))));
 }
 function lfCopyPics(ids, name) {
@@ -4699,7 +4711,9 @@ function LfCopyBtn({ ids, name, small }) {
     e.stopPropagation(); if (!n || busy) return;
     setBusy(true);
     try {
-      const src = await lfPhotoSrc(ids[cur]); const blob = await lfPngBlob(src);
+      const src = await lfPhotoSrc(ids[cur]);
+      if (lfIsPdf(src)) { lfOpenPdf(src); setMsg("📄 PDF " + (cur + 1) + "/" + n + " 已打开"); setIdx(cur + 1 >= n ? 0 : cur + 1); setTimeout(() => setMsg(""), 1800); setBusy(false); return; }
+      const blob = await lfPngBlob(src);
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       monetSfx("save"); setMsg("✓ Copied " + (cur + 1) + "/" + n + " · 去 Ctrl+V"); setIdx(cur + 1 >= n ? 0 : cur + 1);
       setTimeout(() => setMsg(""), 1800);
