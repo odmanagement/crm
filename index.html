@@ -1606,7 +1606,7 @@ function ODPaymentPage({ currentUser }) {
             h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, fontWeight: x.client ? 900 : 700, color: x.client ? "#c00" : x.bal ? "#b45309" : undefined, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: 320, overflow: "visible", textOverflow: "clip" } }, String(x.desc || "").toUpperCase() || "—"),
             h("td", { className: (x.paid ? "od-pd " : "") + "od-acc", style: { ...td, fontFamily: "ui-monospace,monospace", fontSize: 12.5, fontWeight: 800, color: x.client ? "#2c6fbb" : "#1e293b" } }, (lfAccLines(String(x.acc || "").toUpperCase()).length ? lfAccLines(String(x.acc || "").toUpperCase()).map((ln, k) => h("div", { key: k }, lfAcc(ln))) : null) || "—"),
             h("td", { className: (x.paid ? "od-pd " : "") + "od-num", style: { ...td, ...S.tdNum, fontWeight: 900, ...(x.client ? { color: "#c00" } : {}) } }, lsFmt(lsNum(x.amount))),
-            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? h("span", null, tpDate(dtDMY(x.payDate)), x.payTime && h("span", { style: { marginLeft: 6, fontSize: 13, color: "#475569", fontWeight: 800 } }, "🕒 " + x.payTime)) : "—"),
+            h("td", { className: x.paid ? "od-pd" : undefined, style: { ...td, whiteSpace: "nowrap", fontWeight: 700, color: x.payDate ? "#1e293b" : "#cbd5e1" } }, x.payDate ? h("span", null, tpDate(dtDMY(x.payDate)), x.client && x.payTime && h("span", { style: { marginLeft: 6, fontSize: 13, color: "#475569", fontWeight: 800 } }, "🕒 " + x.payTime)) : "—"),
             (() => { const owner = x.photosBy || x.paidBy || null, ok = !ro && lfCanEdit(owner, me), who = owner ? String(owner).toUpperCase() : "";
               return [
                 h("td", { className: x.paid ? "od-pd" : undefined, key: "ph", style: td }, h(LfPhotos, { ids: x.photos, ro, noDel: !ok, onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(r.manual ? r.m.by : r.by, me, r.name, x.desc, x.amount); updRow(r.id, x.id, { photos: v }); } }), owner && h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginTop: 2, textAlign: "right" } }, "by " + who)),
@@ -3732,7 +3732,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v156"));
+    h("div", { className: "sb-ver" }, "v157"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4886,7 +4886,6 @@ function LendingFeePage({ currentUser }) {
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
-            h("input", { key: "pt", type: "time", value: x.payTime || "", title: "付款时间", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payTime", e.target.value); }, style: { ...inp, flex: "0 0 96px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
             h(LfPhotos, { key: "ph", ids: x.photos, noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.photos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("photos", v); } })],
             (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
