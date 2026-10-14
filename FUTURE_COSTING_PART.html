@@ -283,7 +283,7 @@ function applyMvLock(){
     if(inp && inp.hasAttribute('readonly')){ inp.removeAttribute('readonly'); inp.style.background=''; inp.style.color=''; inp.title=''; inp.oninput=()=>calc(); inp.onblur=()=>fmtInput(inp); }
     const cell=tr.querySelector('.agentCell'); if(!cell) return;
     const cur=cell.querySelector('.agent-amt');
-    if(ok && !cur){ const v=tr.dataset.agentAmt||''; cell.innerHTML='<input class="agent-amt amt-input2 num" type="text" inputmode="decimal" placeholder="0.00" style="width:90px;text-align:right;border:1px solid #d6c3a5;border-radius:5px;padding:4px 6px;color:#7a5c2e;font-weight:600">'; const a=cell.querySelector('.agent-amt'); a.value=v; a.oninput=()=>{tr.dataset.agentAmt=a.value; calc();}; a.onblur=()=>{ if(a.value.trim()) a.value=fmt(parseNum(a.value)); tr.dataset.agentAmt=a.value; calc(); }; }
+    if(ok && !cur){ const v=tr.dataset.agentAmt||''; cell.innerHTML='<input class="agent-amt amt-input2 num" type="text" inputmode="decimal" placeholder="0.00" style="width:90px;text-align:right;border:1px solid #d6c3a5;border-radius:5px;padding:4px 6px;color:#7a5c2e;font-weight:600"><div class="agent-mv-hint" style="font-size:11px;color:#7a5c2e;margin-top:2px"></div>'; const a=cell.querySelector('.agent-amt'); a.value=v; a.oninput=()=>{tr.dataset.agentAmt=a.value; calc();}; a.onblur=()=>{ if(a.value.trim()) a.value=fmt(parseNum(a.value)); tr.dataset.agentAmt=a.value; calc(); }; }
     if(!ok && cur){ tr.dataset.agentAmt=''; cell.textContent=fmt(0); }
   });
   calc();
@@ -352,11 +352,14 @@ function calcPartA(){
     const agEl=r.querySelector('.agent-amt'); const agAmt=agEl?parseNum(agEl.value):0;
     rowAgent+=agAmt;
     r.querySelector('.resultCell').textContent=fmt(res);
-    r.querySelector('.lucasCell').textContent=fmt(res-agAmt);
+    r.querySelector('.lucasCell').textContent=fmt(res);
     if(!agEl) r.querySelector('.agentCell').textContent=fmt(0);
   });
   const pctRaw = document.getElementById('aFinalPct').value;
   const finalPct=parseFloat(pctRaw)/100;
+  // M&V Agent Amount（只有 ALEX）：直接 × Total %（例如 70%），全部给 Agent，不扣 Lucas、不再 × Agent %
+  const mvAgent = isNaN(finalPct) ? 0 : rowAgent*finalPct;
+  document.querySelectorAll('#partABody .agent-mv-hint').forEach(el=>{ const a=parseNum((el.closest('td').querySelector('.agent-amt')||{}).value); el.textContent = a ? ('× '+(isNaN(finalPct)?'—':parseFloat(pctRaw)+'%')+' = '+fmt(a*(isNaN(finalPct)?0:finalPct))) : ''; });
   const pctAmt = isNaN(finalPct) ? 0 : resSum*finalPct;
   const grand = resSum + pctAmt;
   const pctShow = isNaN(finalPct) ? '—' : `${parseFloat(pctRaw)}%`;
@@ -366,15 +369,15 @@ function calcPartA(){
       <td colspan="2"></td>
       <td class="num">${fmt(resSum)} &nbsp;×&nbsp; ${pctShow}</td>
       <td class="num lucas-col">= ${fmt(resSum*lp)}</td>
-      <td class="num agent-col">${fmt(resSum*ap + rowAgent)}</td>
+      <td class="num agent-col">${fmt(resSum*ap + mvAgent)}</td>
       <td></td>
     </tr>
     <tr class="grand">
       <td>TOTAL (Subtotal + ${pctShow})</td>
       <td colspan="2"></td>
       <td class="num">${fmt(grand)}</td>
-      <td class="num lucas-col">${fmt(resSum + resSum*lp - rowAgent)}</td>
-      <td class="num agent-col">${fmt(resSum*ap + rowAgent)}</td>
+      <td class="num lucas-col">${fmt(resSum + resSum*lp)}</td>
+      <td class="num agent-col">${fmt(resSum*ap + mvAgent)}</td>
       <td></td>
     </tr>`;
   return grand;
