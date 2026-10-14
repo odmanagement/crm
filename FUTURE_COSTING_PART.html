@@ -127,7 +127,7 @@
       <tbody id="partABody"></tbody>
       <tbody id="partAFoot"></tbody>
     </table>
-    <button class="addrow" onclick="addRow('partABody','','',false,false,true)">+ Add item</button>
+    <button class="addrow" onclick="addRow('partABody','','',false,false,false)">+ Add item</button>
     <div class="cfg"><span id="aSplitWarn" style="color:#dc2626;font-weight:700;margin-right:8px"></span>Lucas × <input id="aLucasPct" type="number" value="30" placeholder="%" oninput="calc()"> % &nbsp;&nbsp; Agent × <input id="aAgentPct" type="number" value="0" placeholder="%" oninput="syncLucasPct();calc()"> % &nbsp;&nbsp; Total × <input id="aFinalPct" type="number" value="30" placeholder="%" oninput="syncLucasPct();calc()"> %</div>
   </div>
 
@@ -270,6 +270,20 @@ function updateTitle(){
   document.getElementById('clientTitle').textContent = n? n.toUpperCase() : 'CLIENT NAME';
   const ag=document.getElementById('agentName').value.trim();
   document.getElementById('printAgent').textContent = ag? ('Agent : '+ag) : '';
+  applyMvLock();
+}
+// M&V：只有 Agent 是 ALEX 才可以改数目
+function applyMvLock(){
+  const ag=(document.getElementById('agentName').value||'').trim().toUpperCase();
+  const ok = ag==='ALEX';
+  document.querySelectorAll('#partABody tr.pinned-row').forEach(tr=>{
+    const nm=(tr.querySelector('.name-input')||{}).value||'';
+    if(nm.trim().toUpperCase()!=='M&V') return;
+    const inp=tr.querySelector('.amt-input'); if(!inp) return;
+    if(ok){ inp.removeAttribute('readonly'); inp.style.background=''; inp.style.color=''; inp.title='';
+      inp.oninput=()=>calc(); inp.onblur=()=>fmtInput(inp); }
+    else { inp.setAttribute('readonly',''); inp.style.background='#eee'; inp.style.color='#555'; inp.title='只有 Agent ALEX 可以改 M&V'; }
+  });
 }
 const PARTS_WITH_MULT = ['partABody'];
 function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
@@ -533,7 +547,7 @@ function restoreData(d){
   BODIES.forEach(id=>{
     (d.parts[id]||[]).forEach(row=>{
       // a Part A non-pinned row without a mult column is a plain added row
-      const noMult = (id==='partABody' && !row.pinned && row.hasMult===false);
+      const noMult = false; // Part A 每一行（除了 LAWYER / M&V）都有 × 格子
       const tr=addRow(id,row.name,row.amt,row.pinned,row.lock,noMult);
       const multEl=tr.querySelector('.mult-input');
       if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
@@ -542,6 +556,7 @@ function restoreData(d){
   document.getElementById('balBody').innerHTML='';
   (d.balance||[]).forEach(b=>addBalRow(b.date,b.remark||b.company,b.amt));
   updateTitle(); formatAllAmounts(); calc();
+  applyMvLock();
 }
 // ---- Auto-save to browser ----
 const SAVE_KEY='payroll_autosave_v1';
@@ -781,7 +796,7 @@ if(saved && saved.parts){
   addRow('partABody','M&V','',true);
   seedB.forEach(([n,a])=>addRow('partBBody',n,a));
   seedC.forEach(([n,a])=>addRow('partCBody',n,a));
-  formatAllAmounts(); calc();
+  formatAllAmounts(); calc(); applyMvLock();
 }
 </script>
 </body>
