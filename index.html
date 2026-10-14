@@ -1213,7 +1213,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", costing: "bars", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", costing_pl: "bars", costing_car: "speed", odpayment: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1361,6 +1361,23 @@ const NAV = [{
     icon: Folder
   }]
 }, {
+  id: "costing",
+  label: "Costing",
+  icon: BarChart3,
+  children: [{
+    id: "costing_pl",
+    label: "PL Costing Part",
+    icon: Folder
+  }, {
+    id: "costing_car",
+    label: "Car Costing Part",
+    icon: Car
+  }]
+}, {
+  id: "odpayment",
+  label: "OD Payment",
+  icon: Wallet
+}, {
   id: "submission",
   label: "Closing",
   icon: Send
@@ -1400,10 +1417,6 @@ const NAV = [{
   id: "bankstmt",
   label: "Bank Statement",
   icon: Wallet
-}, {
-  id: "costing",
-  label: "Costing",
-  icon: BarChart3
 }, {
   id: "returnsalary",
   label: "Return Salary",
@@ -1452,14 +1465,29 @@ const HTML_TOOLS = FORMS_TOOLS;
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
   name: "PL Costing",
-  file: "PL_COSTING.html"
+  file: "PL_COSTING.html",
+  grp: "costing_pl"
 }, {
-  name: "Car Costing Part · Finpro",
-  file: "FINPRO_COSTING_PART.html"
+  name: "Finpro Costing Part",
+  file: "FINPRO_COSTING_PART.html",
+  grp: "costing_car"
 }, {
-  name: "Car Costing Part · Future",
-  file: "FUTURE_COSTING_PART.html"
+  name: "Future Costing Part",
+  file: "FUTURE_COSTING_PART.html",
+  grp: "costing_car"
 }];
+/* OD Payment：文件 OD_PAYMENT.html 上传到 GitHub 后就会自动出现 */
+const OD_PAYMENT_FILE = "OD_PAYMENT.html";
+function ODPaymentPage({ currentUser }) {
+  const h = React.createElement;
+  const [ok, setOk] = React.useState(null);
+  React.useEffect(() => { fetch(OD_PAYMENT_FILE + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" }).then(r => setOk(r.ok)).catch(() => setOk(false)); }, []);
+  if (ok) return h(FormsPage, { key: "odpayment", currentUser, tools: [{ name: "OD Payment", file: OD_PAYMENT_FILE }] });
+  return h("div", { className: "cz-page" }, h("div", { style: { background: "#fff", borderRadius: 16, border: "1px dashed #cbd5e1", padding: "40px 20px", textAlign: "center", color: "#64748b" } },
+    h("div", { style: { fontSize: 34, marginBottom: 8 } }, "💳"),
+    h("div", { style: { fontWeight: 900, fontSize: 17, color: "#1e1b4b", marginBottom: 6 } }, "OD Payment"),
+    h("div", { style: { fontSize: 13.5, fontWeight: 600 } }, ok === null ? "载入中…" : "还没有 OD Payment 表格 — 把 " + OD_PAYMENT_FILE + " 上传到 GitHub 就会自动出现在这里")));
+}
 const PAYSLIP_TOOLS = [{
   name: "Amazing Leader",
   url: "https://docs.google.com/spreadsheets/d/1_Y4ULAmKR16-DSY3HxIwlSXR1aUL6DpC/edit"
@@ -3168,10 +3196,12 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c))
-  }) : page === "costing" ? /*#__PURE__*/React.createElement(FormsPage, {
-    key: "costing",
+  }) : page === "costing_pl" || page === "costing_car" ? /*#__PURE__*/React.createElement(FormsPage, {
+    key: page,
     currentUser: currentUser,
-    tools: COSTING_TOOLS.filter(t => !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file))
+    tools: COSTING_TOOLS.filter(t => t.grp === page)
+  }) : page === "odpayment" ? /*#__PURE__*/React.createElement(ODPaymentPage, {
+    currentUser: currentUser
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
   }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
@@ -4501,7 +4531,7 @@ function LendingFeePage({ currentUser }) {
           h("td", { style: { ...td, fontWeight: 800 } }, r.name, r.tel && h("div", { style: { fontSize: 11.5, color: "#94a3b8", fontWeight: 600 } }, r.tel)),
           h("td", { style: td }, r.date ? tpDate(dtDMY(r.date)) : "—"),
           h("td", { style: { ...td, ...S.tdNum, fontWeight: 800 } }, "RM " + lsFmt(r.settleTotal != null ? r.settleTotal : (r.settlement || []).reduce((a, x) => a + lsNum(x.amount), 0))),
-          h("td", { style: { ...td, ...S.tdNum, fontWeight: 900, color: "#b91c1c" } }, r.funderFee != null ? "RM " + lsFmt(r.funderFee) : "—", r.interest && h("div", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 700 } }, r.interest + "%")),
+          h("td", { style: { ...td, ...S.tdNum, fontWeight: 900, color: "#b91c1c" } }, "RM " + lsFmt(r.calc && r.calc.tobank != null ? r.calc.tobank : lfStat(r).tobank), r.interest && h("div", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 700 } }, r.interest + "%")),
           h("td", { style: { ...td, whiteSpace: "nowrap" } },
             h("button", { onClick: () => setForm({ ...r, settlement: (r.settlement || []).map(x => ({ id: x.id || uid(), ...x })), charges: (r.charges || []).map(x => ({ id: x.id || uid(), ...x })) }), title: "编辑", style: { ...S.fuDel, marginRight: 4 } }, h(Edit3, { size: 15, color: "#6366f1" })),
             h("button", { onClick: () => del(r), title: "删除", style: S.fuDel }, h(Trash2, { size: 15, color: "#cbd5e1" })))))))),
