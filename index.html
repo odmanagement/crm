@@ -3732,7 +3732,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v161"));
+    h("div", { className: "sb-ver" }, "v162"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4615,7 +4615,7 @@ function LfThumb({ id, style, onImg }) {
   return h(PhotoImg, { id, style, onClick: onImg });
 }
 /* 付款照片：一个相机格 —— 点一下 = 上传；鼠标放在上面 / 点过之后按 Ctrl+V = 贴上 */
-function LfPhotos({ ids, onChange, ro, noDel, pre, post, tail, compact, lockAdd }) {
+function LfPhotos({ ids, onChange, ro, noDel, pre, post, tail, compact, lockAdd, ownAfter }) {
   const h = React.createElement;
   const list = ids || [];
   const meU = canonUser(window.__crmUser || "");
@@ -4635,14 +4635,15 @@ function LfPhotos({ ids, onChange, ro, noDel, pre, post, tail, compact, lockAdd 
   React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
   return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", ...(compact ? {} : { minWidth: 72, justifyContent: "flex-end" }) } },
     (pre || []).map(id => h(LfThumb, { key: "pre" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } })),
-    list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), canDel(id) && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
-    (post || []).map(id => h(LfThumb, { key: "post" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #c7d2fe" } })),
+    !ownAfter && list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), canDel(id) && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
     !ro && !lockAdd && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片 / PDF\n鼠标放在这里按 Ctrl+V = 贴上截图",
       onMouseEnter: on, onMouseLeave: off, onFocus: on, onBlur: () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); },
       onClick: () => { if (!busy && fileRef.current) fileRef.current.click(); },
       style: { width: 34, height: 34, boxSizing: "border-box", borderRadius: 8, border: "1px dashed " + (hot ? "#7c3aed" : "#c4b5fd"), background: hot ? "#ede9fe" : "#faf5ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "wait" : "pointer", outline: "none", flex: "0 0 34px" } },
       busy ? h("span", { style: { fontSize: 13 } }, "⏳") : LF_CAM(h),
       h("input", { ref: fileRef, type: "file", accept: "image/*,application/pdf", multiple: true, style: { display: "none" }, onClick: e => e.stopPropagation(), onChange: e => { add(e.target.files); e.target.value = ""; } })),
+    ownAfter && list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), canDel(id) && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
+    (post || []).map(id => h(LfThumb, { key: "post" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #c7d2fe" } })),
     (tail || []).map(id => h(LfThumb, { key: "tail" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "2px solid #86efac" } })),
     big && h("div", { onClick: () => setBig(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.88)", zIndex: 10050, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, gap: 12, cursor: "zoom-out" } },
       h(PhotoImg, { id: big, style: { maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, width: "auto", height: "auto", minWidth: 60, minHeight: 60 } }),
@@ -4915,7 +4916,7 @@ function LendingFeePage({ currentUser }) {
             fld("% INTEREST", "interest", { inputMode: "decimal" }, "0 1 100px")),
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
-            h(LfPhotos, { key: "ph", ids: x.lfPhotos, pre: [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])], tail: [...(x.retPhotos || []), ...(x.pays || []).flatMap(p => p.retPhotos || []), ...(x.balRetPhotos || [])], noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.lfPhotos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("lfPhotos", v); } })],
+            h(LfPhotos, { key: "ph", ids: x.lfPhotos, ownAfter: true, pre: [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])], tail: [...(x.retPhotos || []), ...(x.pays || []).flatMap(p => p.retPhotos || []), ...(x.balRetPhotos || [])], noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.lfPhotos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("lfPhotos", v); } })],
             (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || []), ...(x.lfPhotos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
           secB(),
           sumBox(),
