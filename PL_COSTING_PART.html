@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PL Costing Part</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --paper:#fdeef2; --line:#d8d4cc;
+    --accent:#c2185b; --accent-soft:#fce4ec;
+    --hi:#fff3a3; --agent:#8a6d3b; --lucas:#c2185b; --danger:#b23b3b;
+  }
+  *{box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif}
+  body{margin:0;background:var(--paper);color:var(--ink);padding:24px}
+  .wrap{max-width:1120px;margin:0 auto}
+  .wrap, .wrap input, .wrap textarea{text-transform:uppercase}
+  h1{font-size:20px;letter-spacing:.5px;margin:0 0 4px}
+  .brand{font-size:24px;font-weight:800;color:var(--accent);letter-spacing:.5px;margin-bottom:2px}
+  .brand span{font-weight:500;color:#888;font-size:16px}
+  .sub{font-size:13px;color:#666;margin-bottom:20px}
+  .rate-line{background:var(--hi);display:inline-block;padding:5px 12px;border-radius:6px;
+    font-size:14px;font-weight:600;margin:4px 0 12px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+  .btn{padding:9px 16px;border:1px solid var(--line);background:#fff;border-radius:8px;
+    font-size:13px;cursor:pointer;font-weight:600}
+  .btn:hover{background:#f2efe8}
+  .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn-primary:hover{background:#a01049}
+  .btn-danger{color:var(--danger);border-color:#e3c3c3}
+  .btn-danger:hover{background:#fbeaea}
+  @media print{
+    .actions,.addrow,.del,.topbar,.sub{display:none !important}
+    .print-hide{display:none !important}
+    .print-only{display:block !important}
+    html,body{height:auto !important;overflow:visible !important;padding:10px}
+    .wrap{max-width:none !important;height:auto !important;overflow:visible !important}
+    .panel{overflow:visible !important;box-shadow:none;break-inside:auto;page-break-inside:auto}
+    table,tr,td,th{break-inside:avoid;page-break-inside:avoid}
+    thead{display:table-header-group}
+    input,textarea{border:none !important;background:transparent !important;color:#000 !important}
+    #chargesBody{display:block !important}
+    #partAFoot td{white-space:nowrap !important}
+    td.num{white-space:nowrap !important}
+  }
+  .topbar{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;
+    background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#666}
+  .field input{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:14px;min-width:140px}
+  .field input.small{min-width:80px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
+  .phead{background:var(--accent);color:#fff;padding:10px 16px;font-weight:700;font-size:14px}
+  .phead-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+  .phead-toggle span:last-child{font-weight:500;font-size:12px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 12px;font-size:13px;text-align:right;border-bottom:1px solid #eee}
+  th{background:#f5f3ee;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#777}
+  th:first-child,td:first-child{text-align:left}
+  .name-input{width:100%;border:none;background:transparent;text-align:left;font-size:13px;padding:2px}
+  .amt-input{width:120px;border:1px solid var(--line);border-radius:5px;padding:4px 6px;text-align:right;font-size:13px}
+  .mult-input{width:50px;border:1px solid var(--line);border-radius:5px;padding:4px 6px;text-align:center;font-size:13px}
+  #balBody td{text-align:left}
+  #balBody .bal-date,#balBody .bal-company{width:100%;border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:13px;text-align:left;box-sizing:border-box}
+  #balBody .bal-amt{width:110px;text-align:right}
+  #balBody td:nth-child(4){text-align:right}
+  .num{font-variant-numeric:tabular-nums}
+  .addrow{margin:8px 12px;background:none;border:1px dashed var(--line);color:var(--accent);
+    padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+  .addrow:hover{background:var(--accent-soft)}
+  .del{color:var(--danger);cursor:pointer;border:none;background:none;font-size:14px;padding:0 4px}
+  tr.total td{font-weight:700;background:#faf8f2;border-top:2px solid var(--ink)}
+  tr.total.nobar td{border-top:none}
+  tr.grand td{font-weight:700;background:var(--accent-soft);font-size:14px}
+  #partAFoot tr.grand td{border-top:2px solid var(--ink)}
+  #partCFoot tr.grand td{border-top:2px solid var(--ink)}
+  #partSalFoot tr.grand td{border-top:2px solid var(--ink)}
+  #sumFoot tr.grand td{border-top:2px solid var(--ink)}
+  #partBFoot tr.grand td{border-top:2px solid var(--ink)}
+  #balFoot tr.grand td{border-top:2px solid var(--ink)}
+  .lucas-col{color:var(--lucas)} .agent-col{color:var(--agent)}
+  tr.pinned-row td{background:#f7f5ef}
+  tr.pinned-row .name-input{font-weight:600}
+  .grand-body{padding:8px 0}
+  .grand-line{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-size:15px}
+  .grand-line .num{font-variant-numeric:tabular-nums;font-weight:600}
+  .grand-line.final{border-top:2px solid var(--ink);background:var(--accent-soft);font-size:20px;font-weight:700}
+  .grand-line.final input{border:1px solid var(--line);border-radius:5px;padding:4px 6px;text-align:right;font-size:15px}
+  .cfg{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:8px 12px;font-size:12px;color:#666}
+  .cfg input{width:60px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;text-align:right}
+  .remark-box{width:100%;border:none;padding:14px 16px;font-size:14px;font-family:inherit;
+    min-height:120px;resize:vertical;box-sizing:border-box;outline:none;background:#fff;line-height:1.5}
+  .acct-block{background:#f7f5ef;color:#333;padding:12px 16px;font-size:12px;line-height:1.5}
+  .acct-title{font-weight:700;border-bottom:1px solid #c9c3b6;padding-bottom:4px;margin-bottom:6px}
+  .acct-title:not(:first-child){margin-top:14px}
+  .acct-amt{margin-top:6px;font-weight:700;font-size:13px;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">PL COSTING</div>
+  <h1 id="clientTitle" style="color:#444">CLIENT NAME</h1>
+  <div class="rate-line">F : 10% per month &nbsp;&nbsp; C : <span id="cRateShow">15</span>%</div>
+  <div class="print-only" id="printAgent" style="display:none;font-size:13px;margin-bottom:10px"></div>
+  <div class="sub">Enter name, agent, rates and amounts — totals update automatically.</div>
+
+  <div class="topbar">
+    <div class="field"><label>Client Name</label><input id="clientName" placeholder="" oninput="updateTitle()"></div>
+    <div class="field"><label>Agent</label><input id="agentName" placeholder="" oninput="updateTitle()"></div>
+    <div class="field"><label>C : %</label><input class="small" id="cRate" type="number" value="15" oninput="calc()"></div>
+    <div class="field"><label>Lucas %</label><input class="small" id="lucasRate" type="number" value="10" oninput="calc()"></div>
+    <div class="field"><label>Agent %</label><input class="small" id="agentRate" type="number" value="0" oninput="calc()"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" onclick="window.print()">🖨 打印 / 存 PDF</button>
+    <button class="btn" onclick="saveArchive()">💾 存档</button>
+    <button class="btn" onclick="copyAll(this)">📋 复制全部</button>
+    <button class="btn" onclick="openLoadArchive()">📂 读取存档</button>
+    <button class="btn btn-danger" onclick="clearRecord()">🗑 清空记录</button>
+    <span id="saveStatus" style="font-size:12px;color:#888;align-self:center"></span>
+  </div>
+
+  <div class="panel">
+    <div class="phead">Part A</div>
+    <table>
+      <thead><tr><th>Item</th><th>Amount</th><th>×</th><th>Result</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
+      <tbody id="partABody"></tbody>
+      <tbody id="partAFoot"></tbody>
+    </table>
+    <button class="addrow" onclick="addRow('partABody','','',false,false,true)">+ Add item</button>
+    <div class="cfg">Total × <input id="aFinalPct" type="number" value="30" placeholder="%" oninput="calc()"> %</div>
+  </div>
+
+  <div class="panel" id="chargesPanel">
+    <div class="phead phead-toggle" onclick="toggleCharges()">
+      <span>Part A · A.Charges</span>
+      <span id="chargesArrow">▸ 点击展开</span>
+    </div>
+    <div id="chargesBody" style="display:none">
+      <table>
+        <thead><tr><th>Item</th><th>Amount</th><th>%</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
+        <tbody id="partCBody"></tbody>
+        <tbody id="partCFoot"></tbody>
+      </table>
+      <button class="addrow" onclick="addRow('partCBody','',_='',_2='')">+ Add item</button>
+      <input id="cMult" type="hidden" value="20">
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="phead">Part B <span style="font-weight:700;font-size:14px">— LOAN APPROVE AMT × CONSULTANT FEES %</span></div>
+    <table>
+      <thead><tr><th>Item</th><th>Loan Amount</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
+      <tbody id="partBBody"></tbody>
+      <tbody id="partBFoot"></tbody>
+    </table>
+    <button class="addrow" onclick="addRow('partBBody','',_='',_2='')">+ Add item</button>
+  </div>
+
+  <div class="panel">
+    <div class="phead">Part C · Salary</div>
+    <table>
+      <thead><tr><th>Item</th><th>Amount</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
+      <tbody id="partSalBody"></tbody>
+      <tbody id="partSalFoot"></tbody>
+    </table>
+    <button class="addrow" onclick="addRow('partSalBody','',_='',_2='')">+ Add item</button>
+  </div>
+
+  <div class="panel">
+    <div class="phead" style="background:#8e1449">Subtotal</div>
+    <table>
+      <thead><tr><th>Part</th><th>Amount</th><th colspan="2"></th></tr></thead>
+      <tbody id="sumFoot"></tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <div class="phead">Account Info</div>
+    <div class="acct-block">
+      <div class="acct-title">PART A + A.A + B = COSTING</div>
+      <div class="acct-detail">FUTURE ADVISORY SDN. BHD.<br>BANK : CIMB<br>ACC NUM : 8605 804 414</div>
+      <div class="acct-amt">Amount to transfer : RM <span id="costingAmt">0.00</span></div>
+      <div class="acct-title">PART C = SALARY</div>
+      <div class="acct-detail">FINPRO CAPITAL BERHAD<br>BANK : CIMB<br>ACC NUM : 8605 535 100</div>
+      <div class="acct-amt">Amount to transfer : RM <span id="salaryAmt">0.00</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="phead">Payment</div>
+    <table>
+      <thead><tr><th style="width:30px"></th><th style="text-align:left">Date</th><th style="text-align:left">Remark</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+      <tbody id="balHead"></tbody>
+      <tbody id="balBody"></tbody>
+      <tbody id="balFoot"></tbody>
+    </table>
+    <button class="addrow" onclick="addBalRow()">+ Add payment</button>
+  </div>
+
+</div>
+
+<script>
+const fmt = n => (isNaN(n)?0:n).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+const parseNum = v => parseFloat(String(v).replace(/,/g,''))||0;
+function fmtInput(el){
+  const raw=String(el.value).replace(/,/g,'').trim();
+  if(raw===''){ return; }
+  const n=parseFloat(raw);
+  if(isNaN(n)){ el.value=''; calc(); return; }
+  el.value=n.toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+  calc();
+}
+function formatAllAmounts(){
+  document.querySelectorAll('.amt-input').forEach(el=>{
+    const raw=String(el.value).replace(/,/g,'').trim();
+    if(raw==='') return;
+    const n=parseFloat(raw);
+    if(!isNaN(n)) el.value=n.toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+  });
+}
+
+const seedA = [["EPF",""],["SOCSO/EIS/PCB",""],["BACKDATE EPF/SOCSO",""]];
+const seedC = [];
+
+const seedB = [];
+
+function calcPartB(){
+  const rows=[...document.getElementById('partBBody').querySelectorAll('tr')];
+  const lRate=parseFloat(document.getElementById('lucasRate').value)/100||0;
+  const aRate=parseFloat(document.getElementById('agentRate').value)/100||0;
+  const cRateVal=parseFloat(document.getElementById('cRate').value)||0;
+  const m=cRateVal/100;
+  const bShow=document.getElementById('bMultShow');
+  if(bShow) bShow.textContent=cRateVal;
+  let sum=0;
+  rows.forEach(r=>{
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    sum+=amt;
+    r.querySelector('.lucasCell').textContent=fmt(amt*lRate);
+    r.querySelector('.agentCell').textContent=fmt(amt*aRate);
+  });
+  const fee=sum*m;
+  document.getElementById('partBFoot').innerHTML=`
+    <tr class="total">
+      <td>Total</td>
+      <td class="num">${fmt(sum)} &nbsp;×&nbsp; ${(m*100)}%</td>
+      <td class="num lucas-col">${fmt(sum*lRate)}</td>
+      <td class="num agent-col">${fmt(sum*aRate)}</td>
+      <td></td>
+    </tr>
+    <tr class="grand">
+      <td>Consultant Fees</td>
+      <td class="num">${fmt(fee)}</td>
+      <td class="num lucas-col">${fmt(sum*lRate)}</td>
+      <td class="num agent-col">${fmt(sum*aRate)}</td>
+      <td></td>
+    </tr>`;
+  return fee;
+}
+
+function toggleCharges(){
+  const b=document.getElementById('chargesBody');
+  const arrow=document.getElementById('chargesArrow');
+  const open=b.style.display==='none';
+  b.style.display=open?'block':'none';
+  arrow.textContent=open?'▾ 点击收起':'▸ 点击展开';
+}
+function updateTitle(){
+  const n=document.getElementById('clientName').value.trim();
+  document.getElementById('clientTitle').textContent = n? n.toUpperCase() : 'CLIENT NAME';
+  const ag=document.getElementById('agentName').value.trim();
+  document.getElementById('printAgent').textContent = ag? ('Agent : '+ag) : '';
+}
+const PARTS_WITH_MULT = ['partABody'];
+function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
+  let multCells='';
+  if(isPartC){
+    multCells = `<td style="white-space:nowrap"><input class="mult-input num" type="number" placeholder="%" style="width:60px" oninput="calc()"> %</td>`;
+  }
+  if(isPartA){
+    multCells = withMult
+      ? `<td><input class="mult-input num" type="number" placeholder="×" oninput="calc()"></td>
+         <td class="num resultCell">0.00</td>`
+      : `<td></td><td class="num resultCell">0.00</td>`;
+  }
+  const del = `<button class="del" onclick="this.closest('tr').remove();calc()">✕</button>`;
+  const amtCell = lockAmt
+    ? `<td><input class="amt-input num" type="text" inputmode="decimal" value="${amt}" readonly style="background:#eee;color:#555"></td>`
+    : `<td><input class="amt-input num" type="text" inputmode="decimal" value="${amt}" oninput="calc()" onblur="fmtInput(this)"></td>`;
+  return `<td><input class="name-input" value="${name}" placeholder="Item name"></td>
+    ${amtCell}
+    ${multCells}
+    <td class="num lucas-col lucasCell">0.00</td>
+    <td class="num agent-col agentCell">0.00</td>
+    <td>${del}</td>`;
+}
+function addRow(bodyId,name,amt,pinned,lockAmt,noMult){
+  // Part A rows get × column, except pinned (LAWYER/M&V) and rows flagged noMult
+  const isPartA = bodyId==='partABody';
+  const withMult = isPartA && !pinned && !noMult;
+  const tr=document.createElement('tr');
+  if(pinned) tr.classList.add('pinned-row');
+  tr.innerHTML=rowHtml(name||"",amt||"",withMult,pinned,lockAmt,isPartA,bodyId==='partCBody');
+  const body=document.getElementById(bodyId);
+  const firstPinned = body.querySelector('.pinned-row');
+  if(!pinned && firstPinned) body.insertBefore(tr,firstPinned);
+  else body.appendChild(tr);
+  calc();
+  return tr;
+}
+// Part A: × rows → amount×mult; pinned rows → amount. Sum all → × final %
+function calcPartA(){
+  const rows=[...document.getElementById('partABody').querySelectorAll('tr')];
+  const lRate=parseFloat(document.getElementById('lucasRate').value)/100||0;
+  const aRate=parseFloat(document.getElementById('agentRate').value)/100||0;
+  let resSum=0;
+  rows.forEach(r=>{
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    const multEl=r.querySelector('.mult-input');
+    const hasMult = multEl && multEl.value.trim()!=='';
+    const res = hasMult ? amt*parseNum(multEl.value) : amt;
+    resSum+=res;
+    r.querySelector('.resultCell').textContent=fmt(res);
+    r.querySelector('.lucasCell').textContent=fmt(res);
+    r.querySelector('.agentCell').textContent=fmt(0);
+  });
+  const pctRaw = document.getElementById('aFinalPct').value;
+  const finalPct=parseFloat(pctRaw)/100;
+  const pctAmt = isNaN(finalPct) ? 0 : resSum*finalPct;
+  const grand = resSum + pctAmt;
+  const pctShow = isNaN(finalPct) ? '—' : `${parseFloat(pctRaw)}%`;
+  document.getElementById('partAFoot').innerHTML=`
+    <tr class="total">
+      <td>Subtotal (Results)</td>
+      <td colspan="2"></td>
+      <td class="num">${fmt(resSum)} &nbsp;×&nbsp; ${pctShow}</td>
+      <td class="num lucas-col">= ${isNaN(finalPct)?'—':fmt(pctAmt)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>
+    <tr class="grand">
+      <td>TOTAL (Subtotal + ${pctShow})</td>
+      <td colspan="2"></td>
+      <td class="num">${fmt(grand)}</td>
+      <td class="num lucas-col">${fmt(grand)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>`;
+  return grand;
+}
+function calcPart(bodyId,footId,mult){
+  const rows=[...document.getElementById(bodyId).querySelectorAll('tr')];
+  let sum=0;
+  rows.forEach(r=>{
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    sum+=amt;
+    r.querySelector('.lucasCell').textContent=fmt(amt);
+    r.querySelector('.agentCell').textContent=fmt(0);
+  });
+  const m=parseFloat(mult)/100||0;
+  const fVal=sum*(1+m);
+  const foot=document.getElementById(footId);
+  // % 直接在 Subtotal 这一行手动填（不再用下面的 Multiplier）
+  if(!foot.querySelector('.pctInline')){
+    foot.innerHTML=`
+    <tr class="total">
+      <td>Subtotal</td>
+      <td class="num"><span class="pSum"></span> &nbsp;×&nbsp; <input class="pctInline mult-input num" type="number" style="width:60px" oninput="document.getElementById('cMult').value=this.value;calc()"> %</td>
+      <td class="num lucas-col pLucas"></td>
+      <td class="num agent-col pAg0"></td>
+      <td></td>
+    </tr>
+    <tr class="grand">
+      <td>TOTAL</td>
+      <td class="num pTot"></td>
+      <td class="num lucas-col pTot2"></td>
+      <td class="num agent-col pAg1"></td>
+      <td></td>
+    </tr>`;
+  }
+  const inp=foot.querySelector('.pctInline');
+  if(document.activeElement!==inp) inp.value=mult;
+  foot.querySelector('.pSum').textContent=fmt(sum);
+  foot.querySelector('.pLucas').textContent='= '+fmt(sum*m);
+  foot.querySelector('.pAg0').textContent=fmt(0);
+  foot.querySelector('.pTot').textContent=fmt(fVal);
+  foot.querySelector('.pTot2').textContent=fmt(fVal);
+  foot.querySelector('.pAg1').textContent=fmt(0);
+  return fVal;
+}
+// Part A.A Charges：每一行自己填 %，该行 = Amount + Amount×%
+function calcPartC(){
+  const rows=[...document.getElementById('partCBody').querySelectorAll('tr')];
+  let sum=0,pctSum=0;
+  rows.forEach(r=>{
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    const pEl=r.querySelector('.mult-input');
+    const pct=pEl?parseNum(pEl.value)/100:0;
+    const add=Math.round((amt*pct+1e-9)*100)/100; // % 的钱四舍五入到 2 位小数
+    sum+=amt; pctSum+=add;
+    r.querySelector('.lucasCell').textContent=fmt(amt+add);
+    r.querySelector('.agentCell').textContent=fmt(0);
+  });
+  const tot=sum+pctSum;
+  document.getElementById('partCFoot').innerHTML=`
+    <tr class="total">
+      <td>Subtotal</td>
+      <td class="num">${fmt(sum)}</td>
+      <td class="num">+ ${fmt(pctSum)}</td>
+      <td class="num lucas-col">${fmt(tot)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>
+    <tr class="grand">
+      <td>TOTAL</td>
+      <td class="num">${fmt(tot)}</td>
+      <td></td>
+      <td class="num lucas-col">${fmt(tot)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>`;
+  return tot;
+}
+function calcSalary(){
+  const rows=[...document.getElementById('partSalBody').querySelectorAll('tr')];
+  let sum=0;
+  rows.forEach(r=>{
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    sum+=amt;
+    r.querySelector('.lucasCell').textContent=fmt(amt);
+    r.querySelector('.agentCell').textContent=fmt(0);
+  });
+  document.getElementById('partSalFoot').innerHTML=`
+    <tr class="grand">
+      <td>TOTAL</td>
+      <td class="num">${fmt(sum)}</td>
+      <td class="num lucas-col">${fmt(sum)}</td>
+      <td class="num agent-col">${fmt(0)}</td>
+      <td></td>
+    </tr>`;
+  return sum;
+}
+function calc(){
+  const cShow=document.getElementById('cRateShow');
+  if(cShow) cShow.textContent=document.getElementById('cRate').value||'—';
+  const aT=calcPartA()||0;
+  const cT=calcPartC()||0;
+  const cEmpty=document.getElementById('partCBody').querySelectorAll('tr').length===0;
+  document.getElementById('chargesPanel').classList.toggle('print-hide',cEmpty);
+  const bT=calcPartB()||0;
+  const sT=calcSalary()||0;
+  const grand=aT+cT+bT+sT;
+  document.getElementById('costingAmt').textContent=fmt(aT+cT+bT);
+  document.getElementById('salaryAmt').textContent=fmt(sT);
+  const cEmptyRow = cEmpty ? ' print-hide' : '';
+  document.getElementById('sumFoot').innerHTML=`
+    <tr class="total nobar" style="color:#555">
+      <td>PART A - COSTING</td><td class="num">${fmt(aT)}</td><td colspan="2"></td>
+    </tr>
+    <tr class="total nobar${cEmptyRow} " style="color:#555">
+      <td>PART A.A - CHARGES</td><td class="num">${fmt(cT)}</td><td colspan="2"></td>
+    </tr>
+    <tr class="total nobar" style="color:#555">
+      <td>PART B - CONSULTANT FEES</td><td class="num">${fmt(bT)}</td><td colspan="2"></td>
+    </tr>
+    <tr class="total nobar" style="color:#555">
+      <td>PART C - SALARY</td><td class="num">${fmt(sT)}</td><td colspan="2"></td>
+    </tr>
+    <tr class="grand">
+      <td>SUBTOTAL (All Parts)</td><td class="num">${fmt(grand)}</td><td colspan="2"></td>
+    </tr>`;
+  calcBalance(grand);
+}
+// ---- Serialize / restore whole form ----
+const BODIES=['partABody','partCBody','partBBody','partSalBody'];
+function collectData(){
+  const d={
+    clientName:document.getElementById('clientName').value,
+    agentName:document.getElementById('agentName').value,
+    cRate:document.getElementById('cRate').value,
+    lucasRate:document.getElementById('lucasRate').value,
+    agentRate:document.getElementById('agentRate').value,
+    aFinalPct:document.getElementById('aFinalPct').value,
+    cMult:document.getElementById('cMult').value,
+    balance:[...document.getElementById('balBody').querySelectorAll('tr')].map(r=>({
+      date:r.querySelector('.bal-date').value,
+      remark:r.querySelector('.bal-company').value,
+      amt:r.querySelector('.bal-amt').value
+    })),
+    parts:{}
+  };
+  BODIES.forEach(id=>{
+    d.parts[id]=[...document.getElementById(id).querySelectorAll('tr')].map(r=>{
+      const multEl=r.querySelector('.mult-input');
+      return {
+        name:r.querySelector('.name-input').value,
+        amt:r.querySelector('.amt-input').value,
+        mult:multEl?multEl.value:'',
+        hasMult:!!multEl,
+        pinned:r.classList.contains('pinned-row'),
+        lock:r.querySelector('.amt-input').hasAttribute('readonly')
+      };
+    });
+  });
+  return d;
+}
+function restoreData(d){
+  document.getElementById('clientName').value=d.clientName||'';
+  document.getElementById('agentName').value=d.agentName||'';
+  document.getElementById('cRate').value=d.cRate??'15';
+  document.getElementById('lucasRate').value=d.lucasRate??'10';
+  document.getElementById('agentRate').value=d.agentRate??'0';
+  document.getElementById('aFinalPct').value=d.aFinalPct??'30';
+  document.getElementById('cMult').value=d.cMult??'20';
+  BODIES.forEach(id=>document.getElementById(id).innerHTML='');
+  BODIES.forEach(id=>{
+    (d.parts[id]||[]).forEach(row=>{
+      // a Part A non-pinned row without a mult column is a plain added row
+      const noMult = (id==='partABody' && !row.pinned && row.hasMult===false);
+      const tr=addRow(id,row.name,row.amt,row.pinned,row.lock,noMult);
+      const multEl=tr.querySelector('.mult-input');
+      if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
+    });
+  });
+  document.getElementById('balBody').innerHTML='';
+  (d.balance||[]).forEach(b=>addBalRow(b.date,b.remark||b.company,b.amt));
+  updateTitle(); formatAllAmounts(); calc();
+}
+// ---- Auto-save to browser ----
+const SAVE_KEY='pl_costing_part_autosave_v1';
+function autoSave(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(collectData()));
+    const s=document.getElementById('saveStatus'); if(s){s.textContent='已自动保存 ✓';
+      clearTimeout(window._st); window._st=setTimeout(()=>s.textContent='',2000);} }
+  catch(e){}
+}
+// ---- Download / load archive file ----
+function copyAll(btn){
+  const RM=n=>'RM '+fmt(n);
+  const sumAmt=bodyId=>{ let s=0; document.querySelectorAll('#'+bodyId+' .amt-input').forEach(el=>s+=parseNum(el.value)); return s; };
+  // Part A: list each row (name - Result)
+  const partARows=()=>{
+    return [...document.getElementById('partABody').querySelectorAll('tr')].map(r=>{
+      const nm=(r.querySelector('.name-input').value||'-').toUpperCase();
+      const resEl=r.querySelector('.resultCell');
+      return `${nm} - ${RM(parseNum(resEl?resEl.textContent:'0'))}`;
+    }).join('\n');
+  };
+  const sumRes=()=>{
+    let s=0;
+    document.querySelectorAll('#partABody tr').forEach(r=>{
+      const resEl=r.querySelector('.resultCell'); s+=parseNum(resEl?resEl.textContent:'0');
+    });
+    return s;
+  };
+  const simpleRows=(bodyId,idx)=>{
+    return [...document.getElementById(bodyId).querySelectorAll('tr')].map((r,i)=>{
+      const nm=(r.querySelector('.name-input').value||'-').toUpperCase();
+      const amt=parseNum(r.querySelector('.amt-input').value);
+      return `${idx?(i+1)+'.':''} ${nm} - ${RM(amt)}`.trim();
+    }).join('\n');
+  };
+  const grandNum=id=>{ const el=document.querySelector('#'+id+' tr.grand .num'); return el?parseNum(el.textContent):0; };
+  const partATotal=grandNum('partAFoot');
+  const aaTotal=grandNum('partCFoot');
+  const bTotal=grandNum('partBFoot');
+  const cTotal=grandNum('partSalFoot');
+  const aPct=document.getElementById('aFinalPct').value;
+  const cPct=document.getElementById('cRate').value;
+  const subRes=sumRes();
+  const aaSum=sumAmt('partCBody');
+  let aaPctSum=0;
+  const partCRows=[...document.getElementById('partCBody').querySelectorAll('tr')].map(r=>{
+    const nm=(r.querySelector('.name-input').value||'-').toUpperCase();
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    const pv=(r.querySelector('.mult-input')||{}).value||'';
+    const pct=parseNum(pv);
+    if(!pct) return `${nm} - ${RM(amt)}`;
+    const add=Math.round((amt*pct/100+1e-9)*100)/100;
+    aaPctSum+=add;
+    return `${nm} - ${RM(amt)} + ${pct}% = ${RM(amt+add)}`;
+  }).join('\n');
+  const bSum=sumAmt('partBBody');
+  const costingAmt=partATotal+aaTotal+bTotal;
+  const grandAll=partATotal+aaTotal+bTotal+cTotal;
+  const line='—————————————————';
+
+  const clientNm=(document.getElementById('clientName').value||'').toUpperCase();
+  let out= clientNm ? `${clientNm}\n\n` : '';
+  out+=`PART A ( ${RM(partATotal)} )\n\n${partARows()}\n\nTOTAL : ${RM(subRes)} + ${aPct}% = ${RM(partATotal)}\n`;
+  out+='\n'+line+'\n\n';
+  if(document.getElementById('partCBody').querySelectorAll('tr').length){
+    out+=`PART A.A ( ${RM(aaTotal)} )\n\n${partCRows}\n\nTOTAL : ${RM(aaSum)} + ${RM(aaPctSum)} = ${RM(aaTotal)}\n`+'\n'+line+'\n\n';
+  }
+  out+=`PART B ( ${RM(bTotal)} )\n\n${simpleRows('partBBody',true)}\n\nTOTAL : ${RM(bSum)} x ${cPct}% = ${RM(bTotal)}\n`;
+  out+='\n-------------------------------\n\n';
+  out+=`PART A + PART A.A + PART B = RM *${fmt(costingAmt)}*\n(pls transfer to this bank)\n\nFUTURE ADVISORY SDN. BHD.\nBANK : CIMB\nACC NUM : 8605 804 414\n\n🚨Do not mention any sensitive words as Loan, Fee\n`;
+  out+='\n'+line+'\n\n';
+  let salTotal=0;
+  const salRowsPlain=[...document.getElementById('partSalBody').querySelectorAll('tr')].map(r=>{
+    const nm=(r.querySelector('.name-input').value||'-').toUpperCase();
+    const amt=parseNum(r.querySelector('.amt-input').value);
+    salTotal+=amt;
+    return `${nm} - RM ${fmt(amt)}`;
+  }).join('\n');
+  out+=`PART C = RM *${fmt(salTotal)}*\n(Balance Amount of CIMB for salary)\n\n${salRowsPlain}\n\nFINPRO CAPITAL BERHAD\nBANK : CIMB\nACC NUM : 8605 535 100\n\n🚨Do not mention any sensitive words as Loan, Fee\n`;
+  out+='\n'+line+'\n\n';
+  // Payment block
+  const payRows=[...document.getElementById('balBody').querySelectorAll('tr')];
+  let bal=grandAll;
+  let payLines='';
+  payRows.forEach((r,i)=>{
+    const dt=r.querySelector('.bal-date').value||'';
+    const rk=(r.querySelector('.bal-company').value||'').toUpperCase();
+    const am=parseNum(r.querySelector('.bal-amt').value);
+    bal-=am;
+    payLines+=`${i+1}. ${dt} ${rk} ${RM(am)}\n`;
+  });
+  out+=`PAYMENT\n\nSUBTOTAL (ALL PARTS) : ${RM(grandAll)}\n`;
+  if(payLines) out+=`\n${payLines}`;
+  out+=`\nBALANCE : ${RM(bal)}`;
+
+  const done=()=>{ const old=btn.textContent; btn.textContent='✓ 已复制'; setTimeout(()=>btn.textContent=old,1500); };
+  navigator.clipboard.writeText(out).then(done).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=out;document.body.appendChild(ta);
+    ta.select();document.execCommand('copy');ta.remove();done();
+  });
+}
+function addBalRow(date,remark,amt){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td class="bal-no num" style="text-align:right;color:#888;width:30px"></td>
+    <td><input class="bal-date name-input" value="${date||''}" placeholder="Date" oninput="calc()"></td>
+    <td><input class="bal-company name-input" value="${remark||''}" placeholder="Remark" oninput="calc()"></td>
+    <td><input class="bal-amt amt-input num" type="text" inputmode="decimal" value="${amt||''}" oninput="calc()" onblur="fmtInput(this)"></td>
+    <td><button class="del" onclick="this.closest('tr').remove();calc()">✕</button></td>`;
+  document.getElementById('balBody').appendChild(tr);
+  calc();
+  return tr;
+}
+function calcBalance(subtotal){
+  const rows=[...document.getElementById('balBody').querySelectorAll('tr')];
+  let bal=subtotal;
+  rows.forEach((r,i)=>{
+    r.querySelector('.bal-no').textContent=(i+1)+'.';
+    bal-=parseNum(r.querySelector('.bal-amt').value);
+  });
+  document.getElementById('balHead').innerHTML=`
+    <tr class="total nobar">
+      <td colspan="3">SUBTOTAL (ALL PARTS)</td>
+      <td class="num">${fmt(subtotal)}</td>
+      <td></td>
+    </tr>`;
+  document.getElementById('balFoot').innerHTML=`
+    <tr class="grand">
+      <td colspan="3">BALANCE</td>
+      <td class="num">${fmt(bal)}</td>
+      <td></td>
+    </tr>`;
+}
+// ---- Named archives in browser localStorage (LEADING SHEET style) ----
+const ARCH_KEY='pl_costing_part_archives';
+function getArchives(){ try{ return JSON.parse(localStorage.getItem(ARCH_KEY)||'{}'); }catch(e){ return {}; } }
+function saveArchive(){
+  const nm=(document.getElementById('clientName').value||'').trim();
+  const suggested = nm ? nm : ('存档 '+new Date().toLocaleString());
+  const label=prompt('存档名称（同名会覆盖）：', suggested);
+  if(label===null) return;
+  const key=label.trim(); if(!key){ alert('名称不能空白'); return; }
+  const arch=getArchives();
+  arch[key]={data:collectData(), saved:new Date().toISOString()};
+  try{ localStorage.setItem(ARCH_KEY, JSON.stringify(arch)); alert('已存档：'+key); }
+  catch(e){ alert('存档失败：浏览器空间不足'); }
+}
+function openLoadArchive(){
+  const arch=getArchives();
+  if(!Object.keys(arch).length){ alert('还没有任何存档'); return; }
+  let modal=document.getElementById('archModal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='archModal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML='<div id="archBox" style="background:#fff;border-radius:8px;max-width:460px;width:90%;max-height:80vh;overflow:auto;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.3);"></div>';
+    modal.onclick=function(e){ if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  const box=modal.querySelector('#archBox');
+  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><b style="font-size:15px;">读取存档</b><span onclick="document.getElementById(\'archModal\').remove()" style="cursor:pointer;font-size:20px;color:#888;">×</span></div>'
+    +'<input id="archSearch" placeholder="🔍 搜索名字…" oninput="renderArchList(this.value)" style="width:100%;padding:8px 10px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;font-size:14px;box-sizing:border-box;">'
+    +'<div id="archList"></div>';
+  renderArchList('');
+  box.querySelector('#archSearch').focus();
+}
+function renderArchList(q){
+  const arch=getArchives();
+  const keys=Object.keys(arch).filter(k=>k.toLowerCase().includes((q||'').toLowerCase()));
+  const list=document.getElementById('archList');
+  if(!list) return;
+  if(!keys.length){ list.innerHTML='<div style="color:#999;padding:12px 6px;">没有符合的存档</div>'; return; }
+  keys.sort((a,b)=>(arch[b].saved||'').localeCompare(arch[a].saved||''));
+  let html='';
+  keys.forEach(k=>{
+    const when=arch[k].saved?new Date(arch[k].saved).toLocaleString():'';
+    const kEsc=k.replace(/'/g,"\\'");
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid #eee;">'
+      +'<div style="flex:1;cursor:pointer;" onclick="pickArchive(\''+kEsc+'\')">'
+      +'<div style="font-weight:bold;color:#2c6fbb;">'+k+'</div>'
+      +'<div style="font-size:11px;color:#999;">'+when+'</div></div>'
+      +'<button onclick="delArchive(\''+kEsc+'\')" style="border:none;background:none;color:#c00;cursor:pointer;font-size:16px;padding:4px 8px;">🗑</button>'
+      +'</div>';
+  });
+  list.innerHTML=html;
+}
+function pickArchive(k){
+  const arch=getArchives();
+  if(arch[k]){ restoreData(arch[k].data); autoSave(); const m=document.getElementById('archModal'); if(m) m.remove(); }
+}
+function delArchive(k){
+  if(!confirm('删除存档「'+k+'」？')) return;
+  const arch=getArchives();
+  delete arch[k];
+  localStorage.setItem(ARCH_KEY,JSON.stringify(arch));
+  if(Object.keys(arch).length){ const s=document.getElementById('archSearch'); renderArchList(s?s.value:''); }
+  else { const m=document.getElementById('archModal'); if(m) m.remove(); }
+}
+// ---- Clear ----
+function clearRecord(){
+  if(!confirm('确定清空所有记录？名字、金额、倍数都会重置。')) return;
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+  location.reload();
+}
+// wrap calc so every recalc also auto-saves
+const _calc=calc;
+calc=function(){ _calc(); autoSave(); };
+// also save when text/name fields change
+document.addEventListener('input',e=>{ if(e.target.closest('.wrap')) autoSave(); });
+
+// ---- init ----
+function migratePartAOrder(d){
+  const rows=d.parts && d.parts.partABody;
+  if(!Array.isArray(rows)) return;
+  const wanted=['EPF','SOCSO','EIS','PCB'];
+  const norm=s=>(s||'').trim().toUpperCase();
+  // pull out the four statutory rows in whatever order they were saved
+  const statutory={};
+  rows.forEach(r=>{ const n=norm(r.name); if(wanted.includes(n)) statutory[n]=r; });
+  // only migrate if all four exist and they're not already in wanted order
+  if(wanted.some(w=>!statutory[w])) return;
+  const currentStatOrder=rows.filter(r=>wanted.includes(norm(r.name))).map(r=>norm(r.name));
+  if(currentStatOrder.join()===wanted.join()) return; // already correct
+  // rebuild: statutory rows in wanted order first, then everything else (added rows, LAWYER, M&V) in original order
+  const others=rows.filter(r=>!wanted.includes(norm(r.name)));
+  d.parts.partABody=[...wanted.map(w=>statutory[w]), ...others];
+}
+try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+let saved=null;
+if(saved && saved.parts){
+  migratePartAOrder(saved);
+  restoreData(saved);
+}else{
+  seedA.forEach(([n,a])=>addRow('partABody',n,a));
+  addRow('partABody','LAWYER','800',true,true);
+  addRow('partABody','M&V','',true);
+  seedB.forEach(([n,a])=>addRow('partBBody',n,a));
+  seedC.forEach(([n,a])=>addRow('partCBody',n,a));
+  formatAllAmounts(); calc();
+}
+</script>
+</body>
+</html>
