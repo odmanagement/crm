@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v197"));
+    h("div", { className: "sb-ver" }, "v198"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5454,7 +5454,7 @@ function BsReturnPage({ clients, currentUser }) {
           h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, i + 1),
           h("td", { style: { ...S.td, ...bg, fontWeight: 900 } }, x.name),
           h("td", { style: { ...S.td, ...bg, ...S.tdNum, fontWeight: 900 } }, "RM " + lsFmt(lsNum(x.amount))),
-          h("td", { style: { ...S.td, ...bg } }, h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
+          h("td", { style: { ...S.td, ...bg } }, x.done ? h("span", { title: "已 Done，日期锁住", style: { fontWeight: 800, color: "#15803d" } }, "🔒 " + bsIso2Dmy(x.date)) : h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
           h("td", { style: { ...S.td, ...bg, minWidth: 120 } }, h(LfPhotos, { ids: x.photos || [], compact: true, onChange: ids => upd(x.id, "photos", ids) })),
           h("td", { style: { ...S.td, ...bg } }, h("button", { onClick: () => upd(x.id, "done", x.done ? null : { by: me, at: Date.now() }), title: x.done ? "DONE · " + String(x.done.by || "").toUpperCase() : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: x.done ? "#16a34a" : "#fee2e2", color: x.done ? "#fff" : "#b91c1c" } }, x.done ? "✓ DONE" : "✕ NOT YET")),
           h("td", { style: { ...S.td, ...bg, width: 30 } }, lfCanEdit(x.by, me) && h("button", { onClick: () => del(x), title: "删除", style: { border: "none", background: "none", cursor: "pointer" } }, h(Trash2, { size: 14, color: "#94a3b8" })))); })))));
