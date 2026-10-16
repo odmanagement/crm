@@ -3733,7 +3733,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v178"));
+    h("div", { className: "sb-ver" }, "v179"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -4982,7 +4982,6 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
           fld("SALARY（例如 8,600 = 8,000 BASIC + 600 TRANSPORT）", "salary", "2 1 300px"), fld("AGENT", "agent"),
           fld("BANK A/C NO.", "bankAcc", null, "CIMB 7079042588"), fld("EPF NO.", "epfNo"), fld("TAX NO.", "taxNo"),
           fld("COMPANY", "company", "2 1 260px"), fld("POSITION", "position")),
-        h("div", { style: { fontSize: 11.5, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", marginTop: 10, fontWeight: 600 } }, "🔒 为了客户户口安全，系统不存 PIN、网银 ID / 密码、EPF 密码。"),
         h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginTop: 14 } },
           box("CHARGES & FEES", "#fef9c3", [
             ...d.fees.map(x => h("div", { key: x.id, style: { display: "flex", gap: 5, alignItems: "center" } }, h("input", { value: x.desc || "", onChange: e => setRow("fees", x.id, "desc", e.target.value), style: { ...inp, flex: 1.3 } }), h("div", { style: { flex: 1 } }, money("fees", x.id, "amount", x.amount)), del("fees", x.id))),
@@ -5034,19 +5033,21 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const mny = (v, on) => h("input", { value: v || "", inputMode: "decimal", placeholder: "", onChange: e => on(e.target.value.replace(/[^\d.,-]/g, "")), onFocus: ev.onFocus, onBlur: e => { focus.current = false; on(fmtMoney(e.target.value)); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
   const dt = (v, on) => h("input", { type: "date", value: v || "", onChange: e => on(e.target.value), ...ev, style: { ...box, fontSize: 12, textAlign: "right" } });
   const credits = d.credits, recv = d.received;
-  const N = Math.max(4, credits.length + 2, recv.length + 1);
+  const N = Math.max(8, credits.length + 2, recv.length + 1);
   const cell = { border: "1px solid #e5e7eb", padding: "4px 8px", fontSize: 13, whiteSpace: "nowrap", height: 20 };
-  const labels = ["", "Bank A/C No.", "EPF No.", "TAX NO."];
+  const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
+  const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"], SECRET = { pin: 1, pw: 1, epfPw: 1 };
+  const [peek, setPeek] = React.useState(false);
   const tC = bsTot(credits), tR = bsTot(recv), bal = tC + bsTot(d.fees) - tR;
   const trs = [];
   for (let k = 0; k < N; k++) {
     const ci = k - 1, c = ci >= 0 ? credits[ci] : null, rv = recv[k];
-    const cyan = k === 3 ? { background: "#22d3ee" } : {};
+    const cyan = k === 7 ? { background: "#22d3ee" } : {};
     trs.push(h("tr", { key: k },
-      h("td", { style: { ...cell, width: 110, fontWeight: 600, ...cyan, ...(k === 3 ? { fontWeight: 900 } : {}) } }, labels[k] || ""),
+      h("td", { style: { ...cell, width: 110, fontWeight: 600, ...cyan, ...(k === 7 ? { fontWeight: 900 } : {}) } }, labels[k] || "", SECRET[FK[k]] && h("button", { title: peek ? "隐藏" : "显示", onClick: () => setPeek(!peek), style: { border: "none", background: "none", cursor: "pointer", fontSize: 11, padding: "0 0 0 6px", opacity: .6 } }, peek ? "🙈" : "👁")),
       h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...cyan } },
         k === 0 ? (onName ? h("input", { value: nm, placeholder: "名字", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus, onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) onName(nm.trim()); }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
-        : k === 1 ? tx(d.bankAcc, v => set("bankAcc", v)) : k === 2 ? tx(d.epfNo, v => set("epfNo", v)) : k === 3 ? tx(d.taxNo, v => set("taxNo", v)) : ""),
+        : FK[k] ? (SECRET[FK[k]] && !peek ? h("input", { type: "password", autoComplete: "new-password", value: d[FK[k]] || "", onChange: e => set(FK[k], e.target.value), ...ev, style: box }) : tx(d[FK[k]], v => set(FK[k], v))) : ""),
       h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: "#f97316", color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : ""),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? tx(d.salary, v => set("salary", v), { textAlign: "right" }, "SALARY") : ""),
       k === 0 ? h("td", { colSpan: 2, style: { ...cell, color: "#1d4ed8", fontWeight: 900, minWidth: 200 } }, tx(d.remark, v => set("remark", v), { fontWeight: 900, color: "#1d4ed8" }, "REMARK"))
