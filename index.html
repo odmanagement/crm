@@ -3733,7 +3733,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v173"));
+    h("div", { className: "sb-ver" }, "v174"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5017,12 +5017,18 @@ function BankStmtPage({ clients, onOpen, onSaveStmt }) {
   const [q, setQ] = React.useState("");
   const [only, setOnly] = React.useState("");
   const [stmtId, setStmtId] = React.useState(null);
+  /* 自己加的人头（不是 CRM 客户） */
+  const [ppl, savePpl] = useCloudList("bank_stmt_people");
+  const people = ppl || [];
+  const addPerson = () => { const n = window.prompt("新增人头 — 名字："); if (!n || !n.trim()) return; const id = uid(); savePpl([{ id, name: n.trim().toUpperCase(), by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); setStmtId("p:" + id); };
+  const delPerson = (e, id, name) => { e.stopPropagation(); if (window.confirm("删除「" + name + "」？")) savePpl(people.filter(p => p.id !== id)); };
   const rows = [];
   (clients || []).forEach(c => {
     const banks = new Set();
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) banks.add(k); }));
     if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null });
   });
+  people.forEach(p => rows.push({ c: { id: "p:" + p.id, name: p.name, bankStmt: p.bankStmt || null }, banks: [], bs: p.bankStmt || null, manual: p }));
   const ql = q.trim().toLowerCase();
   const shown = rows.filter(r => {
     const bal = bsBalance(r.bs);
@@ -5037,7 +5043,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt }) {
   return h("div", { className: "cz-page" },
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       h("div", { style: { ...S.searchWrap, flex: "1 1 240px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / bank acc / company / agent", value: q, onChange: e => setQ(e.target.value) })),
-      chip("", "全部 " + rows.length), chip("owe", "🔴 还有余额"), chip("clear", "✅ 已结清"), chip("none", "＋ 还没填")),
+      h("button", { style: S.addBtn, onClick: addPerson }, h(Plus, { size: 16 }), " 新增人头")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["#", "Name & Details", "Agent", "Charges & Fees", "Credited (+)", "Received", "Balance", "Remark"].map((x, i) => h("th", { key: i, style: i >= 3 && i <= 6 ? { ...S.th, ...S.thNum } : i === 0 ? { ...S.th, ...S.thNumCol } : S.th }, x)))),
       h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "找不到" : "还没有 — Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现")) : [
@@ -5045,7 +5051,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt }) {
           return h("tr", { key: r.c.id, style: { ...S.tr, cursor: "pointer" }, onClick: () => setStmtId(r.c.id) },
             h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
             h("td", { style: { ...S.td, minWidth: 200 } },
-              h("div", { style: { fontWeight: 900, color: "#0f172a" } }, String(r.c.name).toUpperCase(), stop && h("span", { style: { marginLeft: 6, fontSize: 10.5, fontWeight: 900, color: "#dc2626" } }, "⛔ STOP SALARY")),
+              h("div", { style: { fontWeight: 900, color: "#0f172a" } }, String(r.c.name).toUpperCase(), r.manual && h("button", { onClick: e => delPerson(e, r.manual.id, r.c.name), title: "删除", style: { ...S.fuDel, padding: 0, marginLeft: 6, verticalAlign: "middle" } }, h(Trash2, { size: 13, color: "#cbd5e1" })), stop && h("span", { style: { marginLeft: 6, fontSize: 10.5, fontWeight: 900, color: "#dc2626" } }, "⛔ STOP SALARY")),
               bs && bs.bankAcc && h("div", { style: { fontSize: 11.5, color: "#475569", fontWeight: 700 } }, "🏦 " + bs.bankAcc),
               bs && (bs.company || bs.position) && h("div", { style: { fontSize: 11, color: "#94a3b8" } }, [bs.company, bs.position].filter(Boolean).join(" · ")),
               !bs && h("div", { style: { fontSize: 11, color: "#ca8a04", fontWeight: 800 } }, "＋ 按一下填写")),
@@ -5063,7 +5069,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt }) {
           h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("received"))),
           h("td", { style: { ...num, fontWeight: 900, color: "#b91c1c" } }, lsFmt(sum("bal"))),
           h("td", { style: S.td }))]))),
-    stmtId && (() => { const r = rows.find(x => x.c.id === stmtId); return r && h(BankStmtModal, { c: r.c, banks: r.banks, onSave: bs => onSaveStmt(r.c.id, bs), onClose: () => setStmtId(null) }); })());
+    stmtId && (() => { const r = rows.find(x => x.c.id === stmtId); return r && h(BankStmtModal, { c: r.c, banks: r.banks, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, bs), onClose: () => setStmtId(null) }); })());
 }
 function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser }) {
   const h = React.createElement;
