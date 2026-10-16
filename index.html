@@ -1440,9 +1440,6 @@ const FORMS_HIDDEN = {
   admin: ["CAR_SALES_QUOTATION.html"]
 };
 const FORMS_TOOLS = [{
-  name: "Car Sales Quotation",
-  file: "CAR_SALES_QUOTATION.html"
-}, {
   name: "Consent Form",
   file: "CONSENT_FORM.html"
 }, {
@@ -1473,10 +1470,14 @@ const COSTING_TOOLS = [{
 }, {
   name: "Finpro Costing Part",
   file: "FINPRO_COSTING_PART.html",
-  grp: "costing_car"
+  grp: "costing_pl"
 }, {
   name: "Future Costing Part",
   file: "FUTURE_COSTING_PART.html",
+  grp: "costing_pl"
+}, {
+  name: "Car Sales Quotation",
+  file: "CAR_SALES_QUOTATION.html",
   grp: "costing_car"
 }];
 /* OD Payment：自动从 Lending Fee 拿资料 —— (A) Settlement 每一项 + 给客户的 TOTAL TO BANK（银行 + 户口）；每一项可以打勾「已付」 */
@@ -3334,7 +3335,7 @@ function CRM({ onLogout, currentUser }) {
   }) : page === "costing_pl" || page === "costing_car" ? /*#__PURE__*/React.createElement(FormsPage, {
     key: page,
     currentUser: currentUser,
-    tools: COSTING_TOOLS.filter(t => t.grp === page),
+    tools: COSTING_TOOLS.filter(t => t.grp === page && !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file)),
     noLib: true
   }) : page === "odpayment" ? /*#__PURE__*/React.createElement(ODPaymentPage, {
     currentUser: currentUser
@@ -3733,7 +3734,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v184"));
+    h("div", { className: "sb-ver" }, "v185"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5012,6 +5013,10 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
 }
 /* ---------- Bank Statement 页面（只给公司员工，admin 外人看不到）---------- */
 /* Bank Statement 外面的表格样子（像 Excel）：不显示 PIN / 网银 ID / 密码 */
+const BS_START_OPTS = [
+  { k: "red", t: "START SALARY ON", c: "#dc2626", bg: "#fef2f2" },
+  { k: "purple", t: "BACKDATE EPF/SOCSO , START SALARY ON", c: "#6b21a8", bg: "#faf5ff" },
+  { k: "blue", t: "PAYSLIP BANKSTATEMENT , START SALARY ON", c: "#1e3a8a", bg: "#eff6ff" }];
 const bsIso2Dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); return m ? m[3] + "/" + m[2] + "/" + m[1] : (v || ""); };
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
@@ -5106,12 +5111,20 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const fr = (k, col, st, ph) => tx((d.cells || {})[k + "_" + col], v => setD(p => ({ ...p, cells: { ...(p.cells || {}), [k + "_" + col]: v } })), st, ph);
   const hdr = t => h("span", { style: { fontWeight: 900, color: "#475569", fontSize: 12, display: "block", textAlign: "right" } }, t);
   const credits = d.credits, recv = d.received;
-  const N = Math.max(8, credits.length + 2, recv.length + 2);
+  const N = Math.max(8, credits.length + 2, recv.length + 2) + (parseInt(d.extraRows) || 0);
   const cell = { border: "1px solid #e5e7eb", padding: "4px 8px", fontSize: 13, whiteSpace: "nowrap", height: 20 };
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
   const tC = bsTot(credits), tR = bsTot(recv), bal = tC + bsTot(d.fees) - tR;
   const trs = [];
+  /* 最上面：START SALARY ON 选择（选了之后字还可以手动改） */
+  const ST_OPT = BS_START_OPTS, so = ST_OPT.find(o => o.k === d.startType);
+  trs.push(h("tr", { key: "st" }, h("td", { colSpan: 11, style: { ...cell, height: 26, textAlign: "center", background: so ? so.bg : "#fafafa" } },
+    h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, maxWidth: 640, margin: "0 auto" } },
+      h("select", { value: d.startType || "", title: "选择", onChange: e => { const o = ST_OPT.find(x => x.k === e.target.value); const nx = { ...d, startType: o ? o.k : "", startText: o ? o.t + " " : "" }; setD(nx); commit(nx); },
+        style: { border: "1px solid #cbd5e1", borderRadius: 6, padding: "2px 4px", fontSize: 11, fontWeight: 800, color: so ? so.c : "#64748b", background: "#fff", maxWidth: so ? 26 : 260, cursor: "pointer" } },
+        h("option", { value: "" }, "— 选择 START SALARY —"), ST_OPT.map(o => h("option", { key: o.k, value: o.k, style: { color: o.c } }, o.t))),
+      so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 14, color: so.c, letterSpacing: .3 }))))));
   for (let k = 0; k < N; k++) {
     const ci = k - 1, c = ci >= 0 ? credits[ci] : null, ri = k - 1, rv = ri >= 0 ? recv[ri] : null;
     const cyan = k === 7 ? { background: "#22d3ee" } : {};
@@ -5133,6 +5146,9 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, k === 1 ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } }, "S.C", h("input", { ...ro, value: d.sc || "", inputMode: "decimal", onChange: e => set("sc", e.target.value.replace(/[^\d.]/g, "")), ...ev, style: { ...box, width: 34, textAlign: "right", fontWeight: 800 } }), "%") : fr(k, "j", { textAlign: "center", fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY") : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION") : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD") : fr(k, "k", { fontWeight: 400 }))));
   }
+  trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
+    h("td", { style: { ...cell, height: 14, padding: "2px 8px", textAlign: "center" } }, h("button", { onClick: () => { const nx = { ...d, extraRows: (parseInt(d.extraRows) || 0) + 1 }; setD(nx); commit(nx); }, title: "加格子下去", style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 6, padding: "1px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ ADD")),
+    h("td", { colSpan: 3, style: { ...cell, height: 14, padding: "2px 8px" } }, (parseInt(d.extraRows) || 0) > 0 && h("button", { onClick: () => { const nx = { ...d, extraRows: Math.max(0, (parseInt(d.extraRows) || 0) - 1) }; setD(nx); commit(nx); }, title: "减少一行（最后一行的资料不会删除）", style: { border: "none", background: "none", color: "#94a3b8", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "－"))));
   trs.push(h("tr", { key: "t", style: { background: "#f8fafc" } },
     h("td", { colSpan: 6, style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tC)),
@@ -6882,6 +6898,11 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
 const costMetaFromDoc = d => {
   const v = id => ((d.getElementById(id) || {}).value || "").trim();
   const num = id => { const el = d.querySelector("#" + id + " td.num"); return el ? lsNum(el.textContent) : null; };
+  if (!d.getElementById("clientName") && d.querySelector(".q-name")) {   /* Car Sales Quotation */
+    const q = sel => { const el = d.querySelector(sel); return el ? String(el.value || "").trim() : ""; };
+    const n = sel => { const t = q(sel); return t === "" ? null : lsNum(t); };
+    return { client: q(".q-name").toUpperCase(), agent: "", subtotal: n(".sum-total"), balance: n(".pa-balance") };
+  }
   return { client: v("clientName").toUpperCase(), agent: v("agentName").toUpperCase(), subtotal: num("balHead"), balance: num("balFoot") };
 };
 function costComputeMeta(tool, draft) {
@@ -6927,7 +6948,7 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
   return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
-      tools.map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 Costing"))),
+      tools.map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 " + (t.file === "CAR_SALES_QUOTATION.html" ? "Quotation" : "Costing")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance", "Admin"].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...th, ...S.thNum } : th }, x)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
