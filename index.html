@@ -3733,7 +3733,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v172"));
+    h("div", { className: "sb-ver" }, "v173"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -6785,12 +6785,15 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
   const files = tools.map(t => t.file);
-  const rows = drafts.filter(d => files.includes(d.file)).sort((a, b) => (b.at || 0) - (a.at || 0));
+  const [q, setQ] = React.useState("");
+  const allRows = drafts.filter(d => files.includes(d.file)).sort((a, b) => (b.at || 0) - (a.at || 0));
+  const ql = q.trim().toLowerCase();
+  const rows = allRows.filter(d => !ql || [d.title, d.by, d.meta && d.meta.client, d.meta && d.meta.agent].join(" ").toLowerCase().includes(ql));
   const latest = React.useRef(drafts); latest.current = drafts;
   const busy = React.useRef(false);
   React.useEffect(() => {
     if (busy.current) return;
-    const need = rows.filter(d => !d.meta || d.meta.at !== d.at);
+    const need = allRows.filter(d => !d.meta || d.meta.at !== d.at);
     if (!need.length) return;
     busy.current = true;
     (async () => {
@@ -6799,13 +6802,16 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
       busy.current = false;
       if (Object.keys(upd).length) saveDrafts((latest.current || []).map(x => upd[x.id] && x.at === upd[x.id].at ? { ...x, meta: upd[x.id] } : x));
     })();
-  }, [rows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
+  }, [allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
   const toggleDone = d => { if (!lfCanEdit(d.by, me)) return; saveDrafts((latest.current || []).map(x => x.id !== d.id ? x : { ...x, done: x.done ? null : { by: me, at: Date.now() } })); monetSfx("save"); };
   const th = S.th, td = S.td;
-  return h("div", { style: { marginTop: 18 } },
+  return h("div", null,
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
+      tools.map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 Costing"))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance", "Admin", "Done"].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...th, ...S.thNum } : i === 6 ? { ...th, textAlign: "center" } : th }, x)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有存档 — 打开上面的表格，填好按 💾 存档")) :
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
         rows.map(d => { const m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
           return h("tr", { key: d.id, style: d.done ? { background: "#f0fdf4" } : null },
             h("td", { style: td }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
@@ -7068,8 +7074,8 @@ function FormsPage({ currentUser, tools, noLib }) {
   const card = { display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, color: "#0f172a", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" };
   const icon = (bg, c, ch) => h("div", { style: { width: 40, height: 40, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: c, fontSize: 18 } }, ch);
   return h("div", { style: { padding: 4 } },
-    h("div", { style: { fontSize: 14, color: "#64748b", marginBottom: 14, fontWeight: 600 } }, "点击打开表格 · 填好后按 💾 存档，下次可以继续"),
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 } },
+    !noLib && h("div", { style: { fontSize: 14, color: "#64748b", marginBottom: 14, fontWeight: 600 } }, "点击打开表格 · 填好后按 💾 存档，下次可以继续"),
+    !noLib && h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 } },
       tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
         icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
