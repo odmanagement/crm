@@ -1438,7 +1438,7 @@ const NAV = [{
   icon: Folder
 }];
 /* Return Salary 只有这些人看得到 */
-const RETURN_SALARY_USERS = ["alice"];
+const RETURN_SALARY_USERS = ["alice", "vv", "joey"];
 /* 某些账号看不到的 Forms（填文件名） */
 const FORMS_HIDDEN = {
   admin: ["CAR_SALES_QUOTATION.html"]
@@ -3746,7 +3746,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v192"));
+    h("div", { className: "sb-ver" }, "v193"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5025,6 +5025,8 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
 }
 /* ---------- Bank Statement 页面（只给公司员工，admin 外人看不到）---------- */
 /* Bank Statement 外面的表格样子（像 Excel）：不显示 PIN / 网银 ID / 密码 */
+const BS_ADMIN_COLORS = { vv: "#f9a8d4", money: "#fde047", alice: "#67e8f9", joey: "#fca5a5" };
+const bsAdminColor = who => BS_ADMIN_COLORS[canonUser(who || "")] || "#f97316";
 const BS_START_OPTS = [
   { k: "red", t: "START SALARY ON", c: "#dc2626", bg: "#fef2f2" },
   { k: "purple", t: "BACKDATE EPF/SOCSO , START SALARY ON", c: "#6b21a8", bg: "#faf5ff" },
@@ -5097,10 +5099,39 @@ function BsSalaryCalc({ init, name, onSave, onClose, onDelete }) {
         h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
         h("button", { onClick: () => { onSave(c, out.net); onClose(); }, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "9px 22px", fontWeight: 900, cursor: "pointer" } }, "💾 保存"))));
 }
+
+/* BACKDATE：(EPF + SOCSO + EIS) × 多少个月 × 7.5% */
+const bsBackdate = b => { b = b || {}; const m = lsNum(b.epf) + lsNum(b.socso) + lsNum(b.eis), months = lsNum(b.months), rate = b.rate === "" || b.rate == null ? 7.5 : lsNum(b.rate); const total = m * months; return { monthly: m, months, rate, total, fee: Math.round(total * rate) / 100 }; };
+const bsBackdateFromCalc = d => { const c = ((d.credits || []).find(x => x.calc) || {}).calc; let o = null; if (c) o = bsCalcOut(c); else if (lsNum(d.salary)) o = bsCalcOut({ salary: d.salary, ov: {}, adds: [] });
+  return o ? { epf: lsFmt(o.v("epfEr") + o.v("epfEe")), socso: lsFmt(o.v("socEr") + o.v("socEe")), eis: lsFmt(o.v("eisEr") + o.v("eisEe")), months: "", rate: "7.5" } : { epf: "", socso: "", eis: "", months: "", rate: "7.5" }; };
+function BsBackdate({ name, init, onSave, onClose }) {
+  const h = React.createElement;
+  const [b, setB] = React.useState(() => ({ rate: "7.5", ...(init || {}) }));
+  const o = bsBackdate(b);
+  const inp = { border: "1px solid #cbd5e1", borderRadius: 8, padding: "7px 9px", fontSize: 15, width: 130, textAlign: "right", fontFamily: "inherit", outline: "none", fontWeight: 700 };
+  const fld = (k, label, suffix) => h("tr", null, h("td", { style: { padding: "6px 12px 6px 0", fontSize: 15, fontWeight: 700 } }, label),
+    h("td", null, h("input", { value: b[k] || "", inputMode: "decimal", onChange: e => setB(p => ({ ...p, [k]: e.target.value.replace(/[^\d.,]/g, "") })), onBlur: e => { const t = e.target.value.trim(); if (t && k !== "months" && k !== "rate") setB(p => ({ ...p, [k]: lsFmt(lsNum(t)) })); }, style: inp }), suffix ? h("span", { style: { marginLeft: 6, color: "#64748b", fontWeight: 700 } }, suffix) : null));
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 12px", overflowY: "auto" } },
+    h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, padding: "18px 24px", width: "100%", maxWidth: 440, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
+      h("div", { style: { display: "flex", alignItems: "center", marginBottom: 10 } }, h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16, color: "#6b21a8" } }, "BACKDATE · " + String(name || "").toUpperCase()),
+        h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, width: 32, height: 32, cursor: "pointer" } }, h(X, { size: 15 }))),
+      h("div", { style: { fontSize: 12, color: "#94a3b8", marginBottom: 8 } }, "每个月的数目（Employer + Employee），自动从薪水计算带入，可以改"),
+      h("table", null, h("tbody", null, fld("epf", "EPF"), fld("socso", "SOCSO"), fld("eis", "EIS"),
+        h("tr", null, h("td", { style: { padding: "6px 12px 6px 0", fontSize: 13, color: "#64748b" } }, "每月合计"), h("td", { style: { fontWeight: 800 } }, lsFmt(o.monthly))),
+        fld("months", "× 多少个月", "个月"), fld("rate", "× %", "%"))),
+      h("div", { style: { marginTop: 12, background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 12, padding: "10px 14px" } },
+        h("div", { style: { fontSize: 12.5, color: "#6b21a8", fontWeight: 700 } }, lsFmt(o.monthly) + " × " + (o.months || 0) + " 个月 = " + lsFmt(o.total) + "  × " + o.rate + "%"),
+        h("div", { style: { fontSize: 22, fontWeight: 900, color: "#6b21a8", marginTop: 4 } }, "BACKDATE " + lsFmt(o.fee))),
+      h("div", { style: { display: "flex", gap: 8, marginTop: 14 } },
+        h("button", { onClick: () => { if (window.confirm("清除 BACKDATE？")) { onSave(null); onClose(); } }, style: { marginRight: "auto", border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "9px 14px", fontWeight: 800, cursor: "pointer" } }, "🗑 删除"),
+        h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
+        h("button", { onClick: () => { onSave(b); onClose(); }, style: { border: "none", background: "linear-gradient(135deg,#7c3aed,#6b21a8)", color: "#fff", borderRadius: 10, padding: "9px 22px", fontWeight: 900, cursor: "pointer" } }, "💾 保存"))));
+}
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
   const rc = r.rc || [], rcT = rc.reduce((a, x) => a + lsNum(x.amount), 0), RO = rc.length ? 1 : 0;
   const [showRc, setShowRc] = React.useState(false);
+  const [bdOpen, setBdOpen] = React.useState(false);
   const h = React.createElement;
   const norm = bs => { bs = bs || {}; return { salary: "", bankAcc: "", epfNo: "", taxNo: "", company: "", position: "", agent: "", remark: "", sc: "", ...bs, fees: bs.fees || [], credits: (bs.credits || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), received: (bs.received || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), cells: { ...(bs.cells || {}) } , salary: /^[\d,]+(\.\d+)?$/.test(String(bs.salary || "").trim()) ? lsFmt(lsNum(bs.salary)) : (bs.salary || "") }; };
   const [d, setD] = React.useState(() => norm(r.bs));
@@ -5161,11 +5192,11 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...cyan } },
         k === 0 ? (onName ? h("input", { ...ro, value: nm, placeholder: "名字", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus, onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) onName(nm.trim()); }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : fr(k, "b")),
-      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: "#f97316", color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
+      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined } }, k === 0 ? fr(k, "g", { textAlign: "right" }) : ci > credits.length ? "" :
+      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           c && (c.date || c.amount) && h("button", { title: c.stop ? "取消 Stop Salary" : "从这一行开始 Stop Salary", onClick: () => { const nx = { ...d, credits: d.credits.map((y, j) => ({ ...y, stop: j === ci ? !c.stop : false })) }; setD(nx); commit(nx); }, style: { border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: 11, opacity: c.stop ? 1 : .25 } }, "⛔"),
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
@@ -5187,6 +5218,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   return h("div", { className: "bs-sheet", style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", top: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
+    bdOpen && h(BsBackdate, { name: r.c.name, init: d.backdate || bsBackdateFromCalc(d), onClose: () => setBdOpen(false), onSave: v => { const nx = { ...d, backdate: v }; setD(nx); commit(nx); } }),
     showRc && h("div", { onClick: () => setShowRc(false), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 12px", overflowY: "auto" } },
       h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, padding: "16px 20px", width: "100%", maxWidth: 560, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
         h("div", { style: { display: "flex", alignItems: "center", marginBottom: 10 } }, h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16 } }, "🧾 RECEIPT · " + String(r.c.name || "").toUpperCase()),
@@ -5220,9 +5252,9 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   (clients || []).forEach(c => {
     const banks = new Set();
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) banks.add(k); }));
-    if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null });
+    if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null, owner: c.staff || c.createdBy || (c.bankStmt && c.bankStmt.updatedBy) || "" });
   });
-  people.forEach(p => rows.push({ c: { id: "p:" + p.id, name: p.name, bankStmt: p.bankStmt || null }, banks: [], bs: p.bankStmt || null, manual: p }));
+  people.forEach(p => rows.push({ c: { id: "p:" + p.id, name: p.name, bankStmt: p.bankStmt || null }, banks: [], bs: p.bankStmt || null, manual: p, owner: p.by || "" }));
   rows.forEach(r => { r.rc = rcBy[rcKey(r.c.name)] || []; });
   const rcSum = r => r.rc.reduce((a, x) => a + lsNum(x.amount), 0);
   const ql = q.trim().toLowerCase();
@@ -6231,6 +6263,14 @@ function MissionPage({
   const [showOut, setShowOut] = React.useState(false);
   const outCount = missions.filter(m => m.status !== "done" && sameUser(m.assignedBy || m.by, currentUser) && m.owner && !sameUser(m.owner, currentUser)).length;
   const [photoId, setPhotoId] = React.useState(null);
+  const [multi, setMulti] = React.useState(null);   /* { id, sel: [] } 一个任务指派多个人 */
+  const applyMulti = () => { const m = missions.find(x => x.id === multi.id); if (!m) { setMulti(null); return; }
+    const sel = multi.sel.filter(Boolean); if (!sel.length) { setMulti(null); return; }
+    const group = m.group || m.id, now = Date.now(), me = currentUser || "";
+    const already = missions.filter(x => (x.group || x.id) === group && x.status !== "done").map(x => canonUser(x.owner));
+    const base = sameUser(m.owner, sel[0]) || !m.owner ? { ...m, owner: m.owner || sel[0], group, assignedBy: m.assignedBy || me, assignedAt: m.assignedAt || now } : { ...m, group };
+    const extra = sel.filter(p => !sameUser(p, base.owner) && !already.includes(canonUser(p))).map(p => ({ ...m, id: uid(), owner: p, group, status: "todo", photos: [], replies: [], assignedBy: me, assignedAt: now, date: today() }));
+    onSave([...extra, ...missions.map(x => x.id === m.id ? base : x)]); setMulti(null); monetSfx("save"); };
   const add = () => { setFilter(boss ? "staff" : "me"); monetSfx("create"); onSave([{
     id: uid(),
     task: "",
@@ -6406,7 +6446,16 @@ function MissionPage({
     }, "—"), MISSION_PEOPLE.map(p => /*#__PURE__*/React.createElement("option", {
       key: p,
       value: p
-    }, p.toUpperCase()))))), /*#__PURE__*/React.createElement("td", {
+    }, p.toUpperCase()))), canEditAssign(m) && React.createElement("button", { title: "指派给多个人", onClick: () => setMulti({ id: m.id, sel: m.owner ? [m.owner] : [] }), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "4px 8px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "👥＋"),
+    multi && multi.id === m.id && ReactDOM.createPortal(React.createElement("div", { onClick: () => setMulti(null), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+      React.createElement("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, padding: "18px 20px", width: "100%", maxWidth: 340, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
+        React.createElement("div", { style: { fontWeight: 900, fontSize: 15, marginBottom: 4 } }, "👥 指派给多个人"),
+        React.createElement("div", { style: { fontSize: 12, color: "#64748b", marginBottom: 10 } }, "每个人会收到一份一样的任务，各自按 Done。"),
+        React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, MISSION_PEOPLE.map(p => { const on = multi.sel.some(x => sameUser(x, p)); return React.createElement("label", { key: p, style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? "#6366f1" : "#e2e8f0"), background: on ? "#eef2ff" : "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" } },
+          React.createElement("input", { type: "checkbox", checked: on, onChange: () => setMulti({ ...multi, sel: on ? multi.sel.filter(x => !sameUser(x, p)) : [...multi.sel, p] }) }), p.toUpperCase()); })),
+        React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 } },
+          React.createElement("button", { onClick: () => setMulti(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, cursor: "pointer" } }, "取消"),
+          React.createElement("button", { onClick: applyMulti, style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "8px 18px", fontWeight: 900, cursor: "pointer" } }, "指派")))), document.body))), /*#__PURE__*/React.createElement("td", {
       style: S.td
     }, /*#__PURE__*/React.createElement("span", {
       title: "自动填入指派当天的日期",
