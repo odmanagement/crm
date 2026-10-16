@@ -3732,7 +3732,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v167"));
+    h("div", { className: "sb-ver" }, "v168"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -9597,6 +9597,11 @@ function LoanBlock({
     label: subjectLabel(loan.type),
     value: loan.subject,
     onChange: v => setField("subject", v)
+  }), loan.type === "house" && /*#__PURE__*/React.createElement(EditRow, {
+    label: "Size",
+    value: loan.size,
+    onChange: v => setField("size", v),
+    placeholder: "e.g. 850 sqft"
   }), /*#__PURE__*/React.createElement(EditRow, {
     label: "Rate",
     value: loan.rate,
