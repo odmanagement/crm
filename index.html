@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Loan CRM</title>
-<style>
+<style>.bs-sheet input[readonly]{cursor:cell;caret-color:transparent}.bs-sheet td:focus-within{outline:2px solid #16a34a;outline-offset:-2px}.bs-sheet input:not([readonly]){background:#fff;cursor:text;caret-color:auto}
   html, body { margin: 0; padding: 0; background: #f4f5fb; }
   #root { min-height: 100vh; }
   .boot { font-family: sans-serif; padding: 60px; text-align: center; color: #64748b; }
@@ -3733,7 +3733,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v180"));
+    h("div", { className: "sb-ver" }, "v181"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5028,10 +5028,17 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const setRow = (k, i, f, v) => setD(p => { const arr = p[k].slice(); while (arr.length <= i) arr.push({ id: uid() }); arr[i] = { ...arr[i], [f]: v }; return { ...p, [k]: arr }; });
   const fmtMoney = v => { const t = String(v || "").trim(); return t ? lsFmt(lsNum(t)) : ""; };
   const ev = { onFocus: () => { focus.current = true; }, onBlur: () => { focus.current = false; setTimeout(() => commit(), 0); } };
+  /* 像 Excel：点一下只是选格子，点两下（或按 Enter）才改 */
+  const ro = { readOnly: true,
+    onDoubleClick: e => { const t = e.target; if (t.readOnly) { t.readOnly = false; try { t.setSelectionRange(t.value.length, t.value.length); } catch (_) {} } },
+    onKeyDown: e => { const t = e.target;
+      if (t.readOnly) { if (e.key === "Enter" || e.key === "F2") { e.preventDefault(); t.readOnly = false; } }
+      else if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); t.blur(); } },
+    onBlurCapture: e => { e.target.readOnly = true; } };
   const box = { width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", font: "inherit", color: "inherit", padding: 0, margin: 0, minWidth: 0 };
-  const tx = (v, on, st, ph) => h("input", { value: v || "", placeholder: ph || "", onChange: e => on(e.target.value), ...ev, style: { ...box, ...(st || {}) } });
-  const mny = (v, on) => h("input", { value: v || "", inputMode: "decimal", placeholder: "", onChange: e => on(e.target.value.replace(/[^\d.,-]/g, "")), onFocus: ev.onFocus, onBlur: e => { focus.current = false; on(fmtMoney(e.target.value)); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
-  const dt = (v, on) => h("input", { type: "date", value: v || "", onChange: e => on(e.target.value), ...ev, style: { ...box, fontSize: 12, textAlign: "right" } });
+  const tx = (v, on, st, ph) => h("input", { ...ro, value: v || "", placeholder: ph || "", onChange: e => on(e.target.value), ...ev, style: { ...box, ...(st || {}) } });
+  const mny = (v, on) => h("input", { ...ro, value: v || "", inputMode: "decimal", placeholder: "", onChange: e => on(e.target.value.replace(/[^\d.,-]/g, "")), onFocus: ev.onFocus, onBlur: e => { focus.current = false; on(fmtMoney(e.target.value)); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
+  const dt = (v, on) => h("input", { ...ro, type: "date", value: v || "", onChange: e => on(e.target.value), ...ev, style: { ...box, fontSize: 12, textAlign: "right" } });
   const credits = d.credits, recv = d.received;
   const N = Math.max(8, credits.length + 2, recv.length + 1);
   const cell = { border: "1px solid #e5e7eb", padding: "4px 8px", fontSize: 13, whiteSpace: "nowrap", height: 20 };
@@ -5045,7 +5052,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     trs.push(h("tr", { key: k },
       h("td", { style: { ...cell, width: 110, fontWeight: 600, ...cyan, ...(k === 7 ? { fontWeight: 900 } : {}) } }, labels[k] || ""),
       h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...cyan } },
-        k === 0 ? (onName ? h("input", { value: nm, placeholder: "名字", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus, onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) onName(nm.trim()); }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
+        k === 0 ? (onName ? h("input", { ...ro, value: nm, placeholder: "名字", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus, onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) onName(nm.trim()); }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : ""),
       h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: "#f97316", color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : ""),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? tx(d.salary, v => set("salary", v), { textAlign: "right" }, "SALARY") : ""),
@@ -5058,7 +5065,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
           mny(c && c.amount, v => setRow("credits", ci, "amount", v)))),
       h("td", { style: { ...cell, minWidth: 100 } }, k <= recv.length ? mny(rv && rv.amount, v => setRow("received", k, "amount", v)) : ""),
       h("td", { style: { ...cell, minWidth: 120 } }, k <= recv.length ? dt(rv && rv.date, v => setRow("received", k, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, k === 1 ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } }, "S.C", h("input", { value: d.sc || "", inputMode: "decimal", onChange: e => set("sc", e.target.value.replace(/[^\d.]/g, "")), ...ev, style: { ...box, width: 34, textAlign: "right", fontWeight: 800 } }), "%") : ""),
+      h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, k === 1 ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } }, "S.C", h("input", { ...ro, value: d.sc || "", inputMode: "decimal", onChange: e => set("sc", e.target.value.replace(/[^\d.]/g, "")), ...ev, style: { ...box, width: 34, textAlign: "right", fontWeight: 800 } }), "%") : ""),
       h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY") : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION") : "")));
   }
   trs.push(h("tr", { key: "t", style: { background: "#f8fafc" } },
