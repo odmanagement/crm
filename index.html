@@ -3734,7 +3734,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v188"));
+    h("div", { className: "sb-ver" }, "v190"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5084,7 +5084,7 @@ function BsSalaryCalc({ init, name, onSave, onClose }) {
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
   const h = React.createElement;
-  const norm = bs => { bs = bs || {}; return { salary: "", bankAcc: "", epfNo: "", taxNo: "", company: "", position: "", agent: "", remark: "", sc: "", ...bs, fees: bs.fees || [], credits: (bs.credits || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), received: (bs.received || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), cells: { ...(bs.cells || {}) } }; };
+  const norm = bs => { bs = bs || {}; return { salary: "", bankAcc: "", epfNo: "", taxNo: "", company: "", position: "", agent: "", remark: "", sc: "", ...bs, fees: bs.fees || [], credits: (bs.credits || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), received: (bs.received || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), cells: { ...(bs.cells || {}) } , salary: /^[\d,]+(\.\d+)?$/.test(String(bs.salary || "").trim()) ? lsFmt(lsNum(bs.salary)) : (bs.salary || "") }; };
   const [d, setD] = React.useState(() => norm(r.bs));
   const [nm, setNm] = React.useState(r.c.name || "");
   const [calcAt, setCalcAt] = React.useState(-1);
@@ -5143,8 +5143,8 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...cyan } },
         k === 0 ? (onName ? h("input", { ...ro, value: nm, placeholder: "名字", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus, onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) onName(nm.trim()); }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : fr(k, "b")),
-      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: "#f97316", color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : k === 7 ? h("span", { style: { color: "#dc2626", fontWeight: 900, fontSize: 12 } }, "← 填 IC") : fr(k, "c", { fontWeight: 400 })),
-      h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? tx(d.salary, v => set("salary", v), { textAlign: "right" }, "SALARY") : fr(k, "d")),
+      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: "#f97316", color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
+      h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
       h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined } }, k === 0 ? fr(k, "g", { textAlign: "right" }) : ci > credits.length ? "" :
@@ -5169,7 +5169,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   return h("div", { className: "bs-sheet", style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", top: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
-    calcAt >= 0 && h(BsSalaryCalc, { name: r.c.name, init: (d.credits[calcAt] || {}).calc || { salary: (d.credits[calcAt] || {}).amount || "" }, onClose: () => setCalcAt(-1),
+    calcAt >= 0 && h(BsSalaryCalc, { name: r.c.name, init: (() => { const cc = (d.credits[calcAt] || {}).calc; const sal = d.salary && /^[\d,]+(\.\d+)?$/.test(String(d.salary).trim()) ? lsFmt(lsNum(d.salary)) : ""; return cc ? { ...cc, salary: cc.salary || sal } : { salary: sal || (d.credits[calcAt] || {}).amount || "" }; })(), onClose: () => setCalcAt(-1),
       onSave: (calc, net) => { const arr = d.credits.slice(); while (arr.length <= calcAt) arr.push({ id: uid() }); arr[calcAt] = { ...arr[calcAt], calc, amount: lsFmt(net) }; const nx = { ...d, credits: arr }; setD(nx); commit(nx); } }));
 }
 function BankStmtPage({ clients, onOpen, onSaveStmt }) {
