@@ -3733,7 +3733,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v175"));
+    h("div", { className: "sb-ver" }, "v176"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5012,6 +5012,46 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
           h("button", { onClick: () => { onSave({ ...d, fees: d.fees.filter(x => x.desc || x.amount), credits: d.credits.filter(x => x.date || x.amount), received: d.received.filter(x => x.date || x.amount) }); monetSfx("save"); onClose(); }, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "10px 22px", fontWeight: 900, cursor: "pointer" } }, "💾 保存")))));
 }
 /* ---------- Bank Statement 页面（只给公司员工，admin 外人看不到）---------- */
+/* Bank Statement 外面的表格样子（像 Excel）：不显示 PIN / 网银 ID / 密码 */
+function BankStmtSheet({ r, onClick, onDel }) {
+  const h = React.createElement;
+  const bs = r.bs || {}, fees = bs.fees || [], credits = bs.credits || [], recv = bs.received || [];
+  const N = Math.max(5, fees.length + 1, credits.length + 1, recv.length);
+  const dmy = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? m[3] + "/" + m[2] + "/" + m[1] : (d || ""); };
+  const mn = v => (v === "" || v == null) ? "" : lsFmt(lsNum(v));
+  const cell = { border: "1px solid #e5e7eb", padding: "5px 8px", fontSize: 13, whiteSpace: "nowrap", height: 18 };
+  const num = { ...cell, textAlign: "right", fontVariantNumeric: "tabular-nums" };
+  const labels = ["", "Bank A/C No.", "EPF No.", "TAX NO."];
+  const tC = bsTot(credits), tR = bsTot(recv), bal = r.bs ? bsBalance(r.bs) : null;
+  const trs = [];
+  for (let k = 0; k < N; k++) {
+    const f = k >= 1 ? fees[k - 1] : null, c = k >= 1 ? credits[k - 1] : null, rv = recv[k];
+    trs.push(h("tr", { key: k },
+      h("td", { style: { ...cell, width: 110, fontWeight: 600, ...(k === 3 ? { background: "#22d3ee", fontWeight: 900 } : {}) } }, labels[k] || ""),
+      h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...(k === 3 ? { background: "#22d3ee" } : {}) } }, k === 0 ? String(r.c.name || "").toUpperCase() : k === 1 ? (bs.bankAcc || "") : k === 2 ? (bs.epfNo || "") : k === 3 ? (bs.taxNo || "") : ""),
+      h("td", { style: { ...cell, minWidth: 90, textAlign: "center", fontWeight: 900, ...(k === 0 && bs.agent ? { background: "#f97316", color: "#1f2937" } : {}) } }, k === 0 ? String(bs.agent || "").toUpperCase() : ""),
+      h("td", { style: { ...cell, minWidth: 90, textAlign: k === 0 ? "right" : "left" } }, k === 0 ? (bs.salary || "") : f ? f.desc || "" : ""),
+      k === 0 ? h("td", { colSpan: 2, style: { ...cell, color: "#1d4ed8", fontWeight: 900, whiteSpace: "normal", maxWidth: 260 } }, bs.remark || "")
+        : h("td", { style: { ...num, minWidth: 80, ...(f ? { background: "#a5c8f0" } : {}) } }, f ? mn(f.amount) || "0.00" : ""),
+      k === 0 ? null : h("td", { style: { ...cell, minWidth: 80, textAlign: "right" } }, c ? dmy(c.date) : ""),
+      h("td", { style: { ...num, minWidth: 90, color: c && c.stop ? "#dc2626" : undefined } }, c ? (c.stop ? "⛔ " : "") + mn(c.amount) : ""),
+      h("td", { style: { ...num, minWidth: 90 } }, rv ? mn(rv.amount) : ""),
+      h("td", { style: { ...cell, minWidth: 90, textAlign: "right" } }, rv ? dmy(rv.date) : ""),
+      h("td", { style: { ...cell, minWidth: 110, textAlign: "center", fontWeight: 800 } }, k === 1 && bs.sc ? "S.C " + bs.sc + "%" : ""),
+      h("td", { style: { ...cell, minWidth: 170, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? (bs.company || "") : k === 2 ? (bs.position || "") : "")));
+  }
+  trs.push(h("tr", { key: "t", style: { background: "#f8fafc" } },
+    h("td", { colSpan: 4, style: { ...cell, fontWeight: 900, textAlign: "right", color: "#64748b" } }, r.bs ? "Fees " + lsFmt(bsTot(fees)) : "＋ 按一下填写"),
+    h("td", { style: cell }), h("td", { style: cell }),
+    h("td", { style: { ...num, fontWeight: 900 } }, r.bs ? lsFmt(tC) : ""),
+    h("td", { style: { ...num, fontWeight: 900 } }, r.bs ? lsFmt(tR) : ""),
+    h("td", { style: cell }),
+    h("td", { style: { ...num, fontWeight: 900, background: r.bs ? "#fde047" : undefined, textAlign: "center" } }, r.bs ? lsFmt(bal) : ""),
+    h("td", { style: cell })));
+  return h("div", { onClick, style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", cursor: "pointer", position: "relative" } },
+    onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", top: 6, right: 6, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
+    h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)));
+}
 function BankStmtPage({ clients, onOpen, onSaveStmt }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
@@ -5044,31 +5084,11 @@ function BankStmtPage({ clients, onOpen, onSaveStmt }) {
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       h("div", { style: { ...S.searchWrap, flex: "1 1 240px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / bank acc / company / agent", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: addPerson }, h(Plus, { size: 16 }), " 新增人头")),
-    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Name & Details", "Agent", "Charges & Fees", "Credited (+)", "Received", "Balance", "Remark"].map((x, i) => h("th", { key: i, style: i >= 3 && i <= 6 ? { ...S.th, ...S.thNum } : i === 0 ? { ...S.th, ...S.thNumCol } : S.th }, x)))),
-      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "找不到" : "还没有 — Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现")) : [
-        ...shown.map((r, i) => { const bs = r.bs, bal = bsBalance(bs), stop = bs && (bs.credits || []).some(x => x.stop);
-          return h("tr", { key: r.c.id, style: { ...S.tr, cursor: "pointer" }, onClick: () => setStmtId(r.c.id) },
-            h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
-            h("td", { style: { ...S.td, minWidth: 200 } },
-              h("div", { style: { fontWeight: 900, color: "#0f172a" } }, String(r.c.name).toUpperCase(), r.manual && h("button", { onClick: e => delPerson(e, r.manual.id, r.c.name), title: "删除", style: { ...S.fuDel, padding: 0, marginLeft: 6, verticalAlign: "middle" } }, h(Trash2, { size: 13, color: "#cbd5e1" })), stop && h("span", { style: { marginLeft: 6, fontSize: 10.5, fontWeight: 900, color: "#dc2626" } }, "⛔ STOP SALARY")),
-              bs && bs.bankAcc && h("div", { style: { fontSize: 11.5, color: "#475569", fontWeight: 700 } }, "🏦 " + bs.bankAcc),
-              bs && (bs.company || bs.position) && h("div", { style: { fontSize: 11, color: "#94a3b8" } }, [bs.company, bs.position].filter(Boolean).join(" · ")),
-              !bs && h("div", { style: { fontSize: 11, color: "#ca8a04", fontWeight: 800 } }, "＋ 按一下填写")),
-            h("td", { style: S.td }, (bs && bs.agent) || "—"),
-            h("td", { style: num }, bs ? lsFmt(bsTot(bs.fees)) : "—"),
-            h("td", { style: { ...num, color: "#15803d", fontWeight: 800 } }, bs ? lsFmt(bsTot(bs.credits)) : "—"),
-            h("td", { style: { ...num, color: "#0369a1", fontWeight: 800 } }, bs ? lsFmt(bsTot(bs.received)) : "—"),
-            h("td", { style: { ...num, fontWeight: 900 } }, bs ? h("span", { style: { background: bal > 0.004 ? "#fee2e2" : "#fef9c3", color: bal > 0.004 ? "#b91c1c" : "#713f12", borderRadius: 8, padding: "3px 8px" } }, lsFmt(bal)) : "—"),
-            h("td", { style: { ...S.td, maxWidth: 220, fontSize: 12, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: bs && bs.remark }, (bs && bs.remark) || ""));
-        }),
-        h("tr", { key: "tot", style: { background: "#fef9c3" } },
-          h("td", { colSpan: 3, style: { ...S.td, fontWeight: 900, textAlign: "right" } }, "TOTAL"),
-          h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("fees"))),
-          h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("credits"))),
-          h("td", { style: { ...num, fontWeight: 900 } }, lsFmt(sum("received"))),
-          h("td", { style: { ...num, fontWeight: 900, color: "#b91c1c" } }, lsFmt(sum("bal"))),
-          h("td", { style: S.td }))]))),
+    shown.length === 0 ? h("div", { style: { background: "#fff", borderRadius: 14, padding: 30, textAlign: "center", color: "#94a3b8", border: "1px solid #eef0f6" } }, rows.length ? "找不到" : "还没有 — 按「新增人头」，或 Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现") :
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+      shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onClick: () => setStmtId(r.c.id), onDel: r.manual ? e => delPerson(e, r.manual.id, r.c.name) : null })),
+      h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
+        h("span", null, "TOTAL · Fees " + lsFmt(sum("fees"))), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))),
     stmtId && (() => { const r = rows.find(x => x.c.id === stmtId); return r && h(BankStmtModal, { c: r.c, banks: r.banks, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, bs), onClose: () => setStmtId(null) }); })());
 }
 function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser }) {
