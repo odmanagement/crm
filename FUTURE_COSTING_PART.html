@@ -29,6 +29,8 @@
   .btn-danger{color:var(--danger);border-color:#e3c3c3}
   .btn-danger:hover{background:#fbeaea}
   @media print{
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
+    @page{size:A4;margin:8mm}
     .actions,.addrow,.del,.topbar,.sub{display:none !important}
     .print-hide{display:none !important}
     .print-only{display:block !important}
