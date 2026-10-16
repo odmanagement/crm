@@ -1216,7 +1216,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", costing_pl: "bars", costing_car: "speed", odpayment: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", bankstmt2: "bars", costing_pl: "bars", costing_car: "speed", odpayment: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1364,6 +1364,22 @@ const NAV = [{
     icon: Folder
   }]
 }, {
+  id: "bankstmt",
+  label: "Bank Statement",
+  icon: Wallet
+}, {
+  id: "bankstmt2",
+  label: "Rencai Bank Statement",
+  icon: Wallet
+}, {
+  id: "odpayment",
+  label: "OD Payment",
+  icon: Wallet
+}, {
+  id: "lendingfee",
+  label: "Lending Sheet",
+  icon: Receipt
+}, {
   id: "costing",
   label: "Costing",
   icon: BarChart3,
@@ -1377,9 +1393,13 @@ const NAV = [{
     icon: Car
   }]
 }, {
-  id: "odpayment",
-  label: "OD Payment",
+  id: "returnsalary",
+  label: "Return Salary",
   icon: Wallet
+}, {
+  id: "receipt",
+  label: "Receipt",
+  icon: Receipt
 }, {
   id: "submission",
   label: "Closing",
@@ -1389,49 +1409,33 @@ const NAV = [{
   label: "Mission",
   icon: CheckCircle2
 }, {
+  id: "phone",
+  label: "Phone",
+  icon: Smartphone
+}, {
   id: "banker",
   label: "Banker",
   icon: Phone
-}, {
-  id: "todo",
-  label: "To Do",
-  icon: ListTodo
 }, {
   id: "leave",
   label: "On Leave",
   icon: CalendarDays
 }, {
-  id: "phone",
-  label: "Phone",
-  icon: Smartphone
+  id: "referral",
+  label: "Referral 🧧",
+  icon: Gift
 }, {
-  id: "receipt",
-  label: "Receipt",
-  icon: Receipt
+  id: "todo",
+  label: "To Do",
+  icon: ListTodo
 }, {
   id: "salarylist",
   label: "Salary Listing",
   icon: Wallet
 }, {
-  id: "lendingfee",
-  label: "Lending Fee",
-  icon: Receipt
-}, {
-  id: "bankstmt",
-  label: "Bank Statement",
-  icon: Wallet
-}, {
-  id: "returnsalary",
-  label: "Return Salary",
-  icon: Wallet
-}, {
   id: "doctrack",
   label: "Customer Docs",
   icon: Folder
-}, {
-  id: "referral",
-  label: "Referral 🧧",
-  icon: Gift
 }];
 /* Return Salary 只有这些人看得到 */
 const RETURN_SALARY_USERS = ["alice"];
@@ -3328,7 +3332,13 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "returnsalary" && RETURN_SALARY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(ReturnSalaryPage, {
     currentUser: currentUser
+  }) : page === "bankstmt2" && !READONLY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(BankStmtPage, {
+    key: "bs2",
+    clients: [],
+    store: "bank_stmt_people_rencai",
+    onSaveStmt: () => {}
   }) : page === "bankstmt" && !READONLY_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(BankStmtPage, {
+    key: "bs1",
     clients: clients,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c))
@@ -3710,7 +3720,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const h = React.createElement;
   const me = canonUser(currentUser);
   const role = ROLE_LABELS[me] || "Staff";
-  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)) && !(n.id === "bankstmt" && READONLY_USERS.includes(me)));
+  const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)) && !((n.id === "bankstmt" || n.id === "bankstmt2") && READONLY_USERS.includes(me)));
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
       h("div", { className: "sb-ava" }, czAvatar(currentUser || "?", 64)),
@@ -3734,7 +3744,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v190"));
+    h("div", { className: "sb-ver" }, "v191"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5021,15 +5031,18 @@ const bsIso2Dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); re
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
 /* ---------- 薪水计算（Bank Statement 的 Credited 格子点进去）---------- */
-const bsPCB = (w, epfEe, sw, ew) => { if (!(w > 0)) return 0; const ch = w * 12 - 9000 - Math.min(epfEe * 12, 4000) - Math.min((sw + ew) * 12, 350); if (ch <= 5000) return 0;
+const bsPCB = (w, epfEe, sw, ew) => { if (!(w > 0)) return 0; const ch = w * 12 - 9000 - Math.min(epfEe * 12, 4000); if (ch <= 5000) return 0;
   const bands = [[5000, 20000, 0.01, 0], [20000, 35000, 0.03, 150], [35000, 50000, 0.06, 600], [50000, 70000, 0.11, 1500], [70000, 100000, 0.19, 3700], [100000, 400000, 0.25, 9400], [400000, 600000, 0.26, 84400], [600000, 2000000, 0.28, 136400], [2000000, Infinity, 0.30, 528400]];
   let tax = 0; for (const [lo, hi, rate, base] of bands) if (ch > lo && ch <= hi) { tax = base + (ch - lo) * rate; break; }
   if (ch <= 35000) tax -= 400; const m = tax / 12; return m < 10 ? 0 : Math.ceil(m * 20 - 1e-9) / 20; };
+/* SOCSO：Employment Injury & Invalidity & Lindung 24（跟 payroll.my 一样）— 员工 1.25%、雇主 1.75%，按工资级别中间数，薪水上限 6,000 */
+const bsSocso = w => { if (!(w > 0)) return [0, 0]; let prev = 0, up = null; for (const r of LF_SOCSO) { if (w <= r[0]) { up = r[0]; break; } prev = r[0]; } if (up == null) { up = 6000; prev = 5900; }
+  const mid = (prev + up) / 2, r5 = x => Math.round(x * 20 + 1e-9) / 20; return [r5(mid * 0.0175), r5(mid * 0.0125)]; };
 const bsEpf = (w, rate) => { if (!(w > 0)) return 0; const band = w <= 5000 ? Math.ceil(w / 20) * 20 : Math.ceil(w / 100) * 100; return Math.ceil(band * rate / 100); };
 function bsCalcOut(c) {
   const sal = lsNum(c.salary), bon = lsNum(c.bonus), w = sal + bon, o = c.ov || {};
   const rate = c.epfRate === "" || c.epfRate == null ? (w > 5000 ? 12 : 13) : lsNum(c.epfRate);
-  const [se, sw] = lfSocso(sal), [ee, ew] = lfEis(sal);
+  const [se, sw] = bsSocso(sal), [ee, ew] = lfEis(sal);
   const auto = { epfEr: bsEpf(w, rate), epfEe: bsEpf(w, 11), socEr: se, socEe: sw, eisEr: ee, eisEe: ew, taxEe: 0 };
   { const vv = k => (o[k] !== undefined && o[k] !== "") ? lsNum(o[k]) : auto[k]; auto.taxEe = bsPCB(sal, vv("epfEe"), vv("socEe"), vv("eisEe")); }
   const v = k => (o[k] !== undefined && o[k] !== "") ? lsNum(o[k]) : auto[k];
@@ -5172,13 +5185,13 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     calcAt >= 0 && h(BsSalaryCalc, { name: r.c.name, init: (() => { const cc = (d.credits[calcAt] || {}).calc; const sal = d.salary && /^[\d,]+(\.\d+)?$/.test(String(d.salary).trim()) ? lsFmt(lsNum(d.salary)) : ""; return cc ? { ...cc, salary: cc.salary || sal } : { salary: sal || (d.credits[calcAt] || {}).amount || "" }; })(), onClose: () => setCalcAt(-1),
       onSave: (calc, net) => { const arr = d.credits.slice(); while (arr.length <= calcAt) arr.push({ id: uid() }); arr[calcAt] = { ...arr[calcAt], calc, amount: lsFmt(net) }; const nx = { ...d, credits: arr }; setD(nx); commit(nx); } }));
 }
-function BankStmtPage({ clients, onOpen, onSaveStmt }) {
+function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
   const [only, setOnly] = React.useState("");
   const [stmtId, setStmtId] = React.useState(null);
   /* 自己加的人头（不是 CRM 客户） */
-  const [ppl, savePpl] = useCloudList("bank_stmt_people");
+  const [ppl, savePpl] = useCloudList(store || "bank_stmt_people");
   const people = ppl || [];
   const addPerson = () => { savePpl([{ id: uid(), name: "", by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); };
   const delPerson = (e, id, name) => { e.stopPropagation(); if (window.confirm("删除「" + name + "」？")) savePpl(people.filter(p => p.id !== id)); };
@@ -5196,7 +5209,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt }) {
     if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
     if (only === "none" && r.bs) return false;
     return !ql || [r.c.name, r.bs && r.bs.bankAcc, r.bs && r.bs.company, r.bs && r.bs.agent].join(" ").toLowerCase().includes(ql);
-  }).sort((a, b) => ((b.bs && b.bs.started ? b.bs.started.at || 1 : 0) - (a.bs && a.bs.started ? a.bs.started.at || 1 : 0)) || (a.manual && !a.c.name ? 0 : 1) - (b.manual && !b.c.name ? 0 : 1) || (b.manual && !b.c.name ? (b.manual.at || 0) - (a.manual.at || 0) : 0) || String(a.c.name).localeCompare(String(b.c.name)));
+  }).sort((a, b) => ((a.bs && a.bs.started ? 0 : 1) - (b.bs && b.bs.started ? 0 : 1)) || (a.bs && a.bs.started && b.bs && b.bs.started ? (a.bs.started.at || 0) - (b.bs.started.at || 0) : 0) || (a.manual && !a.c.name ? 0 : 1) - (b.manual && !b.c.name ? 0 : 1) || (b.manual && !b.c.name ? (b.manual.at || 0) - (a.manual.at || 0) : 0) || String(a.c.name).localeCompare(String(b.c.name)));
   const sum = k => shown.reduce((a, r) => a + (r.bs ? (k === "bal" ? bsBalance(r.bs) : bsTot(r.bs[k])) : 0), 0);
   const chip = (k, l) => h("button", { key: k, onClick: () => setOnly(k), style: { border: only === k ? "2px solid #ca8a04" : "1px solid #e2e8f0", background: only === k ? "#fef9c3" : "#fff", color: only === k ? "#713f12" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l);
   const num = { ...S.td, ...S.tdNum };
@@ -7266,6 +7279,7 @@ function FormsPage({ currentUser, tools, noLib }) {
             h("div", { style: { fontWeight: 900, fontSize: 15, color: "#1e1b4b" } }, open.tool.name),
             h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, open.draft ? "存档：" + (open.draft.title || "(未命名)") + " · " + fmtT(open.draft.at) : "新的一份（还没存档）")),
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
+          open.draft && lfCanEdit(open.draft.by, canonUser(currentUser || "")) && h("button", { onClick: () => { const d = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!window.confirm("删除这份存档「" + (d.title || "") + "」？删除了不能还原。")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); setOpen(null); }, title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "🗑 删除"),
           open.draft && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
           h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
