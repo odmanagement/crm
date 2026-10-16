@@ -3733,7 +3733,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v183"));
+    h("div", { className: "sb-ver" }, "v184"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5015,12 +5015,67 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
 const bsIso2Dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); return m ? m[3] + "/" + m[2] + "/" + m[1] : (v || ""); };
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
+/* ---------- 薪水计算（Bank Statement 的 Credited 格子点进去）---------- */
+const bsEpf = (w, rate) => { if (!(w > 0)) return 0; const band = w <= 5000 ? Math.ceil(w / 20) * 20 : Math.ceil(w / 100) * 100; return Math.ceil(band * rate / 100); };
+function bsCalcOut(c) {
+  const sal = lsNum(c.salary), bon = lsNum(c.bonus), w = sal + bon, o = c.ov || {};
+  const rate = c.epfRate === "" || c.epfRate == null ? (w > 5000 ? 12 : 13) : lsNum(c.epfRate);
+  const [se, sw] = lfSocso(sal), [ee, ew] = lfEis(sal);
+  const auto = { epfEr: bsEpf(w, rate), epfEe: bsEpf(w, 11), socEr: se, socEe: sw, eisEr: ee, eisEe: ew, taxEe: 0 };
+  const v = k => (o[k] !== undefined && o[k] !== "") ? lsNum(o[k]) : auto[k];
+  const er = v("epfEr") + v("socEr") + v("eisEr"), ee2 = v("epfEe") + v("socEe") + v("eisEe") + v("taxEe");
+  const adj = (c.adds || []).reduce((a, x) => a + (x.sign === "-" ? -1 : 1) * lsNum(x.amount), 0);
+  return { rate, auto, v, er, ee: ee2, net: Math.round((w - ee2 + adj) * 100) / 100 };
+}
+function BsSalaryCalc({ init, name, onSave, onClose }) {
+  const h = React.createElement;
+  const [c, setC] = React.useState(() => ({ salary: "", bonus: "", epfRate: "", ov: {}, adds: [], ...(init || {}) }));
+  const out = bsCalcOut(c);
+  const f2 = x => lsFmt(x);
+  const [cp, setCp] = React.useState("");
+  const copy = (k, t) => { const s = String(t); try { navigator.clipboard.writeText(s).catch(() => lfFallbackCopy(s)); } catch (_) { lfFallbackCopy(s); } setCp(k); setTimeout(() => setCp(x => x === k ? "" : x), 900); };
+  const inp = { border: "1px solid #cbd5e1", borderRadius: 8, padding: "6px 8px", fontSize: 15, width: 110, textAlign: "right", fontFamily: "inherit", outline: "none", background: "#fff" };
+  const setOv = (k, val) => setC(p => ({ ...p, ov: { ...(p.ov || {}), [k]: val } }));
+  const ovIn = k => { const has = c.ov && c.ov[k] !== undefined && c.ov[k] !== ""; return h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+    h("input", { value: has ? c.ov[k] : f2(out.auto[k]), inputMode: "decimal", onChange: e => setOv(k, e.target.value.replace(/[^\d.,-]/g, "")), onBlur: e => { if (has) setOv(k, f2(lsNum(e.target.value))); }, style: { ...inp, width: 96, color: has ? "#b45309" : "#111827", fontWeight: has ? 800 : 400 } }),
+    h("button", { title: "复制", onClick: () => copy(k, f2(out.v(k))), style: { border: "none", background: cp === k ? "#16a34a" : "none", color: cp === k ? "#fff" : "#94a3b8", borderRadius: 5, cursor: "pointer", fontSize: 11, padding: "1px 4px" } }, cp === k ? "✓" : "⧉"),
+    has && h("button", { title: "恢复自动计算", onClick: () => setOv(k, ""), style: { border: "none", background: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, padding: 0 } }, "↺")); };
+  const cv = (k, t, st) => h("span", { onClick: () => copy(k, t), title: "点一下复制", style: { cursor: "copy", padding: "2px 6px", borderRadius: 6, background: cp === k ? "#dcfce7" : "transparent", ...(st || {}) } }, t, cp === k ? " ✓" : "");
+  const lbl = t => h("td", { style: { padding: "6px 10px 6px 0", fontSize: 15, color: "#1f2937", whiteSpace: "nowrap" } }, t);
+  const td = (x, st) => h("td", { style: { padding: "5px 8px", fontSize: 15, ...(st || {}) } }, x);
+  const money = (k, label) => h("tr", null, lbl(label), td(h("input", { value: c[k] || "", inputMode: "decimal", onChange: e => setC(p => ({ ...p, [k]: e.target.value.replace(/[^\d.,-]/g, "") })), onBlur: e => { const t = e.target.value.trim(); if (t) setC(p => ({ ...p, [k]: f2(lsNum(t)) })); }, style: { ...inp, width: 130, textAlign: "left" } }), { colSpan: 3 }));
+  const row = (label, a, b) => h("tr", null, lbl(label), td(a ? ovIn(a) : ""), td(ovIn(b)), td(cv("st" + b, f2((a ? out.v(a) : 0) + out.v(b)))));
+  const setAdd = (id, f, val) => setC(p => ({ ...p, adds: p.adds.map(x => x.id === id ? { ...x, [f]: val } : x) }));
+  return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "30px 12px", overflowY: "auto" } },
+    h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 16, padding: "18px 24px", boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)", maxWidth: 620, width: "100%" } },
+      h("div", { style: { display: "flex", alignItems: "center", marginBottom: 10 } }, h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16 } }, "💰 SALARY · " + String(name || "").toUpperCase()),
+        h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, width: 32, height: 32, cursor: "pointer" } }, h(X, { size: 15 }))),
+      h("table", { style: { borderCollapse: "collapse" } }, h("tbody", null,
+        money("salary", "Salary:"), money("bonus", "Bonus:"),
+        h("tr", null, lbl(h("b", { style: { color: "#1677ff", fontSize: 16 } }, "Net Salary:")), td(cv("net", f2(out.net), { color: "#1677ff", fontWeight: 900, fontSize: 17 }), { colSpan: 3 })))),
+      h("table", { style: { borderCollapse: "collapse", marginTop: 16 } }, h("tbody", null,
+        h("tr", null, lbl(""), td(h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, "Employer",
+          h("select", { value: String(out.rate), onChange: e => setC(p => ({ ...p, epfRate: e.target.value, ov: { ...(p.ov || {}), epfEr: "" } })), style: { border: "1px solid #cbd5e1", borderRadius: 6, padding: "2px 4px", fontSize: 13, fontWeight: 800 } }, h("option", { value: "13" }, "13%"), h("option", { value: "12" }, "12%")))), td("Employee"), td("Sub-Total")),
+        row("EPF:", "epfEr", "epfEe"), row("SOCSO:", "socEr", "socEe"), row("EIS:", "eisEr", "eisEe"), row("Tax:", null, "taxEe"),
+        ...(c.adds || []).map(x => h("tr", { key: x.id },
+          lbl(h("input", { value: x.desc || "", placeholder: "名称", onChange: e => setAdd(x.id, "desc", e.target.value), style: { ...inp, width: 90, textAlign: "left", fontSize: 14 } })),
+          td(h("select", { value: x.sign || "+", onChange: e => setAdd(x.id, "sign", e.target.value), style: { border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 15, fontWeight: 900, color: x.sign === "-" ? "#dc2626" : "#16a34a" } }, h("option", { value: "+" }, "＋ 加"), h("option", { value: "-" }, "－ 扣"))),
+          td(h("input", { value: x.amount || "", inputMode: "decimal", placeholder: "0.00", onChange: e => setAdd(x.id, "amount", e.target.value.replace(/[^\d.,]/g, "")), onBlur: e => { const t = e.target.value.trim(); if (t) setAdd(x.id, "amount", f2(lsNum(t))); }, style: { ...inp, width: 96 } })),
+          td(h("button", { onClick: () => setC(p => ({ ...p, adds: p.adds.filter(y => y.id !== x.id) })), style: { border: "none", background: "none", color: "#dc2626", cursor: "pointer", fontSize: 16 } }, "×")))),
+        h("tr", null, td(h("button", { onClick: () => setC(p => ({ ...p, adds: [...(p.adds || []), { id: uid(), desc: "", sign: "+", amount: "" }] })), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "4px 12px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "+ Add"), { colSpan: 4, style: { padding: "8px 0" } })),
+        h("tr", { style: { borderTop: "1px solid #e5e7eb" } }, lbl("Total:"), td(cv("ter", f2(out.er))), td(cv("tee", f2(out.ee))), td(cv("tst", f2(out.er + out.ee)))))),
+      h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 8 } }, "格子可以手动改（改过的变橙色，按 ↺ 回自动）。保存后 Credited 格子 = Net Salary。"),
+      h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 } },
+        h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
+        h("button", { onClick: () => { onSave(c, out.net); onClose(); }, style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "9px 22px", fontWeight: 900, cursor: "pointer" } }, "💾 保存"))));
+}
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
   const h = React.createElement;
   const norm = bs => { bs = bs || {}; return { salary: "", bankAcc: "", epfNo: "", taxNo: "", company: "", position: "", agent: "", remark: "", sc: "", ...bs, fees: bs.fees || [], credits: (bs.credits || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), received: (bs.received || []).map(x => ({ id: x.id || uid(), ...x, date: bsIso2Dmy(x.date) })), cells: { ...(bs.cells || {}) } }; };
   const [d, setD] = React.useState(() => norm(r.bs));
   const [nm, setNm] = React.useState(r.c.name || "");
+  const [calcAt, setCalcAt] = React.useState(-1);
   const focus = React.useRef(false);
   const dRef = React.useRef(d); dRef.current = d;
   const key = JSON.stringify(r.bs || null);
@@ -5040,7 +5095,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, () => { lfFallbackCopy(v); done(); }); else { lfFallbackCopy(v); done(); } } catch (_) { lfFallbackCopy(v); done(); } },
     onDoubleClick: e => { const t = e.target; if (t.readOnly) { t.readOnly = false; try { t.setSelectionRange(t.value.length, t.value.length); } catch (_) {} } },
     onKeyDown: e => { const t = e.target;
-      if (t.readOnly) { if (e.key === "Enter" || e.key === "F2") { e.preventDefault(); t.readOnly = false; } }
+      if (t.readOnly) { if (e.key === "Enter" || e.key === "F2") { e.preventDefault(); t.readOnly = false; } else if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) { e.preventDefault(); const v = String(t.value || ""); try { navigator.clipboard.writeText(v).catch(() => lfFallbackCopy(v)); } catch (_) { lfFallbackCopy(v); } } }
       else if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); t.blur(); } },
     onBlurCapture: e => { e.target.readOnly = true; } };
   const box = { width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", font: "inherit", color: "inherit", padding: 0, margin: 0, minWidth: 0 };
@@ -5072,7 +5127,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined } }, k === 0 ? fr(k, "g", { textAlign: "right" }) : ci > credits.length ? "" :
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           c && (c.date || c.amount) && h("button", { title: c.stop ? "取消 Stop Salary" : "从这一行开始 Stop Salary", onClick: () => { const nx = { ...d, credits: d.credits.map((y, j) => ({ ...y, stop: j === ci ? !c.stop : false })) }; setD(nx); commit(nx); }, style: { border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: 11, opacity: c.stop ? 1 : .25 } }, "⛔"),
-          mny(c && c.amount, v => setRow("credits", ci, "amount", v)))),
+          h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? fr(k, "h", { textAlign: "right" }) : ri <= recv.length ? mny(rv && rv.amount, v => setRow("received", ri, "amount", v)) : ""),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : ri <= recv.length ? dt(rv && rv.date, v => setRow("received", ri, "date", v)) : ""),
       h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, k === 1 ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } }, "S.C", h("input", { ...ro, value: d.sc || "", inputMode: "decimal", onChange: e => set("sc", e.target.value.replace(/[^\d.]/g, "")), ...ev, style: { ...box, width: 34, textAlign: "right", fontWeight: 800 } }), "%") : fr(k, "j", { textAlign: "center", fontWeight: 400 })),
@@ -5087,7 +5142,9 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     h("td", { style: cell })));
   return h("div", { className: "bs-sheet", style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", top: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
-    h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)));
+    h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
+    calcAt >= 0 && h(BsSalaryCalc, { name: r.c.name, init: (d.credits[calcAt] || {}).calc || { salary: (d.credits[calcAt] || {}).amount || "" }, onClose: () => setCalcAt(-1),
+      onSave: (calc, net) => { const arr = d.credits.slice(); while (arr.length <= calcAt) arr.push({ id: uid() }); arr[calcAt] = { ...arr[calcAt], calc, amount: lsFmt(net) }; const nx = { ...d, credits: arr }; setD(nx); commit(nx); } }));
 }
 function BankStmtPage({ clients, onOpen, onSaveStmt }) {
   const h = React.createElement;
