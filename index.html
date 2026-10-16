@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v196"));
+    h("div", { className: "sb-ver" }, "v197"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5413,14 +5413,14 @@ function BsReturnPage({ clients, currentUser }) {
   const items = list || [];
   const [bsP1] = useCloudList("bank_stmt_people"), [bsP2] = useCloudList("bank_stmt_people_rencai");
   const names = Array.from(new Set([...(clients || []).filter(c => c.bankStmt).map(c => c.name), ...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name)].map(n => String(n || "").trim().toUpperCase()).filter(Boolean))).sort();
-  const [f, setF] = React.useState({ name: "", amount: "", date: today() });
+  const [f, setF] = React.useState({ name: "", amount: "", date: today(), photos: [] });
   const [q, setQ] = React.useState("");
   const [only, setOnly] = React.useState("");
   const add = () => {
     if (!f.name.trim()) { alert("请选名字"); return; }
     if (!(lsNum(f.amount) > 0)) { alert("请填数目"); return; }
-    save([{ id: uid(), name: f.name.trim().toUpperCase(), amount: lsFmt(lsNum(f.amount)), date: f.date, by: me, at: Date.now() }, ...items]);
-    setF({ name: "", amount: "", date: f.date }); monetSfx("create");
+    save([{ id: uid(), name: f.name.trim().toUpperCase(), amount: lsFmt(lsNum(f.amount)), date: f.date, photos: f.photos || [], by: me, at: Date.now() }, ...items]);
+    setF({ name: "", amount: "", date: f.date, photos: [] }); monetSfx("create");
   };
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v } : x));
   const del = x => { if (window.confirm("删除「" + x.name + "」这笔？")) save(items.filter(y => y.id !== x.id)); };
@@ -5435,11 +5435,12 @@ function BsReturnPage({ clients, currentUser }) {
   return h("div", { className: "cz-page" },
     h("div", { style: card },
       h("div", { style: { fontSize: 14, fontWeight: 900, color: "#0f172a", marginBottom: 12 } }, "＋ 新增 Return Salary"),
-      h("div", { style: { display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "minmax(160px,2fr) minmax(110px,1fr) minmax(130px,1fr) minmax(120px,1fr) auto", gap: 12, alignItems: "end" } },
         h("div", null, lbl("NAME"), h("input", { style: inp, list: "bsr-names", placeholder: "打字选 Bank Statement 的名字", value: f.name, onChange: e => setF({ ...f, name: e.target.value.toUpperCase() }) }),
           h("datalist", { id: "bsr-names" }, names.map(n => h("option", { key: n, value: n })))),
         h("div", null, lbl("AMOUNT (RM)"), h("input", { style: { ...inp, fontWeight: 800, textAlign: "right" }, inputMode: "decimal", value: f.amount, onChange: e => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") }), onBlur: e => { const t = e.target.value.trim(); if (t) setF(p => ({ ...p, amount: lsFmt(lsNum(t)) })); }, onKeyDown: e => e.key === "Enter" && add() })),
         h("div", null, lbl("DATE"), h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
+        h("div", null, lbl("PDF / 照片（可以 Ctrl+V）"), h("div", { style: { minHeight: 40, display: "flex", alignItems: "center" } }, h(LfPhotos, { ids: f.photos || [], compact: true, onChange: ids => setF(p => ({ ...p, photos: ids })) }))),
         h("button", { onClick: add, style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "10px 22px", fontWeight: 900, cursor: "pointer" } }, "保存"))),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       chip("", "ALL " + items.length), chip("not", "NOT DONE " + items.filter(x => !x.done).length), chip("done", "✓ DONE " + items.filter(x => x.done).length),
@@ -5447,13 +5448,14 @@ function BsReturnPage({ clients, currentUser }) {
       h("div", { style: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "6px 14px", fontWeight: 900, color: "#15803d" } }, "DONE RM " + lsFmt(tot(items.filter(x => x.done)))),
       h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) }))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Name", "Amount", "Date", "Done", ""].map((t, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, t)))),
-      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
+      h("thead", null, h("tr", null, ["#", "Name", "Amount", "Date", "PDF / 照片", "Done", ""].map((t, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, t)))),
+      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
         shown.map((x, i) => { const bg = x.done ? { background: "#f0fdf4" } : {}; return h("tr", { key: x.id },
           h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, i + 1),
           h("td", { style: { ...S.td, ...bg, fontWeight: 900 } }, x.name),
           h("td", { style: { ...S.td, ...bg, ...S.tdNum, fontWeight: 900 } }, "RM " + lsFmt(lsNum(x.amount))),
           h("td", { style: { ...S.td, ...bg } }, h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
+          h("td", { style: { ...S.td, ...bg, minWidth: 120 } }, h(LfPhotos, { ids: x.photos || [], compact: true, onChange: ids => upd(x.id, "photos", ids) })),
           h("td", { style: { ...S.td, ...bg } }, h("button", { onClick: () => upd(x.id, "done", x.done ? null : { by: me, at: Date.now() }), title: x.done ? "DONE · " + String(x.done.by || "").toUpperCase() : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: x.done ? "#16a34a" : "#fee2e2", color: x.done ? "#fff" : "#b91c1c" } }, x.done ? "✓ DONE" : "✕ NOT YET")),
           h("td", { style: { ...S.td, ...bg, width: 30 } }, lfCanEdit(x.by, me) && h("button", { onClick: () => del(x), title: "删除", style: { border: "none", background: "none", cursor: "pointer" } }, h(Trash2, { size: 14, color: "#94a3b8" })))); })))));
 }
