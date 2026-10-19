@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v203"));
+    h("div", { className: "sb-ver" }, "v204"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -6105,7 +6105,7 @@ function SubmissionPage({ currentUser }) {
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
             h("td", { style: { ...S.td, minWidth: 80, maxWidth: 130, width: 100, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("button", { disabled: !ed, onClick: () => ed && save(items.map(y => y.id === x.id ? { ...y, staff: staffOf(y), agent: agentOf(y), done: !y.done, doneDate: !y.done ? (y.doneDate || today()) : "" } : y)), title: x.done ? "DONE（按一下取消）" : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: ed ? "pointer" : "default", whiteSpace: "nowrap", background: x.done ? "#16a34a" : "#f1f5f9", color: x.done ? "#fff" : "#94a3b8" } }, x.done ? "✓ DONE" : "DONE")),
-            h("td", { style: S.td }, x.done ? h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: "auto", fontWeight: 800, color: "#15803d" }, value: x.doneDate || "", onChange: e => upd(x.id, "doneDate", e.target.value) }) : h("span", { style: { color: "#cbd5e1" } }, "—")),
+            h("td", { style: { ...S.td, width: 110, padding: "6px 4px" } }, x.done ? h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: 112, minWidth: 0, padding: "3px 4px", fontSize: 11.5, fontWeight: 800, color: "#15803d" }, value: x.doneDate || "", onChange: e => upd(x.id, "doneDate", e.target.value) }) : h("span", { style: { color: "#cbd5e1" } }, "—")),
             h("td", { style: S.td }, h("button", { style: { ...S.fuDel, ...(ed ? {} : { opacity: .3, cursor: "default", pointerEvents: "none" }) }, title: ed ? "Delete" : "", disabled: !ed, onClick: () => ed && del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))));
 }
