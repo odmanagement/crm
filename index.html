@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Loan CRM</title>
-<style>.cz-center th,.cz-center td{text-align:center !important;vertical-align:middle}.cz-center td>span,.cz-center td>div{justify-content:center}.cz-center td input[type=date]{margin:0 auto;display:block}.cz-center td>button{display:inline-flex !important;vertical-align:middle;margin:0 3px}.bs-sheet input[readonly]{cursor:cell;caret-color:transparent}.bs-sheet td:focus-within{outline:2px solid #0ea5e9;outline-offset:-2px;background:#f0f9ff}.bs-sheet input:not([readonly]){background:#fff;cursor:text;caret-color:auto}
+<style>.cz-center th,.cz-center td{text-align:center !important;vertical-align:middle}.cz-center td>span,.cz-center td>div{justify-content:center}.cz-center td input[type=date]{margin:0 auto;display:block}.cz-center td>button{display:inline-flex !important;vertical-align:middle;margin:0 3px}.v-name-edit:hover{border-color:#e0e7ff !important}.v-name-edit:focus{border-color:#a5b4fc !important;background:#fff !important}.bs-sheet input[readonly]{cursor:cell;caret-color:transparent}.bs-sheet td:focus-within{outline:2px solid #0ea5e9;outline-offset:-2px;background:#f0f9ff}.bs-sheet input:not([readonly]){background:#fff;cursor:text;caret-color:auto}
   html, body { margin: 0; padding: 0; background: #f4f5fb; }
   #root { min-height: 100vh; }
   .boot { font-family: sans-serif; padding: 60px; text-align: center; color: #64748b; }
@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v204"));
+    h("div", { className: "sb-ver" }, "v205"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -6212,7 +6212,7 @@ function TodoPage({ currentUser }) {
           h("div", { style: { fontSize: 30, fontWeight: 900 } }, pct + "%")),
         h("div", { className: "td-bar" }, h("i", { style: { width: pct + "%" } }))),
       h("div", { className: "td-add" },
-        h("textarea", { value: text, rows: Math.min(8, Math.max(1, text.split("\n").length)), placeholder: "写下要做的事，按 Enter 加入（Shift + Enter = 下一行）…", onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !(e.nativeEvent && e.nativeEvent.isComposing) && e.keyCode !== 229) { e.preventDefault(); add(); } } }),
+        h("textarea", { value: text, rows: Math.min(10, Math.max(2, text.split("\n").length + 1)), placeholder: "写下要做的事（按 Enter 换下一行继续写），写好按「+ 加入」或 Ctrl + Enter…", onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !(e.nativeEvent && e.nativeEvent.isComposing)) { e.preventDefault(); add(); } } }),
         h("button", { onClick: add }, "+ 加入")),
       h("div", { className: "td-tabs" },
         [["all", "全部 " + total], ["active", "未完成 " + (total - doneN)], ["done", "已完成 " + doneN]].map(([k, t]) => h("button", { key: k, className: "td-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t)),
@@ -9073,7 +9073,12 @@ function VerifyDetail({
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
     style: S.panelHead
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } }, canEdit ? React.createElement(DebouncedInput, {
+    value: v.customerName || "", placeholder: "Customer Name", title: "点一下改名字",
+    onCommit: val => { const t = String(val || "").trim().toUpperCase(); if (t && t !== (v.customerName || "")) setField("customerName", t); },
+    style: { ...S.panelName, border: "1px dashed transparent", borderRadius: 8, background: "transparent", outline: "none", padding: "2px 6px", margin: "-2px -6px", width: "100%", boxSizing: "border-box", fontFamily: "inherit", textTransform: "uppercase" },
+    className: "v-name-edit"
+  }) : React.createElement("div", {
     style: S.panelName
   }, v.customerName || "Unnamed"), /*#__PURE__*/React.createElement("div", {
     style: S.vSubIc
