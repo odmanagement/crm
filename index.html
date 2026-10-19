@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Loan CRM</title>
-<style>.bs-sheet input[readonly]{cursor:cell;caret-color:transparent}.bs-sheet td:focus-within{outline:2px solid #0ea5e9;outline-offset:-2px;background:#f0f9ff}.bs-sheet input:not([readonly]){background:#fff;cursor:text;caret-color:auto}
+<style>.cz-center th,.cz-center td{text-align:center !important;vertical-align:middle}.cz-center td>span,.cz-center td>div{justify-content:center}.cz-center td input[type=date]{margin:0 auto;display:block}.cz-center td>button{display:inline-flex !important;vertical-align:middle;margin:0 3px}.bs-sheet input[readonly]{cursor:cell;caret-color:transparent}.bs-sheet td:focus-within{outline:2px solid #0ea5e9;outline-offset:-2px;background:#f0f9ff}.bs-sheet input:not([readonly]){background:#fff;cursor:text;caret-color:auto}
   html, body { margin: 0; padding: 0; background: #f4f5fb; }
   #root { min-height: 100vh; }
   .boot { font-family: sans-serif; padding: 60px; text-align: center; color: #64748b; }
@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v198"));
+    h("div", { className: "sb-ver" }, "v200"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5416,6 +5416,7 @@ function BsReturnPage({ clients, currentUser }) {
   const [f, setF] = React.useState({ name: "", amount: "", date: today(), photos: [] });
   const [q, setQ] = React.useState("");
   const [only, setOnly] = React.useState("");
+  const [month, setMonth] = React.useState(today().slice(0, 7));
   const add = () => {
     if (!f.name.trim()) { alert("请选名字"); return; }
     if (!(lsNum(f.amount) > 0)) { alert("请填数目"); return; }
@@ -5442,23 +5443,39 @@ function BsReturnPage({ clients, currentUser }) {
         h("div", null, lbl("DATE"), h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
         h("div", null, lbl("PDF / 照片（可以 Ctrl+V）"), h("div", { style: { minHeight: 40, display: "flex", alignItems: "center" } }, h(LfPhotos, { ids: f.photos || [], compact: true, onChange: ids => setF(p => ({ ...p, photos: ids })) }))),
         h("button", { onClick: add, style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "10px 22px", fontWeight: 900, cursor: "pointer" } }, "保存"))),
-    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
-      chip("", "ALL " + items.length), chip("not", "NOT DONE " + items.filter(x => !x.done).length), chip("done", "✓ DONE " + items.filter(x => x.done).length),
-      h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px", fontWeight: 900, color: "#b91c1c" } }, "NOT DONE RM " + lsFmt(tot(items.filter(x => !x.done)))),
-      h("div", { style: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "6px 14px", fontWeight: 900, color: "#15803d" } }, "DONE RM " + lsFmt(tot(items.filter(x => x.done)))),
-      h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) }))),
-    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Name", "Amount", "Date", "PDF / 照片", "Done", ""].map((t, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, t)))),
-      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
-        shown.map((x, i) => { const bg = x.done ? { background: "#f0fdf4" } : {}; return h("tr", { key: x.id },
+    h("div", { style: { ...S.searchWrap } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
+    (() => { const groups = rcGroups(shown), gi = Math.max(0, groups.findIndex(g => g.key === month)), g = groups[gi];
+      const navBtn = dis => ({ width: 36, height: 36, borderRadius: 10, border: "1px solid #c7d2fe", background: dis ? "#f1f5f9" : "#fff", color: dis ? "#cbd5e1" : "#4f46e5", fontSize: 16, fontWeight: 900, cursor: dis ? "default" : "pointer" });
+      const rows = g ? g.rows : [];
+      return [
+        h("div", { key: "bar", style: { ...card, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px" } },
+          h("button", { disabled: !g || gi >= groups.length - 1, onClick: () => setMonth(groups[gi + 1].key), title: "上个月", style: navBtn(!g || gi >= groups.length - 1) }, "◀"),
+          h("div", { style: { minWidth: 170, textAlign: "center" } },
+            h("div", { style: { fontWeight: 900, fontSize: 16, color: "#1e1b4b" } }, "📅 " + (g ? g.label : rcMonthLabel(today().slice(0, 7)))),
+            h("div", { style: { fontSize: 11.5, color: "#64748b", fontWeight: 700 } }, rows.length + " 笔")),
+          h("button", { disabled: !g || gi <= 0, onClick: () => setMonth(groups[gi - 1].key), title: "下个月", style: navBtn(!g || gi <= 0) }, "▶"),
+          h("div", { style: { background: "#fefce8", border: "1px solid #fde68a", borderRadius: 12, padding: "6px 16px", textAlign: "right" } },
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#a16207" } }, "TOTAL"),
+            h("div", { style: { fontSize: 20, fontWeight: 900, color: "#713f12" } }, rcRM(g ? g.total : 0))),
+          h("div", { style: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#15803d" } }, "✓ DONE"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#14532d" } }, rcRM(tot(rows.filter(x => x.done))))),
+          h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c" } }, "NOT DONE"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#991b1b" } }, rcRM(tot(rows.filter(x => !x.done))))),
+          h("span", { style: { flex: 1 } }),
+          chip("", "ALL"), chip("not", "NOT DONE"), chip("done", "✓ DONE")),
+        h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Date", "Name", "Amount", "PDF / 照片", "Done", ""].map((t, i) => h("th", { key: i, style: S.th }, t)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
+        rows.map((x, i) => { const bg = x.done ? { background: "#f0fdf4" } : {}; return h("tr", { key: x.id },
           h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, i + 1),
+          h("td", { style: { ...S.td, ...bg } }, x.done ? h("span", { title: "已 Done，日期锁住", style: { fontWeight: 800, color: "#15803d" } }, "🔒 " + bsIso2Dmy(x.date)) : h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
           h("td", { style: { ...S.td, ...bg, fontWeight: 900 } }, x.name),
           h("td", { style: { ...S.td, ...bg, ...S.tdNum, fontWeight: 900 } }, "RM " + lsFmt(lsNum(x.amount))),
-          h("td", { style: { ...S.td, ...bg } }, x.done ? h("span", { title: "已 Done，日期锁住", style: { fontWeight: 800, color: "#15803d" } }, "🔒 " + bsIso2Dmy(x.date)) : h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
           h("td", { style: { ...S.td, ...bg, minWidth: 120 } }, h(LfPhotos, { ids: x.photos || [], compact: true, onChange: ids => upd(x.id, "photos", ids) })),
           h("td", { style: { ...S.td, ...bg } }, h("button", { onClick: () => upd(x.id, "done", x.done ? null : { by: me, at: Date.now() }), title: x.done ? "DONE · " + String(x.done.by || "").toUpperCase() : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: x.done ? "#16a34a" : "#fee2e2", color: x.done ? "#fff" : "#b91c1c" } }, x.done ? "✓ DONE" : "✕ NOT YET")),
-          h("td", { style: { ...S.td, ...bg, width: 30 } }, lfCanEdit(x.by, me) && h("button", { onClick: () => del(x), title: "删除", style: { border: "none", background: "none", cursor: "pointer" } }, h(Trash2, { size: 14, color: "#94a3b8" })))); })))));
+          h("td", { style: { ...S.td, ...bg, width: 30 } }, lfCanEdit(x.by, me) && h("button", { onClick: () => del(x), title: "删除", style: { border: "none", background: "none", cursor: "pointer" } }, h(Trash2, { size: 14, color: "#94a3b8" })))); })))) ]; })());
 }
+
 function ReceiptPage({ currentUser, clients }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -5522,8 +5539,8 @@ function ReceiptPage({ currentUser, clients }) {
           h("span", { style: { flex: 1 } }),
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
-        h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", "✓"].map((x, i) => h("th", { key: i, style: i === 2 ? { ...S.th, ...S.thNum } : S.th }, x)))),
+        h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
+          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", "✓"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
           h("tbody", null, list === null ? tdEmpty("载入中…") : !g ? tdEmpty(items.length ? "找不到" : "还没有收据") :
             g.rows.map(r => h("tr", { key: r.id },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
@@ -6073,9 +6090,9 @@ function SubmissionPage({ currentUser }) {
     list !== null && h(BlindBox, { items, staffOf, currentUser }),
     showRank && h(ClosingRanking, { items, staffOf }),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Remark", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
+      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Staff", "Agent", "Remark", "Done", "Done Date", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 10, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 10, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
           const sf = staffOf(x), ag = agentOf(x), ed = canEdit(x), lockT = "";
@@ -6087,6 +6104,8 @@ function SubmissionPage({ currentUser }) {
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => upd(x.id, "agent", e.target.value) }, h("option", { value: "" }, "—"), CLOSING_AGENTS.map(p => h("option", { key: p, value: p }, p.toUpperCase())))),
             h("td", { style: { ...S.td, minWidth: 220, maxWidth: 340, width: 280, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
+            h("td", { style: S.td }, h("button", { disabled: !ed, onClick: () => ed && save(items.map(y => y.id === x.id ? { ...y, staff: staffOf(y), agent: agentOf(y), done: !y.done, doneDate: !y.done ? (y.doneDate || today()) : "" } : y)), title: x.done ? "DONE（按一下取消）" : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: ed ? "pointer" : "default", whiteSpace: "nowrap", background: x.done ? "#16a34a" : "#f1f5f9", color: x.done ? "#fff" : "#94a3b8" } }, x.done ? "✓ DONE" : "DONE")),
+            h("td", { style: S.td }, x.done ? h("input", { type: "date", disabled: !ed, style: { ...S.bankerInput, width: "auto", fontWeight: 800, color: "#15803d" }, value: x.doneDate || "", onChange: e => upd(x.id, "doneDate", e.target.value) }) : h("span", { style: { color: "#cbd5e1" } }, "—")),
             h("td", { style: S.td }, h("button", { style: { ...S.fuDel, ...(ed ? {} : { opacity: .3, cursor: "default", pointerEvents: "none" }) }, title: ed ? "Delete" : "", disabled: !ed, onClick: () => ed && del(x) }, h(Trash2, { size: 15, color: "#cbd5e1" }))));
         })))));
 }
@@ -7251,6 +7270,10 @@ function FormsPage({ currentUser, tools, noLib }) {
       nativeWrite(open.tool.file, open.draft.title, open.draft.native);
       try { const data = open.draft.native.data; if (typeof w[ad.apply] === "function") { w[ad.apply](data); if (ad.after && typeof w[ad.after] === "function") w[ad.after](); } } catch (e) { console.error(e); }
     } else if (open && open.draft) formWriteValues(d, open.draft.values);
+    if (noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || ""))) setTimeout(() => { try {
+      const st = d.createElement("style"); st.textContent = "button:not(.allow-view),.del,.addrow,.btn-additem,[onclick]{pointer-events:none !important;opacity:.45} input,textarea,select{pointer-events:none !important;background:transparent !important} .phead-toggle{pointer-events:auto !important;opacity:1}"; d.head.appendChild(st);
+      d.querySelectorAll("input,textarea,select").forEach(el => { el.readOnly = true; if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio" || el.type === "file") el.disabled = true; });
+    } catch (e) {} }, 200);
     setTimeout(() => { baseRef.current = JSON.stringify(currentVals()); }, 150);
   };
   React.useEffect(() => {
@@ -7359,6 +7382,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); monetSfx("save"); setTimeout(() => setMsg(""), 1500); }
   };
   const doSave = closeAfter => {
+    if (noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || ""))) { alert("只有 Admin（" + String(open.draft.by || "").toUpperCase() + "）才能更改，你只能看。"); return; }
     const vals = currentVals();
     const list = drafts || [];
     const now = Date.now();
@@ -7379,7 +7403,9 @@ function FormsPage({ currentUser, tools, noLib }) {
   const openKeyFile = open ? open.tool.file : "";
   React.useEffect(() => { if (!openKeyFile && syncedOnce.current) syncNative(); }, [openKeyFile]);
   React.useEffect(() => { if (openKeyFile) { snapRef.current = snapshotLS(); const t = setInterval(captureFormChanges, 4000); return () => { clearInterval(t); captureFormChanges(); }; } }, [openKeyFile]);
-  const tryClose = () => { if (dirty()) setAsk(true); else setOpen(null); };
+  /* Costing：只有那份存档的 Admin（建立的人）或老板可以改，其他人只能看 */
+  const viewOnly = !!(noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || "")));
+  const tryClose = () => { if (!viewOnly && dirty()) setAsk(true); else setOpen(null); };
   const delDraft = d => { if (!window.confirm("删除这份存档？")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
   const mine = (drafts || []).filter(d => sameUser(d.by, currentUser));
   const list = mine.filter(d => !q || (d.form + " " + (d.title || "") + " " + d.by).toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.at - a.at);
@@ -7428,10 +7454,11 @@ function FormsPage({ currentUser, tools, noLib }) {
             h("div", { style: { fontWeight: 900, fontSize: 15, color: "#1e1b4b" } }, open.tool.name),
             h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, open.draft ? "存档：" + (open.draft.title || "(未命名)") + " · " + fmtT(open.draft.at) : "新的一份（还没存档）")),
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
+          viewOnly && h("span", { title: "只有 Admin 才能更改", style: { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10, padding: "7px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, "👁 只能看 · ADMIN " + String(open.draft.by || "").toUpperCase()),
           open.draft && lfCanEdit(open.draft.by, canonUser(currentUser || "")) && h("button", { onClick: () => { const d = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!window.confirm("删除这份存档「" + (d.title || "") + "」？删除了不能还原。")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); setOpen(null); }, title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "🗑 删除"),
-          open.draft && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
+          open.draft && !viewOnly && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
-          h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
+          !viewOnly && h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
           h("button", { onClick: tryClose, title: "关闭", style: { border: "none", background: "#f1f5f9", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, h(X, { size: 18, color: "#475569" }))),
         h("iframe", { ref: frameRef, src: open.tool.url || open.tool.file, onLoad: onFrameLoad, style: { flex: 1, border: "none", width: "100%", background: "#fff" } })),
       ask && h("div", { style: { position: "fixed", inset: 0, zIndex: 210, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
