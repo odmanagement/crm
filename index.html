@@ -1510,7 +1510,7 @@ function ODPaymentPage({ currentUser }) {
   const mSave = () => {
     const d = mForm; if (!String(d.name || "").trim()) { alert("请填 Name"); return; } if (!lsNum(d.amount)) { alert("请填 RM 数目"); return; }
     const rec = { ...d, name: String(d.name).trim().toUpperCase(), remark: String(d.remark || "").trim(), acc: String(d.acc || "").trim(), amount: lsNum(d.amount) };
-    if (rec.id) saveM(mItems.map(m => m.id === rec.id ? { ...m, ...rec } : m)); else { saveM([{ ...rec, id: uid(), at: Date.now(), by: me, date: rec.date || today() }, ...mItems]); OD_PAY_NOTIFY.forEach(to => { if (sameUser(to, me)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "odpayment", to: canonUser(to), from: me, title: String(me || "").toUpperCase() + " 新增了一笔 OD Payment 💸", task: String(rec.name || "").toUpperCase() + (rec.amount ? " · RM " + lsFmt(lsNum(rec.amount)) : "") + (rec.remark ? " · " + rec.remark : ""), at: Date.now() }); } catch (e) {} }); }
+    if (rec.id) saveM(mItems.map(m => m.id === rec.id ? { ...m, ...rec } : m)); else { saveM([{ ...rec, id: uid(), at: Date.now(), by: me, date: rec.date || today() }, ...mItems]); OD_PAY_NOTIFY.forEach(to => { if (sameUser(to, me)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "odpayment", to: canonUser(to), from: me, loud: true, title: String(me || "").toUpperCase() + " 新增了一笔 OD Payment 💸", task: String(rec.name || "").toUpperCase() + (rec.amount ? " · RM " + lsFmt(lsNum(rec.amount)) : "") + (rec.remark ? " · " + rec.remark : ""), at: Date.now() }); } catch (e) {} }); }
     setMForm(null); monetSfx("create");
   };
   const sidOf = (r, x) => x.id || (r.id + "_" + (x.desc || "") + (x.acc || "") + (x.amount || ""));
@@ -2965,6 +2965,15 @@ function CRM({ onLogout, currentUser }) {
     } catch (e) { console.error(e); }
   };
   window.__crmAddNotice = addNotice;
+  /* 大声提醒：给我的、标了 loud 的通知（例如 OD Payment 新增）→ 响铃 + 大横幅 */
+  const loudSeen = React.useRef(null);
+  React.useEffect(() => {
+    const mine = (notices || []).filter(n => n && n.loud && sameUser(n.to, currentUser));
+    if (loudSeen.current === null) loudSeen.current = { set: new Set(), since: Date.now() };
+    const fresh = mine.filter(n => !loudSeen.current.set.has(n.id) && (n.at || 0) > loudSeen.current.since - 5000);
+    mine.forEach(n => loudSeen.current.set.add(n.id));
+    if (fresh.length) crmLoudAlert(fresh[fresh.length - 1], () => { setOpenId(null); setPage(fresh[fresh.length - 1].page || "odpayment"); });
+  }, [notices]);
   window.__crmGoPage = pg => { setOpenId(null); setPage(pg); };
   window.__crmOpenClient = (cid, type) => { if (["house", "car", "personal"].includes(type)) setPage(type); setOpenId(cid); };
   const noticeForDone = m => {
@@ -3755,7 +3764,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v223"));
+    h("div", { className: "sb-ver" }, "v224"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5239,6 +5248,27 @@ function AgentsLoader() {   /* Closing 自己加的 Agent，Verify / 其他地�
   return null;
 }
 const crmLoanLabel = t => ({ personal: "PERSONAL LOAN", car: "CAR LOAN", house: "HOUSE LOAN" }[t] || String(t || "LOAN").toUpperCase() + " LOAN");
+
+/* 🔔 大声提醒：响三轮铃 + 屏幕上方大横幅（按一下去那一页） */
+function crmLoudAlert(n, onGo) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { const ac = window.__crmFireAC || (window.__crmFireAC = new AC()); if (ac.state === "suspended") ac.resume();
+      const out = ac.createGain(); out.gain.value = .9; out.connect(ac.destination);
+      const beep = (f, t, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "square"; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.6, t + .01); g.gain.setValueAtTime(.6, t + d - .03); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + .02); };
+      let t = ac.currentTime + .05; for (let r = 0; r < 3; r++) { for (let i = 0; i < 3; i++) { beep(1320, t, .12); beep(1760, t + .14, .12); t += .32; } t += .45; } }
+  } catch (e) {}
+  try {
+    const old = document.getElementById("crm-loud-alert"); if (old) old.remove();
+    const d = document.createElement("div"); d.id = "crm-loud-alert";
+    Object.assign(d.style, { position: "fixed", top: "16px", left: "50%", transform: "translateX(-50%)", zIndex: 100002, background: "linear-gradient(135deg,#ef4444,#f97316)", color: "#fff", borderRadius: "18px", padding: "16px 26px", boxShadow: "0 20px 60px -10px rgba(239,68,68,.7)", fontWeight: "900", cursor: "pointer", maxWidth: "92vw", textAlign: "center", animation: "crmShake .5s ease 0s 4" });
+    d.innerHTML = '<div style="font-size:22px">🔔 ' + String(n.title || "").replace(/</g, "&lt;") + '</div><div style="font-size:15px;margin-top:4px;opacity:.95">' + String(n.task || "").replace(/</g, "&lt;") + '</div><div style="font-size:12px;margin-top:6px;opacity:.85">按一下去看（1 分钟后自动消失）</div>';
+    if (!document.getElementById("crm-shake-css")) { const st = document.createElement("style"); st.id = "crm-shake-css"; st.textContent = "@keyframes crmShake{0%,100%{transform:translateX(-50%)}20%{transform:translateX(calc(-50% - 10px))}40%{transform:translateX(calc(-50% + 10px))}60%{transform:translateX(calc(-50% - 6px))}80%{transform:translateX(calc(-50% + 6px))}}"; document.head.appendChild(st); }
+    d.onclick = () => { d.remove(); onGo && onGo(); };
+    document.body.appendChild(d); setTimeout(() => { if (d.parentNode) d.remove(); }, 60000);
+    try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification(n.title || "OD Payment", { body: n.task || "" }); } catch (e) {}
+  } catch (e) {}
+}
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
   const autos = [{ k: "rc", icon: "🧾", label: "BOSS TAKE", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
