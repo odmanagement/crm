@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v220"));
+    h("div", { className: "sb-ver" }, "v221"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7049,7 +7049,20 @@ function formReadValues(doc) {
     if (el.type === "checkbox" || el.type === "radio") return [key, el.checked ? "1" : ""];
     if (el.type === "file" || el.type === "button" || el.type === "submit") return [key, null];
     return [key, el.value];
-  }).filter(x => x[1] !== null).concat(formReadICImages(doc));
+  }).filter(x => x[1] !== null).concat(formReadICImages(doc)).concat(formReadDyn(doc));
+}
+/* 会自己加行的表格（例如 Future / Finpro Agreement 的费用行 + Add）：存几行，打开时先把行数补回来，资料才不会错位不见 */
+const FORM_DYN = [{ rows: ".feerow", add: "#btnAddFee", del: ".del" }];
+function formReadDyn(doc) {
+  const out = {}; FORM_DYN.forEach((d, i) => { if (doc.querySelector(d.add)) out[i] = doc.querySelectorAll(d.rows).length; });
+  return Object.keys(out).length ? [["__dyn__", JSON.stringify(out)]] : [];
+}
+function formFixDyn(doc, raw) {
+  let want = {}; try { want = JSON.parse(raw) || {}; } catch (e) { return; }
+  FORM_DYN.forEach((d, i) => { if (want[i] == null) return; const btn = doc.querySelector(d.add); if (!btn) return;
+    let n = doc.querySelectorAll(d.rows).length, guard = 0;
+    while (n < want[i] && guard++ < 200) { btn.click(); n = doc.querySelectorAll(d.rows).length; }
+    while (n > want[i] && guard++ < 400) { const rows = doc.querySelectorAll(d.rows), last = rows[rows.length - 1], x = last && last.querySelector(d.del); if (x) x.click(); else if (last) last.remove(); n = doc.querySelectorAll(d.rows).length; } });
 }
 /* 表格里上传的 IC 照片（Future / Finpro Agreement 等）也一起存档 */
 const _icShrinkCache = new Map();
@@ -7100,6 +7113,17 @@ async function formWriteICImages(doc, raw) {
 }
 function formWriteValues(doc, values) {
   const map = Object.fromEntries(values || []);
+  if ("__dyn__" in map) formFixDyn(doc, map.__dyn__);
+  else try {   /* 旧存档没有记行数：用后面有 id 的格子对位置，推算当时有几行 */
+    FORM_DYN.forEach((d, di) => { const btn = doc.querySelector(d.add), rows = doc.querySelectorAll(d.rows); if (!btn || !rows.length) return;
+      const per = rows[0].querySelectorAll("input, textarea, select").length || 1;
+      const els = Array.from(doc.querySelectorAll("input, textarea, select")), lastRowEl = Array.from(rows[rows.length - 1].querySelectorAll("input, textarea, select")).pop();
+      const after = els.findIndex(el => el === lastRowEl);
+      const probe = els.slice(after + 1).find(el => el.id); if (!probe) return;
+      const k = Object.keys(map).find(x => x.startsWith(probe.id + "#")); if (!k) return;
+      const delta = parseInt(k.split("#").pop()) - els.indexOf(probe);
+      if (delta && delta % per === 0) formFixDyn(doc, JSON.stringify({ [di]: rows.length + delta / per })); });
+  } catch (e) {}
   Array.from(doc.querySelectorAll("input, textarea, select")).forEach((el, i) => {
     const key = (el.name || el.id || "") + "#" + i;
     if (!(key in map)) return;
