@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v218"));
+    h("div", { className: "sb-ver" }, "v219"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5586,7 +5586,7 @@ function ReceiptPage({ currentUser, clients }) {
   const [f, setF] = React.useState(blank());
   const [q, setQ] = React.useState("");
   const [copied, setCopied] = React.useState("");
-  const [paidF, setPaidF] = React.useState("");
+  const [paidF, setPaidF] = React.useState("unpaid");
   const [month, setMonth] = React.useState(today().slice(0, 7));
   const nextNo = () => { const ym = today().slice(0, 7).replace("-", ""); const n = items.filter(x => String(x.no || "").startsWith("OD-" + ym)).length + 1; return "OD-" + ym + "-" + String(n).padStart(3, "0"); };
   const create = (andPrint) => {
@@ -5618,7 +5618,10 @@ function ReceiptPage({ currentUser, clients }) {
       h("div", { style: { display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" } },
         h("button", { onClick: () => create(false), style: { border: "1px solid #c7d2fe", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "保存"),
         h("button", { onClick: () => create(true), style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "保存 + 🖨 Print"))),
-    h("div", { style: { ...S.searchWrap } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
+    h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 14 } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
+      h("select", { value: paidF, onChange: e => setPaidF(e.target.value), style: { border: "2px solid #c7d2fe", borderRadius: 12, padding: "9px 14px", fontWeight: 900, fontSize: 14, fontFamily: "inherit", background: "#fff", color: "#3730a3", cursor: "pointer" } },
+        h("option", { value: "" }, "全部"), h("option", { value: "unpaid" }, "还没付"), h("option", { value: "paid" }, "已付"))),
     (() => {
       const groups = rcGroups(shown);
       const gi = Math.max(0, groups.findIndex(g => g.key === month));
@@ -5641,7 +5644,6 @@ function ReceiptPage({ currentUser, clients }) {
           h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
             h("div", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c" } }, "未付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#991b1b" } }, rcRM(g.rows.filter(x => !x.paid).reduce((t, x) => t + rcNum(x.amount), 0)))),
           h("span", { style: { flex: 1 } }),
-          [["", "全部"], ["unpaid", "未付"], ["paid", "✓ 已付"]].map(([k, t]) => h("button", { key: "pf" + k, onClick: () => setPaidF(k), style: { border: paidF === k ? "2px solid #6366f1" : "1px solid #e2e8f0", background: paidF === k ? "#eef2ff" : "#fff", color: paidF === k ? "#3730a3" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, t)),
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
