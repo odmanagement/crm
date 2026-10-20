@@ -3415,7 +3415,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
-  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v209"));
+    h("div", { className: "sb-ver" }, "v210"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5144,7 +5144,8 @@ function BsBackdate({ name, init, onSave, onClose }) {
 }
 
 /* 🎉 烟花特效（Personal Loan 银行 Approve 时） */
-function crmFireworks(label) {
+function crmFireworks(label, sub) {
+  crmFireSound();
   try {
     const cv = document.createElement("canvas"), W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
     cv.width = W * dpr; cv.height = H * dpr;
@@ -5158,11 +5159,12 @@ function crmFireworks(label) {
     for (let k = 0; k < 7; k++) setTimeout(() => rockets.push({ x: W * (.15 + Math.random() * .7), y: H, vy: -(9 + Math.random() * 4), ty: H * (.18 + Math.random() * .3) }), k * 260);
     for (let i = 0; i < 120; i++) parts.push({ x: W / 2 + (Math.random() - .5) * 200, y: -20 - Math.random() * 200, vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, life: 160, age: 0, c: COLS[i % COLS.length], r: 3, conf: true, rot: Math.random() * 6 });
     const tag = document.createElement("div");
-    tag.textContent = "🎉 " + (label || "APPROVED!") + " 🎉";
-    Object.assign(tag.style, { position: "fixed", left: "50%", top: "38%", transform: "translate(-50%,-50%) scale(.3)", zIndex: 100001, pointerEvents: "none", fontSize: "44px", fontWeight: "900", color: "#fff", textShadow: "0 4px 24px rgba(236,72,153,.8), 0 0 2px #000", background: "linear-gradient(135deg,#22c55e,#16a34a)", padding: "14px 30px", borderRadius: "999px", boxShadow: "0 20px 60px -10px rgba(22,163,74,.7)", transition: "transform .5s cubic-bezier(.2,1.6,.4,1), opacity .6s", opacity: "1", whiteSpace: "nowrap" });
+    tag.innerHTML = "";
+    const l1 = document.createElement("div"); l1.textContent = "🎉 " + (label || "APPROVED!") + " 🎉"; tag.appendChild(l1);
+    if (sub) { const l2 = document.createElement("div"); l2.textContent = sub; Object.assign(l2.style, { fontSize: "22px", fontWeight: "800", marginTop: "4px", opacity: ".95" }); tag.appendChild(l2); }
+    Object.assign(tag.style, { position: "fixed", left: "50%", top: "38%", transform: "translate(-50%,-50%) scale(.3)", zIndex: 100001, pointerEvents: "none", fontSize: "44px", fontWeight: "900", color: "#fff", textShadow: "0 4px 24px rgba(236,72,153,.8), 0 0 2px #000", background: "linear-gradient(135deg,#22c55e,#16a34a)", padding: "14px 34px", borderRadius: "28px", textAlign: "center", lineHeight: "1.2", boxShadow: "0 20px 60px -10px rgba(22,163,74,.7)", transition: "transform .5s cubic-bezier(.2,1.6,.4,1), opacity .6s", opacity: "1", whiteSpace: "nowrap" });
     document.body.appendChild(tag); requestAnimationFrame(() => { tag.style.transform = "translate(-50%,-50%) scale(1)"; });
-    setTimeout(() => { tag.style.opacity = "0"; }, 2200); setTimeout(() => tag.remove(), 2900);
-    try { monetSfx("allDone"); } catch (e) {}
+    setTimeout(() => { tag.style.opacity = "0"; }, 3200); setTimeout(() => tag.remove(), 3900);
     let t0 = performance.now();
     const step = now => {
       ctx.clearRect(0, 0, W, H);
@@ -5172,11 +5174,43 @@ function crmFireworks(label) {
         ctx.globalAlpha = a; ctx.fillStyle = p.c;
         if (p.conf) { p.rot += .15; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-4, -2, 8, 4); ctx.restore(); } else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); } }
       ctx.globalAlpha = 1;
-      if (now - t0 < 4500 && (parts.length || rockets.length)) requestAnimationFrame(step); else cv.remove();
+      if (now - t0 < 5000 && (parts.length || rockets.length)) requestAnimationFrame(step); else cv.remove();
     };
     requestAnimationFrame(step);
   } catch (e) {}
 }
+
+/* 烟花声音（自己合成，不靠音效开关） */
+function crmFireSound() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const ac = window.__crmFireAC || (window.__crmFireAC = new AC()); if (ac.state === "suspended") ac.resume();
+    const now = ac.currentTime, out = ac.createGain(); out.gain.value = .55; out.connect(ac.destination);
+    const noiseBuf = (() => { const b = ac.createBuffer(1, ac.sampleRate * 1.2, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })();
+    const bang = t => { const n = ac.createBufferSource(); n.buffer = noiseBuf; const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t + .8);
+      const g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(1, t + .01); g.gain.exponentialRampToValueAtTime(.001, t + 1); n.connect(f); f.connect(g); g.connect(out); n.start(t); n.stop(t + 1.1);
+      const cr = ac.createBufferSource(); cr.buffer = noiseBuf; const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 5000; const g2 = ac.createGain(); g2.gain.setValueAtTime(.0001, t + .15); g2.gain.exponentialRampToValueAtTime(.35, t + .2); g2.gain.exponentialRampToValueAtTime(.001, t + 1.1); cr.connect(hp); hp.connect(g2); g2.connect(out); cr.start(t + .15); cr.stop(t + 1.2); };
+    const whistle = (t, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "sine"; o.frequency.setValueAtTime(600, t); o.frequency.exponentialRampToValueAtTime(2200, t + d); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .05); g.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + .05); };
+    for (let k = 0; k < 7; k++) { const t = now + k * .26; whistle(t, .45); bang(t + .5); }
+    [523.25, 659.25, 783.99, 1046.5].forEach((fq, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle"; o.frequency.value = fq; const t = now + .1 + i * .12; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.25, t + .02); g.gain.exponentialRampToValueAtTime(.001, t + .9); o.connect(g); g.connect(out); o.start(t); o.stop(t + 1); });
+  } catch (e) {}
+}
+/* 广播给全部人：写进云端 crm_celebrate，每个人的 CelebrateWatcher 看到就放烟花 */
+async function crmCelebrate(info) {
+  const ev = { id: uid(), at: Date.now(), by: canonUser(window.__crmUser || ""), ...info };
+  (window.__celebSeen = window.__celebSeen || new Set()).add(ev.id);
+  crmFireworks(ev.label, ev.sub);
+  try { const raw = await DB.get("crm_celebrate"); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) {} const next = [ev, ...(Array.isArray(list) ? list : [])].slice(0, 30);
+    await DB.set("crm_celebrate", JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "crm_celebrate", next } })); } catch (e) {} } catch (e) {}
+}
+function CelebrateWatcher() {
+  const [list] = useCloudList("crm_celebrate");
+  const start = React.useRef(Date.now());
+  React.useEffect(() => { if (!Array.isArray(list)) return; const seen = window.__celebSeen = window.__celebSeen || new Set();
+    list.filter(e => e && e.at > start.current - 3000 && !seen.has(e.id)).reverse().forEach((e, i) => { seen.add(e.id); setTimeout(() => crmFireworks(e.label, e.sub), i * 4000); }); }, [list]);
+  return null;
+}
+const crmLoanLabel = t => ({ personal: "PERSONAL LOAN", car: "CAR LOAN", house: "HOUSE LOAN" }[t] || String(t || "LOAN").toUpperCase() + " LOAN");
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
   const autos = [{ k: "rc", icon: "🧾", label: "RECEIPT", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
@@ -10127,7 +10161,7 @@ function LoanBlock({
       ...bankStatusStyle(b.status)
     },
     value: b.status,
-    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && loan.type === "personal") crmFireworks("APPROVED · " + String(b.bank || "").toUpperCase()); setBankV(i, b, "status", e.target.value); }
+    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && loan.type === "personal") crmCelebrate({ label: crmLoanLabel(loan.type) + " APPROVED", sub: [String(clientName || "").toUpperCase(), String(b.bank || "").toUpperCase(), b.amount ? "RM " + lsFmt(lsNum(b.amount)) : ""].filter(Boolean).join(" · ") }); setBankV(i, b, "status", e.target.value); }
   }, b._v && /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
@@ -10415,7 +10449,7 @@ function LoanForm({
       flex: 2
     },
     value: b.status,
-    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && l.type === "personal") crmFireworks("APPROVED · " + String(b.bank || "").toUpperCase()); setBank(i, "status", e.target.value); }
+    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && l.type === "personal") crmCelebrate({ label: crmLoanLabel(l.type) + " APPROVED", sub: [String(b.bank || "").toUpperCase(), b.amount ? "RM " + lsFmt(lsNum(b.amount)) : ""].filter(Boolean).join(" · ") }); setBank(i, "status", e.target.value); }
   }, /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
