@@ -1402,7 +1402,7 @@ const NAV = [{
   icon: Wallet
 }, {
   id: "receipt",
-  label: "Receipt",
+  label: "Boss Take",
   icon: Receipt
 }, {
   id: "submission",
@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v212"));
+    h("div", { className: "sb-ver" }, "v214"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5234,7 +5234,7 @@ function CelebrateWatcher() {
 const crmLoanLabel = t => ({ personal: "PERSONAL LOAN", car: "CAR LOAN", house: "HOUSE LOAN" }[t] || String(t || "LOAN").toUpperCase() + " LOAN");
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
-  const autos = [{ k: "rc", icon: "🧾", label: "RECEIPT", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
+  const autos = [{ k: "rc", icon: "🧾", label: "BOSS TAKE", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
   const rcT = autos.reduce((t, a) => t + a.total, 0), RO = autos.length;
   const [showRc, setShowRc] = React.useState(false);
   const [bdOpen, setBdOpen] = React.useState(false);
@@ -5641,7 +5641,7 @@ function ReceiptPage({ currentUser, clients }) {
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
-                (boss || sameUser(r.by, currentUser)) && h("button", { style: S.fuDel, title: "Delete", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#cbd5e1" }))))))))
+                (boss || sameUser(r.by, currentUser)) && h("button", { style: { ...S.fuDel, border: "1px solid #fecaca", background: "#fff5f5", borderRadius: 8, padding: "5px 7px" }, title: "删除这张收据", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#ef4444" }))))))))
       ];
     })());
 }
