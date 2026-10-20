@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v217"));
+    h("div", { className: "sb-ver" }, "v218"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5582,7 +5582,7 @@ function ReceiptPage({ currentUser, clients }) {
     const same = items.filter(x => x.id !== r.id && String(x.from || "").trim().toUpperCase() === String(r.from || "").trim().toUpperCase());
     const all = same.length && window.confirm("还有 " + same.length + " 张收据也是「" + String(r.from || "").toUpperCase() + "」，要一起改成「" + nv + "」吗？");
     save(items.map(x => x.id === r.id || (all && same.includes(x)) ? { ...x, from: nv } : x)); };
-  const blank = () => ({ date: today(), from: "", amount: "", atm: false });
+  const blank = () => ({ date: today(), from: "", amount: "", atm: false, paid: false });
   const [f, setF] = React.useState(blank());
   const [q, setQ] = React.useState("");
   const [copied, setCopied] = React.useState("");
@@ -5598,7 +5598,7 @@ function ReceiptPage({ currentUser, clients }) {
     if (andPrint) printReceipt(r);
   };
   const del = r => { if (window.confirm("删除「" + (r.from || "") + "」的收据？")) save(items.filter(x => x.id !== r.id)); };
-  const shown = items.filter(x => !q || [x.no, x.from, x.ic, x.for, x.by].join(" ").toLowerCase().includes(q.toLowerCase())).filter(x => !paidF || (paidF === "paid" ? x.checked : !x.checked));
+  const shown = items.filter(x => !q || [x.no, x.from, x.ic, x.for, x.by].join(" ").toLowerCase().includes(q.toLowerCase())).filter(x => !paidF || (paidF === "paid" ? x.paid : !x.paid));
   const card = { background: "rgba(255,255,255,.94)", borderRadius: 16, padding: "16px 18px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 14 };
   const inp = { width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#fff" };
   const fld = (label, el, span) => h("div", { style: { gridColumn: span ? "span " + span : undefined } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 5 } }, label), el);
@@ -5612,7 +5612,8 @@ function ReceiptPage({ currentUser, clients }) {
           h("datalist", { id: "rc-bs-names" }, bsNames.map(n => h("option", { key: n, value: n }))))),
         fld("AMOUNT (RM)", h("input", { style: { ...inp, fontWeight: 800 }, inputMode: "decimal", value: f.amount, onChange: e => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") }), onKeyDown: e => e.key === "Enter" && create(false) })),
         fld("PAYMENT", h("label", { style: { ...inp, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 800, color: f.atm ? "#fff" : "#475569", background: f.atm ? "linear-gradient(135deg,#0ea5e9,#2563eb)" : "#fff", borderColor: f.atm ? "#2563eb" : "#e2e8f0", userSelect: "none" } },
-          h("input", { type: "checkbox", checked: !!f.atm, onChange: e => setF({ ...f, atm: e.target.checked }), style: { width: 16, height: 16, accentColor: "#2563eb", cursor: "pointer" } }), "🏧 ATM Withdraw"))),
+          h("input", { type: "checkbox", checked: !!f.atm, onChange: e => setF({ ...f, atm: e.target.checked }), style: { width: 16, height: 16, accentColor: "#2563eb", cursor: "pointer" } }), "🏧 ATM Withdraw")),
+        fld("已付 / 未付", h("select", { value: f.paid ? "paid" : "unpaid", onChange: e => setF({ ...f, paid: e.target.value === "paid" }), style: { ...inp, fontWeight: 900, color: f.paid ? "#15803d" : "#b91c1c", background: f.paid ? "#dcfce7" : "#fef2f2" } }, h("option", { value: "unpaid" }, "未付"), h("option", { value: "paid" }, "✓ 已付")))),
       amtN > 0 && h("div", { style: { marginTop: 10, fontSize: 13, color: "#475569", fontStyle: "italic" } }, rmWords(amtN)),
       h("div", { style: { display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" } },
         h("button", { onClick: () => create(false), style: { border: "1px solid #c7d2fe", background: "#fff", color: "#4f46e5", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "保存"),
@@ -5636,15 +5637,15 @@ function ReceiptPage({ currentUser, clients }) {
             h("div", { style: { fontSize: 11, fontWeight: 800, color: "#a16207" } }, "TOTAL"),
             h("div", { style: { fontSize: 20, fontWeight: 900, color: "#713f12" } }, rcRM(g.total))),
           h("div", { style: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
-            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#15803d" } }, "✓ 已付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#14532d" } }, rcRM(g.rows.filter(x => x.checked).reduce((t, x) => t + rcNum(x.amount), 0)))),
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#15803d" } }, "✓ 已付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#14532d" } }, rcRM(g.rows.filter(x => x.paid).reduce((t, x) => t + rcNum(x.amount), 0)))),
           h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
-            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c" } }, "未付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#991b1b" } }, rcRM(g.rows.filter(x => !x.checked).reduce((t, x) => t + rcNum(x.amount), 0)))),
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c" } }, "未付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#991b1b" } }, rcRM(g.rows.filter(x => !x.paid).reduce((t, x) => t + rcNum(x.amount), 0)))),
           h("span", { style: { flex: 1 } }),
           [["", "全部"], ["unpaid", "未付"], ["paid", "✓ 已付"]].map(([k, t]) => h("button", { key: "pf" + k, onClick: () => setPaidF(k), style: { border: paidF === k ? "2px solid #6366f1" : "1px solid #e2e8f0", background: paidF === k ? "#eef2ff" : "#fff", color: paidF === k ? "#3730a3" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, t)),
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
-          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "By", "已付"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "已付 / 未付", "By", "✓"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
           h("tbody", null, list === null ? tdEmpty("载入中…") : !g ? tdEmpty(items.length ? "找不到" : "还没有 Boss Take") :
             g.rows.map(r => h("tr", { key: r.id },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
@@ -5652,6 +5653,9 @@ function ReceiptPage({ currentUser, clients }) {
                 r.atm && h("button", { onClick: () => { if (window.confirm("取消 ATM Withdraw？")) save(items.map(x => x.id === r.id ? { ...x, atm: false, method: x.method === "ATM Withdraw" ? "" : x.method } : x)); }, title: "ATM Withdraw（按一下取消）", style: { marginLeft: 8, verticalAlign: "middle", border: "1px solid " + (r.atm ? "#2563eb" : "#e2e8f0"), background: r.atm ? "#2563eb" : "#fff", color: r.atm ? "#fff" : "#cbd5e1", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer" } }, "🏧 ATM"),
                 r.ic && h("div", { style: { fontSize: 11.5, color: "#94a3b8" } }, r.ic)),
               h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, rcRM(rcNum(r.amount))),
+              h("td", { style: S.td }, h("select", { value: r.paid ? "paid" : "unpaid", onChange: e => save(items.map(x => x.id === r.id ? { ...x, paid: e.target.value === "paid", paidAt: e.target.value === "paid" ? today() : null, paidBy: e.target.value === "paid" ? canonUser(currentUser) : null } : x)),
+                style: { border: "1px solid " + (r.paid ? "#86efac" : "#fecaca"), background: r.paid ? "#dcfce7" : "#fef2f2", color: r.paid ? "#15803d" : "#b91c1c", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12.5, fontFamily: "inherit", cursor: "pointer" } },
+                h("option", { value: "unpaid" }, "未付"), h("option", { value: "paid" }, "✓ 已付"))),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
