@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v210"));
+    h("div", { className: "sb-ver" }, "v211"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5182,17 +5182,25 @@ function crmFireworks(label, sub) {
 
 /* 烟花声音（自己合成，不靠音效开关） */
 function crmFireSound() {
+  /* 🎰 中 Jackpot 的声音：叮叮叮铃声 + 一大堆金币掉下来 + 胜利号角 */
   try {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const ac = window.__crmFireAC || (window.__crmFireAC = new AC()); if (ac.state === "suspended") ac.resume();
-    const now = ac.currentTime, out = ac.createGain(); out.gain.value = .55; out.connect(ac.destination);
-    const noiseBuf = (() => { const b = ac.createBuffer(1, ac.sampleRate * 1.2, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })();
-    const bang = t => { const n = ac.createBufferSource(); n.buffer = noiseBuf; const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t + .8);
-      const g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(1, t + .01); g.gain.exponentialRampToValueAtTime(.001, t + 1); n.connect(f); f.connect(g); g.connect(out); n.start(t); n.stop(t + 1.1);
-      const cr = ac.createBufferSource(); cr.buffer = noiseBuf; const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 5000; const g2 = ac.createGain(); g2.gain.setValueAtTime(.0001, t + .15); g2.gain.exponentialRampToValueAtTime(.35, t + .2); g2.gain.exponentialRampToValueAtTime(.001, t + 1.1); cr.connect(hp); hp.connect(g2); g2.connect(out); cr.start(t + .15); cr.stop(t + 1.2); };
-    const whistle = (t, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "sine"; o.frequency.setValueAtTime(600, t); o.frequency.exponentialRampToValueAtTime(2200, t + d); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .05); g.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + .05); };
-    for (let k = 0; k < 7; k++) { const t = now + k * .26; whistle(t, .45); bang(t + .5); }
-    [523.25, 659.25, 783.99, 1046.5].forEach((fq, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle"; o.frequency.value = fq; const t = now + .1 + i * .12; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.25, t + .02); g.gain.exponentialRampToValueAtTime(.001, t + .9); o.connect(g); g.connect(out); o.start(t); o.stop(t + 1); });
+    const now = ac.currentTime + .05, out = ac.createGain(); out.gain.value = .5; out.connect(ac.destination);
+    const comp = ac.createDynamicsCompressor(); comp.connect(out);
+    const tone = (f, t, d, type, vol, bend) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = type || "square"; o.frequency.setValueAtTime(f, t); if (bend) o.frequency.exponentialRampToValueAtTime(f * bend, t + d);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol || .2, t + .008); g.gain.exponentialRampToValueAtTime(.0008, t + d); o.connect(g); g.connect(comp); o.start(t); o.stop(t + d + .02); };
+    const bell = (f, t, vol) => { tone(f, t, .9, "sine", vol || .25); tone(f * 2.76, t, .5, "sine", (vol || .25) * .35); tone(f * 5.4, t, .25, "sine", (vol || .25) * .15); };
+    const coin = (t, base) => { tone(base, t, .07, "square", .09); tone(base * 1.335, t + .065, .28, "square", .09); };
+    /* 1. 老虎机叮叮叮（越来越快） */
+    let t = now; for (let i = 0; i < 10; i++) { bell(1568 + (i % 2) * 220, t, .18); t += Math.max(.06, .16 - i * .012); }
+    /* 2. 胜利号角 C-E-G-C ... */
+    const fan = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5]; const fd = [.12, .12, .12, .22, .1, .14, .7];
+    let ft = t + .05; fan.forEach((f, i) => { tone(f, ft, fd[i] + .05, "sawtooth", .12); tone(f / 2, ft, fd[i] + .05, "square", .06); ft += fd[i]; });
+    /* 3. 金币哗啦啦掉下来 */
+    for (let i = 0; i < 38; i++) { const ct = t + .1 + i * .055 + Math.random() * .03; coin(ct, 1800 + Math.random() * 900); }
+    /* 4. 最后一声大铃 */
+    bell(2093, ft - .55, .3); bell(2637, ft - .5, .22);
   } catch (e) {}
 }
 /* 广播给全部人：写进云端 crm_celebrate，每个人的 CelebrateWatcher 看到就放烟花 */
