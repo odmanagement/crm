@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v208"));
+    h("div", { className: "sb-ver" }, "v209"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5141,6 +5141,41 @@ function BsBackdate({ name, init, onSave, onClose }) {
         h("button", { onClick: () => { if (window.confirm("清除 BACKDATE？")) { onSave(null); onClose(); } }, style: { marginRight: "auto", border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "9px 14px", fontWeight: 800, cursor: "pointer" } }, "🗑 删除"),
         h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
         h("button", { onClick: () => { onSave(b); onClose(); }, style: { border: "none", background: "linear-gradient(135deg,#7c3aed,#6b21a8)", color: "#fff", borderRadius: 10, padding: "9px 22px", fontWeight: 900, cursor: "pointer" } }, "💾 保存"))));
+}
+
+/* 🎉 烟花特效（Personal Loan 银行 Approve 时） */
+function crmFireworks(label) {
+  try {
+    const cv = document.createElement("canvas"), W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr;
+    Object.assign(cv.style, { position: "fixed", inset: "0", width: W + "px", height: H + "px", pointerEvents: "none", zIndex: 100000 });
+    document.body.appendChild(cv);
+    const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
+    const COLS = ["#f43f5e", "#f59e0b", "#facc15", "#22c55e", "#06b6d4", "#6366f1", "#ec4899", "#ffffff"];
+    const parts = [], rockets = [];
+    const burst = (x, y) => { const c1 = COLS[Math.random() * COLS.length | 0], c2 = COLS[Math.random() * COLS.length | 0];
+      for (let i = 0; i < 70; i++) { const a = Math.PI * 2 * i / 70 + Math.random() * .1, sp = 2 + Math.random() * 4.5; parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 60 + Math.random() * 30, age: 0, c: i % 2 ? c1 : c2, r: 2 + Math.random() * 1.6 }); } };
+    for (let k = 0; k < 7; k++) setTimeout(() => rockets.push({ x: W * (.15 + Math.random() * .7), y: H, vy: -(9 + Math.random() * 4), ty: H * (.18 + Math.random() * .3) }), k * 260);
+    for (let i = 0; i < 120; i++) parts.push({ x: W / 2 + (Math.random() - .5) * 200, y: -20 - Math.random() * 200, vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, life: 160, age: 0, c: COLS[i % COLS.length], r: 3, conf: true, rot: Math.random() * 6 });
+    const tag = document.createElement("div");
+    tag.textContent = "🎉 " + (label || "APPROVED!") + " 🎉";
+    Object.assign(tag.style, { position: "fixed", left: "50%", top: "38%", transform: "translate(-50%,-50%) scale(.3)", zIndex: 100001, pointerEvents: "none", fontSize: "44px", fontWeight: "900", color: "#fff", textShadow: "0 4px 24px rgba(236,72,153,.8), 0 0 2px #000", background: "linear-gradient(135deg,#22c55e,#16a34a)", padding: "14px 30px", borderRadius: "999px", boxShadow: "0 20px 60px -10px rgba(22,163,74,.7)", transition: "transform .5s cubic-bezier(.2,1.6,.4,1), opacity .6s", opacity: "1", whiteSpace: "nowrap" });
+    document.body.appendChild(tag); requestAnimationFrame(() => { tag.style.transform = "translate(-50%,-50%) scale(1)"; });
+    setTimeout(() => { tag.style.opacity = "0"; }, 2200); setTimeout(() => tag.remove(), 2900);
+    try { monetSfx("allDone"); } catch (e) {}
+    let t0 = performance.now();
+    const step = now => {
+      ctx.clearRect(0, 0, W, H);
+      for (let i = rockets.length - 1; i >= 0; i--) { const r = rockets[i]; r.y += r.vy; r.vy *= .985; ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.arc(r.x, r.y, 3, 0, 7); ctx.fill(); if (r.y <= r.ty) { burst(r.x, r.y); rockets.splice(i, 1); } }
+      for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.age++; p.x += p.vx; p.y += p.vy; p.vy += p.conf ? .03 : .06; p.vx *= .985;
+        const a = Math.max(0, 1 - p.age / p.life); if (a <= 0) { parts.splice(i, 1); continue; }
+        ctx.globalAlpha = a; ctx.fillStyle = p.c;
+        if (p.conf) { p.rot += .15; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-4, -2, 8, 4); ctx.restore(); } else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); } }
+      ctx.globalAlpha = 1;
+      if (now - t0 < 4500 && (parts.length || rockets.length)) requestAnimationFrame(step); else cv.remove();
+    };
+    requestAnimationFrame(step);
+  } catch (e) {}
 }
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel }) {
@@ -10092,7 +10127,7 @@ function LoanBlock({
       ...bankStatusStyle(b.status)
     },
     value: b.status,
-    onChange: e => setBankV(i, b, "status", e.target.value)
+    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && loan.type === "personal") crmFireworks("APPROVED · " + String(b.bank || "").toUpperCase()); setBankV(i, b, "status", e.target.value); }
   }, b._v && /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
@@ -10380,7 +10415,7 @@ function LoanForm({
       flex: 2
     },
     value: b.status,
-    onChange: e => setBank(i, "status", e.target.value)
+    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && l.type === "personal") crmFireworks("APPROVED · " + String(b.bank || "").toUpperCase()); setBank(i, "status", e.target.value); }
   }, /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
