@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v211"));
+    h("div", { className: "sb-ver" }, "v212"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5212,10 +5212,23 @@ async function crmCelebrate(info) {
     await DB.set("crm_celebrate", JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "crm_celebrate", next } })); } catch (e) {} } catch (e) {}
 }
 function CelebrateWatcher() {
-  const [list] = useCloudList("crm_celebrate");
-  const start = React.useRef(Date.now());
+  const [list, setList] = React.useState(null);
+  const first = React.useRef(true);
+  /* 三种方法收：Realtime 推送、本机事件、每 10 秒自己去云端看一次（Realtime 断线也收得到） */
+  React.useEffect(() => {
+    let alive = true;
+    const load = () => DB.get("crm_celebrate").then(v => { if (alive && v) { try { setList(JSON.parse(v)); } catch (e) {} } else if (alive && first.current) setList([]); }).catch(() => {});
+    load(); const t = setInterval(load, 10000);
+    const un = DB.subscribe((k, v) => { if (k === "crm_celebrate" && v) { try { setList(JSON.parse(v)); } catch (e) {} } });
+    const f = e => { if (e.detail && e.detail.key === "crm_celebrate") setList(e.detail.next); };
+    window.addEventListener("crm-cloudlist", f);
+    const vis = () => { if (!document.hidden) load(); }; document.addEventListener("visibilitychange", vis);
+    return () => { alive = false; clearInterval(t); un && un(); window.removeEventListener("crm-cloudlist", f); document.removeEventListener("visibilitychange", vis); };
+  }, []);
   React.useEffect(() => { if (!Array.isArray(list)) return; const seen = window.__celebSeen = window.__celebSeen || new Set();
-    list.filter(e => e && e.at > start.current - 3000 && !seen.has(e.id)).reverse().forEach((e, i) => { seen.add(e.id); setTimeout(() => crmFireworks(e.label, e.sub), i * 4000); }); }, [list]);
+    if (first.current) { first.current = false; list.forEach(e => e && seen.add(e.id)); return; }   /* 打开 CRM 之前的不补放 */
+    list.filter(e => e && !seen.has(e.id) && Date.now() - (e.at || 0) < 5 * 60 * 1000).reverse().forEach((e, i) => { seen.add(e.id); setTimeout(() => crmFireworks(e.label, e.sub), i * 4000); });
+    list.forEach(e => e && seen.add(e.id)); }, [list]);
   return null;
 }
 const crmLoanLabel = t => ({ personal: "PERSONAL LOAN", car: "CAR LOAN", house: "HOUSE LOAN" }[t] || String(t || "LOAN").toUpperCase() + " LOAN");
