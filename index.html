@@ -3753,7 +3753,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v219"));
+    h("div", { className: "sb-ver" }, "v220"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5592,7 +5592,7 @@ function ReceiptPage({ currentUser, clients }) {
   const create = (andPrint) => {
     if (!f.from.trim()) { alert("请填名字"); return; }
     if (!(Number(String(f.amount).replace(/,/g, "")) > 0)) { alert("请填金额"); return; }
-    const r = { id: uid(), no: nextNo(), ...f, from: f.from.trim(), amount: String(f.amount).replace(/,/g, ""), method: f.atm ? "ATM Withdraw" : "", by: me, at: Date.now() };
+    const r = { id: uid(), no: nextNo(), ...f, from: f.from.trim(), amount: String(f.amount).replace(/,/g, ""), method: f.atm ? (f.atmType === "transfer" ? "ATM Transfer" : "ATM Withdraw") : "", by: me, at: Date.now() };
     save([r, ...items]); monetSfx("create");
     setF(blank());
     if (andPrint) printReceipt(r);
@@ -5611,8 +5611,9 @@ function ReceiptPage({ currentUser, clients }) {
         fld("NAME", h(React.Fragment, null, h("input", { style: inp, list: "rc-bs-names", placeholder: "打字会出 Bank Statement 的名字", value: f.from, onChange: e => setF({ ...f, from: e.target.value.toUpperCase() }) }),
           h("datalist", { id: "rc-bs-names" }, bsNames.map(n => h("option", { key: n, value: n }))))),
         fld("AMOUNT (RM)", h("input", { style: { ...inp, fontWeight: 800 }, inputMode: "decimal", value: f.amount, onChange: e => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") }), onKeyDown: e => e.key === "Enter" && create(false) })),
-        fld("PAYMENT", h("label", { style: { ...inp, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 800, color: f.atm ? "#fff" : "#475569", background: f.atm ? "linear-gradient(135deg,#0ea5e9,#2563eb)" : "#fff", borderColor: f.atm ? "#2563eb" : "#e2e8f0", userSelect: "none" } },
-          h("input", { type: "checkbox", checked: !!f.atm, onChange: e => setF({ ...f, atm: e.target.checked }), style: { width: 16, height: 16, accentColor: "#2563eb", cursor: "pointer" } }), "🏧 ATM Withdraw")),
+        fld("PAYMENT", h("select", { value: f.atm ? (f.atmType || "withdraw") : "", onChange: e => setF({ ...f, atm: !!e.target.value, atmType: e.target.value || "" }),
+          style: { ...inp, fontWeight: 800, color: f.atm ? "#fff" : "#475569", background: f.atm ? "linear-gradient(135deg,#0ea5e9,#2563eb)" : "#fff", borderColor: f.atm ? "#2563eb" : "#e2e8f0", cursor: "pointer" } },
+          h("option", { value: "", style: { color: "#475569", background: "#fff" } }, "— 不是 ATM —"), h("option", { value: "withdraw", style: { color: "#111", background: "#fff" } }, "🏧 ATM Withdraw"), h("option", { value: "transfer", style: { color: "#111", background: "#fff" } }, "🏧 ATM Transfer"))),
         fld("已付 / 未付", h("select", { value: f.paid ? "paid" : "unpaid", onChange: e => setF({ ...f, paid: e.target.value === "paid" }), style: { ...inp, fontWeight: 900, color: f.paid ? "#15803d" : "#b91c1c", background: f.paid ? "#dcfce7" : "#fef2f2" } }, h("option", { value: "unpaid" }, "未付"), h("option", { value: "paid" }, "✓ 已付")))),
       amtN > 0 && h("div", { style: { marginTop: 10, fontSize: 13, color: "#475569", fontStyle: "italic" } }, rmWords(amtN)),
       h("div", { style: { display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" } },
@@ -5652,7 +5653,11 @@ function ReceiptPage({ currentUser, clients }) {
             g.rows.map(r => h("tr", { key: r.id },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
               h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), (boss || sameUser(r.by, currentUser)) && h("button", { onClick: () => renameRc(r), title: "改名字", style: { marginLeft: 6, border: "none", background: "none", cursor: "pointer", color: "#94a3b8", fontSize: 12, padding: 0 } }, "✎"),
-                r.atm && h("button", { onClick: () => { if (window.confirm("取消 ATM Withdraw？")) save(items.map(x => x.id === r.id ? { ...x, atm: false, method: x.method === "ATM Withdraw" ? "" : x.method } : x)); }, title: "ATM Withdraw（按一下取消）", style: { marginLeft: 8, verticalAlign: "middle", border: "1px solid " + (r.atm ? "#2563eb" : "#e2e8f0"), background: r.atm ? "#2563eb" : "#fff", color: r.atm ? "#fff" : "#cbd5e1", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer" } }, "🏧 ATM"),
+                r.atm && ((boss || sameUser(r.by, currentUser)) ? h("select", { value: r.method === "ATM Transfer" ? "transfer" : "withdraw", title: "ATM Withdraw / ATM Transfer（选「取消」= 不是 ATM）",
+                  onChange: e => { const v = e.target.value; if (v === "none") { if (window.confirm("取消 ATM？")) save(items.map(x => x.id === r.id ? { ...x, atm: false, method: /^ATM/.test(x.method || "") ? "" : x.method } : x)); return; } save(items.map(x => x.id === r.id ? { ...x, atm: true, method: v === "transfer" ? "ATM Transfer" : "ATM Withdraw" } : x)); },
+                  style: { marginLeft: 8, verticalAlign: "middle", border: "1px solid #2563eb", background: "#2563eb", color: "#fff", borderRadius: 999, padding: "2px 6px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } },
+                  h("option", { value: "withdraw", style: { color: "#111", background: "#fff" } }, "🏧 ATM WITHDRAW"), h("option", { value: "transfer", style: { color: "#111", background: "#fff" } }, "🏧 ATM TRANSFER"), h("option", { value: "none", style: { color: "#dc2626", background: "#fff" } }, "✕ 取消 ATM"))
+                  : h("span", { style: { marginLeft: 8, verticalAlign: "middle", background: "#2563eb", color: "#fff", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 800 } }, r.method === "ATM Transfer" ? "🏧 ATM TRANSFER" : "🏧 ATM WITHDRAW")),
                 r.ic && h("div", { style: { fontSize: 11.5, color: "#94a3b8" } }, r.ic)),
               h("td", { style: { ...S.td, ...S.tdNum, fontWeight: 900 } }, rcRM(rcNum(r.amount))),
               h("td", { style: S.td }, h("select", { value: r.paid ? "paid" : "unpaid", onChange: e => save(items.map(x => x.id === r.id ? { ...x, paid: e.target.value === "paid", paidAt: e.target.value === "paid" ? today() : null, paidBy: e.target.value === "paid" ? canonUser(currentUser) : null } : x)),
