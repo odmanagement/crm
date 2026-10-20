@@ -1490,6 +1490,8 @@ const COSTING_TOOLS = [{
   grp: "costing_car"
 }];
 /* OD Payment：自动从 Lending Fee 拿资料 —— (A) Settlement 每一项 + 给客户的 TOTAL TO BANK（银行 + 户口）；每一项可以打勾「已付」 */
+/* OD Payment 有人 + Add Payment 时要通知的人 */
+const OD_PAY_NOTIFY = ["chialing"];
 function ODPaymentPage({ currentUser }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -1508,7 +1510,7 @@ function ODPaymentPage({ currentUser }) {
   const mSave = () => {
     const d = mForm; if (!String(d.name || "").trim()) { alert("请填 Name"); return; } if (!lsNum(d.amount)) { alert("请填 RM 数目"); return; }
     const rec = { ...d, name: String(d.name).trim().toUpperCase(), remark: String(d.remark || "").trim(), acc: String(d.acc || "").trim(), amount: lsNum(d.amount) };
-    if (rec.id) saveM(mItems.map(m => m.id === rec.id ? { ...m, ...rec } : m)); else saveM([{ ...rec, id: uid(), at: Date.now(), by: me, date: rec.date || today() }, ...mItems]);
+    if (rec.id) saveM(mItems.map(m => m.id === rec.id ? { ...m, ...rec } : m)); else { saveM([{ ...rec, id: uid(), at: Date.now(), by: me, date: rec.date || today() }, ...mItems]); OD_PAY_NOTIFY.forEach(to => { if (sameUser(to, me)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "odpayment", to: canonUser(to), from: me, title: String(me || "").toUpperCase() + " 新增了一笔 OD Payment 💸", task: String(rec.name || "").toUpperCase() + (rec.amount ? " · RM " + lsFmt(lsNum(rec.amount)) : "") + (rec.remark ? " · " + rec.remark : ""), at: Date.now() }); } catch (e) {} }); }
     setMForm(null); monetSfx("create");
   };
   const sidOf = (r, x) => x.id || (r.id + "_" + (x.desc || "") + (x.acc || "") + (x.amount || ""));
@@ -3753,7 +3755,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v222"));
+    h("div", { className: "sb-ver" }, "v223"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
