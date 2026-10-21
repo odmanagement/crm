@@ -716,7 +716,7 @@ const TYPES = [{
 const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
 const subjectLabel = type => type === "car" ? "Vehicle" : type === "personal" ? "Purpose" : "Property";
 const bankStatusStyle = status => {
-  const c = status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : status === "holdon" ? "#475569" : "#94a3b8";
+  const c = status === "fraud" ? "#7f1d1d" : status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : status === "holdon" ? "#475569" : "#94a3b8";
   return {
     color: c,
     fontWeight: 700,
@@ -3764,7 +3764,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v224"));
+    h("div", { className: "sb-ver" }, "v225"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -8136,7 +8136,8 @@ function ClientsPage({
     return /*#__PURE__*/React.createElement("td", {
       key: bk,
       style: S.td
-    }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+    }, b.status === "fraud" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk fraud" }, "⚠ FRAUD", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
       : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
@@ -8446,7 +8447,8 @@ function TypePage({
     return /*#__PURE__*/React.createElement("td", {
       key: bk,
       style: S.td
-    }, isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+    }, b.status === "fraud" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk fraud" }, "⚠ FRAUD", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : PB_PROGRESS.some(x => x[0] === b.dis) ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pg-" + b.dis, title: (PB_PROGRESS.find(x => x[0] === b.dis) || [])[1] }, (b.amount ? money(b.amount) : String((PB_PROGRESS.find(x => x[0] === b.dis) || [])[1]).toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "disbursed" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk disb" }, "💰 " + (b.amount ? money(b.amount) : "DISBURSED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "holdon" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk hold" }, "⏸ " + (b.amount ? money(b.amount) : "HOLD ON"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
@@ -10288,7 +10290,9 @@ function LoanBlock({
     value: "disbursed"
   }, "Disbursed"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
-  }, "Rejected")), /*#__PURE__*/React.createElement(DebouncedInput, {
+  }, "Rejected"), /*#__PURE__*/React.createElement("option", {
+    value: "fraud"
+  }, "⚠ Fraud")), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: {
       ...S.bankInput,
       width: 90
@@ -10574,7 +10578,9 @@ function LoanForm({
     value: "holdon"
   }, "Hold On"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
-  }, "Rejected")), /*#__PURE__*/React.createElement("input", {
+  }, "Rejected"), /*#__PURE__*/React.createElement("option", {
+    value: "fraud"
+  }, "⚠ Fraud")), /*#__PURE__*/React.createElement("input", {
     style: {
       ...S.input,
       flex: 2
@@ -11412,6 +11418,7 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk.appr small { opacity: .9; }
 .tp-bk.disb small { opacity: .9; }
 .tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
+.tp-bk.fraud { color: #fff; background: linear-gradient(135deg,#7f1d1d,#111827); border: 1px solid #7f1d1d; font-weight: 900; }
 .tp-bk.pend { color: #713f12; background: linear-gradient(135deg,#fef08a,#facc15); border: 1px solid #eab308; flex-direction: row; }
 .tp-bk.sub { color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 700; }
 .tp-table td[style*="text-align: right"] { font-variant-numeric: tabular-nums; font-weight: 700; color: #1e293b; }
