@@ -3764,7 +3764,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v226"));
+    h("div", { className: "sb-ver" }, "v227"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7490,6 +7490,9 @@ function FormsPage({ currentUser, tools, noLib }) {
       const lib = libData && !Array.isArray(libData) ? libData : { cats: [], files: [] };
       const newCats = [];
       let list = (drafts || []).slice(), changed = false;
+      /* 一次性改正：这几份 Car Sales Quotation 是 Alice 建的 */
+      { const FIXOWN = ["GOH SAW HONG", "MUHAMMAD FAIZZUDDIN BIN MOHD FAUZI"], nm = d => String((d.meta && d.meta.client) || d.title || "").trim().toUpperCase().replace(/\s+/g, " ");
+        list = list.map(d => d.file === "CAR_SALES_QUOTATION.html" && FIXOWN.some(n => nm(d).includes(n)) && !sameUser(d.by, "alice") && (d.at || 0) < new Date("2026-10-22").getTime() ? (changed = true, { ...d, by: "alice" }) : d); }
       /* 清掉以前的 bug 造成的重复（同一个表格、同名字、内容一模一样）→ 只留最早那一份（建立的人） */
       { const keep = new Map(), drop = new Set();
         for (let i = list.length - 1; i >= 0; i--) { const d = list[i]; if (!d.native) continue; const k = d.file + "|" + d.title + "|" + JSON.stringify(d.native);
