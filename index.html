@@ -3760,7 +3760,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v239"));
+    h("div", { className: "sb-ver" }, "v240"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7095,14 +7095,17 @@ function nativeDelete(file, label) {
   } catch (e) {}
 }
 /* ---------- Forms：在 CRM 里打开，可以存档 ---------- */
+/* 表格后来新加的格子（有 data-x）不算进位置编号，用自己的 id 存，旧存档才不会错位 */
+const FORM_FIELDS = "input:not([data-x]), textarea:not([data-x]), select:not([data-x])";
 function formReadValues(doc) {
-  const els = Array.from(doc.querySelectorAll("input, textarea, select"));
+  const extra = Array.from(doc.querySelectorAll("[data-x][id]")).map(el => ["@" + el.id, el.type === "checkbox" ? (el.checked ? "1" : "") : el.value]);
+  const els = Array.from(doc.querySelectorAll(FORM_FIELDS));
   return els.map((el, i) => {
     const key = (el.name || el.id || "") + "#" + i;
     if (el.type === "checkbox" || el.type === "radio") return [key, el.checked ? "1" : ""];
     if (el.type === "file" || el.type === "button" || el.type === "submit") return [key, null];
     return [key, el.value];
-  }).filter(x => x[1] !== null).concat(formReadICImages(doc)).concat(formReadDyn(doc));
+  }).filter(x => x[1] !== null).concat(extra).concat(formReadICImages(doc)).concat(formReadDyn(doc));
 }
 /* 会自己加行的表格（例如 Future / Finpro Agreement 的费用行 + Add）：存几行，打开时先把行数补回来，资料才不会错位不见 */
 const FORM_DYN = [{ rows: ".feerow", add: "#btnAddFee", del: ".del" }];
@@ -7170,14 +7173,14 @@ function formWriteValues(doc, values) {
   else try {   /* 旧存档没有记行数：用后面有 id 的格子对位置，推算当时有几行 */
     FORM_DYN.forEach((d, di) => { const btn = doc.querySelector(d.add), rows = doc.querySelectorAll(d.rows); if (!btn || !rows.length) return;
       const per = rows[0].querySelectorAll("input, textarea, select").length || 1;
-      const els = Array.from(doc.querySelectorAll("input, textarea, select")), lastRowEl = Array.from(rows[rows.length - 1].querySelectorAll("input, textarea, select")).pop();
+      const els = Array.from(doc.querySelectorAll(FORM_FIELDS)), lastRowEl = Array.from(rows[rows.length - 1].querySelectorAll("input, textarea, select")).pop();
       const after = els.findIndex(el => el === lastRowEl);
       const probe = els.slice(after + 1).find(el => el.id); if (!probe) return;
       const k = Object.keys(map).find(x => x.startsWith(probe.id + "#")); if (!k) return;
       const delta = parseInt(k.split("#").pop()) - els.indexOf(probe);
       if (delta && delta % per === 0) formFixDyn(doc, JSON.stringify({ [di]: rows.length + delta / per })); });
   } catch (e) {}
-  Array.from(doc.querySelectorAll("input, textarea, select")).forEach((el, i) => {
+  Array.from(doc.querySelectorAll(FORM_FIELDS)).forEach((el, i) => {
     const key = (el.name || el.id || "") + "#" + i;
     if (!(key in map)) return;
     if (el.type === "checkbox" || el.type === "radio") el.checked = map[key] === "1";
@@ -7185,6 +7188,10 @@ function formWriteValues(doc, values) {
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   });
+  Array.from(doc.querySelectorAll("[data-x][id]")).forEach(el => { const k = "@" + el.id; if (!(k in map)) return;
+    if (el.tagName === "SELECT" && map[k] && ![...el.options].some(o => o.value === map[k])) { const o = doc.createElement("option"); o.value = o.textContent = map[k]; el.appendChild(o); }
+    if (el.type === "checkbox") el.checked = map[k] === "1"; else el.value = map[k];
+    el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); });
   if ("__ic_images__" in map) formWriteICImages(doc, map.__ic_images__);
 }
 /* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
@@ -7337,6 +7344,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const isAgree = tools.every(t => /AGREEMENT/i.test(t.file));
   const [pick, setPick] = React.useState(false);
   const [typeF, setTypeF] = React.useState("");
+  const agVal = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
   if (isAgree) return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / admin", value: q, onChange: e => setQ(e.target.value) })),
@@ -7346,11 +7354,13 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
         pick && h("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, background: "#fff", borderRadius: 12, boxShadow: "0 14px 34px -10px rgba(0,0,0,.35)", border: "1px solid #e2e8f0", padding: 6, minWidth: 190 } },
           tools.map(t => { const fu = /FUTURE/i.test(t.file); return h("button", { key: t.file, onClick: () => { setPick(false); onOpen(t, null); }, style: { display: "block", width: "100%", textAlign: "left", border: "none", background: "none", padding: "10px 12px", borderRadius: 8, fontWeight: 900, fontSize: 13.5, cursor: "pointer", color: fu ? "#ea580c" : "#2563eb" } }, (fu ? "🟧 FUTURE" : "🟦 FINPRO") + " Agreement"); })))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["PDF", "Name", "Date", "Admin"].map((x, i) => h("th", { key: i, style: th }, x)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增」，填好按 💾 存档")) :
+      h("thead", null, h("tr", null, ["PDF", "Name", "Agent", "Base", "Date", "Admin"].map((x, i) => h("th", { key: i, style: th }, x)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增」，填好按 💾 存档")) :
         rows.filter(d => !typeF || d.file.toUpperCase().includes(typeF)).map(d => { const t = tools.find(x => x.file === d.file) || {}; return h("tr", { key: d.id },
           h("td", { style: td }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
           h("td", { style: { ...td, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, d.title || "—", h("div", null, h("span", { style: { display: "inline-block", marginTop: 3, borderRadius: 999, padding: "1px 8px", fontSize: 10.5, fontWeight: 900, color: "#fff", background: /FUTURE/i.test(d.file) ? "#ea580c" : "#2563eb" } }, /FUTURE/i.test(d.file) ? "FUTURE" : "FINPRO"))),
+          h("td", { style: { ...td, fontWeight: 800 } }, agVal(d, "@fAgent") || "—"),
+          h("td", { style: td }, agVal(d, "@fBase") ? h("span", { style: { borderRadius: 999, padding: "2px 10px", fontWeight: 800, fontSize: 12, background: "#f5f3ff", color: "#6d28d9", border: "1px solid #c4b5fd" } }, agVal(d, "@fBase")) : "—"),
           h("td", { style: td }, d.at ? new Date(d.at).toLocaleDateString("en-GB") : "—"),
           h("td", { style: { ...td, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase()))); })))));
   return h("div", null,
@@ -8271,6 +8281,7 @@ function DonePdfCell({ loan, onPatch }) {
     canDelLoan(loan, window.__crmUser) && h("button", { onClick: del, title: "删除 PDF", style: { border: "none", background: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 14, padding: 0 } }, "×"));
 }
 const LOAN_BASES = ["ORI", "BUILD", "BD BUILD", "SPECIAL", "RENCAI"];
+window.LOAN_BASES = LOAN_BASES;   /* 给 Agreement 的 Base 选单用 */
 const bankLabel = (k, t) => (bankListFor(t || "personal").find(x => x[0] === k) || PERSONAL_BANKS.find(x => x[0] === k) || CAR_BANKS.find(x => x[0] === k) || [k, k])[1];
 /* 下拉选单的完整银行名单（马来西亚银行 + 数码银行） */
 const BANK_LIST = ["MAYBANK","CIMB","PBB","RHB","HLB","AMBANK","UOB","OCBC","HSBC","STANDARD CHARTERED","AFFIN","ALLIANCE","B.RAKYAT","BSN","BANK ISLAM","MUAMALAT","ALRAJHI","MBSB","AGROBANK","KFH","CITIBANK","GX BANK","AEON BANK","BOOST BANK","AEON CREDIT"];

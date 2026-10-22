@@ -317,6 +317,7 @@
       <select id="fDocType">
         <option value="LAWYER AGREEMENT PDF">LAWYER AGREEMENT PDF</option>
         <option value="BOOKING DATE">BOOKING DATE</option>
+        <option value="NO NEED">NO NEED</option>
       </select>
     </div>
     <div class="fld">
@@ -326,6 +327,14 @@
     <div class="fld">
       <label for="fBookTime">Booking Time</label>
       <input id="fBookTime" type="time" value="">
+    </div>
+    <div class="fld">
+      <label for="fAgent">Agent</label>
+      <select id="fAgent" data-x><option value="">— 选择 —</option></select>
+    </div>
+    <div class="fld">
+      <label for="fBase">Base</label>
+      <select id="fBase" data-x><option value="">— 选择 —</option></select>
     </div>
   </div>
   <div class="ic-ctrl-row">
@@ -881,7 +890,7 @@
       lines.push("BOOKING DATE AND TIME");
       lines.push("DATE: " + fmtBookDate(el('fBookDate').value));
       lines.push("TIME: " + fmtBookTime(el('fBookTime').value));
-    } else {
+    } else if(docType !== "NO NEED"){
       lines.push(docType);
     }
     lines.push("");
@@ -1087,6 +1096,20 @@
   el('fDate').value = todayISO();
   render();
   computeBorrow();
+</script>
+
+<script>
+/* Agent / Base 选单：名单跟 CRM 一样（Agent 可以选「其他」自己打） */
+(function(){
+  var AG = ["alex","steven","vick","fin","candy","edward","nico","anna","gary","darren","davis","celement","br","ivan","kelvin","lee","nick","william","da sheng","bosco","loki","jimmy","elwin","caden","joe","tom","angeline"];
+  var BS = ["ORI","BUILD","BD BUILD","SPECIAL","RENCAI"];
+  try { if (window.parent && window.parent !== window) { if (Array.isArray(window.parent.CLOSING_AGENTS)) AG = window.parent.CLOSING_AGENTS; if (Array.isArray(window.parent.LOAN_BASES)) BS = window.parent.LOAN_BASES; } } catch (e) {}
+  var a = document.getElementById('fAgent'), b = document.getElementById('fBase');
+  if (a) { AG.forEach(function(n){ var o = document.createElement('option'); o.value = o.textContent = String(n).toUpperCase(); a.appendChild(o); });
+    var ot = document.createElement('option'); ot.value = '__other__'; ot.textContent = '＋ 其他…'; a.appendChild(ot);
+    a.addEventListener('change', function(){ if (a.value !== '__other__') return; var n = (prompt('Agent 名字：') || '').trim().toUpperCase(); if (!n) { a.value = ''; return; } if (![].some.call(a.options, function(o){ return o.value === n; })) { var o = document.createElement('option'); o.value = o.textContent = n; a.insertBefore(o, ot); } a.value = n; }); }
+  if (b) BS.forEach(function(n){ var o = document.createElement('option'); o.value = o.textContent = n; b.appendChild(o); });
+})();
 </script>
 </body>
 </html>
