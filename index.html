@@ -1461,6 +1461,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
+const FORM_FILE_VER = "247";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3761,7 +3762,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v246"));
+    h("div", { className: "sb-ver" }, "v247"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7737,7 +7738,7 @@ function FormsPage({ currentUser, tools, noLib }) {
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
           !viewOnly && h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
           h("button", { onClick: tryClose, title: "关闭", style: { border: "none", background: "#f1f5f9", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, h(X, { size: 18, color: "#475569" }))),
-        h("iframe", { ref: frameRef, src: open.tool.url || open.tool.file, onLoad: onFrameLoad, style: { flex: 1, border: "none", width: "100%", background: "#fff" } })),
+        h("iframe", { ref: frameRef, src: open.tool.url || (open.tool.file + "?v=" + FORM_FILE_VER), onLoad: onFrameLoad, style: { flex: 1, border: "none", width: "100%", background: "#fff" } })),
       ask && h("div", { style: { position: "fixed", inset: 0, zIndex: 210, background: "rgba(15,15,40,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
         h("div", { style: { width: "100%", maxWidth: 360, background: "#fff", borderRadius: 18, padding: 22, textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,.3)" } },
           h("div", { style: { fontSize: 36 } }, "💾"),
@@ -8313,7 +8314,7 @@ const BASE_LEGACY = { ORI: "Ori", BUILD: "Build", "BD BUILD": "Build", SPECIAL: 
 const baseLabel = b => { if (!b) return ""; const u = String(b).trim().toUpperCase(); return BASE_LEGACY[u] || String(b); };
 const baseType = b => SUB_TYPES.find(y => y[1] === baseLabel(b));
 const baseHue = b => { const t = baseType(b); return t ? t[2] : 262; };
-const basePill = (b, title) => b ? React.createElement("span", { title: title || "", style: czPill(baseHue(b), { padding: "3px 10px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", display: "inline-block" }) }, baseLabel(b)) : React.createElement("span", { style: { color: "#cbd5e1" } }, "—");
+const basePill = (b, title) => b ? React.createElement("span", { title: title || "", style: czPill(baseHue(b), { padding: "3px 10px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", display: "inline-block" }) }, baseLabel(b).toUpperCase()) : React.createElement("span", { style: { color: "#cbd5e1" } }, "—");
 window.baseLabel = baseLabel;
 window.LOAN_BASES = LOAN_BASES;   /* 给 Agreement 的 Base 选单用 */
 const bankLabel = (k, t) => (bankListFor(t || "personal").find(x => x[0] === k) || PERSONAL_BANKS.find(x => x[0] === k) || CAR_BANKS.find(x => x[0] === k) || [k, k])[1];
@@ -8929,7 +8930,7 @@ function VerifyPage({
         disabled: !canEditV(v),
         onChange: e => save({ ...v, base: e.target.value }),
         style: { padding: "4px 6px", borderRadius: 8, border: "1px solid " + (v.base ? "hsl(" + baseHue(v.base) + ",80%,86%)" : "#e2e8f0"), background: v.base ? "hsl(" + baseHue(v.base) + ",90%,95%)" : "#fff", color: v.base ? "hsl(" + baseHue(v.base) + ",65%,38%)" : "#94a3b8", fontWeight: 800, fontSize: 12, cursor: canEditV(v) ? "pointer" : "default", fontFamily: "inherit", opacity: 1 }
-      }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), LOAN_BASES.map(b => /*#__PURE__*/React.createElement("option", { key: b, value: b }, b)))),
+      }, /*#__PURE__*/React.createElement("option", { value: "" }, "—"), LOAN_BASES.map(b => /*#__PURE__*/React.createElement("option", { key: b, value: b }, b.toUpperCase())))),
       /*#__PURE__*/React.createElement("span", { className: "vf-c3" }, /*#__PURE__*/React.createElement("span", { className: "vf-ini" }, String(v.customerName || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?"), /*#__PURE__*/React.createElement("b", null, v.customerName || "—")),
       /*#__PURE__*/React.createElement("span", { className: "vf-c4" }, v.icNumber ? /*#__PURE__*/React.createElement("span", { className: "vf-ic" }, fmtIC(v.icNumber)) : "—"),
       /*#__PURE__*/React.createElement("span", { className: "vf-c5" }, v.companyName || "—"),
