@@ -3427,7 +3427,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
-  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -3536,7 +3536,19 @@ const PERSON_HUE = { money: 50, lucas: 215, vv: 330, alice: 140 };
 const PERSON_LIGHT = { money: true };
 const czIsLight = n => !!PERSON_LIGHT[typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase()];
 const czHue = n => { const k = typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase(); if (k in PERSON_HUE) return PERSON_HUE[k]; const others = (typeof MISSION_PEOPLE !== "undefined" ? MISSION_PEOPLE : []).filter(x => !(x in PERSON_HUE)); const ix = others.indexOf(k); if (ix >= 0) return CZ_HUES[ix % CZ_HUES.length]; return CZ_HUES[String(n || "?").split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % CZ_HUES.length]; };
-const czAvatar = (n, size = 28) => React.createElement("span", { style: { width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, color: czIsLight(n) ? "#854d0e" : "#fff", textTransform: "uppercase", background: czIsLight(n) ? "linear-gradient(135deg,hsl(" + czHue(n) + ",100%,85%),hsl(" + czHue(n) + ",95%,70%))" : "linear-gradient(135deg,hsl(" + czHue(n) + ",85%,62%),hsl(" + czHue(n) + ",80%,46%))", boxShadow: "0 3px 8px hsla(" + czHue(n) + ",70%,50%,.35)" } }, String(n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?");
+/* 头像：有上传照片就用照片（全部地方一起换） */
+const _avaSubs = new Set(); window.USER_AVATARS = window.USER_AVATARS || {};
+const setUserAvatars = m => { window.USER_AVATARS = m || {}; _avaSubs.forEach(f => { try { f(); } catch (e) {} }); };
+const avaKey = n => (typeof canonUser === "function" ? canonUser(n) : String(n || "").toLowerCase());
+function CzAva({ n, size }) {
+  const [, f] = React.useState(0);
+  React.useEffect(() => { const cb = () => f(x => x + 1); _avaSubs.add(cb); return () => { _avaSubs.delete(cb); }; }, []);
+  const img = window.USER_AVATARS[avaKey(n)];
+  const st = { width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, color: czIsLight(n) ? "#854d0e" : "#fff", textTransform: "uppercase", background: czIsLight(n) ? "linear-gradient(135deg,hsl(" + czHue(n) + ",100%,85%),hsl(" + czHue(n) + ",95%,70%))" : "linear-gradient(135deg,hsl(" + czHue(n) + ",85%,62%),hsl(" + czHue(n) + ",80%,46%))", boxShadow: "0 3px 8px hsla(" + czHue(n) + ",70%,50%,.35)" };
+  if (img) return React.createElement("span", { style: { ...st, overflow: "hidden", padding: 0 } }, React.createElement("img", { src: img, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", display: "block" } }));
+  return React.createElement("span", { style: st }, String(n || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("") || "?");
+}
+const czAvatar = (n, size = 28) => React.createElement(CzAva, { n, size });
 const czPill = (hue, extra) => ({ background: "hsl(" + hue + ",90%,95%)", color: "hsl(" + hue + ",65%,38%)", border: "1px solid hsl(" + hue + ",80%,86%)", borderRadius: 999, fontWeight: 700, padding: "5px 12px", ...(extra || {}) });
 const CZ_BANK = { MUAMALAT: 340, BSN: 210, "BANK RAKYAT": 225, "B.RAKYAT": 225, RAKYAT: 225, PBB: 0, "PUBLIC BANK": 0, MAYBANK: 45, CIMB: 355, RHB: 200, "BANK ISLAM": 320, ALRAJHI: 190, "AL RAJHI": 190, HLB: 215, "HONG LEONG": 215, AMBANK: 5, MBSB: 160, AFFIN: 230, OCBC: 0, UOB: 230, AGRO: 120, "AGRO BANK": 120 };
 const czBankHue = b => { const k = String(b || "").trim().toUpperCase(); return k in CZ_BANK ? CZ_BANK[k] : czHue(k); };
@@ -3741,10 +3753,14 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const h = React.createElement;
   const me = canonUser(currentUser);
   const role = ROLE_LABELS[me] || "Staff";
+  const [avaList, saveAva] = useCloudList("user_avatars");
   const items = NAV.filter(n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)) && !((n.id === "bankstmt" || n.id === "bankstmt2" || n.id === "bsreturn") && READONLY_USERS.includes(me)));
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
-      h("div", { className: "sb-ava" }, czAvatar(currentUser || "?", 64)),
+      h("div", { className: "sb-ava", title: "按一下换头像", style: { cursor: "pointer", position: "relative" }, onClick: () => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.onchange = async () => { const fl = i.files && i.files[0]; if (!fl) return; try { const img = await avaResize(fl); saveAva([...(avaList || []).filter(x => x && x.id !== me), { id: me, img, at: Date.now() }]); } catch (e) { alert("这张照片读不到，换一张试试"); } }; i.click(); } },
+        czAvatar(currentUser || "?", 64),
+        h("i", { className: "sb-ava-cam" }, "📷"),
+        (window.USER_AVATARS || {})[me] && h("i", { className: "sb-ava-del", title: "删除头像", onClick: e => { e.stopPropagation(); if (confirm("删除头像，换回字母？")) saveAva((avaList || []).filter(x => x && x.id !== me)); } }, "×")),
       h("div", { className: "sb-role" }, role),
       h("div", { className: "sb-name" }, String(currentUser || "").toUpperCase())),
     h("div", { className: "sb-list" },
@@ -3765,7 +3781,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v248"));
+    h("div", { className: "sb-ver" }, "v249"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5259,6 +5275,14 @@ async function crmAddAgent() {
   if (!CLOSING_AGENTS.includes(k)) { CLOSING_AGENTS.push(k);
     try { const raw = await DB.get("closing_agents_extra"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) {} if (!cur.includes(k)) { const next = [...cur, k]; await DB.set("closing_agents_extra", JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "closing_agents_extra", next } })); } catch (e) {} } } catch (e) {} }
   return k;
+}
+function AvatarsLoader() {   /* 每个人上传的头像 */
+  const [list] = useCloudList("user_avatars");
+  React.useEffect(() => { if (!list) return; const m = {}; list.forEach(x => { if (x && x.id && x.img) m[x.id] = x.img; }); setUserAvatars(m); }, [list]);
+  return null;
+}
+function avaResize(file) {
+  return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { const S = 220, c = document.createElement("canvas"); c.width = c.height = S; const k = Math.min(im.width, im.height); c.getContext("2d").drawImage(im, (im.width - k) / 2, (im.height - k) / 2, k, k, 0, 0, S, S); ok(c.toDataURL("image/jpeg", .86)); }; im.onerror = no; im.src = r.result; }; r.onerror = no; r.readAsDataURL(file); });
 }
 function AgentsLoader() {   /* Closing 自己加的 Agent，Verify / 其他地方也一起用 */
   const [extra] = useCloudList("closing_agents_extra");
@@ -11239,6 +11263,9 @@ button:active, a:active { transform: scale(.97); }
 .sb-prof { display: flex; flex-direction: column; align-items: center; padding: 6px 0 16px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .sb-ava { padding: 4px; border-radius: 50%; background: linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.1)); box-shadow: 0 8px 22px rgba(0,0,0,.3); }
 .sb-ava > span { border: 3px solid rgba(255,255,255,.85); box-sizing: border-box; }
+.sb-ava .sb-ava-cam { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: none; display: flex; align-items: center; justify-content: center; font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,.3); opacity: 0; transition: opacity .15s; }
+.sb-ava .sb-ava-del { position: absolute; right: -2px; top: -2px; width: 20px; height: 20px; border-radius: 50%; background: #ef4444; color: #fff; border: none; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; opacity: 0; transition: opacity .15s; }
+.sb-ava:hover .sb-ava-cam, .sb-ava:hover .sb-ava-del { opacity: 1; }
 .sb-role { margin-top: 10px; font-size: 12.5px; font-weight: 800; font-style: italic; color: #fb923c; letter-spacing: .04em; text-transform: none !important; }
 .sb-name { margin-top: 2px; font-size: 17px; font-weight: 900; color: #fff; letter-spacing: .04em; }
 .sb-list { display: flex; flex-direction: column; gap: 3px; }
