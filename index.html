@@ -1454,17 +1454,8 @@ const FORMS_TOOLS = [{
   name: "Finpro Agreement",
   file: "FINPRO_AGREEMENT.html"
 }, {
-  name: "Finpro Costing Part",
-  file: "FINPRO_COSTING_PART.html"
-}, {
   name: "Future Agreement",
   file: "FUTURE_AGREEMENT.html"
-}, {
-  name: "Future Costing Part",
-  file: "FUTURE_COSTING_PART.html"
-}, {
-  name: "Leanding Sheet",
-  file: "LEANDING_SHEET.html"
 }, {
   name: "PL Costing",
   file: "PL_COSTING.html"
@@ -3764,7 +3755,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v227"));
+    h("div", { className: "sb-ver" }, "v228"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7190,7 +7181,8 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
   const allCats = lib.cats || [], allFiles = lib.files || [];
   const realFiles = allFiles.filter(f => sameUser(f.by, currentUser));
   const files = realFiles.concat(drafts.map(dr => ({ ...dr, isDraft: true, name: (dr.title || "(未命名)"), sub: dr.form })));
-  const cats = allCats.filter(c => sameUser(c.by, currentUser) || (!c.by && files.some(f => f.cat === c.id)));
+  const LIB_SKIP_CAT = /^(finpro costing part|future costing part|pl costing part|car sales quotation|leanding sheet|lending sheet)$/i;
+  const cats = allCats.filter(c => !(LIB_SKIP_CAT.test(String(c.name || "").trim()) && !files.some(f => f.cat === c.id)) && (sameUser(c.by, currentUser) || (!c.by && files.some(f => f.cat === c.id))));
   const uncats = files.filter(f => !cats.some(c => c.id === f.cat)).length;
   const addCat = () => { const n = window.prompt("新分类名字："); if (!n || !n.trim()) return null; const c = { id: uid(), name: n.trim(), by: canonUser(currentUser) }; save({ ...lib, cats: [...allCats, c] }); return c; };
   const delCat = c => { if (files.some(f => f.cat === c.id)) { alert("这个分类里还有文件，请先移走或删除文件"); return; } if (window.confirm("删除分类「" + c.name + "」？")) { save({ ...lib, cats: allCats.filter(x => x.id !== c.id) }); if (cat === c.id) setCat("all"); } };
@@ -7603,7 +7595,9 @@ function FormsPage({ currentUser, tools, noLib }) {
   const viewOnly = !!(noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || "")));
   const tryClose = () => { if (!viewOnly && dirty()) setAsk(true); else setOpen(null); };
   const delDraft = d => { if (!window.confirm("删除这份存档？")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
-  const mine = (drafts || []).filter(d => sameUser(d.by, currentUser));
+  /* Forms 的文件库：不放 Costing（PL / Car）和 Lending Sheet 的存档，那些在自己的页面 */
+  const LIB_SKIP = ["FINPRO_COSTING_PART.html", "FUTURE_COSTING_PART.html", "PL_COSTING_PART.html", "CAR_SALES_QUOTATION.html", "LEANDING_SHEET.html"];
+  const mine = (drafts || []).filter(d => sameUser(d.by, currentUser) && !LIB_SKIP.includes(d.file));
   const list = mine.filter(d => !q || (d.form + " " + (d.title || "") + " " + d.by).toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.at - a.at);
   const fmtT = t => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   const card = { display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, color: "#0f172a", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" };
