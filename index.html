@@ -3755,7 +3755,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v230"));
+    h("div", { className: "sb-ver" }, "v231"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7269,7 +7269,8 @@ const costMetaFromDoc = d => {
   if (!d.getElementById("clientName") && d.querySelector(".q-name")) {   /* Car Sales Quotation */
     const q = sel => { const el = d.querySelector(sel); return el ? String(el.value || "").trim() : ""; };
     const n = sel => { const t = q(sel); return t === "" ? null : lsNum(t); };
-    return { client: q(".q-name").toUpperCase(), agent: "", subtotal: n(".sum-total"), balance: n(".pa-balance") };
+    let cb = null; d.querySelectorAll(".cb-balance").forEach(el => { const t = String(el.value || "").trim(); if (t !== "") cb = (cb || 0) + lsNum(t); });
+    return { client: q(".q-name").toUpperCase(), agent: "", subtotal: n(".sum-total"), balance: n(".pa-balance"), custBal: cb };
   }
   return { client: v("clientName").toUpperCase(), agent: v("agentName").toUpperCase(), subtotal: num("balHead"), balance: num("balFoot") };
 };
@@ -7301,7 +7302,8 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
   const busy = React.useRef(false);
   React.useEffect(() => {
     if (busy.current) return;
-    const need = allRows.filter(d => !d.meta || d.meta.at !== d.at);
+    const isCar = d => d.file === "CAR_SALES_QUOTATION.html";
+    const need = allRows.filter(d => !d.meta || d.meta.at !== d.at || (isCar(d) && !("custBal" in d.meta)));
     if (!need.length) return;
     busy.current = true;
     (async () => {
@@ -7313,13 +7315,14 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
   }, [allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
   const toggleDone = d => { if (!lfCanEdit(d.by, me)) return; saveDrafts((latest.current || []).map(x => x.id !== d.id ? x : { ...x, done: x.done ? null : { by: me, at: Date.now() } })); monetSfx("save"); };
   const th = S.th, td = S.td;
+  const hasCar = tools.some(t => t.file === "CAR_SALES_QUOTATION.html");
   return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
       tools.filter(t => !t.noAdd).map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 " + (t.file === "CAR_SALES_QUOTATION.html" ? "Quotation" : "Costing")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance", "Admin"].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...th, ...S.thNum } : th }, x)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
+      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance"] : [], ["Admin"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 7 : 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
         rows.map(d => { const m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
           const closed = !ld && m.subtotal != null && m.subtotal > 0.004 && m.balance != null && Math.abs(m.balance) < 0.005;   /* 付清了 = Closing */
           const bg = closed ? { background: "#fce7f3" } : {};
@@ -7329,6 +7332,7 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
             h("td", { style: { ...td, ...bg, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, m.client || d.title || "—", tools.length > 1 && h("div", { style: { fontSize: 11, color: "#94a3b8", fontWeight: 700 } }, t.name)),
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 800 } }, ld ? "…" : m.subtotal != null ? "RM " + lsFmt(m.subtotal) : "—"),
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" } }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
+            hasCar && h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: "#0369a1" } }, ld ? "…" : m.custBal != null ? "RM " + lsFmt(m.custBal) : "—"),
             h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase())));
         })))));
 }
