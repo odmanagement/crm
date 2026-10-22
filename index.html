@@ -1185,7 +1185,10 @@ function ThemeFx({ theme, page }) {
   if (theme === "sky") kids = make(30, (i, a, b, c) => i % 3 === 0
     ? h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 26 + b * 26, animationDuration: 22 + c * 18 + "s", animationDelay: -c * 30 + "s", opacity: .75 } }, "☁️")
     : h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 10 + b * 14, animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s", color: ["#7dd3fc", "#93c5fd", "#a5f3fc", "#bae6fd"][i % 4] } }, ["✦", "●", "💧", "✧"][i % 4]));
-  if (theme === "mono") kids = make(26, (i, a, b, c) => h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 10 + b * 16, animationDuration: 14 + c * 14 + "s", animationDelay: -c * 24 + "s", color: ["#111827", "#6b7280", "#9ca3af", "#d1d5db"][i % 4], opacity: .55 } }, ["✦", "◆", "●", "■"][i % 4]));
+  if (theme === "mono") kids = make(34, (i, a, b, c) => i % 4 === 0
+    ? h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 10 + b * 14, animationDuration: 16 + c * 14 + "s", animationDelay: -c * 24 + "s", color: ["#111111", "#8a8a8a", "#c4c4c4"][i % 3], opacity: .6 } }, ["◆", "✦", "◇"][i % 3])
+    : h("span", { key: i, className: "tf-glit", style: { left: a * 100 + "%", top: b * 100 + "%", width: 2 + c * 3, height: 2 + c * 3, animationDelay: -c * 4 + "s", animationDuration: 2 + b * 3 + "s" } }))
+    .concat([h("span", { key: "sl1", className: "tf-silverline" }), h("span", { key: "sl2", className: "tf-silverline", style: { top: "64%", animationDelay: "-4.5s" } })]);
   if (theme === "honey") kids = make(20, (i, a, b, c) => h("span", { key: i, className: "tf-float", style: { left: a * 100 + "%", fontSize: 16 + b * 18, animationDuration: 12 + c * 12 + "s", animationDelay: -c * 20 + "s" } }, ["🍯", "🌼", "🐝", "🍪", "🌻"][i % 5]));
   if (theme === "star") kids = make(40, (i, a, b, c) => i % 3 !== 2
     ? h("span", { key: i, className: "tf-float", style: { left: a * 95 + "%", animationDuration: 12 + c * 12 + "s", animationDelay: -c * 22 + "s" } }, i % 4 === 0 ? h(CaishenSvg, { size: 40 + b * 30 }) : h(StarBuddy, { c: ["#fde68a", "#fcd77f", "#fef3c7", "#f9e08e", "#fdeaa7"][i % 5], size: 30 + b * 38 }))
@@ -3762,7 +3765,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v247"));
+    h("div", { className: "sb-ver" }, "v248"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -6308,7 +6311,7 @@ function StageTimeline({ stage, onSet }) {
       h("button", { className: "tl-rej" + (rej ? " on" : ""), onClick: () => onSet(rej ? "pending" : "rejected") }, rej ? "取消 Rejected" : "标为 Rejected")),
     h("style", null, `
     .tl{--c:#6366f1;--c2:#8b5cf6;margin:4px 0 16px;padding:16px 16px 12px;border-radius:16px;background:#fff;border:1px solid #eef0f6}
-    .theme-pink .tl{--c:#ec4899;--c2:#f472b6} .theme-cat .tl{--c:#dc2626;--c2:#f59e0b} .theme-star .tl{--c:#d4a52c;--c2:#e9c46a} .theme-monet .tl{--c:#6f9c8a;--c2:#9fb7d9} .theme-sky .tl{--c:#0ea5e9;--c2:#7dd3fc} .theme-mono .tl{--c:#374151;--c2:#9ca3af} .theme-gold .tl{--c:#b8901f;--c2:#e8c96a}
+    .theme-pink .tl{--c:#ec4899;--c2:#f472b6} .theme-cat .tl{--c:#dc2626;--c2:#f59e0b} .theme-star .tl{--c:#d4a52c;--c2:#e9c46a} .theme-monet .tl{--c:#6f9c8a;--c2:#9fb7d9} .theme-sky .tl{--c:#0ea5e9;--c2:#7dd3fc} .theme-mono .tl{--c:#111111;--c2:#a3a3a3} .theme-gold .tl{--c:#b8901f;--c2:#e8c96a}
     .tl-track{display:flex;align-items:flex-start}
     .tl-line{flex:1;height:3px;border-radius:3px;margin-top:14px;background:#e9ecf3;transition:background .4s}
     .tl-line.on{background:linear-gradient(90deg,var(--c),var(--c2))}
@@ -6984,7 +6987,7 @@ function CompanyFilesPage() {
   .co-wrap{margin:-28px;padding:30px 28px;min-height:calc(100vh - 67px);background:transparent;--a1:#6366f1;--a2:#8b5cf6;--ink:#1e1b4b;--soft:#eef2ff}
   .theme-pink .co-wrap{--a1:#ec4899;--a2:#f472b6;--ink:#831843;--soft:#fdf2f8}
   .theme-sky .co-wrap{--a1:#0ea5e9;--a2:#7dd3fc;--ink:#0c4a6e;--soft:#f0f9ff}
-  .theme-mono .co-wrap{--a1:#7f7f7f;--a2:#bdbdbd;--ink:#3b3b3b;--soft:#f6f6f6}
+  .theme-mono .co-wrap{--a1:#111111;--a2:#8a8a8a;--ink:#111111;--soft:#f5f5f4}
   .theme-cat .co-wrap{--a1:#dc2626;--a2:#f59e0b;--ink:#7f1d1d;--soft:#fff7ed}
   .theme-star .co-wrap{--a1:#d4a52c;--a2:#f6d77a;--ink:#5c4312;--soft:#fffbeb}
   .co-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;background:rgba(255,255,255,.88);border:1px solid rgba(0,0,0,.05);border-radius:18px;padding:18px 20px;box-shadow:0 8px 24px -12px rgba(0,0,0,.15)}
@@ -11278,24 +11281,46 @@ button:active, a:active { transform: scale(.97); }
 .theme-sky .dk-dash .dash3d { background: rgba(255,255,255,.78) !important; border-color: #bae6fd !important; box-shadow: 0 10px 30px rgba(14,165,233,.15) !important; }
 .theme-sky .dk-dash .dash3d, .theme-sky .dk-dash .dash3d button, .theme-sky .dk-dash .dash3d div { color: #0c4a6e !important; }
 .theme-sky .dk-dash .dash3d button div:last-child, .theme-sky .dk-dash .dash3d span { color: #0369a1 !important; }
-.theme-mono { background: #f6f6f6 !important; }
-.theme-mono .app-sidebar, .theme-mono .sb { background: linear-gradient(180deg,#dbdbdb,#bdbdbd) !important; border-right: 1px solid #bdbdbd !important; }
-.theme-mono .sb-item, .theme-mono nav button { color: #454545 !important; } .theme-mono .sb-item:hover { background: rgba(255,255,255,.45) !important; }
-.theme-mono .sb-item.on { background: #ffffff !important; color: #505050 !important; box-shadow: 0 6px 16px rgba(127,127,127,.28) !important; }
-.theme-mono .sb-name { color: #454545 !important; } .theme-mono .sb-role { color: #646464 !important; } .theme-mono .sb-prof { border-color: rgba(69,69,69,.15) !important; } .theme-mono .sb-sub { border-color: rgba(69,69,69,.25) !important; }
-.theme-mono .app-header { background: linear-gradient(90deg,#ededed,#dbdbdb 60%,#ededed) !important; border-bottom: 1px solid #bdbdbd !important; }
-.theme-mono .app-header > :first-child, .theme-mono .app-header > :first-child * { -webkit-text-fill-color: #505050 !important; color: #505050 !important; text-shadow: none !important; }
-.theme-mono .app-header button:not([style*="gradient"]), .theme-mono .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.75) !important; color: #505050 !important; border: 1px solid #bdbdbd !important; }
-.theme-mono button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#9b9b9b,#7f7f7f 60%,#a1a1a1) !important; color: #ffffff !important; box-shadow: 0 6px 16px -6px rgba(127,127,127,.55) !important; }
-.theme-mono .stat-card:nth-child(1) { background: linear-gradient(135deg,#bdbdbd,#7f7f7f) !important; box-shadow: 0 12px 30px rgba(127,127,127,.35) !important; }
-.theme-mono .stat-card:nth-child(2) { background: linear-gradient(135deg,#b7b7b7,#747474) !important; box-shadow: 0 12px 30px rgba(116,116,116,.3) !important; }
-.theme-mono .stat-card:nth-child(3) { background: linear-gradient(135deg,#c3c3c3,#848484) !important; box-shadow: 0 12px 30px rgba(132,132,132,.3) !important; }
-.theme-mono .stat-card:nth-child(4) { background: linear-gradient(135deg,#bcbcbc,#797979) !important; box-shadow: 0 12px 30px rgba(121,121,121,.3) !important; }
-.theme-mono .dk-dash { background: transparent !important; }
-.theme-mono .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(127,127,127,.25) 2px, transparent 2px), linear-gradient(90deg, rgba(127,127,127,.25) 2px, transparent 2px) !important; }
-.theme-mono .dk-dash .dash3d { background: rgba(255,255,255,.78) !important; border-color: #dbdbdb !important; box-shadow: 0 10px 30px rgba(127,127,127,.15) !important; }
-.theme-mono .dk-dash .dash3d, .theme-mono .dk-dash .dash3d button, .theme-mono .dk-dash .dash3d div { color: #3b3b3b !important; }
-.theme-mono .dk-dash .dash3d button div:last-child, .theme-mono .dk-dash .dash3d span { color: #505050 !important; }
+/* mono：高级黑白灰（JOEY）— 黑色 + 白 + 银灰 */
+.theme-mono { background: #f4f4f3 !important; }
+.tfx-mono { background-color: #f6f6f5; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23000' stroke-opacity='.06' stroke-width='1'%3E%3Cpath d='M0 36 H72 M36 0 V72'/%3E%3Ccircle cx='36' cy='36' r='2.2' fill='%23000' fill-opacity='.08' stroke='none'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg,#fafaf9,#ececea); }
+.tfx-mono .tf-glit { position: absolute; border-radius: 50%; background: radial-gradient(circle,#ffffff,#a3a3a3 60%,transparent 70%); box-shadow: 0 0 8px rgba(160,160,160,.9); animation: twinkle ease-in-out infinite; }
+.tf-silverline { position: absolute; top: 22%; left: -30%; width: 30%; height: 1px; background: linear-gradient(90deg,transparent,#9ca3af,#ffffff,#9ca3af,transparent); animation: goldsweep 9s ease-in-out infinite; opacity: .9; }
+.theme-mono .app-sidebar, .theme-mono .sb { background: linear-gradient(180deg,#141414,#050505) !important; border-right: 1px solid #2a2a2a !important; }
+.theme-mono .sb-item, .theme-mono nav button { color: #a8a8a8 !important; letter-spacing: .02em; }
+.theme-mono .sb-item:hover { background: rgba(255,255,255,.06) !important; color: #f5f5f5 !important; }
+.theme-mono .sb-item.on { background: linear-gradient(120deg,#ffffff,#e5e5e5 55%,#bdbdbd) !important; color: #0a0a0a !important; box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 1px 0 #fff !important; }
+.theme-mono .sb-name { color: #f5f5f5 !important; } .theme-mono .sb-role { color: #9ca3af !important; } .theme-mono .sb-prof { border-color: rgba(255,255,255,.1) !important; } .theme-mono .sb-sub { border-color: rgba(255,255,255,.14) !important; }
+.theme-mono .sb-ava { background: linear-gradient(135deg,#f5f5f5,#8a8a8a) !important; color: #0a0a0a !important; }
+.theme-mono .app-header { background: linear-gradient(90deg,#050505,#161616 60%,#262626) !important; border-bottom: 1px solid #3a3a3a !important; box-shadow: 0 1px 0 rgba(255,255,255,.06) inset !important; }
+.theme-mono .app-header > :first-child, .theme-mono .app-header > :first-child * { background: linear-gradient(90deg,#ffffff,#a3a3a3,#f5f5f5) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; text-shadow: none !important; letter-spacing: .06em; }
+.theme-mono .app-header button:not([style*="gradient"]), .theme-mono .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.06) !important; color: #e5e5e5 !important; border: 1px solid rgba(255,255,255,.18) !important; }
+.theme-mono button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#0a0a0a,#2b2b2b) !important; color: #ffffff !important; border: 1px solid #0a0a0a !important; box-shadow: 0 8px 18px -8px rgba(0,0,0,.6) !important; letter-spacing: .03em; }
+.theme-mono .cz-table thead tr { background: linear-gradient(90deg,#0a0a0a,#1f1f1f 60%,#333333) !important; }
+.theme-mono .cz-table thead th { color: #e5e5e5 !important; background: transparent !important; letter-spacing: .06em; }
+.theme-mono table thead th { background: #111111 !important; color: #e5e5e5 !important; border-color: #262626 !important; }
+.theme-mono .stat-card { background: linear-gradient(145deg,#1c1c1c,#050505) !important; border: 1px solid #5a5a5a !important; box-shadow: 0 14px 30px -12px rgba(0,0,0,.55) !important; }
+.theme-mono .stat-card div { color: #f5f5f5 !important; }
+.theme-mono .stat-card:nth-child(2) { background: linear-gradient(145deg,#ffffff,#e7e7e7) !important; border-color: #cfcfcf !important; }
+.theme-mono .stat-card:nth-child(2) div { color: #111111 !important; }
+.theme-mono .stat-card:nth-child(3) { background: linear-gradient(145deg,#6b6b6b,#3a3a3a) !important; border-color: #8a8a8a !important; }
+.theme-mono .stat-card:nth-child(4) { background: linear-gradient(145deg,#d4d4d4,#a3a3a3) !important; border-color: #bdbdbd !important; }
+.theme-mono .stat-card:nth-child(4) div { color: #111111 !important; }
+.theme-mono .dk-dash { background: radial-gradient(700px 380px at 10% 0%, rgba(255,255,255,.12), transparent 70%), radial-gradient(700px 400px at 95% 100%, rgba(255,255,255,.07), transparent 70%), linear-gradient(160deg,#0a0a0a,#181818 55%,#070707) !important; }
+.theme-mono .dk-dash .fx3d .au { opacity: .12; filter: blur(90px) grayscale(1); }
+.theme-mono .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(255,255,255,.18) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(255,255,255,.18) 1.5px, transparent 1.5px) !important; }
+.theme-mono .dk-dash .dash3d { background: rgba(20,20,20,.78) !important; border: 1px solid rgba(255,255,255,.18) !important; box-shadow: 0 10px 30px rgba(0,0,0,.4) !important; }
+.theme-mono .dk-dash .dash3d, .theme-mono .dk-dash .dash3d button, .theme-mono .dk-dash .dash3d div { color: #f5f5f5 !important; }
+.theme-mono .dk-dash .dash3d > div:first-child { border-left-color: #d4d4d4 !important; }
+.theme-mono .dk-dash .dash3d button div:last-child, .theme-mono .dk-dash .dash3d span { color: #bdbdbd !important; }
+.theme-mono .dk-dash .type-ic { background: linear-gradient(135deg,#f5f5f5,#6b6b6b) !important; }
+.theme-mono .td-head, .theme-mono .td-add button { background: linear-gradient(120deg,#0a0a0a,#2b2b2b) !important; }
+.theme-mono .td-head * { color: #f5f5f5 !important; }
+.theme-mono .dk-dash .dash3d button[style*="border-radius: 999px"] { background: rgba(255,255,255,.08) !important; border: 1px solid rgba(255,255,255,.28) !important; color: #f5f5f5 !important; outline-color: #e5e5e5 !important; }
+.theme-mono .dk-dash .type-ic, .theme-mono .dk-dash .dash3d svg { filter: grayscale(1); }
+.theme-mono .sb-ava > span, .theme-mono .app-header span[style*="border-radius: 50%"] { background: linear-gradient(135deg,#fafafa,#9a9a9a) !important; color: #0a0a0a !important; box-shadow: 0 3px 10px rgba(0,0,0,.4) !important; }
+.theme-mono button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+.theme-mono .td-bar i { background: linear-gradient(90deg,#404040,#d4d4d4) !important; }
 .theme-pink .sb { background: linear-gradient(180deg,#fbcfe8,#f9a8d4) !important; border-right: 1px solid #f9a8d4 !important; }
 .theme-pink .sb-item { color: #9d174d !important; } .theme-pink .sb-item:hover { background: rgba(255,255,255,.45); }
 .theme-pink .sb-item.on { background: #fff !important; color: #be185d !important; box-shadow: 0 6px 16px rgba(236,72,153,.25) !important; }
@@ -11513,7 +11538,7 @@ html body .cz-table thead th, html body table.tp-table thead th, html body [clas
   font-size: 11.5px !important; font-weight: 800 !important; letter-spacing: .06em !important;
   border: none !important; border-right: 1px solid rgba(255,255,255,.12) !important; padding-top: 13px !important; padding-bottom: 12px !important; }
 html body table.tp-table thead th[style*="sticky"] { box-shadow: 3px 0 6px -2px rgba(0,0,0,.18); }
-.theme-pink { --th-bg: #ec4899; } .theme-cat { --th-bg: #c81e1e; } .theme-star { --th-bg: #e9b949; --th-fg: #4a3610; } .theme-monet { --th-bg: #6f9c8a; } .theme-sky { --th-bg: #0ea5e9; } .theme-mono { --th-bg: #1f2937; } .theme-gold { --th-bg: #1a1610; --th-fg: #e8c96a; }
+.theme-pink { --th-bg: #ec4899; } .theme-cat { --th-bg: #c81e1e; } .theme-star { --th-bg: #e9b949; --th-fg: #4a3610; } .theme-monet { --th-bg: #6f9c8a; } .theme-sky { --th-bg: #0ea5e9; } .theme-mono { --th-bg: #111111; } .theme-gold { --th-bg: #1a1610; --th-fg: #e8c96a; }
 html body .vf-head { background: var(--th-bg, #4f46e5) !important; }
 html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5px !important; letter-spacing: .06em; }
 .tp-table td { padding-top: 11px !important; padding-bottom: 11px !important; border-color: #eef0f6 !important; font-size: 13px; }
