@@ -3760,7 +3760,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v240"));
+    h("div", { className: "sb-ver" }, "v241"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5247,6 +5247,13 @@ function CelebrateWatcher() {
     list.filter(e => e && !seen.has(e.id) && Date.now() - (e.at || 0) < 5 * 60 * 1000).reverse().forEach((e, i) => { seen.add(e.id); setTimeout(() => crmFireworks(e.label, e.sub), i * 4000); });
     list.forEach(e => e && seen.add(e.id)); }, [list]);
   return null;
+}
+/* 新增 Agent（全部页面共用，存在云端 closing_agents_extra）→ 回传小写名字，取消就回传 "" */
+async function crmAddAgent() {
+  const n = window.prompt("新增 Agent 名字："); const k = String(n || "").trim().toLowerCase().replace(/\s+/g, " "); if (!k) return "";
+  if (!CLOSING_AGENTS.includes(k)) { CLOSING_AGENTS.push(k);
+    try { const raw = await DB.get("closing_agents_extra"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) {} if (!cur.includes(k)) { const next = [...cur, k]; await DB.set("closing_agents_extra", JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "closing_agents_extra", next } })); } catch (e) {} } } catch (e) {} }
+  return k;
 }
 function AgentsLoader() {   /* Closing 自己加的 Agent，Verify / 其他地方也一起用 */
   const [extra] = useCloudList("closing_agents_extra");
@@ -7349,10 +7356,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / admin", value: q, onChange: e => setQ(e.target.value) })),
       h("select", { value: typeF, onChange: e => setTypeF(e.target.value), style: { border: "2px solid #c7d2fe", borderRadius: 12, padding: "9px 14px", fontWeight: 900, fontSize: 14, fontFamily: "inherit", background: "#fff", color: "#3730a3", cursor: "pointer" } }, h("option", { value: "" }, "全部"), h("option", { value: "FINPRO" }, "FINPRO"), h("option", { value: "FUTURE" }, "FUTURE")),
-      h("div", { style: { position: "relative" } },
-        h("button", { style: S.addBtn, onClick: () => setPick(!pick) }, h(Plus, { size: 16 }), " 新增 Agreement ▾"),
-        pick && h("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, background: "#fff", borderRadius: 12, boxShadow: "0 14px 34px -10px rgba(0,0,0,.35)", border: "1px solid #e2e8f0", padding: 6, minWidth: 190 } },
-          tools.map(t => { const fu = /FUTURE/i.test(t.file); return h("button", { key: t.file, onClick: () => { setPick(false); onOpen(t, null); }, style: { display: "block", width: "100%", textAlign: "left", border: "none", background: "none", padding: "10px 12px", borderRadius: 8, fontWeight: 900, fontSize: 13.5, cursor: "pointer", color: fu ? "#ea580c" : "#2563eb" } }, (fu ? "🟧 FUTURE" : "🟦 FINPRO") + " Agreement"); })))),
+      tools.map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), " 新增 " + (/FUTURE/i.test(t.file) ? "FUTURE" : "FINPRO")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["PDF", "Name", "Agent", "Base", "Date", "Admin"].map((x, i) => h("th", { key: i, style: th }, x)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增」，填好按 💾 存档")) :
@@ -9179,9 +9183,10 @@ function VCaseInfo({ v, onSave, onToLoan, onDropLoan }) {
     h("div", { style: { padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
         h("label", { style: { flex: "1 1 200px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "AGENT"),
-          h("select", { value: String(v.agent || "").toLowerCase(), onChange: e => onSave({ ...v, agent: e.target.value }), style: { ...inp, width: "100%", fontWeight: 700 } },
+          h("select", { value: String(v.agent || "").toLowerCase(), onChange: async e => { let val = e.target.value; if (val === "__add__") { val = await crmAddAgent(); if (!val) return; } onSave({ ...v, agent: val }); }, style: { ...inp, width: "100%", fontWeight: 700 } },
             h("option", { value: "" }, "— 选择 Agent —"),
-            (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => h("option", { key: a, value: a }, a.toUpperCase())))),
+            (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => h("option", { key: a, value: a }, a.toUpperCase())),
+            h("option", { value: "__add__" }, "＋ 新增 Agent…"))),
         h("div", { style: { flex: "1 1 160px" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 4 } }, "STAFF（自动 · 谁建立）"),
           h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0" } }, v.staff ? [h(React.Fragment, { key: "a" }, czAvatar(v.staff, 26)), h("b", { key: "n", style: { color: "#334155" } }, String(v.staff).toUpperCase())] : "—"))),
       h("div", null,
@@ -9385,9 +9390,9 @@ function VerifyDetail({
       style: S.vFieldLabel
     }, label), field === "agent" ? /*#__PURE__*/React.createElement("select", {
       value: String(v.agent || "").toLowerCase(),
-      onChange: e => setField("agent", e.target.value),
+      onChange: async e => { let val = e.target.value; if (val === "__add__") { val = await crmAddAgent(); if (!val) return; } setField("agent", val); },
       style: { flex: 1, border: "none", background: "transparent", padding: "8px 12px", fontSize: 14, fontWeight: 700, fontFamily: "inherit", outline: "none", cursor: "pointer" }
-    }, /*#__PURE__*/React.createElement("option", { value: "" }, "— 选择 Agent —"), (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => /*#__PURE__*/React.createElement("option", { key: a, value: a }, a.toUpperCase()))) : /*#__PURE__*/React.createElement(VField, {
+    }, /*#__PURE__*/React.createElement("option", { value: "" }, "— 选择 Agent —"), (CLOSING_AGENTS.includes(String(v.agent || "").toLowerCase()) || !v.agent ? CLOSING_AGENTS : [String(v.agent).toLowerCase(), ...CLOSING_AGENTS]).map(a => /*#__PURE__*/React.createElement("option", { key: a, value: a }, a.toUpperCase())), /*#__PURE__*/React.createElement("option", { value: "__add__" }, "＋ 新增 Agent…")) : /*#__PURE__*/React.createElement(VField, {
       value: field === "icNumber" || field === "spouseIc" ? fmtIC(v[field]) : v[field],
       onChange: val => setField(field, field === "icNumber" || field === "spouseIc" ? fmtIC(val) : val)
     })))), sec.key === "company" && /*#__PURE__*/React.createElement(VSalaryBlock, {
