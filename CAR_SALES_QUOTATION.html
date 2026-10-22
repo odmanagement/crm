@@ -418,6 +418,9 @@
     display:block;
     cursor:zoom-in;
   }
+  .pdf-card{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:6px;background:#fff7ed;cursor:pointer;color:#9a3412}
+  .pdf-card:hover{background:#ffedd5}
+  .photo-remark{display:block;width:100%;box-sizing:border-box;margin-top:6px;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:inherit;font-size:13px;resize:none;overflow:hidden;background:#fffef7}
   .photo-thumb .del{
     position:absolute;
     top:6px;right:6px;
@@ -461,6 +464,7 @@
     .row input,.row select{background:transparent;box-shadow:none;}
     .photo-drop,.pdf-drop{display:none;}
     .photo-thumb .del{display:none;}
+    .photo-remark{border:none;background:transparent;padding:2px 0;}
     .photo-thumb{width:100%;break-inside:avoid;}
     /* hide all delete buttons and Add item buttons in print */
     .del-item,.del-fixed,.sum-del,.mth-del,.btn-additem{display:none !important;}
@@ -585,9 +589,9 @@
   <div class="photo-area">
     <div class="photo-label">Photos</div>
     <div class="photo-drop" onclick="this.nextElementSibling.click()">
-      + Add photo (click or paste)
+      + Add photo / PDF (click or paste)
     </div>
-    <input type="file" accept="image/*" multiple style="display:none" onchange="addPhotos(this.files, this.closest('.photo-area'))">
+    <input type="file" accept="image/*,application/pdf,.pdf" multiple style="display:none" onchange="addPhotos(this.files, this.closest('.photo-area')); this.value=''">
     <div class="photo-grid"></div>
   </div>
 
@@ -1149,8 +1153,9 @@
         inputs.push(i.value);
       });
       const photos = [];
-      s.querySelectorAll('.photo-grid img').forEach(img=> photos.push(img.src));
-      pages.push({inputs, photos});
+      const photoRemarks = [];
+      s.querySelectorAll('.photo-grid .photo-thumb').forEach(w=>{ photos.push(w.dataset.src || (w.querySelector('img')||{}).src || ''); const r = w.querySelector('.photo-remark'); photoRemarks.push(r ? r.value : ''); });
+      pages.push({inputs, photos, photoRemarks});
     });
 
     // fixed page
@@ -1270,15 +1275,7 @@
       // restore photos
       if(p.photos && p.photos.length){
         const grid = sheet.querySelector('.photo-grid');
-        p.photos.forEach(src=>{
-          const wrap = document.createElement('div');
-          wrap.className = 'photo-thumb';
-          const img = document.createElement('img'); img.src = src;
-          img.onclick = ()=>openLightbox(src);
-          const del = document.createElement('button'); del.className='del'; del.textContent='×';
-          del.onclick = ()=>wrap.remove();
-          wrap.appendChild(img); wrap.appendChild(del); grid.appendChild(wrap);
-        });
+        p.photos.forEach((src, k)=>{ if(src) grid.appendChild(makeThumb(src, (p.photoRemarks||[])[k] || '')); });
       }
       // sync Brand/Financing dropdown display from restored text values
       sheet.querySelectorAll('.q-sel').forEach(sel=>{
@@ -1364,25 +1361,39 @@
     b.name.value = nameVal || ''; b.amt.value = amtVal || '';
   }
 
+  /* 照片或 PDF + Remark */
+  function isPdfSrc(src){ return /^data:application\/pdf/i.test(src||''); }
+  function openPdf(src){
+    try{ const b64 = src.split(',')[1]; const bin = atob(b64); const u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([u], {type:'application/pdf'})); const w = window.open(url, '_blank'); if(!w){ const a=document.createElement('a'); a.href=url; a.download='file.pdf'; a.click(); } }catch(e){}
+  }
+  function makeThumb(src, remark, name){
+    const wrap = document.createElement('div');
+    wrap.className = 'photo-thumb';
+    wrap.dataset.src = src;
+    if(isPdfSrc(src)){
+      const card = document.createElement('div'); card.className = 'pdf-card';
+      card.innerHTML = '<span style="font-size:26px">📄</span><span><b>PDF</b><br><small>' + String(name || 'Click to open').replace(/</g,'&lt;') + '</small></span>';
+      card.onclick = ()=>openPdf(src);
+      wrap.appendChild(card);
+    } else {
+      const img = document.createElement('img'); img.src = src; img.onclick = ()=>openLightbox(src); wrap.appendChild(img);
+    }
+    const del = document.createElement('button'); del.className = 'del'; del.textContent = '×'; del.onclick = ()=>wrap.remove(); wrap.appendChild(del);
+    const rm = document.createElement('textarea'); rm.className = 'photo-remark'; rm.rows = 1; rm.placeholder = 'Remark…'; rm.value = remark || '';
+    const fit = ()=>{ rm.style.height = 'auto'; rm.style.height = rm.scrollHeight + 'px'; }; rm.addEventListener('input', fit); setTimeout(fit, 0);
+    wrap.appendChild(rm);
+    return wrap;
+  }
   function addPhotos(files, area){
     const grid = area.querySelector('.photo-grid');
     [...files].forEach(file=>{
-      if(!file || !file.type.startsWith('image/')) return;
+      if(!file) return;
+      const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name||'');
+      if(!pdf && !(file.type||'').startsWith('image/')) return;
+      if(pdf && file.size > 2*1024*1024){ alert("PDF 太大（最多 2MB），请先压缩"); return; }
       const reader = new FileReader();
-      reader.onload = e=>{
-        const wrap = document.createElement('div');
-        wrap.className = 'photo-thumb';
-        const img = document.createElement('img');
-        img.src = e.target.result;
-        img.onclick = ()=>openLightbox(e.target.result);
-        const del = document.createElement('button');
-        del.className = 'del';
-        del.textContent = '×';
-        del.onclick = ()=>wrap.remove();
-        wrap.appendChild(img);
-        wrap.appendChild(del);
-        grid.appendChild(wrap);
-      };
+      reader.onload = e=>{ let src = e.target.result; if(pdf && !/^data:application\/pdf/i.test(src)) src = src.replace(/^data:[^;]*/, 'data:application/pdf'); grid.appendChild(makeThumb(src, '', file.name)); };
       reader.readAsDataURL(file);
     });
   }
@@ -1416,7 +1427,7 @@
   document.addEventListener('paste', e=>{
     const items = e.clipboardData && e.clipboardData.items;
     if(!items) return;
-    const imgs = [...items].filter(i=>i.type.startsWith('image/')).map(i=>i.getAsFile());
+    const imgs = [...items].filter(i=>i.kind === 'file' && (i.type.startsWith('image/') || i.type === 'application/pdf')).map(i=>i.getAsFile());
     if(imgs.length && activeArea){
       addPhotos(imgs, activeArea);
       e.preventDefault();
