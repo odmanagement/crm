@@ -3755,7 +3755,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v231"));
+    h("div", { className: "sb-ver" }, "v232"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5692,7 +5692,7 @@ function ReceiptPage({ currentUser, clients }) {
               h("td", { style: S.td }, h("select", { value: r.paid ? "paid" : "unpaid", onChange: e => save(items.map(x => x.id === r.id ? { ...x, paid: e.target.value === "paid", paidAt: e.target.value === "paid" ? today() : null, paidBy: e.target.value === "paid" ? canonUser(currentUser) : null } : x)),
                 style: { border: "1px solid " + (r.paid ? "#86efac" : "#fecaca"), background: r.paid ? "#dcfce7" : "#fef2f2", color: r.paid ? "#15803d" : "#b91c1c", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12.5, fontFamily: "inherit", cursor: "pointer" } },
                 h("option", { value: "unpaid" }, "未付"), h("option", { value: "paid" }, "✓ 已付"))),
-              h("td", { style: { ...S.td, minWidth: 160, maxWidth: 260 } }, h(AutoTextarea, { value: r.remark || "", readOnly: !(boss || sameUser(r.by, currentUser)), placeholder: (boss || sameUser(r.by, currentUser)) ? "备注…" : "", onCommit: v => save(items.map(x => x.id === r.id ? { ...x, remark: v } : x)), style: { textAlign: "center", fontSize: 13 } })),
+              h("td", { style: { ...S.td, minWidth: 160, maxWidth: 260 } }, h(AutoTextarea, { value: r.remark || "", readOnly: READONLY_USERS.includes(me), placeholder: READONLY_USERS.includes(me) ? "" : "备注…", onCommit: v => save(items.map(x => x.id === r.id ? { ...x, remark: v } : x)), style: { textAlign: "center", fontSize: 13 } })),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
