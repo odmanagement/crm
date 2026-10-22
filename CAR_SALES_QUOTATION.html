@@ -420,7 +420,7 @@
   }
   .pdf-card{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:6px;background:#fff7ed;cursor:pointer;color:#9a3412}
   .pdf-card:hover{background:#ffedd5}
-  .photo-remark{display:block;width:100%;box-sizing:border-box;margin-top:6px;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:inherit;font-size:13px;resize:none;overflow:hidden;background:#fffef7}
+  .photo-remark{display:block;width:100%;box-sizing:border-box;margin-top:10px;min-height:44px;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:inherit;font-size:13px;resize:none;overflow:hidden;background:#fffef7}
   .photo-thumb .del{
     position:absolute;
     top:6px;right:6px;
@@ -593,6 +593,7 @@
     </div>
     <input type="file" accept="image/*,application/pdf,.pdf" multiple style="display:none" onchange="addPhotos(this.files, this.closest('.photo-area')); this.value=''">
     <div class="photo-grid"></div>
+    <textarea class="photo-remark area-remark" rows="2" placeholder="Remark…"></textarea>
   </div>
 
   <div class="actions">
@@ -1153,9 +1154,10 @@
         inputs.push(i.value);
       });
       const photos = [];
-      const photoRemarks = [];
-      s.querySelectorAll('.photo-grid .photo-thumb').forEach(w=>{ photos.push(w.dataset.src || (w.querySelector('img')||{}).src || ''); const r = w.querySelector('.photo-remark'); photoRemarks.push(r ? r.value : ''); });
-      pages.push({inputs, photos, photoRemarks});
+      const photoNames = [];
+      s.querySelectorAll('.photo-grid .photo-thumb').forEach(w=>{ photos.push(w.dataset.src || (w.querySelector('img')||{}).src || ''); photoNames.push(w.dataset.name || ''); });
+      const photoRemark = (s.querySelector('.area-remark')||{}).value || '';
+      pages.push({inputs, photos, photoRemark, photoNames});
     });
 
     // fixed page
@@ -1275,8 +1277,9 @@
       // restore photos
       if(p.photos && p.photos.length){
         const grid = sheet.querySelector('.photo-grid');
-        p.photos.forEach((src, k)=>{ if(src) grid.appendChild(makeThumb(src, (p.photoRemarks||[])[k] || '')); });
+        p.photos.forEach((src, k)=>{ if(src) grid.appendChild(makeThumb(src, '', (p.photoNames||[])[k] || '')); });
       }
+      { const ar = sheet.querySelector('.area-remark'); if(ar){ ar.value = p.photoRemark != null ? p.photoRemark : (p.photoRemarks||[]).filter(Boolean).join('\n'); setTimeout(()=>{ ar.style.height='auto'; ar.style.height = ar.scrollHeight + 'px'; },0); } }
       // sync Brand/Financing dropdown display from restored text values
       sheet.querySelectorAll('.q-sel').forEach(sel=>{
         const txt = sel.parentElement.querySelector('.q-other');
@@ -1370,7 +1373,7 @@
   function makeThumb(src, remark, name){
     const wrap = document.createElement('div');
     wrap.className = 'photo-thumb';
-    wrap.dataset.src = src;
+    wrap.dataset.src = src; if(name) wrap.dataset.name = name;
     if(isPdfSrc(src)){
       const card = document.createElement('div'); card.className = 'pdf-card';
       card.innerHTML = '<span style="font-size:26px">📄</span><span><b>PDF</b><br><small>' + String(name || 'Click to open').replace(/</g,'&lt;') + '</small></span>';
@@ -1380,9 +1383,6 @@
       const img = document.createElement('img'); img.src = src; img.onclick = ()=>openLightbox(src); wrap.appendChild(img);
     }
     const del = document.createElement('button'); del.className = 'del'; del.textContent = '×'; del.onclick = ()=>wrap.remove(); wrap.appendChild(del);
-    const rm = document.createElement('textarea'); rm.className = 'photo-remark'; rm.rows = 1; rm.placeholder = 'Remark…'; rm.value = remark || '';
-    const fit = ()=>{ rm.style.height = 'auto'; rm.style.height = rm.scrollHeight + 'px'; }; rm.addEventListener('input', fit); setTimeout(fit, 0);
-    wrap.appendChild(rm);
     return wrap;
   }
   function addPhotos(files, area){
@@ -1450,6 +1450,7 @@
     }
   });
 
+  document.addEventListener('input', e=>{ if(e.target.classList && e.target.classList.contains('area-remark')){ e.target.style.height='auto'; e.target.style.height=e.target.scrollHeight+'px'; } });
   addSheet();      // first quotation page
   addFixedPage();  // cashback breakdown, fixed at the bottom
   window.__ready = true;
