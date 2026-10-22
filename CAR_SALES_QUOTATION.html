@@ -421,6 +421,8 @@
   .pdf-card{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:6px;background:#fff7ed;cursor:pointer;color:#9a3412}
   .pdf-card:hover{background:#ffedd5}
   .photo-remark{display:block;width:100%;box-sizing:border-box;margin-top:10px;min-height:44px;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:inherit;font-size:13px;resize:none;overflow:hidden;background:#fffef7}
+  .agent-pick{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:13px;color:#0f4c75;margin-right:6px}
+  .agent-pick select{padding:7px 10px;border:1px solid #0f4c75;border-radius:6px;font:inherit;font-weight:800;color:#0f4c75;background:#fff;min-width:130px}
   .photo-thumb .del{
     position:absolute;
     top:6px;right:6px;
@@ -478,6 +480,9 @@
 <body>
 
 <div class="toolbar">
+  <label class="agent-pick">AGENT
+    <select id="qAgent" onchange="if(this.value==='__other__'){ const n=(prompt('Agent 名字：')||'').trim().toUpperCase(); if(n){ addAgentOpt(n); this.value=n; } else this.value=''; }"></select>
+  </label>
   <button class="btn-primary" onclick="addSheet()">+ Add Page</button>
   <button class="btn-primary" onclick="copyInfo(this)">Agent Copy</button>
   <button class="btn-primary" onclick="agentFinalCopy(this)">Agent Final Copy</button>
@@ -1177,7 +1182,7 @@
       sumRows.push({ name:(r.querySelector('.sum-item-name')||{}).value||'', amt:(r.querySelector('.sum-item-amt')||{}).value||'' });
     });
 
-    const data = { v:1, pages, fixed, items, sumRows };
+    const data = { v:1, pages, fixed, items, sumRows, agent: (document.getElementById('qAgent')||{}).value || '' };
 
     // ---- save into browser localStorage (named, overwrite on same name) ----
     const first = (container.querySelector('.sheet:not(.fixed-page) .q-name')||{}).value || '';
@@ -1258,6 +1263,7 @@
 
   function applyArchive(data){
     if(!data || !Array.isArray(data.pages)) { alert('File not valid.'); return; }
+    { const a = String(data.agent || '').toUpperCase(); if(a) addAgentOpt(a); const sel = document.getElementById('qAgent'); if(sel) sel.value = a; }
     // remove all quotation pages
     container.querySelectorAll('.sheet:not(.fixed-page)').forEach(s=> s.remove());
     // recreate pages
@@ -1451,6 +1457,12 @@
   });
 
   document.addEventListener('input', e=>{ if(e.target.classList && e.target.classList.contains('area-remark')){ e.target.style.height='auto'; e.target.style.height=e.target.scrollHeight+'px'; } });
+  /* Agent 选单：名单跟 CRM 的 Closing Agent 一样 */
+  const AGENT_FALLBACK = ["alex","steven","vick","fin","candy","edward","nico","anna","gary","darren","davis","celement","br","ivan","kelvin","lee","nick","william","da sheng","bosco","loki","jimmy","elwin","caden","joe","tom","angeline"];
+  function addAgentOpt(n){ const sel = document.getElementById('qAgent'); if(!sel || !n) return; n = String(n).toUpperCase(); if([...sel.options].some(o=>o.value===n)) return; const o = document.createElement('option'); o.value = n; o.textContent = n; sel.insertBefore(o, sel.querySelector('option[value="__other__"]')); }
+  (function initAgents(){ const sel = document.getElementById('qAgent'); if(!sel) return;
+    let list = AGENT_FALLBACK; try{ if(window.parent && window.parent !== window && Array.isArray(window.parent.CLOSING_AGENTS)) list = window.parent.CLOSING_AGENTS; }catch(e){}
+    sel.innerHTML = '<option value="">— 选择 —</option>' + list.map(a=>'<option value="'+String(a).toUpperCase()+'">'+String(a).toUpperCase()+'</option>').join('') + '<option value="__other__">＋ 其他…</option>'; })();
   addSheet();      // first quotation page
   addFixedPage();  // cashback breakdown, fixed at the bottom
   window.__ready = true;

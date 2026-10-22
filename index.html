@@ -3755,7 +3755,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v233"));
+    h("div", { className: "sb-ver" }, "v234"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -5974,6 +5974,7 @@ function PhonePage({ currentUser }) {
 const SUB_TYPES = [["build", "Build", 262], ["ori", "Ori", 199], ["special", "Special Case", 25], ["cancel", "Cancel", 0], ["rencai", "Rencai", 150]];
 const SUB_STATUS = [["submitted", "Submitted", "#3b82f6"], ["pending", "Pending", "#f59e0b"], ["approved", "Approved", "#16a34a"], ["rejected", "Rejected", "#dc2626"]];
 const CLOSING_AGENTS = ["alex", "steven", "vick", "fin", "candy", "edward", "nico", "anna", "gary", "darren", "davis", "celement", "br", "ivan", "kelvin", "lee", "nick", "william", "da sheng", "bosco", "loki", "jimmy", "elwin", "caden", "joe", "tom", "angeline"];
+window.CLOSING_AGENTS = CLOSING_AGENTS;   /* 给 Car Sales Quotation 的 Agent 选单用 */
 function AutoTextarea({ value, onCommit, placeholder, style, readOnly }) {
   const [draft, setDraft] = React.useState(value || "");
   const ref = React.useRef(null);
@@ -7269,7 +7270,7 @@ const costMetaFromDoc = d => {
   if (!d.getElementById("clientName") && d.querySelector(".q-name")) {   /* Car Sales Quotation */
     const q = sel => { const el = d.querySelector(sel); return el ? String(el.value || "").trim() : ""; };
     const n = sel => { const t = q(sel); return t === "" ? null : lsNum(t); };
-    return { client: q(".q-name").toUpperCase(), agent: "", subtotal: n(".sum-total"), balance: n(".pa-balance"), custBal: n(".pa-final"), cb2: 1 };
+    return { client: q(".q-name").toUpperCase(), agent: String((d.getElementById("qAgent") || {}).value || "").toUpperCase(), subtotal: n(".sum-total"), balance: n(".pa-balance"), custBal: n(".pa-final"), cb2: 1, ag2: 1 };
   }
   return { client: v("clientName").toUpperCase(), agent: v("agentName").toUpperCase(), subtotal: num("balHead"), balance: num("balFoot") };
 };
@@ -7302,7 +7303,7 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
   React.useEffect(() => {
     if (busy.current) return;
     const isCar = d => d.file === "CAR_SALES_QUOTATION.html";
-    const need = allRows.filter(d => !d.meta || d.meta.at !== d.at || (isCar(d) && !d.meta.cb2));
+    const need = allRows.filter(d => !d.meta || d.meta.at !== d.at || (isCar(d) && !d.meta.ag2));
     if (!need.length) return;
     busy.current = true;
     (async () => {
@@ -7657,7 +7658,7 @@ function FormsPage({ currentUser, tools, noLib }) {
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
           viewOnly && h("span", { title: "只有 Admin 才能更改", style: { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10, padding: "7px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, "👁 只能看 · ADMIN " + String(open.draft.by || "").toUpperCase()),
           open.draft && lfCanEdit(open.draft.by, canonUser(currentUser || "")) && h("button", { onClick: () => { const d = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!window.confirm("删除这份存档「" + (d.title || "") + "」？删除了不能还原。")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); setOpen(null); }, title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "🗑 删除"),
-          open.draft && !viewOnly && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
+          open.draft && !viewOnly && !noLib && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
           !viewOnly && h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
           h("button", { onClick: tryClose, title: "关闭", style: { border: "none", background: "#f1f5f9", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, h(X, { size: 18, color: "#475569" }))),
