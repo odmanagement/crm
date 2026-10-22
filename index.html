@@ -3760,7 +3760,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v242"));
+    h("div", { className: "sb-ver" }, "v243"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -7620,11 +7620,32 @@ function FormsPage({ currentUser, tools, noLib }) {
   const confirmSave = (title, cat, closeAfter) => {
     if (FORM_NATIVE[open.tool.file] && nativeSave(title, cat, closeAfter)) return;
     const vals = currentVals();
-    const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now() };
+    const nd = agreeClosing({ id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now() });
     saveDrafts([nd, ...(drafts || [])]);
     baseRef.current = JSON.stringify(vals);
     setSaveDlg(null);
     if (closeAfter) setOpen(null); else { setOpen({ ...open, draft: nd }); setMsg("✓ 已存档"); monetSfx("save"); setTimeout(() => setMsg(""), 1500); }
+  };
+  /* Agreement 存档 → 自动在 Closing 开一笔（之后再存档就更新那一笔）：Client / Agent / Base / 日期 / Remark = Loan For（PL+CL+HL） */
+  const agreeClosing = nd => {
+    if (!/AGREEMENT/i.test(nd.file || "")) return nd;
+    const d = doc(); if (!d) return nd;
+    const gv = id => String((d.getElementById(id) || {}).value || "").trim();
+    const client = gv("fName").toUpperCase(); if (!client) return nd;
+    const LF = { "PERSONAL": "PL", "CAR LOAN": "CL", "HOUSE LOAN": "HL" };
+    const lf = (gv("fLoanMulti") || gv("fLoanFor")).split(/\s*[+,]\s*/).filter(Boolean).map(x => LF[x.toUpperCase()] || x.toUpperCase()).join("+");
+    const base = gv("fBase").toUpperCase(), cat = { ORI: "ori", BUILD: "build", "BD BUILD": "build", SPECIAL: "special", RENCAI: "rencai" }[base] || "ori";
+    const fields = { date: gv("fDate") || today(), cat, client, agent: gv("fAgent").toLowerCase(), remark: lf };
+    const cid = nd.closingId || uid(), isNew = !nd.closingId, me = canonUser(currentUser || "");
+    (async () => { try {
+      const raw = await DB.get("submissions"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) {}
+      let next;
+      if (isNew) next = [{ id: cid, ...fields, staff: me, status: "submitted", by: me, at: Date.now(), fromAgreement: nd.id }, ...cur];
+      else { if (!cur.some(x => x.id === cid)) return; next = cur.map(x => x.id === cid ? { ...x, ...fields } : x); }   /* Closing 那笔被删了就不再开 */
+      await DB.set("submissions", JSON.stringify(next));
+      try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "submissions", next } })); } catch (e) {}
+    } catch (e) {} })();
+    return { ...nd, closingId: cid };
   };
   const doSave = closeAfter => {
     if (noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || ""))) { alert("只有 Admin（" + String(open.draft.by || "").toUpperCase() + "）才能更改，你只能看。"); return; }
@@ -7640,7 +7661,7 @@ function FormsPage({ currentUser, tools, noLib }) {
       confirmSave(t, cat, !!closeAfter); return; }
     if (!open.draft) { const cs = myCats(); setSaveDlg({ title: guessTitle(vals), cat: (cs.find(c => c.name === open.tool.name) || cs[0] || {}).id || "", closeAfter: !!closeAfter }); return; }
     if (open.draft) {
-      const nd = { ...open.draft, values: vals, at: now, by: canonUser(currentUser), title: open.draft.title || guessTitle(vals) };
+      const nd = agreeClosing({ ...open.draft, values: vals, at: now, by: open.draft.by || canonUser(currentUser), title: open.draft.title || guessTitle(vals) });
       saveDrafts(list.map(x => x.id === nd.id ? nd : x));
       setOpen({ ...open, draft: nd });
     } else {

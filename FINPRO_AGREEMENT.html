@@ -288,11 +288,17 @@
     </div>
     <div class="fld">
       <label for="fLoanFor">Loan For</label>
-      <select id="fLoanFor">
+      <select id="fLoanFor" style="display:none">
         <option value="PERSONAL">PERSONAL</option>
         <option value="CAR LOAN">CAR LOAN</option>
         <option value="HOUSE LOAN">HOUSE LOAN</option>
       </select>
+      <div class="lf-multi" id="lfMultiBox">
+        <label><input type="checkbox" class="lf-cb" data-x value="PERSONAL"> PERSONAL</label>
+        <label><input type="checkbox" class="lf-cb" data-x value="CAR LOAN"> CAR LOAN</label>
+        <label><input type="checkbox" class="lf-cb" data-x value="HOUSE LOAN"> HOUSE LOAN</label>
+      </div>
+      <input type="hidden" id="fLoanMulti" data-x value="">
     </div>
     <div class="fld">
       <label for="fSSM">SSM</label>
@@ -1091,6 +1097,30 @@
     var ot = document.createElement('option'); ot.value = '__other__'; ot.textContent = '＋ 其他…'; a.appendChild(ot);
     a.addEventListener('change', function(){ if (a.value !== '__other__') return; var n = (prompt('Agent 名字：') || '').trim().toUpperCase(); if (!n) { a.value = ''; return; } if (![].some.call(a.options, function(o){ return o.value === n; })) { var o = document.createElement('option'); o.value = o.textContent = n; a.insertBefore(o, ot); } a.value = n; }); }
   if (b) BS.forEach(function(n){ var o = document.createElement('option'); o.value = o.textContent = n; b.appendChild(o); });
+})();
+</script>
+
+<script>
+/* Loan For 可以同时选几个（例如 PERSONAL + CAR LOAN） */
+(function(){
+  var sel = document.getElementById('fLoanFor'), hid = document.getElementById('fLoanMulti'), cbs = [].slice.call(document.querySelectorAll('.lf-cb'));
+  if (!sel || !hid) return;
+  function apply(list){
+    var txt = list.join(' + ');
+    var opt = [].find.call(sel.options, function(o){ return o.value === txt; });
+    if (!opt && txt) { opt = document.createElement('option'); opt.value = opt.textContent = txt; sel.appendChild(opt); }
+    if (txt) sel.value = txt;
+    hid.value = txt;
+    sel.dispatchEvent(new Event('change', {bubbles:true})); sel.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  function fromHidden(){ var v = (hid.value || sel.value || 'PERSONAL').split(/\s*\+\s*/); cbs.forEach(function(c){ c.checked = v.indexOf(c.value) >= 0; }); }
+  cbs.forEach(function(c){ c.addEventListener('change', function(){ var l = cbs.filter(function(x){ return x.checked; }).map(function(x){ return x.value; }); if (!l.length) { c.checked = true; l = [c.value]; } apply(l); }); });
+  hid.addEventListener('change', function(){ fromHidden(); apply(cbs.filter(function(x){ return x.checked; }).map(function(x){ return x.value; })); });
+  sel.addEventListener('change', function(){ if (!hid.value) fromHidden(); });
+  fromHidden();
+  var clr = document.getElementById('btnClearAll'); if (clr) clr.addEventListener('click', function(){ setTimeout(function(){ hid.value = ''; fromHidden(); }, 50); });
+  var css = document.createElement('style'); css.textContent = '.lf-multi{display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 10px;border:1px solid #d6d3cc;border-radius:6px;background:#fff;min-height:38px;box-sizing:border-box;align-items:center}.lf-multi label{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;color:#222;margin:0}';
+  document.head.appendChild(css);
 })();
 </script>
 </body>
