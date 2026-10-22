@@ -1216,7 +1216,7 @@ function PageFx({ page }) {
   const R = i => { const x = Math.sin(i * 12.9898 + page.length * 7.1) * 43758.5453; return x - Math.floor(x); };
   const make = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, R(i + 1), R(i + 101), R(i + 201)));
   let kids = [];
-  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", bankstmt2: "bars", bsreturn: "coins", costing_pl: "bars", agree_finpro: "papers", agree_future: "papers", costing_car: "speed", odpayment: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
+  const kind = { submission: "papers", leave: "waves", house: "bubbles", car: "speed", personal: "coins", verify: "scan", reports: "bars", html_forms: "papers", html_company: "waves", banker: "pulse", phone: "pulse", referral: "coins", receipt: "papers", salarylist: "coins", lendingfee: "papers", bankstmt: "bars", bankstmt2: "bars", bsreturn: "coins", costing_pl: "bars", agreement: "papers", costing_car: "speed", odpayment: "coins", mission: "stars", clients: "mesh" }[page] || "mesh";
   if (kind === "bubbles") kids = make(16, (i, a, b, c) => h("span", { key: i, className: "b", style: { left: a * 100 + "%", width: 20 + b * 70, height: 20 + b * 70, animationDuration: 12 + c * 14 + "s", animationDelay: -c * 20 + "s" } }));
   if (kind === "speed") kids = make(22, (i, a, b, c) => h("span", { key: i, className: "s", style: { top: a * 100 + "%", width: 120 + b * 260, animationDuration: 1.6 + c * 2.4 + "s", animationDelay: -c * 4 + "s", opacity: .25 + b * .5 } }));
   if (kind === "coins") kids = make(14, (i, a, b, c) => h("span", { key: i, className: "c", style: { left: a * 100 + "%", width: 22 + b * 26, height: 22 + b * 26, animationDuration: 9 + c * 10 + "s", animationDelay: -c * 18 + "s" } }, "RM"));
@@ -1366,16 +1366,7 @@ const NAV = [{
 }, {
   id: "agreement",
   label: "Agreement",
-  icon: Folder,
-  children: [{
-    id: "agree_finpro",
-    label: "Finpro Agreement",
-    icon: Folder
-  }, {
-    id: "agree_future",
-    label: "Future Agreement",
-    icon: Folder
-  }]
+  icon: Folder
 }, {
   id: "bankstmt",
   label: "Bank Statement",
@@ -3361,10 +3352,10 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c))
-  }) : page === "agree_finpro" || page === "agree_future" ? /*#__PURE__*/React.createElement(FormsPage, {
+  }) : page === "agreement" ? /*#__PURE__*/React.createElement(FormsPage, {
     key: page,
     currentUser: currentUser,
-    tools: AGREE_TOOLS.filter(t => t.grp === page),
+    tools: AGREE_TOOLS,
     noLib: true
   }) : page === "costing_pl" || page === "costing_car" ? /*#__PURE__*/React.createElement(FormsPage, {
     key: page,
@@ -3769,7 +3760,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
-    h("div", { className: "sb-ver" }, "v238"));
+    h("div", { className: "sb-ver" }, "v239"));
 }
 /* ---------- 共用：存在云端的列表 ---------- */
 /* ---------- 三方合并：只把「我这边真的改过的」写上去，别人同时改的不会被盖掉 ----------
@@ -3807,13 +3798,23 @@ function crmMerge(base, mine, theirs) {
   return mine; // 同一个格子两边都改 → 以我最新的为准
 }
 let __clientsBase = null;
+/* 资料快取：同一次打开 CRM 里换页马上有（记忆体），下次打开先用上次的（IndexedDB），云端回来再更新 */
+const _clMem = {};
+const _clIdb = (() => { let p = null; return () => p || (p = new Promise(res => { try { const r = indexedDB.open("crm_cache", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch (e) { res(null); } })); })();
+const clCacheGet = async key => { try { const db = await _clIdb(); if (!db) return null; return await new Promise(res => { const t = db.transaction("kv", "readonly").objectStore("kv").get(key); t.onsuccess = () => res(t.result == null ? null : t.result); t.onerror = () => res(null); }); } catch (e) { return null; } };
+const _clPut = {};
+const clCachePut = (key, val) => { clearTimeout(_clPut[key]); _clPut[key] = setTimeout(async () => { try { const db = await _clIdb(); if (db) db.transaction("kv", "readwrite").objectStore("kv").put(val, key); } catch (e) {} }, 1500); };
 function useCloudList(key) {
-  const [list, setList] = React.useState(null);
-  React.useEffect(() => { DB.get(key).then(v => setList(v ? JSON.parse(v) : [])).catch(() => setList([])); }, [key]);
-  React.useEffect(() => DB.subscribe((k, v) => { if (k === key && v) { try { setList(JSON.parse(v)); } catch (e) {} } }), [key]);
-  const save = next => { setList(next); DB.set(key, JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key, next } })); } catch (e) {} };
+  const [list, setListRaw] = React.useState(() => _clMem[key] !== undefined ? _clMem[key] : null);
+  const [fresh, setFresh] = React.useState(false);
+  const setList = v => { _clMem[key] = v; setListRaw(v); };
+  React.useEffect(() => { let gotCloud = false;
+    if (_clMem[key] === undefined) clCacheGet(key).then(v => { if (!gotCloud && v != null && _clMem[key] === undefined) { _clMem[key] = v; setListRaw(v); } });
+    DB.get(key).then(v => { gotCloud = true; const d = v ? JSON.parse(v) : []; setList(d); setFresh(true); clCachePut(key, d); }).catch(() => { gotCloud = true; if (_clMem[key] === undefined) setList([]); setFresh(true); }); }, [key]);
+  React.useEffect(() => DB.subscribe((k, v) => { if (k === key && v) { try { const d = JSON.parse(v); setList(d); clCachePut(key, d); } catch (e) {} } }), [key]);
+  const save = next => { setList(next); clCachePut(key, next); DB.set(key, JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key, next } })); } catch (e) {} };
   React.useEffect(() => { const f = e => { if (e.detail && e.detail.key === key) setList(e.detail.next); }; window.addEventListener("crm-cloudlist", f); return () => window.removeEventListener("crm-cloudlist", f); }, [key]);
-  return [list, save];
+  return [list, save, fresh];
 }
 const pillSel = (hue, extra) => ({ ...S.bankerInput, ...czPill(hue, { padding: "5px 10px", width: "auto", ...(extra || {}) }), fontWeight: 700 });
 
@@ -7304,7 +7305,7 @@ function costComputeMeta(tool, draft) {
     document.body.appendChild(f);
   });
 }
-function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
+function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
   const files = tools.map(t => t.file);
@@ -7315,32 +7316,41 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
   const latest = React.useRef(drafts); latest.current = drafts;
   const busy = React.useRef(false);
   React.useEffect(() => {
-    if (busy.current) return;
+    if (busy.current || !fresh) return;
     const isCar = d => d.file === "CAR_SALES_QUOTATION.html";
     const need = allRows.filter(d => !/AGREEMENT/i.test(d.file || "") && (!d.meta || d.meta.at !== d.at || (isCar(d) && !d.meta.ag2)));
     if (!need.length) return;
     busy.current = true;
     (async () => {
       const upd = {};
-      for (const d of need) { const t = tools.find(x => x.file === d.file); if (!t) continue; const m = await costComputeMeta(t, d); upd[d.id] = { ...(m || {}), at: d.at }; }
+      await new Promise(r => setTimeout(r, 600));   /* 先让页面显示出来，再慢慢算 */
+      for (let i = 0; i < need.length; i += 3) {     /* 一次算 3 份 */
+        await Promise.all(need.slice(i, i + 3).map(async d => { const t = tools.find(x => x.file === d.file); if (!t) return; const m = await costComputeMeta(t, d); upd[d.id] = { ...(m || {}), at: d.at }; }));
+      }
       busy.current = false;
       if (Object.keys(upd).length) saveDrafts((latest.current || []).map(x => upd[x.id] && x.at === upd[x.id].at ? { ...x, meta: upd[x.id] } : x));
     })();
-  }, [allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
+  }, [fresh, allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
   const toggleDone = d => { if (!lfCanEdit(d.by, me)) return; saveDrafts((latest.current || []).map(x => x.id !== d.id ? x : { ...x, done: x.done ? null : { by: me, at: Date.now() } })); monetSfx("save"); };
   const th = S.th, td = S.td;
   const hasCar = tools.some(t => t.file === "CAR_SALES_QUOTATION.html");
   const isAgree = tools.every(t => /AGREEMENT/i.test(t.file));
+  const [pick, setPick] = React.useState(false);
+  const [typeF, setTypeF] = React.useState("");
   if (isAgree) return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / admin", value: q, onChange: e => setQ(e.target.value) })),
-      tools.map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), " 新增 " + t.name))),
+      h("select", { value: typeF, onChange: e => setTypeF(e.target.value), style: { border: "2px solid #c7d2fe", borderRadius: 12, padding: "9px 14px", fontWeight: 900, fontSize: 14, fontFamily: "inherit", background: "#fff", color: "#3730a3", cursor: "pointer" } }, h("option", { value: "" }, "全部"), h("option", { value: "FINPRO" }, "FINPRO"), h("option", { value: "FUTURE" }, "FUTURE")),
+      h("div", { style: { position: "relative" } },
+        h("button", { style: S.addBtn, onClick: () => setPick(!pick) }, h(Plus, { size: 16 }), " 新增 Agreement ▾"),
+        pick && h("div", { style: { position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, background: "#fff", borderRadius: 12, boxShadow: "0 14px 34px -10px rgba(0,0,0,.35)", border: "1px solid #e2e8f0", padding: 6, minWidth: 190 } },
+          tools.map(t => { const fu = /FUTURE/i.test(t.file); return h("button", { key: t.file, onClick: () => { setPick(false); onOpen(t, null); }, style: { display: "block", width: "100%", textAlign: "left", border: "none", background: "none", padding: "10px 12px", borderRadius: 8, fontWeight: 900, fontSize: 13.5, cursor: "pointer", color: fu ? "#ea580c" : "#2563eb" } }, (fu ? "🟧 FUTURE" : "🟦 FINPRO") + " Agreement"); })))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["PDF", "Name", "Date", "Admin"].map((x, i) => h("th", { key: i, style: th }, x)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增」，填好按 💾 存档")) :
-        rows.map(d => { const t = tools.find(x => x.file === d.file) || {}; return h("tr", { key: d.id },
+        rows.filter(d => !typeF || d.file.toUpperCase().includes(typeF)).map(d => { const t = tools.find(x => x.file === d.file) || {}; return h("tr", { key: d.id },
           h("td", { style: td }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
-          h("td", { style: { ...td, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, d.title || "—"),
+          h("td", { style: { ...td, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, d.title || "—", h("div", null, h("span", { style: { display: "inline-block", marginTop: 3, borderRadius: 999, padding: "1px 8px", fontSize: 10.5, fontWeight: 900, color: "#fff", background: /FUTURE/i.test(d.file) ? "#ea580c" : "#2563eb" } }, /FUTURE/i.test(d.file) ? "FUTURE" : "FINPRO"))),
           h("td", { style: td }, d.at ? new Date(d.at).toLocaleDateString("en-GB") : "—"),
           h("td", { style: { ...td, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase()))); })))));
   return h("div", null,
@@ -7365,7 +7375,7 @@ function CostingTable({ drafts, tools, currentUser, saveDrafts, onOpen }) {
 }
 function FormsPage({ currentUser, tools, noLib }) {
   const h = React.createElement;
-  const [drafts, saveDrafts] = useCloudList("form_drafts");
+  const [drafts, saveDrafts, draftsFresh] = useCloudList("form_drafts");
   const [libData, saveLib] = useCloudList("form_files");
   const libRef = React.useRef(null); libRef.current = libData;
   /* 表格自己存在浏览器里的存档 → 放进「我的文件库」
@@ -7508,7 +7518,7 @@ function FormsPage({ currentUser, tools, noLib }) {
   };
   const syncingRef = React.useRef(false);
   const syncNative = React.useCallback(() => {
-    if (drafts === null || libData === null || syncingRef.current) return;
+    if (drafts === null || libData === null || !draftsFresh || syncingRef.current) return;
     syncingRef.current = true;
     try {
       const me = canonUser(currentUser);
@@ -7551,7 +7561,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     } finally { syncingRef.current = false; }
   }, [drafts, libData, currentUser]);
   const syncedOnce = React.useRef(false);
-  React.useEffect(() => { if (!syncedOnce.current && drafts !== null && libData !== null) { syncedOnce.current = true; syncNative(); } }, [drafts, libData]);
+  React.useEffect(() => { if (!syncedOnce.current && drafts !== null && libData !== null && draftsFresh) { syncedOnce.current = true; syncNative(); } }, [drafts, libData, draftsFresh]);
   /* 改名：直接改原本那份（表格自己的存档也一起改名），不会多出一份 */
   const renameDraftTo = (d, t) => {
     t = String(t || "").trim();
@@ -7647,7 +7657,7 @@ function FormsPage({ currentUser, tools, noLib }) {
       tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
         icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
-    noLib && h(CostingTable, { drafts: drafts || [], tools, currentUser, saveDrafts, onOpen: (t, d) => setOpen({ tool: t, draft: d }) }),
+    noLib && h(CostingTable, { drafts: drafts || [], fresh: draftsFresh, tools, currentUser, saveDrafts, onOpen: (t, d) => setOpen({ tool: t, draft: d }) }),
 
     pasteBox !== null && h("div", { onClick: () => setPasteBox(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 560, background: "#fff", borderRadius: 18, overflow: "hidden" } },
