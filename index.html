@@ -1464,7 +1464,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "248";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "249";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6398,7 +6398,7 @@ function SubmissionPage({ currentUser }) {
                 x.doc === "booking" && ed && h("div", { style: { display: "flex", gap: 4 } },
                   h("input", { type: "date", title: "Booking Date", style: { ...small, width: 118 }, value: bd, onChange: e => updDoc(x, { docDate: e.target.value, docTime: bt }) }),
                   h("input", { type: "time", title: "Booking Time", style: { ...small, width: 92 }, value: bt, onChange: e => updDoc(x, { docDate: bd, docTime: e.target.value }) })),
-                x.doc === "booking" && bd && h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap" } }, czBookFmt(bd + (bt ? "T" + bt : "")))); })()),
+                x.doc === "booking" && bd && !ed && h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap" } }, czBookFmt(bd + (bt ? "T" + bt : "")))); })()),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => pickAgent(x, e.target.value) }, h("option", { value: "" }, "—"), (ag && !CLOSING_AGENTS.includes(String(ag).toLowerCase()) ? [String(ag).toLowerCase()] : []).concat(CLOSING_AGENTS).map(p => h("option", { key: p, value: p }, p.toUpperCase())), ed && h("option", { value: "__add__", style: { color: "#4f46e5", fontWeight: 800 } }, "＋ 新增 Agent…"))),
             h("td", { style: { ...S.td, minWidth: 80, maxWidth: 130, width: 100, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
