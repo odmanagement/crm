@@ -7530,18 +7530,21 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
       tools.filter(t => !t.noAdd).map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 " + (t.file === "CAR_SALES_QUOTATION.html" ? "Quotation" : "Costing")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance"] : [], ["Admin"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 7 : 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
+      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done", "照片 / PDF"] : [], ["Admin"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
         rows.map(d => { const m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
           const closed = !ld && m.subtotal != null && m.subtotal > 0.004 && m.balance != null && Math.abs(m.balance) < 0.005;   /* 付清了 = Closing */
-          const bg = closed ? { background: "#fce7f3" } : {};
-          return h("tr", { key: d.id, title: closed ? "已付清 · CLOSING" : undefined },
+          const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
+          const bg = isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#fce7f3" } : {};
+          return h("tr", { key: d.id, title: isDone ? "DONE · " + String(d.done.by || "").toUpperCase() + " · " + new Date(d.done.at || 0).toLocaleDateString("en-GB") : closed ? "已付清 · CLOSING" : undefined },
             h("td", { style: { ...td, ...bg, ...bg } }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
             h("td", { style: { ...td, ...bg, fontWeight: 700 } }, m.agent || "—"),
             h("td", { style: { ...td, ...bg, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, m.client || d.title || "—", tools.length > 1 && (() => { const k = /FUTURE/i.test(d.file) ? ["FUTURE", "#ea580c"] : /FINPRO/i.test(d.file) ? ["FINPRO", "#2563eb"] : /^PL_/i.test(d.file) ? ["PL", "#7c3aed"] : [t.name, "#64748b"]; return h("div", null, h("span", { style: { display: "inline-block", marginTop: 3, borderRadius: 999, padding: "1px 9px", fontSize: 10.5, fontWeight: 900, color: "#fff", background: k[1], letterSpacing: .3 } }, k[0])); })()),
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 800 } }, ld ? "…" : m.subtotal != null ? "RM " + lsFmt(m.subtotal) : "—"),
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" } }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: "#0369a1" } }, ld ? "…" : m.custBal != null ? "RM " + lsFmt(m.custBal) : "—"),
+            hasCar && h("td", { style: { ...td, ...bg } }, h("button", { disabled: !can, onClick: () => toggleDone(d), title: !can ? "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以按" : d.done ? "DONE（按一下取消）" : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: can ? "pointer" : "default", whiteSpace: "nowrap", background: d.done ? "#7c3aed" : "#f1f5f9", color: d.done ? "#fff" : "#94a3b8" } }, d.done ? "✓ DONE" : "DONE")),
+            hasCar && h("td", { style: { ...td, ...bg, minWidth: 120 } }, h(LfPhotos, { ids: d.photos || [], compact: true, ro: !can, onChange: ids => saveDrafts((latest.current || []).map(x => x.id === d.id ? { ...x, photos: ids } : x)) })),
             h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase())));
         })))));
 }
