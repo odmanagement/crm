@@ -1464,7 +1464,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "247";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "248";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6294,7 +6294,20 @@ function BlindBox({ items, staffOf, currentUser }) {
           h("span", { style: pill(st[1], st[2]) }, st[0])); }))));
 }
 /* Closing：Document Needed（Agreement 用） */
-const CZ_DOCS = [["pdf", "PDF Only", 210], ["booking", "Booking", 28], ["lawyer", "Lawyer PDF", 275]];
+const CZ_DOCS = [["lawyer", "Lawyer Agreement PDF", 275], ["booking", "Booking Date", 28], ["pdf", "PDF Only", 210]];
+/* Closing ⇄ Agreement 的 Document Needed 对照（Agreement 旧的 NO NEED = PDF ONLY） */
+const CZ_AG2DOC = { "LAWYER AGREEMENT PDF": "lawyer", "BOOKING DATE": "booking", "PDF ONLY": "pdf", "NO NEED": "pdf" };
+const CZ_DOC2AG = { lawyer: "LAWYER AGREEMENT PDF", booking: "BOOKING DATE", pdf: "PDF ONLY" };
+const czDocDate = x => x.docDate !== undefined ? (x.docDate || "") : String(x.docAt || "").slice(0, 10);
+const czDocTime = x => x.docTime !== undefined ? (x.docTime || "") : String(x.docAt || "").slice(11, 16);
+/* 把 Closing 的 Document Needed 写回 Agreement 存档里的格子 */
+const czDocIntoValues = (values, doc, date, time) => (values || []).map(([k, v]) => {
+  const id = String(k).split("#")[0];
+  if (id === "fDocType" && doc) return [k, CZ_DOC2AG[doc] || v];
+  if (id === "fBookDate") return [k, doc === "booking" ? (date || "") : v];
+  if (id === "fBookTime") return [k, doc === "booking" ? (time || "") : v];
+  return [k, v];
+});
 const czBookFmt = v => { const m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return ""; let out = m[3] + "/" + m[2] + "/" + m[1]; if (m[4]) { let hh = +m[4]; const ap = hh >= 12 ? "PM" : "AM"; hh = hh % 12 || 12; out += " " + hh + ":" + m[5] + ap; } return out; };
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
@@ -6308,10 +6321,21 @@ function SubmissionPage({ currentUser }) {
   const agentOf = x => x.staff !== undefined ? (x.agent || "") : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? "" : (x.agent || ""));
   const canEdit = x => sameUser(x.by, currentUser) || sameUser(staffOf(x), currentUser);
   const upd = (id, k, v) => save(items.map(x => x.id === id && canEdit(x) ? { ...x, staff: staffOf(x), agent: agentOf(x), [k]: v } : x));
+  /* Document Needed：改了就同步回连着的 Agreement 存档 */
+  const [agDrafts, saveAgDrafts] = useCloudList("form_drafts");
+  const updDoc = (x, p) => {
+    if (!canEdit(x)) return;
+    const nx = { ...x, staff: staffOf(x), agent: agentOf(x), ...p, docAt: undefined };
+    save(items.map(y => y.id === x.id ? nx : y));
+    if (!agDrafts) return; const did = x.fromAgreement;
+    const dr = (agDrafts || []).find(d => /AGREEMENT/i.test(d.file || "") && ((did && d.id === did) || d.closingId === x.id)); if (!dr || !dr.values) return;
+    const vals = czDocIntoValues(dr.values, nx.doc, czDocDate(nx), czDocTime(nx));
+    if (JSON.stringify(vals) !== JSON.stringify(dr.values)) saveAgDrafts((agDrafts || []).map(d => d.id === dr.id ? { ...d, values: vals } : d));
+  };
   const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", staff: canonUser(currentUser), agent: "", status: "submitted", remark: "", by: currentUser, at: Date.now() }, ...items]);
   const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => tab === "all" || x.cat === tab)
-    .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark, (CZ_DOCS.find(d => d[0] === x.doc) || [])[1], x.doc === "booking" ? czBookFmt(x.docAt) : ""].join(" ").toLowerCase().includes(q.toLowerCase()))
+    .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark, (CZ_DOCS.find(d => d[0] === x.doc) || [])[1], x.doc === "booking" ? czBookFmt(czDocDate(x) + (czDocTime(x) ? "T" + czDocTime(x) : "")) : ""].join(" ").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at);
   const typeCard = (k, label, hue, n) => h("button", { key: k, onClick: () => setTab(k), style: { flex: "1 1 130px", textAlign: "left", border: tab === k ? "2px solid hsl(" + hue + ",70%,55%)" : "1px solid #eef0f4", borderRadius: 16, padding: "12px 16px", background: tab === k ? "linear-gradient(135deg,hsl(" + hue + ",90%,97%),#fff)" : "rgba(255,255,255,.92)", boxShadow: tab === k ? "0 10px 24px -12px hsl(" + hue + ",70%,50%)" : "0 6px 18px -14px rgba(0,0,0,.3)", cursor: "pointer", transition: "all .2s" } },
     h("div", { style: { fontSize: 12, fontWeight: 800, color: "hsl(" + hue + ",55%,45%)", letterSpacing: ".04em" } }, label),
@@ -6346,11 +6370,14 @@ function SubmissionPage({ currentUser }) {
             h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, title: lockT, style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
             h("td", { style: S.td }, h("select", { disabled: !ed, title: lockT, style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
             h("td", { style: { ...S.td, minWidth: 280, width: 320 } }, h(DebouncedInput, { disabled: !ed, title: lockT, style: { ...S.bankerInput, fontWeight: 700, width: "100%" }, value: x.client, placeholder: ed ? "Client" : "", onCommit: v => upd(x.id, "client", v) })),
-            h("td", { style: { ...S.td, minWidth: 150 } }, (() => { const dd = CZ_DOCS.find(d => d[0] === x.doc);
+            h("td", { style: { ...S.td, minWidth: 170 } }, (() => { const dd = CZ_DOCS.find(d => d[0] === x.doc), bd = czDocDate(x), bt = czDocTime(x);
+              const small = { ...S.bankerInput, minWidth: 0, padding: "3px 6px", fontSize: 11.5, fontWeight: 800, color: "#c2410c" };
               return h("div", { style: { display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" } },
-                h("select", { disabled: !ed, title: lockT, style: dd ? pillSel(dd[2]) : { ...S.bankerInput, minWidth: 110 }, value: x.doc || "", onChange: e => upd(x.id, "doc", e.target.value) }, h("option", { value: "" }, "—"), CZ_DOCS.map(d => h("option", { key: d[0], value: d[0] }, d[1]))),
-                x.doc === "booking" && (ed ? h("input", { type: "datetime-local", title: x.docAt ? czBookFmt(x.docAt) : "Booking 日期时间", style: { ...S.bankerInput, width: 170, minWidth: 0, padding: "3px 6px", fontSize: 11.5, fontWeight: 800, color: "#c2410c" }, value: x.docAt || "", onChange: e => upd(x.id, "docAt", e.target.value) }) : null),
-                x.doc === "booking" && x.docAt && h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap" } }, czBookFmt(x.docAt))); })()),
+                h("select", { disabled: !ed, title: lockT, style: dd ? pillSel(dd[2]) : { ...S.bankerInput, minWidth: 110 }, value: x.doc || "", onChange: e => updDoc(x, { doc: e.target.value }) }, h("option", { value: "" }, "—"), CZ_DOCS.map(d => h("option", { key: d[0], value: d[0] }, d[1].toUpperCase()))),
+                x.doc === "booking" && ed && h("div", { style: { display: "flex", gap: 4 } },
+                  h("input", { type: "date", title: "Booking Date", style: { ...small, width: 118 }, value: bd, onChange: e => updDoc(x, { docDate: e.target.value, docTime: bt }) }),
+                  h("input", { type: "time", title: "Booking Time", style: { ...small, width: 92 }, value: bt, onChange: e => updDoc(x, { docDate: bd, docTime: e.target.value }) })),
+                x.doc === "booking" && bd && h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap" } }, czBookFmt(bd + (bt ? "T" + bt : "")))); })()),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => pickAgent(x, e.target.value) }, h("option", { value: "" }, "—"), (ag && !CLOSING_AGENTS.includes(String(ag).toLowerCase()) ? [String(ag).toLowerCase()] : []).concat(CLOSING_AGENTS).map(p => h("option", { key: p, value: p }, p.toUpperCase())), ed && h("option", { value: "__add__", style: { color: "#4f46e5", fontWeight: 800 } }, "＋ 新增 Agent…"))),
             h("td", { style: { ...S.td, minWidth: 80, maxWidth: 130, width: 100, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
@@ -7578,7 +7605,10 @@ function FormsPage({ currentUser, tools, noLib }) {
       const ad = FORM_NATIVE[open.tool.file], w = frameRef.current.contentWindow;
       nativeWrite(open.tool.file, open.draft.title, open.draft.native);
       try { const data = open.draft.native.data; if (typeof w[ad.apply] === "function") { w[ad.apply](data); if (ad.after && typeof w[ad.after] === "function") w[ad.after](); } } catch (e) { console.error(e); }
-    } else if (open && open.draft) formWriteValues(d, open.draft.values);
+    } else if (open && open.draft) {
+      let vals = (open.draft.values || []).map(([k, v]) => String(k).split("#")[0] === "fDocType" && v === "NO NEED" ? [k, "PDF ONLY"] : [k, v]);
+      formWriteValues(d, vals);
+    }
     /* Alice 打开旧的 Agreement → 马上连到 Customer Docs */
     if (open && open.draft && /AGREEMENT/i.test(open.tool.file || "") && DT_USERS.includes(canonUser(currentUser || ""))) setTimeout(() => { try {
       const dd = doc(); if (!dd) return; const gv = id => String((dd.getElementById(id) || {}).value || "").trim();
@@ -7718,7 +7748,8 @@ function FormsPage({ currentUser, tools, noLib }) {
     const LF = { "PERSONAL": "PL", "CAR LOAN": "CL", "HOUSE LOAN": "HL" };
     const lf = (gv("fLoanMulti") || gv("fLoanFor")).split(/\s*[+,]\s*/).filter(Boolean).map(x => LF[x.toUpperCase()] || x.toUpperCase()).join("+");
     const base = gv("fBase"), cat = (baseType(base) || ["ori"])[0];
-    const fields = { date: gv("fDate") || today(), cat, client, agent: gv("fAgent").toLowerCase(), remark: lf };
+    const _dk = CZ_AG2DOC[gv("fDocType").toUpperCase()] || "";
+    const fields = { date: gv("fDate") || today(), cat, client, agent: gv("fAgent").toLowerCase(), remark: lf, doc: _dk, docDate: _dk === "booking" ? gv("fBookDate") : "", docTime: _dk === "booking" ? gv("fBookTime") : "", docAt: undefined };
     const cid = nd.closingId || uid(), isNew = !nd.closingId, me = canonUser(currentUser || "");
     (async () => { try {
       const raw = await DB.get("submissions"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) {}

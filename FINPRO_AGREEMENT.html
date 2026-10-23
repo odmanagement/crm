@@ -338,7 +338,7 @@
       <select id="fDocType">
         <option value="LAWYER AGREEMENT PDF">LAWYER AGREEMENT PDF</option>
         <option value="BOOKING DATE">BOOKING DATE</option>
-        <option value="NO NEED">NO NEED</option>
+        <option value="PDF ONLY">PDF ONLY</option>
       </select>
     </div>
     <div class="fld">
@@ -903,7 +903,7 @@
       lines.push("BOOKING DATE AND TIME");
       lines.push("DATE: " + fmtBookDate(el('fBookDate').value));
       lines.push("TIME: " + fmtBookTime(el('fBookTime').value));
-    } else if(docType !== "NO NEED"){
+    } else if(docType !== "PDF ONLY" && docType !== "NO NEED"){
       lines.push(docType);
     }
     lines.push("");
