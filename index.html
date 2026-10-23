@@ -1464,7 +1464,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "249";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "250";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6322,6 +6322,35 @@ const CZ_DOC2AG = { lawyer: "LAWYER AGREEMENT PDF", booking: "BOOKING DATE", pdf
 const czDocDate = x => x.docDate !== undefined ? (x.docDate || "") : String(x.docAt || "").slice(0, 10);
 const czDocTime = x => x.docTime !== undefined ? (x.docTime || "") : String(x.docAt || "").slice(11, 16);
 /* 把 Closing 的 Document Needed 写回 Agreement 存档里的格子 */
+/* Closing 一笔 → 写回 Agreement 存档的格子（名字 / Agent / 日期 / Base(Type) / Loan For(Remark) / Document Needed） */
+const CZ_CAT2BASE = { build: "Build", ori: "Ori", special: "Special Case", cancel: "Cancel", rencai: "Rencai" };
+const CZ_LF2AG = { PL: "PERSONAL", CL: "CAR LOAN", HL: "HOUSE LOAN" };
+const czRowIntoValues = (values, x) => {
+  const toks = String(x.remark || "").toUpperCase().split(/\s*[+,\/]\s*/).map(t => t.trim()).filter(Boolean);
+  const lf = toks.length && toks.every(t => CZ_LF2AG[t]) ? toks.map(t => CZ_LF2AG[t]).join(" + ") : null;   /* Remark 只有 PL/CL/HL 才写回 Loan For */
+  const out = czDocIntoValues(values, x.doc, czDocDate(x), czDocTime(x)).map(([k, v]) => {
+    const id = String(k).split("#")[0];
+    if (id === "fName") return [k, String(x.client || "").toUpperCase()];
+    if (id === "fDate" && x.date) return [k, x.date];
+    if (id === "fLoanFor" && lf) return [k, lf];
+    if (k === "@fAgent") return [k, String(x.agent || "").toUpperCase()];
+    if (k === "@fBase" && CZ_CAT2BASE[x.cat]) return [k, CZ_CAT2BASE[x.cat]];
+    if (k === "@fLoanMulti" && lf) return [k, lf];
+    return [k, v];
+  });
+  [["@fAgent", String(x.agent || "").toUpperCase()], ["@fBase", CZ_CAT2BASE[x.cat] || ""], ["@fLoanMulti", lf || ""]].forEach(([k, v]) => { if (v && !out.some(e => e[0] === k)) out.push([k, v]); });
+  return out;
+};
+/* Agreement 存档被删 → 连着的 Closing 一起删，Customer Docs 的连接也拿掉 */
+const czAgreementDeleted = d => { if (!d || !/AGREEMENT/i.test(d.file || "")) return;
+  (async () => { try {
+    const raw = await DB.get("submissions"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) { return; }
+    const next = cur.filter(x => !(x.id === d.closingId || x.fromAgreement === d.id));
+    if (next.length !== cur.length) { await DB.set("submissions", JSON.stringify(next)); try { _clMem["submissions"] = next; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "submissions", next } })); } catch (e) {} }
+    const rawD = await DB.get("doc_tracking"); let dt = []; try { dt = rawD ? JSON.parse(rawD) : []; } catch (e) { return; }
+    let ch = false; const nd = dt.map(r => { const ls = ((r.agreement || {}).links || []); if (!ls.some(l => l.draftId === d.id)) return r; ch = true; return { ...r, agreement: { ...r.agreement, links: ls.filter(l => l.draftId !== d.id) } }; });
+    if (ch) { await DB.set("doc_tracking", JSON.stringify(nd)); try { _clMem["doc_tracking"] = nd; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "doc_tracking", next: nd } })); } catch (e) {} }
+  } catch (e) { console.error(e); } })(); };
 const czDocIntoValues = (values, doc, date, time) => (values || []).map(([k, v]) => {
   const id = String(k).split("#")[0];
   if (id === "fDocType" && doc) return [k, CZ_DOC2AG[doc] || v];
@@ -6341,20 +6370,27 @@ function SubmissionPage({ currentUser }) {
   const staffOf = x => x.staff !== undefined ? x.staff : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? x.agent : "");
   const agentOf = x => x.staff !== undefined ? (x.agent || "") : (MISSION_PEOPLE.includes(String(x.agent || "").toLowerCase()) ? "" : (x.agent || ""));
   const canEdit = x => sameUser(x.by, currentUser) || sameUser(staffOf(x), currentUser);
-  const upd = (id, k, v) => save(items.map(x => x.id === id && canEdit(x) ? { ...x, staff: staffOf(x), agent: agentOf(x), [k]: v } : x));
+  const upd = (id, k, v) => { const x = items.find(y => y.id === id); if (!x || !canEdit(x)) return; const nx = { ...x, staff: staffOf(x), agent: agentOf(x), [k]: v }; save(items.map(y => y.id === id ? nx : y)); syncAg(x, nx); };
   /* Document Needed：改了就同步回连着的 Agreement 存档 */
   const [agDrafts, saveAgDrafts] = useCloudList("form_drafts");
   const updDoc = (x, p) => {
     if (!canEdit(x)) return;
     const nx = { ...x, staff: staffOf(x), agent: agentOf(x), ...p, docAt: undefined };
     save(items.map(y => y.id === x.id ? nx : y));
-    if (!agDrafts) return; const did = x.fromAgreement;
-    const dr = (agDrafts || []).find(d => /AGREEMENT/i.test(d.file || "") && ((did && d.id === did) || d.closingId === x.id)); if (!dr || !dr.values) return;
-    const vals = czDocIntoValues(dr.values, nx.doc, czDocDate(nx), czDocTime(nx));
-    if (JSON.stringify(vals) !== JSON.stringify(dr.values)) saveAgDrafts((agDrafts || []).map(d => d.id === dr.id ? { ...d, values: vals } : d));
+    syncAg(x, nx);
+  };
+  /* Closing 改了 → 连着的 Agreement 存档一起改 */
+  const agOf = x => (agDrafts || []).find(d => /AGREEMENT/i.test(d.file || "") && ((x.fromAgreement && d.id === x.fromAgreement) || d.closingId === x.id));
+  const syncAg = (x, nx) => {
+    const dr = agDrafts && agOf(x); if (!dr || !dr.values) return;
+    const vals = czRowIntoValues(dr.values, nx), title = String(nx.client || "").trim().toUpperCase() || dr.title;
+    if (JSON.stringify(vals) !== JSON.stringify(dr.values) || title !== dr.title) saveAgDrafts((agDrafts || []).map(d => d.id === dr.id ? { ...d, values: vals, title, at: Date.now() } : d));
   };
   const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", staff: canonUser(currentUser), agent: "", status: "submitted", remark: "", by: currentUser, at: Date.now() }, ...items]);
-  const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」？")) save(items.filter(y => y.id !== x.id)); };
+  const del = x => { const dr = agOf(x);
+    if (!window.confirm("删除「" + (x.client || "这笔") + "」？" + (dr ? "\n\n⚠ 连着的 " + (dr.form || "Agreement") + "「" + (dr.title || "") + "」也会一起删除。" : ""))) return;
+    save(items.filter(y => y.id !== x.id));
+    if (dr) { saveAgDrafts((agDrafts || []).filter(d => d.id !== dr.id)); czAgreementDeleted({ ...dr, closingId: "__none__" }); } };
   const shown = items.filter(x => tab === "all" || x.cat === tab)
     .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark, (CZ_DOCS.find(d => d[0] === x.doc) || [])[1], x.doc === "booking" ? czBookFmt(czDocDate(x) + (czDocTime(x) ? "T" + czDocTime(x) : "")) : ""].join(" ").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at);
@@ -6386,7 +6422,7 @@ function SubmissionPage({ currentUser }) {
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
           const sf = staffOf(x), ag = agentOf(x), ed = canEdit(x), lockT = "";
-          return h("tr", { key: x.id, className: x.cat === "cancel" ? "cz-cancel" : undefined },
+          return h("tr", { key: x.id, className: x.cat === "cancel" ? "cz-cancel" : x.done ? "cz-done" : undefined },
             h("td", { style: { ...S.td, color: "#94a3b8", width: 36, boxShadow: "inset 3px 0 0 hsl(" + ty[2] + ",70%,55%)" } }, i + 1),
             h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, title: lockT, style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
             h("td", { style: S.td }, h("select", { disabled: !ed, title: lockT, style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
@@ -7821,7 +7857,7 @@ function FormsPage({ currentUser, tools, noLib }) {
   /* Costing：只有那份存档的 Admin（建立的人）或老板可以改，其他人只能看 */
   const viewOnly = !!(noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || "")));
   const tryClose = () => { if (!viewOnly && dirty()) setAsk(true); else setOpen(null); };
-  const delDraft = d => { if (!window.confirm("删除这份存档？")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); };
+  const delDraft = d => { if (!window.confirm("删除这份存档？" + (/AGREEMENT/i.test(d.file || "") ? "\n\n⚠ 连着的 Closing 也会一起删除。" : ""))) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); czAgreementDeleted(d); };
   /* Forms 的文件库：不放 Costing（PL / Car）和 Lending Sheet 的存档，那些在自己的页面 */
   const LIB_SKIP = ["FINPRO_COSTING_PART.html", "FUTURE_COSTING_PART.html", "PL_COSTING_PART.html", "CAR_SALES_QUOTATION.html", "LEANDING_SHEET.html", "FINPRO_AGREEMENT.html", "FUTURE_AGREEMENT.html"];
   const mine = (drafts || []).filter(d => sameUser(d.by, currentUser) && !LIB_SKIP.includes(d.file));
@@ -7872,7 +7908,7 @@ function FormsPage({ currentUser, tools, noLib }) {
             h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, open.draft ? "存档：" + (open.draft.title || "(未命名)") + " · " + fmtT(open.draft.at) : "新的一份（还没存档）")),
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
           viewOnly && h("span", { title: "只有 Admin 才能更改", style: { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10, padding: "7px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, "👁 只能看 · ADMIN " + String(open.draft.by || "").toUpperCase()),
-          open.draft && lfCanEdit(open.draft.by, canonUser(currentUser || "")) && h("button", { onClick: () => { const d = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!window.confirm("删除这份存档「" + (d.title || "") + "」？删除了不能还原。")) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); setOpen(null); }, title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "🗑 删除"),
+          open.draft && lfCanEdit(open.draft.by, canonUser(currentUser || "")) && h("button", { onClick: () => { const d = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!window.confirm("删除这份存档「" + (d.title || "") + "」？删除了不能还原。" + (/AGREEMENT/i.test(d.file || "") ? "\n\n⚠ 连着的 Closing 也会一起删除。" : ""))) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); czAgreementDeleted(d); setOpen(null); }, title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "🗑 删除"),
           open.draft && !viewOnly && !noLib && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
           !viewOnly && h("button", { onClick: () => doSave(false), style: { border: "none", background: "linear-gradient(120deg,#16a34a,#059669)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 6px 14px -6px #16a34a" } }, "💾 存档"),
@@ -11444,6 +11480,9 @@ button:active, a:active { transform: scale(.97); }
 /* Closing：Type = Cancel 整行红色 */
 .cz-table tr.cz-cancel td { background: #fee2e2 !important; border-color: #fecaca !important; }
 .cz-table tr.cz-cancel:hover td { background: #fecaca !important; }
+/* Closing：DONE 整行紫色 */
+.cz-table tr.cz-done td { background: #ede9fe !important; border-color: #ddd6fe !important; }
+.cz-table tr.cz-done:hover td { background: #ddd6fe !important; }
 .theme-mono .cz-table thead tr { background: linear-gradient(90deg,#0a0a0a,#1f1f1f 60%,#333333) !important; }
 .theme-mono .cz-table thead th { color: #e5e5e5 !important; background: transparent !important; letter-spacing: .06em; }
 .theme-mono table thead th { background: #111111 !important; color: #e5e5e5 !important; border-color: #262626 !important; }

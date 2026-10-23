@@ -17,13 +17,15 @@
     border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(20,25,40,.06);}
   .head{background:var(--ink);color:#fff;padding:22px 26px;}
   .head h1{margin:0;font-size:22px;letter-spacing:2px;font-weight:600;}
-  .head h1 .ctype{font:inherit;letter-spacing:inherit;color:#fff;background:rgba(255,255,255,.1);
-    border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:0 26px 0 10px;margin-right:6px;cursor:pointer;
-    -webkit-appearance:none;appearance:none;vertical-align:baseline;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 9px center;}
-  .head h1 .ctype option{color:#111;background:#fff;}
-  @media print{ .head h1 .ctype{border:none;background:none;padding:0;margin-right:0;} }
+  .head h1{display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
+  .ctypes{display:inline-flex;gap:5px;margin-right:4px;}
+  .ctypes label{cursor:pointer;user-select:none;}
+  .ctypes input{display:none;}
+  .ctypes span{display:inline-block;font-size:17px;letter-spacing:1px;padding:1px 10px;border-radius:7px;
+    border:1px solid rgba(255,255,255,.35);color:rgba(255,255,255,.45);transition:all .15s;}
+  .ctypes input:checked + span{background:#fff;color:#1b1d22;border-color:#fff;font-weight:700;}
+  .ctype-print{display:none;}
+  @media print{ .ctypes{display:none;} .ctype-print{display:inline;} }
   .head p{margin:4px 0 0;font-size:12.5px;color:#aab2c0;letter-spacing:.5px;}
   .cname{margin-top:12px;width:100%;background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:9px 12px;
@@ -211,7 +213,7 @@
 <body>
   <div class="sheet">
     <div class="head">
-      <h1><select id="ctype" class="ctype" title="选择 HL / CL / PL"><option value="HL">HL</option><option value="CL">CL</option><option value="PL" selected>PL</option></select>COSTING</h1>
+      <h1><span class="ctypes" id="ctypes" title="可以同时选几个"><label><input type="checkbox" value="HL"><span>HL</span></label><label><input type="checkbox" value="CL"><span>CL</span></label><label><input type="checkbox" value="PL" checked><span>PL</span></label></span><span class="ctype-print" id="ctype-print">PL</span> COSTING</h1>
       <input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" id="cname" class="cname" placeholder="客户姓名 / Name">
       <div id="cname-print" class="cname-print"></div>
     </div>
@@ -362,6 +364,13 @@
   }
 
   const $ = id => document.getElementById(id);
+  /* HL / CL / PL 可以同时选（至少一个），存成 "HL+PL" */
+  const CT_ALL = ['HL','CL','PL'];
+  function ctBoxes(){ return [...document.querySelectorAll('#ctypes input')]; }
+  function getCtype(){ const v = ctBoxes().filter(c=>c.checked).map(c=>c.value); return v.length ? v.join('+') : 'PL'; }
+  function ctPrint(){ const p = $('ctype-print'); if(p) p.textContent = getCtype(); }
+  function setCtype(str){ const want = String(str||'PL').toUpperCase().split(/\s*[+,\/ ]\s*/).filter(x=>CT_ALL.includes(x)); const w = want.length ? want : ['PL']; ctBoxes().forEach(c=>{ c.checked = w.includes(c.value); }); ctPrint(); }
+  ctBoxes().forEach(c=>c.addEventListener('change', ()=>{ if(!ctBoxes().some(x=>x.checked)) c.checked = true; ctPrint(); }));
 
   function calc(){
     const s = num($('basic').value);
@@ -509,7 +518,7 @@
   function copyText(btn){
     const name = (document.getElementById('cname').value.trim()||'XXXXX').toUpperCase();
     let L = [];
-    L.push('*' + name + ' ' + (($('ctype')||{}).value||'PL') + ' COSTING*');
+    L.push('*' + name + ' ' + getCtype() + ' COSTING*');
     L.push('');
     const bs = document.getElementById('basic').value.trim();
     if(bs) L.push('BASIC SALARY : RM ' + bs);
@@ -578,7 +587,7 @@
     const editableDed = [...document.querySelectorAll('.ded:not([readonly])')];
     const majikan = editableDed.length ? editableDed[editableDed.length-1].value : '';
     return {
-      ctype: $('ctype') ? $('ctype').value : 'PL',
+      ctype: getCtype(),
       cname: $('cname').value,
       dsr: $('dsr').value,
       wantleft: $('wantleft').value,
@@ -595,7 +604,7 @@
   // 把状态套回表上
   function applyState(s){
     resetAll();
-    if($('ctype')) $('ctype').value = ['HL','CL','PL'].includes(s.ctype) ? s.ctype : 'PL';
+    setCtype(s.ctype);
     $('cname').value = (s.cname||'').toUpperCase();
     $('cname-print').textContent = $('cname').value.trim();
     $('dsr').value = s.dsr||'';
