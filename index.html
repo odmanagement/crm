@@ -716,7 +716,7 @@ const TYPES = [{
 const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
 const subjectLabel = type => type === "car" ? "Vehicle" : type === "personal" ? "Purpose" : "Property";
 const bankStatusStyle = status => {
-  const c = status === "fraud" ? "#7f1d1d" : status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : status === "holdon" ? "#475569" : "#94a3b8";
+  const c = status === "fraud" ? "#7f1d1d" : status === "rejected" ? "#dc2626" : status === "disbursed" ? "#db2777" : status === "approved" ? "#7c3aed" : status === "pending" || status === "submitted" ? "#ca8a04" : status === "holdon" ? "#475569" : status === "unable" ? "#ea580c" : "#94a3b8";
   return {
     color: c,
     fontWeight: 700,
@@ -8260,6 +8260,7 @@ function ClientsPage({
       style: S.td
     }, b.status === "fraud" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk fraud" }, "⚠ FRAUD", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.status === "unable" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk unable" }, "⊘ UNABLE APPLY", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.amount ? /*#__PURE__*/React.createElement("span", { className: "tp-bk ok" }, "✓ " + money(b.amount), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "pending" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pend" }, "⏳ ", b.officer || "PENDING")
       : b.officer ? /*#__PURE__*/React.createElement("span", { className: "tp-bk sub" }, b.officer) : "");
@@ -8486,7 +8487,7 @@ function TypePage({
     st = stageOf(l.stage);
   const bankMap = {};
   // 同一家银行有几笔（例如 Personal Loan + Credit Card）→ 数目加在一起
-  const _rank = { disbursed: 6, approved: 5, holdon: 4, pending: 3, submitted: 2, rejected: 1 };
+  const _rank = { disbursed: 6, approved: 5, holdon: 4, pending: 3, submitted: 2, unable: 1.5, rejected: 1 };
   (l.banks || []).forEach(b => {
     const k = bankKey(b.bank);
     const ex = bankMap[k];
@@ -8578,6 +8579,7 @@ function TypePage({
       style: S.td
     }, b.status === "fraud" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk fraud" }, "⚠ FRAUD", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : isRej ? /*#__PURE__*/React.createElement("span", { className: "tp-bk rej" }, "✕ REJECT", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
+      : b.status === "unable" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk unable" }, "⊘ UNABLE APPLY", b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : PB_PROGRESS.some(x => x[0] === b.dis) ? /*#__PURE__*/React.createElement("span", { className: "tp-bk pg-" + b.dis, title: (PB_PROGRESS.find(x => x[0] === b.dis) || [])[1] }, (b.amount ? money(b.amount) : String((PB_PROGRESS.find(x => x[0] === b.dis) || [])[1]).toUpperCase()), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "disbursed" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk disb" }, "💰 " + (b.amount ? money(b.amount) : "DISBURSED"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
       : b.status === "holdon" ? /*#__PURE__*/React.createElement("span", { className: "tp-bk hold" }, "⏸ " + (b.amount ? money(b.amount) : "HOLD ON"), b.officer ? /*#__PURE__*/React.createElement("small", null, b.officer) : null)
@@ -10421,6 +10423,8 @@ function LoanBlock({
   }, "Disbursed"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
   }, "Rejected"), /*#__PURE__*/React.createElement("option", {
+    value: "unable"
+  }, "Unable Apply"), /*#__PURE__*/React.createElement("option", {
     value: "fraud"
   }, "⚠ Fraud")), /*#__PURE__*/React.createElement(DebouncedInput, {
     style: {
@@ -10709,6 +10713,8 @@ function LoanForm({
   }, "Hold On"), /*#__PURE__*/React.createElement("option", {
     value: "rejected"
   }, "Rejected"), /*#__PURE__*/React.createElement("option", {
+    value: "unable"
+  }, "Unable Apply"), /*#__PURE__*/React.createElement("option", {
     value: "fraud"
   }, "⚠ Fraud")), /*#__PURE__*/React.createElement("input", {
     style: {
@@ -11590,6 +11596,7 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-bk.appr { color: #fff; background: linear-gradient(135deg,#22d3ee,#0891b2); border: 1px solid #0e7490; box-shadow: 0 3px 10px -3px rgba(8,145,178,.5); }
 .tp-bk.appr small { opacity: .9; }
 .tp-bk.disb small { opacity: .9; }
+.tp-bk.unable { color: #c2410c; background: linear-gradient(135deg,#fff7ed,#ffedd5); border: 1px solid #fdba74; }
 .tp-bk.rej { color: #b91c1c; background: linear-gradient(135deg,#fff1f2,#fee2e2); border: 1px solid #fecaca; }
 .tp-bk.fraud { color: #fff; background: linear-gradient(135deg,#7f1d1d,#111827); border: 1px solid #7f1d1d; font-weight: 900; }
 .tp-bk.pend { color: #713f12; background: linear-gradient(135deg,#fef08a,#facc15); border: 1px solid #eab308; flex-direction: row; }
