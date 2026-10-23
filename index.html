@@ -4078,6 +4078,43 @@ const DT_BANK_OVERALL = { collected: ["✓ ALL DOCUMENTS COLLECTED", "#dcfce7", 
 const DT_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const dtMonthTxt = ym => { const m = /^(\d{4})-(\d{2})$/.exec(ym || ""); return m ? DT_MON[+m[2] - 1] + " " + m[1] : ""; };
 const dtIncomplete = r => dtBankOverall(r) !== "collected" || (r.agreement || {}).status !== "completed" || !(r.card || {}).collected || !dtFiles(r, "details").length || !dtBankName(r);
+/* Alice 开 Agreement → 自动连到 Customer Docs：
+   同名客户已存在 → 更新那一笔（连上这份 Agreement，Agent 空的就补上），不会重复建立；
+   没有 → 自动建一笔；每份 Agreement 只开一次「收集文件」Follow Up（已收齐 / 已 Closed 的不开） */
+const dtAgreeLinks = r => (Array.isArray((r.agreement || {}).links) ? r.agreement.links : []);
+let _dtAgreeBusy = Promise.resolve();
+const dtLinkAgreement = ({ client, agent, draftId, form, by }) => {
+  const name = dtKeyName(client); if (!name || !draftId) return;
+  _dtAgreeBusy = _dtAgreeBusy.then(async () => { try {
+    const raw = await DB.get("doc_tracking"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) { return; }
+    if (!Array.isArray(cur)) return;
+    const now = Date.now(), me = canonUser(by || "alice"), ag = String(agent || "").trim().toUpperCase();
+    const link = { draftId, form: form || "Agreement", at: now, by: me };
+    const fuFor = () => ({ id: uid(), text: "📄 " + (form || "Agreement") + " 已开 — 开始收集客户文件（Bank Check / Customer Details / Credit Card / Salary Bank）", at: now, by: me, next: today(), remind: 0, deadline: "", done: false, auto: "agreement", agreeId: draftId });
+    /* 先找连过这份 Agreement 的那一笔，再找同名字的 */
+    let r = cur.find(x => dtAgreeLinks(x).some(l => l.draftId === draftId)) || cur.find(x => dtKeyName(x.customer) === name);
+    let next, fuAdded = false;
+    if (!r) {
+      next = [{ id: uid(), customer: name, agent: ag, createdAt: now, updatedAt: now, updatedBy: me, autoFrom: "agreement", bank: { files: [] }, agreement: { files: [], links: [link] }, details: { files: [] }, funder: { files: [] }, settlement: { files: [] }, card: { files: [] }, salaryBank: {}, followUps: [fuFor()] }, ...cur];
+      fuAdded = true;
+    } else {
+      const links = dtAgreeLinks(r), had = links.some(l => l.draftId === draftId);
+      const p = {};
+      if (!had) p.agreement = { ...(r.agreement || { files: [] }), links: [...links, link] };
+      if (!r.agent && ag) p.agent = ag;
+      /* 改了 Agreement 里的名字 → 跟着改（新名字没有别人用才改） */
+      if (had && dtKeyName(r.customer) !== name && !cur.some(x => x.id !== r.id && dtKeyName(x.customer) === name)) p.customer = name;
+      const fl = Array.isArray(r.followUps) ? r.followUps : [];
+      if (!r.closed && dtIncomplete(r) && !fl.some(f => f.agreeId === draftId)) { p.followUps = [...fl, fuFor()]; fuAdded = true; }
+      if (!Object.keys(p).length) return;
+      next = cur.map(x => x.id === r.id ? { ...x, ...p, updatedAt: now, updatedBy: me } : x);
+    }
+    await DB.set("doc_tracking", JSON.stringify(next));
+    try { _clMem["doc_tracking"] = next; clCachePut("doc_tracking", next); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "doc_tracking", next } })); } catch (e) {}
+    if (fuAdded) try { window.dispatchEvent(new Event("dt-fu-added")); } catch (e) {}
+  } catch (e) { console.error(e); } });
+};
 /* 备注：textarea 保留换行 / 空格 / 编号；可以展开成大视窗编辑 */
 function DtRemarkEditor({ value, onSave, title, rows }) {
   const h = React.createElement;
@@ -4443,6 +4480,7 @@ function CustomerDocsPage({ currentUser }) {
     const rmk = String(r.remark || "");
     return h("tr", { key: r.id },
       h("td", { style: { ...td, fontWeight: 900, color: "#1e1b4b", minWidth: 150 } }, r.customer,
+        dtAgreeLinks(r).length > 0 && h("div", { title: dtAgreeLinks(r).map(l => l.form + " · " + new Date(l.at).toLocaleDateString("en-GB")).join("\n"), style: { display: "block", width: "fit-content", marginTop: 4, fontSize: 10.5, fontWeight: 900, background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe", borderRadius: 999, padding: "2px 8px" } }, "📄 " + dtAgreeLinks(r).map(l => String(l.form || "").replace(/\s*Agreement$/i, "")).join(" + ") + " AGREEMENT"),
         r.closed ? h("div", { style: { display: "inline-block", marginTop: 4, fontSize: 10.5, fontWeight: 900, background: "#1e293b", color: "#fff", borderRadius: 999, padding: "2px 8px" } }, "🔒 CLOSED")
         : dtIncomplete(r) && h("div", { style: { fontSize: 10.5, color: "#c2410c", fontWeight: 800 } }, "⚠ 文件未齐"),
         r.closed && h("div", { style: { fontSize: 10.5, color: "#64748b", fontWeight: 700, marginTop: 2 } }, dtDT(r.closed.at) + " · " + String(r.closed.by || "").toUpperCase())),
@@ -7541,6 +7579,11 @@ function FormsPage({ currentUser, tools, noLib }) {
       nativeWrite(open.tool.file, open.draft.title, open.draft.native);
       try { const data = open.draft.native.data; if (typeof w[ad.apply] === "function") { w[ad.apply](data); if (ad.after && typeof w[ad.after] === "function") w[ad.after](); } } catch (e) { console.error(e); }
     } else if (open && open.draft) formWriteValues(d, open.draft.values);
+    /* Alice 打开旧的 Agreement → 马上连到 Customer Docs */
+    if (open && open.draft && /AGREEMENT/i.test(open.tool.file || "") && DT_USERS.includes(canonUser(currentUser || ""))) setTimeout(() => { try {
+      const dd = doc(); if (!dd) return; const gv = id => String((dd.getElementById(id) || {}).value || "").trim();
+      const client = gv("fName") || open.draft.title; if (client) dtLinkAgreement({ client, agent: gv("fAgent"), draftId: open.draft.id, form: open.tool.name, by: currentUser });
+    } catch (e) {} }, 600);
     if (noLib && open && open.draft && !lfCanEdit(open.draft.by, canonUser(currentUser || ""))) setTimeout(() => { try {
       const st = d.createElement("style"); st.textContent = "button:not(.allow-view),.del,.addrow,.btn-additem,[onclick]{pointer-events:none !important;opacity:.45} input,textarea,select{pointer-events:none !important;background:transparent !important} .phead-toggle{pointer-events:auto !important;opacity:1}"; d.head.appendChild(st);
       d.querySelectorAll("input,textarea,select").forEach(el => { el.readOnly = true; if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio" || el.type === "file") el.disabled = true; });
@@ -7671,6 +7714,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     const d = doc(); if (!d) return nd;
     const gv = id => String((d.getElementById(id) || {}).value || "").trim();
     const client = gv("fName").toUpperCase(); if (!client) return nd;
+    if (DT_USERS.includes(canonUser(currentUser || ""))) dtLinkAgreement({ client, agent: gv("fAgent"), draftId: nd.id, form: nd.form || (open && open.tool.name), by: currentUser });
     const LF = { "PERSONAL": "PL", "CAR LOAN": "CL", "HOUSE LOAN": "HL" };
     const lf = (gv("fLoanMulti") || gv("fLoanFor")).split(/\s*[+,]\s*/).filter(Boolean).map(x => LF[x.toUpperCase()] || x.toUpperCase()).join("+");
     const base = gv("fBase"), cat = (baseType(base) || ["ori"])[0];
