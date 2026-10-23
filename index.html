@@ -7557,11 +7557,20 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
       if (Object.keys(upd).length) saveDrafts((latest.current || []).map(x => upd[x.id] && x.at === upd[x.id].at ? { ...x, meta: upd[x.id] } : x));
     })();
   }, [fresh, allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
-  const patchD = (d, p) => { if (!lfCanEdit(d.by, me)) return; saveDrafts((latest.current || []).map(x => x.id === d.id ? { ...x, ...p } : x)); };
+  /* Done / Commission / 照片 另外存在一个小的云端 key（costing_extras），不跟很大的表格存档挤在一起，存得快、刷新不会不见 */
+  const [ext, saveExt] = useCloudList("costing_extras");
+  const extRef = React.useRef(ext); extRef.current = ext;
+  const EXT_KEYS = ["photos", "commPhotos", "comm", "done"];
+  const withExt = d => { const e = (ext || []).find(x => x.id === d.id); if (!e) return d; const o = { ...d }; EXT_KEYS.forEach(k => { if (k in e) o[k] = e[k]; }); return o; };
+  const patchD = (d, p) => { if (!lfCanEdit(d.by, me)) return;
+    const cur = Array.isArray(extRef.current) ? extRef.current : [], old = cur.find(x => x.id === d.id) || { id: d.id };
+    const base = {}; EXT_KEYS.forEach(k => { if (d[k] !== undefined) base[k] = d[k]; });
+    const rec = { ...base, ...old, ...p, id: d.id, at: Date.now(), by: me };
+    const next = [...cur.filter(x => x.id !== d.id), rec]; extRef.current = next; saveExt(next); };
   /* Car Costing 的 Done：选 Customer 或 Costing（旧的 Done 当作 Costing） */
   const carDoneType = d => d.done ? (d.done.type || "costing") : "";
   const setCarDone = (d, v) => { patchD(d, { done: v ? { type: v, by: me, at: Date.now() } : null }); monetSfx("save"); };
-  const toggleDone = d => { if (!lfCanEdit(d.by, me)) return; saveDrafts((latest.current || []).map(x => x.id !== d.id ? x : { ...x, done: x.done ? null : { by: me, at: Date.now() } })); monetSfx("save"); };
+  const toggleDone = d => { patchD(d, { done: d.done ? null : { by: me, at: Date.now() } }); monetSfx("save"); };
   const th = S.th, td = S.td;
   const hasCar = tools.some(t => t.file === "CAR_SALES_QUOTATION.html");
   const isAgree = tools.every(t => /AGREEMENT/i.test(t.file));
@@ -7590,7 +7599,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
-        rows.map(d => { const m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
+        rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
           const closed = !ld && m.subtotal != null && m.subtotal > 0.004 && m.balance != null && Math.abs(m.balance) < 0.005;   /* 付清了 = Closing */
           const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
           const bg = isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#fce7f3" } : {};
