@@ -646,6 +646,7 @@ function copyAll(btn){
 const BF = (function(){
   const br = (()=>{ try{ return window.parent && window.parent!==window && window.parent.__crmFiles ? window.parent.__crmFiles : null; }catch(e){ return null; } })();
   let target = null;
+  const saved = () => { try{ autoSave(); }catch(er){} try{ const ps = window.parent && window.parent!==window ? window.parent.__crmFormSave : null; if(ps){ if(ps()===false) alert('照片已加上 — 记得按右上角 💾 存档，不然刷新后会不见'); } }catch(er){} };
   const readUrl = f => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
   const shrink = f => new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const m=1280, k=Math.min(1,m/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg',0.72)); }; img.onerror=rej; img.src=URL.createObjectURL(f); });
   const list = box => { try{ return JSON.parse(box.dataset.files||'[]'); }catch(e){ return []; } };
@@ -661,7 +662,7 @@ const BF = (function(){
       if(isPdf(it)){ const p=document.createElement('span'); p.className='bf-pdf'; p.textContent='PDF'; p.title=it.n||'PDF'; p.addEventListener('click',()=>open(it)); s.appendChild(p); }
       else { const im=document.createElement('img'); im.className='bf-img'; im.alt=''; im.addEventListener('click',()=>open(it)); getSrc(it).then(src=>{ if(src) im.src=src; else s.remove(); }); s.appendChild(im); }
       const x=document.createElement('button'); x.type='button'; x.className='bf-x del'; x.textContent='×'; x.title='删除';
-      x.addEventListener('click',e=>{ e.stopPropagation(); if(!confirm('删除这个文件？')) return; const l=list(box); const rm=l.splice(i,1)[0]; box.dataset.files=JSON.stringify(l); if(br && rm && rm.id) br.del(rm.id); render(box); try{ autoSave(); }catch(er){} });
+      x.addEventListener('click',e=>{ e.stopPropagation(); if(!confirm('删除这个文件？')) return; const l=list(box); const rm=l.splice(i,1)[0]; box.dataset.files=JSON.stringify(l); if(br && rm && rm.id) br.del(rm.id); render(box); saved(); });
       s.appendChild(x); wrap.appendChild(s);
     });
   }
@@ -675,7 +676,7 @@ const BF = (function(){
       else { if(f.type==='application/pdf' && f.size>3*1024*1024){ alert('PDF 太大（最多 3MB）'); continue; } it={ d: f.type==='application/pdf' ? await readUrl(f) : await shrink(f), t: f.type==='application/pdf'?f.type:'image/jpeg', n: f.name||'' }; }
       const l=list(box); l.push(it); box.dataset.files=JSON.stringify(l);
     }catch(e){ alert('上传失败：'+(e && e.message || e)); } }
-    btn.textContent='📎'; render(box); try{ autoSave(); }catch(er){}
+    btn.textContent='📎'; render(box); saved();
   }
   function make(files){
     const box=document.createElement('div'); box.className='bal-files'; box.dataset.files=JSON.stringify(files||[]);
