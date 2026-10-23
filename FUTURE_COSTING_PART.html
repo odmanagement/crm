@@ -64,6 +64,18 @@
   #balBody td{text-align:left}
   #balBody .bal-date,#balBody .bal-company{width:100%;border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:13px;text-align:left;box-sizing:border-box}
   #balBody .bal-amt{width:110px;text-align:right}
+  .bal-files{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:40px}
+  .bf-list{display:inline-flex;gap:4px;flex-wrap:wrap}
+  .bf-item{position:relative;display:inline-flex}
+  .bf-img,.bf-pdf{width:30px;height:30px;border-radius:6px;border:1px solid var(--line);object-fit:cover;cursor:zoom-in;box-sizing:border-box}
+  .bf-pdf{display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-size:9px;font-weight:800;cursor:pointer;border:none}
+  .bf-x{position:absolute;top:-6px;right:-6px;width:15px;height:15px;line-height:13px;padding:0;border-radius:50%;border:none;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;display:none}
+  .bf-item:hover .bf-x{display:block}
+  .bf-add{width:30px;height:30px;box-sizing:border-box;border:1px dashed #b9a7e8;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;background:#faf8ff;outline:none}
+  .bf-add.hot{border-color:#7c3aed;background:#ede9fe}
+  .bf-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+  .bf-ov img{max-width:100%;max-height:100%;border-radius:6px}
+  @media print{ .bf-add,.bf-x{display:none !important} }
   #balBody td:nth-child(4){text-align:right}
   .num{font-variant-numeric:tabular-nums}
   .addrow{margin:8px 12px;background:none;border:1px dashed var(--line);color:var(--accent);
@@ -191,7 +203,7 @@
   <div class="panel">
     <div class="phead">Payment</div>
     <table>
-      <thead><tr><th style="width:30px"></th><th style="text-align:left">Date</th><th style="text-align:left">Remark</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+      <thead><tr><th style="width:30px"></th><th style="text-align:left">Date</th><th style="text-align:left">Remark</th><th style="text-align:right">Amount</th><th style="text-align:left">照片 / PDF</th><th></th></tr></thead>
       <tbody id="balHead"></tbody>
       <tbody id="balBody"></tbody>
       <tbody id="balFoot"></tbody>
@@ -523,7 +535,8 @@ function collectData(){
     balance:[...document.getElementById('balBody').querySelectorAll('tr')].map(r=>({
       date:r.querySelector('.bal-date').value,
       remark:r.querySelector('.bal-company').value,
-      amt:r.querySelector('.bal-amt').value
+      amt:r.querySelector('.bal-amt').value,
+      files:r.querySelector('.bal-files') ? BF.list(r.querySelector('.bal-files')) : []
     })),
     parts:{}
   };
@@ -566,7 +579,7 @@ function restoreData(d){
     });
   });
   document.getElementById('balBody').innerHTML='';
-  (d.balance||[]).forEach(b=>addBalRow(b.date,b.remark||b.company,b.amt));
+  (d.balance||[]).forEach(b=>addBalRow(b.date,b.remark||b.company,b.amt,b.files));
   updateTitle(); formatAllAmounts(); calc();
   applyMvLock();
 }
@@ -670,14 +683,65 @@ function copyAll(btn){
     ta.select();document.execCommand('copy');ta.remove();done();
   });
 }
-function addBalRow(date,remark,amt){
+
+/* ---- Payment 每一行：照片 / PDF（点一下上传，或鼠标放在格子上按 Ctrl+V 贴截图） ---- */
+const BF = (function(){
+  const br = (()=>{ try{ return window.parent && window.parent!==window && window.parent.__crmFiles ? window.parent.__crmFiles : null; }catch(e){ return null; } })();
+  let target = null;
+  const readUrl = f => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+  const shrink = f => new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const m=1280, k=Math.min(1,m/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg',0.72)); }; img.onerror=rej; img.src=URL.createObjectURL(f); });
+  const list = box => { try{ return JSON.parse(box.dataset.files||'[]'); }catch(e){ return []; } };
+  const getSrc = async it => it.d ? it.d : (br && it.id ? await br.get(it.id) : null);
+  const isPdf = it => /pdf/i.test(it.t||'');
+  function open(it){ getSrc(it).then(src=>{ if(!src) return; if(isPdf(it)){ if(br && br.openPdf) br.openPdf(src); else { const w=window.open(); if(w) w.document.write('<iframe src="'+src+'" style="border:0;width:100%;height:100%"></iframe>'); } return; }
+    const ov=document.createElement('div'); ov.className='bf-ov'; ov.innerHTML='<img src="'+src+'">'; ov.onclick=()=>ov.remove(); document.body.appendChild(ov); }); }
+  function render(box){
+    const sig=box.querySelector('.bf-sig'); if(sig) sig.value=box.dataset.files||'[]';   /* 让 CRM 知道有改动（关掉时会提醒存档） */
+    const wrap=box.querySelector('.bf-list'); wrap.innerHTML='';
+    list(box).forEach((it,i)=>{
+      const s=document.createElement('span'); s.className='bf-item';
+      if(isPdf(it)){ const p=document.createElement('span'); p.className='bf-pdf'; p.textContent='PDF'; p.title=it.n||'PDF'; p.addEventListener('click',()=>open(it)); s.appendChild(p); }
+      else { const im=document.createElement('img'); im.className='bf-img'; im.alt=''; im.addEventListener('click',()=>open(it)); getSrc(it).then(src=>{ if(src) im.src=src; else s.remove(); }); s.appendChild(im); }
+      const x=document.createElement('button'); x.type='button'; x.className='bf-x del'; x.textContent='×'; x.title='删除';
+      x.addEventListener('click',e=>{ e.stopPropagation(); if(!confirm('删除这个文件？')) return; const l=list(box); const rm=l.splice(i,1)[0]; box.dataset.files=JSON.stringify(l); if(br && rm && rm.id) br.del(rm.id); render(box); try{ autoSave(); }catch(er){} });
+      s.appendChild(x); wrap.appendChild(s);
+    });
+  }
+  async function add(box, files){
+    const inp=box.querySelector('input[type=file]'); if(inp && inp.disabled) return;
+    const fs=[...(files||[])].filter(f=>f && f.type && (f.type.indexOf('image/')===0 || f.type==='application/pdf')); if(!fs.length) return;
+    const btn=box.querySelector('.bf-add'); btn.textContent='⏳';
+    for(const f of fs){ try{
+      let it;
+      if(br) it={ id: await br.add(f), t: f.type, n: f.name||'' };
+      else { if(f.type==='application/pdf' && f.size>3*1024*1024){ alert('PDF 太大（最多 3MB）'); continue; } it={ d: f.type==='application/pdf' ? await readUrl(f) : await shrink(f), t: f.type==='application/pdf'?f.type:'image/jpeg', n: f.name||'' }; }
+      const l=list(box); l.push(it); box.dataset.files=JSON.stringify(l);
+    }catch(e){ alert('上传失败：'+(e && e.message || e)); } }
+    btn.textContent='📎'; render(box); try{ autoSave(); }catch(er){}
+  }
+  function make(files){
+    const box=document.createElement('div'); box.className='bal-files'; box.dataset.files=JSON.stringify(files||[]);
+    box.innerHTML='<span class="bf-list"></span><span class="bf-add" tabindex="0" title="点一下 = 上传照片 / PDF\n鼠标放在这里按 Ctrl+V = 贴上截图">📎</span><input type="file" accept="image/*,application/pdf" multiple style="display:none"><input type="hidden" class="bf-sig">';
+    const ad=box.querySelector('.bf-add'), inp=box.querySelector('input');
+    ad.addEventListener('click',()=>inp.click());
+    inp.addEventListener('change',()=>{ add(box, inp.files); inp.value=''; });
+    const on=()=>{ target=box; ad.classList.add('hot'); }, off=()=>{ if(target===box && document.activeElement!==ad) target=null; ad.classList.remove('hot'); };
+    ad.addEventListener('mouseenter',on); ad.addEventListener('mouseleave',off); ad.addEventListener('focus',on); ad.addEventListener('blur',()=>{ if(target===box) target=null; ad.classList.remove('hot'); });
+    render(box); return box;
+  }
+  document.addEventListener('paste',e=>{ if(!target || !document.body.contains(target)) return; const fs=[...((e.clipboardData||{}).items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean); if(!fs.length) return; e.preventDefault(); add(target, fs); });
+  return { make, list };
+})();
+function addBalRow(date,remark,amt,files){
   const tr=document.createElement('tr');
   tr.innerHTML=`
     <td class="bal-no num" style="text-align:right;color:#888;width:30px"></td>
     <td><input class="bal-date name-input" value="${date||''}" placeholder="Date" oninput="calc()"></td>
     <td><input class="bal-company name-input" value="${remark||''}" placeholder="Remark" oninput="calc()"></td>
     <td><input class="bal-amt amt-input num" type="text" inputmode="decimal" value="${amt||''}" oninput="calc()" onblur="fmtInput(this)"></td>
+    <td class="bf-cell"></td>
     <td><button class="del" onclick="this.closest('tr').remove();calc()">✕</button></td>`;
+  tr.querySelector('.bf-cell').appendChild(BF.make(files));
   document.getElementById('balBody').appendChild(tr);
   calc();
   return tr;
@@ -693,13 +757,13 @@ function calcBalance(subtotal){
     <tr class="total nobar">
       <td colspan="3">SUBTOTAL (ALL PARTS)</td>
       <td class="num">${fmt(subtotal)}</td>
-      <td></td>
+      <td></td><td></td>
     </tr>`;
   document.getElementById('balFoot').innerHTML=`
     <tr class="grand">
       <td colspan="3">BALANCE</td>
       <td class="num">${fmt(bal)}</td>
-      <td></td>
+      <td></td><td></td>
     </tr>`;
 }
 // ---- Named archives in browser localStorage (LEADING SHEET style) ----
