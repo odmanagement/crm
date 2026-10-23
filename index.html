@@ -6329,7 +6329,7 @@ const czDocIntoValues = (values, doc, date, time) => (values || []).map(([k, v])
   if (id === "fBookTime") return [k, doc === "booking" ? (time || "") : v];
   return [k, v];
 });
-const czBookFmt = v => { const m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return ""; let out = m[3] + "/" + m[2] + "/" + m[1]; if (m[4]) { let hh = +m[4]; const ap = hh >= 12 ? "PM" : "AM"; hh = hh % 12 || 12; out += " " + hh + ":" + m[5] + ap; } return out; };
+const czBookFmt = v => { const m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return ""; let out = m[3] + "/" + m[2] + "/" + m[1]; if (m[4]) { let hh = +m[4]; const ap = hh >= 12 ? "PM" : "AM"; hh = hh % 12 || 12; out += " " + String(hh).padStart(2, "0") + ":" + m[5] + " " + ap; } return out; };
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("submissions");
@@ -6395,10 +6395,7 @@ function SubmissionPage({ currentUser }) {
               const small = { ...S.bankerInput, minWidth: 0, padding: "3px 6px", fontSize: 11.5, fontWeight: 800, color: "#c2410c" };
               return h("div", { style: { display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" } },
                 h("select", { disabled: !ed, title: lockT, style: dd ? pillSel(dd[2]) : { ...S.bankerInput, minWidth: 110 }, value: x.doc || "", onChange: e => updDoc(x, { doc: e.target.value }) }, h("option", { value: "" }, "—"), CZ_DOCS.map(d => h("option", { key: d[0], value: d[0] }, d[1].toUpperCase()))),
-                x.doc === "booking" && ed && h("div", { style: { display: "flex", gap: 4 } },
-                  h("input", { type: "date", title: "Booking Date", style: { ...small, width: 118 }, value: bd, onChange: e => updDoc(x, { docDate: e.target.value, docTime: bt }) }),
-                  h("input", { type: "time", title: "Booking Time", style: { ...small, width: 92 }, value: bt, onChange: e => updDoc(x, { docDate: bd, docTime: e.target.value }) })),
-                x.doc === "booking" && bd && !ed && h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap" } }, czBookFmt(bd + (bt ? "T" + bt : "")))); })()),
+                x.doc === "booking" && h("span", { title: "跟着 Agreement 的 Booking Date / Time", style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap", paddingLeft: 4 } }, bd ? czBookFmt(bd + (bt ? "T" + bt : "")) : "— 未填日期")); })()),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => pickAgent(x, e.target.value) }, h("option", { value: "" }, "—"), (ag && !CLOSING_AGENTS.includes(String(ag).toLowerCase()) ? [String(ag).toLowerCase()] : []).concat(CLOSING_AGENTS).map(p => h("option", { key: p, value: p }, p.toUpperCase())), ed && h("option", { value: "__add__", style: { color: "#4f46e5", fontWeight: 800 } }, "＋ 新增 Agent…"))),
             h("td", { style: { ...S.td, minWidth: 80, maxWidth: 130, width: 100, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
@@ -7771,11 +7768,22 @@ function FormsPage({ currentUser, tools, noLib }) {
     const base = gv("fBase"), cat = (baseType(base) || ["ori"])[0];
     const _dk = CZ_AG2DOC[gv("fDocType").toUpperCase()] || "";
     const fields = { date: gv("fDate") || today(), cat, client, agent: gv("fAgent").toLowerCase(), remark: lf, doc: _dk, docDate: _dk === "booking" ? gv("fBookDate") : "", docTime: _dk === "booking" ? gv("fBookTime") : "", docAt: undefined };
-    const cid = nd.closingId || uid(), isNew = !nd.closingId, me = canonUser(currentUser || "");
+    /* 找已经有的那笔 Closing：同一份 Agreement 开过的 → 同名字、还没连别的 Agreement 的 → 都没有才开新的（不会重复） */
+    const czKey = n => String(n || "").toUpperCase().replace(/\s+-\s+.*$/, "").replace(/\s+/g, " ").trim();
+    const findRow = list => (list || []).find(x => x.fromAgreement === nd.id) || (list || []).find(x => (!x.fromAgreement || x.fromAgreement === nd.id) && czKey(x.client) === czKey(client));
+    const isNew = !nd.closingId, me = canonUser(currentUser || "");
+    const pre = isNew ? findRow(_clMem["submissions"]) : null;
+    const cid = nd.closingId || (pre && pre.id) || uid();
     (async () => { try {
       const raw = await DB.get("submissions"); let cur = []; try { cur = raw ? JSON.parse(raw) : []; } catch (e) {}
       let next;
-      if (isNew) next = [{ id: cid, ...fields, staff: me, status: "submitted", by: me, at: Date.now(), fromAgreement: nd.id }, ...cur];
+      if (isNew) {
+        const ex = cur.find(x => x.id === cid) || findRow(cur);
+        if (ex) {
+          next = cur.map(x => x.id === ex.id ? { ...x, ...Object.fromEntries(Object.entries(fields).filter(([k, v]) => v !== "" && v !== undefined)), fromAgreement: nd.id } : x);   /* 空的栏位不盖掉原本的 */
+          if (ex.id !== cid) try { const dl = _clMem["form_drafts"] || drafts || []; saveDrafts(dl.map(x => x.id === nd.id ? { ...x, closingId: ex.id } : x)); } catch (e) {}
+        } else next = [{ id: cid, ...fields, staff: me, status: "submitted", by: me, at: Date.now(), fromAgreement: nd.id }, ...cur];
+      }
       else { if (!cur.some(x => x.id === cid)) return; next = cur.map(x => x.id === cid ? { ...x, ...fields } : x); }   /* Closing 那笔被删了就不再开 */
       await DB.set("submissions", JSON.stringify(next));
       try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "submissions", next } })); } catch (e) {}
