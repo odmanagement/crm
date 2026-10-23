@@ -3299,7 +3299,7 @@ function CRM({ onLogout, currentUser }) {
     style: S.logoutBtn,
     onClick: onLogout,
     title: "Sign out"
-  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star", "monet", "sky", "mono"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
+  }, "Sign out"))), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(AnnounceBar, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, USER_THEMES[canonUser(currentUser)] && (page !== "dashboard" || ["pink", "cat", "star", "monet", "sky", "mono"].includes(USER_THEMES[canonUser(currentUser)])) ? /*#__PURE__*/React.createElement(ThemeFx, {
     theme: USER_THEMES[canonUser(currentUser)],
     page: page
   }) : /*#__PURE__*/React.createElement(PageFx, {
@@ -4741,6 +4741,24 @@ window.__crmFiles = {
   del: id => { try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (e) {} delete _photoCache[id]; },
   openPdf: src => lfOpenPdf(src)
 };
+/* ===== 公告跑马灯（全部人都看到）：加新的就在 CRM_ANNOUNCE 加一行；过了 until 那天自动消失 ===== */
+const CRM_ANNOUNCE = [
+  { text: "26 OCTOBER 2026（MONDAY）· PUBLIC HOLIDAY SELANGOR · 10月26日 雪兰莪州公共假期 · 公司休息", until: "2026-10-26" }
+];
+function AnnounceBar() {
+  const h = React.createElement;
+  const td = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
+  const list = CRM_ANNOUNCE.filter(a => !a.until || a.until >= td);
+  const key = "crm_ann_hide_" + list.map(a => a.text).join("|").length + "_" + td;
+  const [hide, setHide] = React.useState(() => { try { return sessionStorage.getItem(key) === "1"; } catch (e) { return false; } });
+  if (!list.length || hide) return null;
+  const msg = list.map(a => a.text).join("　　📢　　");
+  const one = h("span", { className: "ann-item" }, "📢　" + msg + "　　　　　");
+  return h("div", { className: "ann-bar", role: "marquee" },
+    h("span", { className: "ann-ico" }, "📢"),
+    h("div", { className: "ann-track" }, h("div", { className: "ann-move" }, one, [1, 2, 3].map(k => h("span", { key: k, className: "ann-item", "aria-hidden": true }, "📢　" + msg + "　　　　　")))),
+    h("button", { className: "ann-x", title: "先收起来（重新整理会再出现）", onClick: () => { setHide(true); try { sessionStorage.setItem(key, "1"); } catch (e) {} } }, "×"));
+}
 function LfThumb({ id, style, onImg }) {
   const h = React.createElement;
   const [src, setSrc] = React.useState(_photoCache[id] || null);
@@ -11498,6 +11516,18 @@ button:active, a:active { transform: scale(.97); }
 .theme-mono .app-header > :first-child, .theme-mono .app-header > :first-child * { background: linear-gradient(90deg,#ffffff,#a3a3a3,#f5f5f5) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; text-shadow: none !important; letter-spacing: .06em; }
 .theme-mono .app-header button:not([style*="gradient"]), .theme-mono .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.06) !important; color: #e5e5e5 !important; border: 1px solid rgba(255,255,255,.18) !important; }
 .theme-mono button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#0a0a0a,#2b2b2b) !important; color: #ffffff !important; border: 1px solid #0a0a0a !important; box-shadow: 0 8px 18px -8px rgba(0,0,0,.6) !important; letter-spacing: .03em; }
+/* 公告跑马灯 */
+.ann-bar { position: relative; display: flex; align-items: center; gap: 10px; margin: 10px 16px 0; padding: 0 8px 0 12px; height: 40px; border-radius: 12px; overflow: hidden;
+  background: linear-gradient(90deg,#fff7ed,#fef3c7 40%,#fff1f2); border: 1px solid #fdba74; box-shadow: 0 6px 18px -10px rgba(234,88,12,.55); }
+.ann-ico { flex: 0 0 auto; font-size: 20px; animation: annPulse 1.2s ease-in-out infinite; z-index: 1; }
+.ann-track { flex: 1; overflow: hidden; white-space: nowrap; mask-image: linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent); -webkit-mask-image: linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent); }
+.ann-move { display: inline-flex; animation: annScroll 30s linear infinite; }
+.ann-bar:hover .ann-move { animation-play-state: paused; }
+.ann-item { display: inline-block; padding-right: 40px; font-weight: 900; font-size: 14px; color: #c2410c; letter-spacing: .04em; }
+.ann-x { flex: 0 0 auto; border: none; background: rgba(255,255,255,.7); color: #9a3412; width: 24px; height: 24px; border-radius: 50%; font-size: 15px; font-weight: 900; cursor: pointer; z-index: 1; }
+@keyframes annScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes annPulse { 0%,100% { transform: scale(1) rotate(-8deg); } 50% { transform: scale(1.18) rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .ann-move, .ann-ico { animation: none; } .ann-track { white-space: normal; } }
 /* Closing：Type = Cancel 整行红色 */
 .cz-table tr.cz-cancel td { background: #fee2e2 !important; border-color: #fecaca !important; }
 .cz-table tr.cz-cancel:hover td { background: #fecaca !important; }
