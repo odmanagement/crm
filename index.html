@@ -6255,6 +6255,9 @@ function BlindBox({ items, staffOf, currentUser }) {
           h("span", { style: { fontWeight: 900, color: d.amt ? "#7c3aed" : "#94a3b8", minWidth: 60 } }, d.amt ? "RM " + d.amt : "—"),
           h("span", { style: pill(st[1], st[2]) }, st[0])); }))));
 }
+/* Closing：Document Needed（Agreement 用） */
+const CZ_DOCS = [["pdf", "PDF Only", 210], ["booking", "Booking", 28], ["lawyer", "Lawyer PDF", 275]];
+const czBookFmt = v => { const m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); if (!m) return ""; let out = m[3] + "/" + m[2] + "/" + m[1]; if (m[4]) { let hh = +m[4]; const ap = hh >= 12 ? "PM" : "AM"; hh = hh % 12 || 12; out += " " + hh + ":" + m[5] + ap; } return out; };
 function SubmissionPage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("submissions");
@@ -6270,7 +6273,7 @@ function SubmissionPage({ currentUser }) {
   const add = () => save([{ id: uid(), date: today(), cat: tab === "all" ? "build" : tab, client: "", staff: canonUser(currentUser), agent: "", status: "submitted", remark: "", by: currentUser, at: Date.now() }, ...items]);
   const del = x => { if (window.confirm("删除「" + (x.client || "这笔") + "」？")) save(items.filter(y => y.id !== x.id)); };
   const shown = items.filter(x => tab === "all" || x.cat === tab)
-    .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark].join(" ").toLowerCase().includes(q.toLowerCase()))
+    .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark, (CZ_DOCS.find(d => d[0] === x.doc) || [])[1], x.doc === "booking" ? czBookFmt(x.docAt) : ""].join(" ").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at);
   const typeCard = (k, label, hue, n) => h("button", { key: k, onClick: () => setTab(k), style: { flex: "1 1 130px", textAlign: "left", border: tab === k ? "2px solid hsl(" + hue + ",70%,55%)" : "1px solid #eef0f4", borderRadius: 16, padding: "12px 16px", background: tab === k ? "linear-gradient(135deg,hsl(" + hue + ",90%,97%),#fff)" : "rgba(255,255,255,.92)", boxShadow: tab === k ? "0 10px 24px -12px hsl(" + hue + ",70%,50%)" : "0 6px 18px -14px rgba(0,0,0,.3)", cursor: "pointer", transition: "all .2s" } },
     h("div", { style: { fontSize: 12, fontWeight: 800, color: "hsl(" + hue + ",55%,45%)", letterSpacing: ".04em" } }, label),
@@ -6294,9 +6297,9 @@ function SubmissionPage({ currentUser }) {
     list !== null && h(BlindBox, { items, staffOf, currentUser }),
     showRank && h(ClosingRanking, { items, staffOf }),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Agent", "Remark", "Staff", "Done", "Done Date", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 10, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        shown.length === 0 ? h("tr", null, h("td", { colSpan: 10, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
+      h("thead", null, h("tr", null, ["#", "Date", "Type", "Client", "Document Needed", "Agent", "Remark", "Staff", "Done", "Done Date", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 11, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        shown.length === 0 ? h("tr", null, h("td", { colSpan: 11, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "还没有资料 — 按「Add Closing」")) :
         shown.map((x, i) => {
           const ty = SUB_TYPES.find(y => y[0] === x.cat) || SUB_TYPES[0], st = SUB_STATUS.find(y => y[0] === x.status) || SUB_STATUS[0];
           const sf = staffOf(x), ag = agentOf(x), ed = canEdit(x), lockT = "";
@@ -6305,6 +6308,11 @@ function SubmissionPage({ currentUser }) {
             h("td", { style: S.td }, h("input", { type: "date", disabled: !ed, title: lockT, style: { ...S.bankerInput, width: "auto" }, value: x.date || "", onChange: e => upd(x.id, "date", e.target.value) })),
             h("td", { style: S.td }, h("select", { disabled: !ed, title: lockT, style: pillSel(ty[2]), value: x.cat, onChange: e => upd(x.id, "cat", e.target.value) }, SUB_TYPES.map(y => h("option", { key: y[0], value: y[0] }, y[1])))),
             h("td", { style: { ...S.td, minWidth: 280, width: 320 } }, h(DebouncedInput, { disabled: !ed, title: lockT, style: { ...S.bankerInput, fontWeight: 700, width: "100%" }, value: x.client, placeholder: ed ? "Client" : "", onCommit: v => upd(x.id, "client", v) })),
+            h("td", { style: { ...S.td, minWidth: 150 } }, (() => { const dd = CZ_DOCS.find(d => d[0] === x.doc);
+              return h("div", { style: { display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" } },
+                h("select", { disabled: !ed, title: lockT, style: dd ? pillSel(dd[2]) : { ...S.bankerInput, minWidth: 110 }, value: x.doc || "", onChange: e => upd(x.id, "doc", e.target.value) }, h("option", { value: "" }, "—"), CZ_DOCS.map(d => h("option", { key: d[0], value: d[0] }, d[1]))),
+                x.doc === "booking" && (ed ? h("input", { type: "datetime-local", title: x.docAt ? czBookFmt(x.docAt) : "Booking 日期时间", style: { ...S.bankerInput, width: 170, minWidth: 0, padding: "3px 6px", fontSize: 11.5, fontWeight: 800, color: "#c2410c" }, value: x.docAt || "", onChange: e => upd(x.id, "docAt", e.target.value) }) : null),
+                x.doc === "booking" && x.docAt && h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#c2410c", whiteSpace: "nowrap" } }, czBookFmt(x.docAt))); })()),
             h("td", { style: { ...S.td, minWidth: 130 } }, h("select", { disabled: !ed, title: lockT, style: ag ? pillSel(agentHue(ag)) : { ...S.bankerInput, minWidth: 100 }, value: ag || "", onChange: e => pickAgent(x, e.target.value) }, h("option", { value: "" }, "—"), (ag && !CLOSING_AGENTS.includes(String(ag).toLowerCase()) ? [String(ag).toLowerCase()] : []).concat(CLOSING_AGENTS).map(p => h("option", { key: p, value: p }, p.toUpperCase())), ed && h("option", { value: "__add__", style: { color: "#4f46e5", fontWeight: 800 } }, "＋ 新增 Agent…"))),
             h("td", { style: { ...S.td, minWidth: 80, maxWidth: 130, width: 100, verticalAlign: "top" } }, h(AutoTextarea, { readOnly: !ed, value: x.remark, placeholder: ed ? "Remark" : "", onCommit: v => upd(x.id, "remark", v) })),
             h("td", { style: S.td }, h("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, sf ? czAvatar(sf, 22) : null, h("select", { disabled: !ed, title: lockT, style: sf ? pillSel(czHue(sf)) : S.bankerInput, value: sf || "", onChange: e => upd(x.id, "staff", e.target.value) }, h("option", { value: "" }, "—"), MISSION_PEOPLE.map(p => h("option", { key: p, value: p }, p.toUpperCase()))))),
