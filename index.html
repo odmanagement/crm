@@ -8512,45 +8512,56 @@ const canDelLoan = (l, u) => { const o = loanOwner(l); return !o || sameUser(o, 
 const isPLike = t => t === "personal" || t === "car"; // Car 跟 Personal 一样的格式
 const bankListFor = t => t === "car" ? CAR_BANKS : PERSONAL_BANKS;
 /* Done PDF：每笔 Personal / Car Loan 可以上传一份完成的 PDF */
+/* Done 文件（PDF 或照片）：用 blob 网址打开，Chrome 才不会挡 / 开空白 */
 const openDonePdf = async f => {
-  const w = window.open("", "_blank");
   try {
     const d = await DB.get("ffile_" + f.blob);
-    if (!d) { if (w) w.close(); alert("找不到这个 PDF"); return; }
-    if (w) { w.document.write('<title>' + String(f.name || "Done PDF").replace(/</g, "") + '</title><iframe src="' + d + '" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>'); w.document.close(); }
-    else { const a = document.createElement("a"); a.href = d; a.download = f.name || "done.pdf"; a.click(); }
-  } catch (e) { if (w) w.close(); alert("打开失败：" + (e.message || e)); }
+    if (!d) { alert("找不到这个文件"); return; }
+    const url = URL.createObjectURL(lfDataBlob(d));
+    const w = window.open(url, "_blank");
+    if (!w) { const a = document.createElement("a"); a.href = url; a.download = f.name || (/^data:image/.test(d) ? "done.jpg" : "done.pdf"); a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { alert("打开失败：" + (e.message || e)); }
 };
 function DonePdfCell({ loan, onPatch }) {
   const h = React.createElement;
-  const [busy, setBusy] = React.useState(false);
+  const [busy, setBusy] = React.useState(false), [hot, setHot] = React.useState(false);
   const f = loan.donePdf;
+  const elRef = React.useRef(null);
   const up = async file => {
     if (!file) return;
-    if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) { alert("请选择 PDF 文件"); return; }
-    if (file.size > 4 * 1024 * 1024) { alert("PDF 太大（最多 4MB）"); return; }
+    const isPdf = /pdf$/i.test(file.type) || /\.pdf$/i.test(file.name || ""), isImg = /^image\//i.test(file.type || "");
+    if (!isPdf && !isImg) { alert("请选择 PDF 或照片"); return; }
+    if (isPdf && file.size > 4 * 1024 * 1024) { alert("PDF 太大（最多 4MB）"); return; }
     setBusy(true);
     try {
-      const d = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+      const d = isPdf ? await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }) : await compressImage(file);
       const bid = uid(); await DB.set("ffile_" + bid, d);
       const old = f && f.blob;
-      onPatch({ donePdf: { blob: bid, name: file.name, by: canonUser(window.__crmUser || ""), at: today() } });
+      onPatch({ donePdf: { blob: bid, name: file.name || (isPdf ? "done.pdf" : "photo.jpg"), kind: isPdf ? "pdf" : "img", by: canonUser(window.__crmUser || ""), at: today() } });
       if (old) { try { await DB.del("ffile_" + old); } catch (e) {} }
     } catch (e) { alert("上传失败：" + (e.message || e)); }
     setBusy(false);
   };
+  /* 鼠标放在格子上按 Ctrl+V 贴截图 */
+  const tgt = React.useRef({}); tgt.current.add = files => up(files && files[0]); tgt.current.el = elRef.current;
+  const on = () => { tgt.current.el = elRef.current; _lfPasteTarget = tgt.current; setHot(true); };
+  const off = () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); };
+  React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
   const del = async () => {
-    if (!window.confirm("删除这个 PDF（" + (f.name || "") + "）？")) return;
+    if (!window.confirm("删除这个文件（" + (f.name || "") + "）？")) return;
     onPatch({ donePdf: null });
     try { await DB.del("ffile_" + f.blob); } catch (e) {}
   };
-  const pick = h("input", { type: "file", accept: "application/pdf,.pdf", style: { display: "none" }, disabled: busy, onChange: e => { up(e.target.files && e.target.files[0]); e.target.value = ""; } });
+  const pick = h("input", { type: "file", accept: "application/pdf,.pdf,image/*", style: { display: "none" }, disabled: busy, onClick: e => e.stopPropagation(), onChange: e => { up(e.target.files && e.target.files[0]); e.target.value = ""; } });
+  const wrap = (kids) => h("span", { ref: elRef, onMouseEnter: on, onMouseLeave: off, onClick: e => e.stopPropagation(), style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", borderRadius: 999, outline: hot ? "2px dashed #f472b6" : "none", outlineOffset: 2 } }, kids);
   if (busy) return h("span", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 700 } }, "⏳ 上传中…");
-  if (!f) return h("label", { title: "上传 PDF（最多 4MB）", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "1px dashed #f9a8d4", color: "#db2777", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", background: "#fff" } }, "+ PDF", pick);
-  return h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" } },
-    h("button", { onClick: () => openDonePdf(f), title: f.name + (f.by ? " · " + String(f.by).toUpperCase() : "") + (f.at ? " · " + f.at : ""), style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "none", background: "linear-gradient(135deg,#f472b6,#db2777)", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "📕 DONE"),
-    h("label", { title: "换一个 PDF", style: { cursor: "pointer", fontSize: 13, color: "#94a3b8", padding: "0 2px" } }, "↻", pick),
-    canDelLoan(loan, window.__crmUser) && h("button", { onClick: del, title: "删除 PDF", style: { border: "none", background: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 14, padding: 0 } }, "×"));
+  if (!f) return wrap(h("label", { title: "上传 PDF 或照片（PDF 最多 4MB）\n鼠标放在这里按 Ctrl+V = 贴上截图", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "1px dashed #f9a8d4", color: "#db2777", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", background: hot ? "#fdf2f8" : "#fff" } }, "+ PDF / 照片", pick));
+  const img = f.kind === "img" || /\.(jpe?g|png|gif|webp)$/i.test(f.name || "");
+  return wrap([
+    h("button", { key: "o", onClick: () => openDonePdf(f), title: f.name + (f.by ? " · " + String(f.by).toUpperCase() : "") + (f.at ? " · " + f.at : ""), style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 999, border: "none", background: "linear-gradient(135deg,#f472b6,#db2777)", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, (img ? "🖼" : "📕") + " DONE"),
+    h("label", { key: "r", title: "换一个 PDF / 照片", style: { cursor: "pointer", fontSize: 13, color: "#94a3b8", padding: "0 2px" } }, "↻", pick),
+    canDelLoan(loan, window.__crmUser) && h("button", { key: "d", onClick: del, title: "删除", style: { border: "none", background: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 14, padding: 0 } }, "×")]);
 }
 const LOAN_BASES = SUB_TYPES.map(y => y[1]);   /* 跟 Closing 的 Type 字眼一样 */
 const BASE_LEGACY = { ORI: "Ori", BUILD: "Build", "BD BUILD": "Build", SPECIAL: "Special Case", "SPECIAL CASE": "Special Case", RENCAI: "Rencai", CANCEL: "Cancel" };
