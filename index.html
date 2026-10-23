@@ -4082,6 +4082,22 @@ const dtIncomplete = r => dtBankOverall(r) !== "collected" || (r.agreement || {}
    同名客户已存在 → 更新那一笔（连上这份 Agreement，Agent 空的就补上），不会重复建立；
    没有 → 自动建一笔；每份 Agreement 只开一次「收集文件」Follow Up（已收齐 / 已 Closed 的不开） */
 const dtAgreeLinks = r => (Array.isArray((r.agreement || {}).links) ? r.agreement.links : []);
+/* 以前存的全部 Agreement → 一次过连进 Customer Docs（同名合并，不重复；旧的不开 Follow Up，免得一次跳出几十个） */
+const dtAgreeInfo = d => { const vals = d.values || [], g = id => { const x = vals.find(v => String(v[0]).split("#")[0] === id); return x ? String(x[1] || "").trim() : ""; };
+  return { client: dtKeyName(g("fName") || d.title || ""), agent: g("fAgent").toUpperCase(), draftId: d.id, form: d.form || (/FUTURE/i.test(d.file || "") ? "Future Agreement" : "Finpro Agreement"), at: d.at || Date.now(), by: canonUser(d.by || "") }; };
+const dtMergeAgreements = (items, drafts, me) => {
+  const ag = (drafts || []).filter(d => /AGREEMENT/i.test(d.file || "") && d.values).map(dtAgreeInfo).filter(a => a.client && !/^未命名/.test(a.client));
+  let list = (items || []).slice(), changed = false; const now = Date.now();
+  ag.sort((a, b) => a.at - b.at).forEach(a => {
+    if (list.some(x => dtAgreeLinks(x).some(l => l.draftId === a.draftId))) return;   /* 已经连过 */
+    const link = { draftId: a.draftId, form: a.form, at: a.at, by: a.by };
+    const r = list.find(x => dtKeyName(x.customer) === a.client);
+    if (r) list = list.map(x => x.id === r.id ? { ...x, agent: x.agent || a.agent, agreement: { ...(x.agreement || { files: [] }), links: [...dtAgreeLinks(x), link] } } : x);
+    else list = [{ id: uid(), customer: a.client, agent: a.agent, createdAt: a.at, updatedAt: a.at, updatedBy: me, autoFrom: "agreement", bank: { files: [] }, agreement: { files: [], links: [link] }, details: { files: [] }, funder: { files: [] }, settlement: { files: [] }, card: { files: [] }, salaryBank: {}, followUps: [] }, ...list];
+    changed = true;
+  });
+  return changed ? list : null;
+};
 let _dtAgreeBusy = Promise.resolve();
 const dtLinkAgreement = ({ client, agent, draftId, form, by }) => {
   const name = dtKeyName(client); if (!name || !draftId) return;
@@ -4429,7 +4445,7 @@ function DtFollowUpReminder({ currentUser, onOpen }) {
 function CustomerDocsPage({ currentUser }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
-  const [list, saveList] = useCloudList("doc_tracking");
+  const [list, saveList, dtFresh] = useCloudList("doc_tracking");
   const items = list || [];
   const [q, setQ] = React.useState("");
   const [fA, setFA] = React.useState(""), [fF, setFF] = React.useState(""), [fS, setFS] = React.useState(""), [fB, setFB] = React.useState(""), [onlyInc, setOnlyInc] = React.useState(false);
@@ -4442,6 +4458,11 @@ function CustomerDocsPage({ currentUser }) {
   React.useEffect(() => { const f = () => { if (window.__dtOpenFu) { setView("active"); setFuId(window.__dtOpenFu); window.__dtOpenFu = null; } }; window.addEventListener("dt-open-fu", f); return () => window.removeEventListener("dt-open-fu", f); }, []);
   const patch = (r, p) => saveList(items.map(x => x.id === r.id ? { ...x, ...p, updatedAt: Date.now(), updatedBy: me } : x));
   const patchSec = (r, sec, p) => patch(r, { [sec]: { ...(r[sec] || {}), ...p } });
+  /* 以前的 Agreement 自动连进来（每次打开这页都检查一次，已经连过的不会重复） */
+  const [agDr, , agFresh] = useCloudList("form_drafts");
+  const agDone = React.useRef(false);
+  React.useEffect(() => { if (agDone.current || list === null || !dtFresh || agDr === null || !agFresh) return; agDone.current = true;
+    const next = dtMergeAgreements(list, agDr, me); if (next) saveList(next); }, [list, agDr, agFresh]);
   const add = () => {
     const name = nw.customer.trim();
     if (!name) { alert("请填 Customer Name"); return; }
