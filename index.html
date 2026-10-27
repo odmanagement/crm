@@ -7650,7 +7650,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
         rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
           const closed = !ld && m.subtotal != null && m.subtotal > 0.004 && m.balance != null && Math.abs(m.balance) < 0.005;   /* 付清了 = Closing */
           const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
-          const bg = isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#fce7f3" } : {};
+          const bg = isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#ede9fe", borderColor: "#ddd6fe" } : {};   /* 付清了（Balance 0）→ 整行紫色 */
           return h("tr", { key: d.id, title: isDone ? "DONE（" + carDoneType(d).toUpperCase() + "）· " + String(d.done.by || "").toUpperCase() + " · " + new Date(d.done.at || 0).toLocaleDateString("en-GB") : closed ? "已付清 · CLOSING" : undefined },
             h("td", { style: { ...td, ...bg, ...bg } }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
             h("td", { style: { ...td, ...bg, fontWeight: 700 } }, m.agent || "—"),
