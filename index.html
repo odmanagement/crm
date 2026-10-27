@@ -724,6 +724,8 @@ const bankStatusStyle = status => {
     background: c + "0f"
   };
 };
+/* House Loan 算 Approved：进度是 Approved / Disbursed，或者有银行是 Approved / Disbursed */
+const houseApproved = l => !!l && (["approved", "disbursed"].includes(l.stage) || (l.banks || []).some(b => b.status === "approved" || b.status === "disbursed"));
 const STAGES = [{
   id: "lead",
   label: "New",
@@ -3142,18 +3144,47 @@ function CRM({ onLogout, currentUser }) {
       let c = clients.find(x => x.id === nv.clientId) || clients.find(x => nv.icNumber && x.ic && String(x.ic).replace(/\D/g, "") === String(nv.icNumber).replace(/\D/g, ""));
       const agent = nv.agent ? String(nv.agent).toUpperCase() : "";
       const mk = type => ({ id: uid(), type, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent, lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(type) ? (nv.remark || "") : "", createdBy: canonUser(nv.staff || nv.createdBy || ""), base: nv.base || "" });
+      /* 有选 House + 别的（Personal / Car）：先只开 House Loan；等 House 那边 Approved 了，才自动开 Personal / Car */
+      const exHouse = c && (c.loans || []).find(l => l.type === "house");
+      const waitHouse = types.includes("house") && types.length > 1 && !(exHouse && houseApproved(exHouse));
+      const later = waitHouse ? types.filter(t => t !== "house") : [];
+      const now = waitHouse ? ["house"] : types;
+      const mkNow = t => { const l = mk(t); return t === "house" && later.length ? { ...l, waitTypes: later, waitInfo: { agent, remark: nv.remark || "", base: nv.base || "", createdBy: canonUser(nv.staff || nv.createdBy || "") } } : l; };
       if (!c) {
-        c = { id: uid(), name: nv.customerName || "", phone: nv.phone || "", ic: nv.icNumber || "", job: nv.position || "", income: "", note: "", links: (nv.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: types.map(mk) };
+        c = { id: uid(), name: nv.customerName || "", phone: nv.phone || "", ic: nv.icNumber || "", job: nv.position || "", income: "", note: "", links: (nv.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: now.map(mkNow) };
         list = [...clients, c];
       } else {
-        const add = types.filter(t => !(c.loans || []).some(l => l.type === t));
-        if (add.length) { c = { ...c, loans: [...(c.loans || []), ...add.map(mk)] }; list = clients.map(x => x.id === c.id ? c : x); }
+        const add = now.filter(t => !(c.loans || []).some(l => l.type === t));
+        let loans = [...(c.loans || []), ...add.map(mkNow)];
+        if (later.length && exHouse) loans = loans.map(l => l.id === exHouse.id ? { ...l, waitTypes: Array.from(new Set([...(l.waitTypes || []), ...later])), waitInfo: { agent, remark: nv.remark || "", base: nv.base || "", createdBy: canonUser(nv.staff || nv.createdBy || "") } } : l);
+        if (add.length || later.length) { c = { ...c, loans }; list = clients.map(x => x.id === c.id ? c : x); }
       }
       cid = c.id;
     }
     if (list !== clients) persist(list);
     persistVerifications(verifications.map(x => x.id === nv.id ? { ...nv, clientId: cid } : x));
   };
+  /* House Loan Approved 了 → 自动开之前等着的 Personal / Car Loan */
+  const waitBusy = React.useRef(false);
+  React.useEffect(() => {
+    if (waitBusy.current || !clients || !clients.length || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
+    let changed = false;
+    const next = clients.map(c => {
+      const hs = (c.loans || []).filter(l => l.type === "house" && (l.waitTypes || []).length && houseApproved(l));
+      if (!hs.length) return c;
+      let loans = c.loans.slice();
+      hs.forEach(hl => {
+        const wi = hl.waitInfo || {};
+        hl.waitTypes.filter(t => !loans.some(l => l.type === t)).forEach(t => {
+          loans.push({ id: uid(), type: t, amount: "", subject: "", bank: "", rate: "", stage: "lead", agent: wi.agent || hl.agent || "", lawyer: "", supplies: "", date: "", banks: [], followUps: [], remark: isPLike(t) ? (wi.remark || "") : "", createdBy: wi.createdBy || hl.createdBy || "", base: wi.base || hl.base || "", fromHouse: hl.id, openedAt: today() });
+        });
+        loans = loans.map(l => l.id === hl.id ? { ...l, waitTypes: [], waitDoneAt: today() } : l);
+      });
+      changed = true;
+      return { ...c, loans };
+    });
+    if (changed) { waitBusy.current = true; Promise.resolve(persist(next)).finally(() => { waitBusy.current = false; }); }
+  }, [clients]);
   /* Verify 删除 / 取消 Loan Type：同步删除客户那边对应的 Loan（客户没剩 Loan 就一起删） */
   const verifyDropLoans = (v, types) => {
     if (!types || !types.length) return;
@@ -9706,7 +9737,9 @@ function VerifyDetail({
     style: { ...S.vFinalize, margin: "0 22px 28px", border: 0, borderTop: "1px solid #e8eaf3", padding: "16px 0 0", minWidth: 0 }
   }, _vTypes(v).length > 0 && v.status === "pending" && /*#__PURE__*/React.createElement("div", {
     style: { fontSize: 12.5, color: "#475569", fontWeight: 600, marginBottom: 8 }
-  }, "按 Mark Verified 后会自动建去：" + _vTypes(v).map(t => ({ house: "House", car: "Car", personal: "Personal" })[t] + " Loan").join("、")), /*#__PURE__*/React.createElement("input", {
+  }, (() => { const ts = _vTypes(v), nm = t => ({ house: "House", car: "Car", personal: "Personal" })[t] + " Loan";
+    return ts.includes("house") && ts.length > 1 ? "按 Mark Verified 后会先建去：House Loan；等 House Loan Approved 了，才自动建去：" + ts.filter(t => t !== "house").map(nm).join("、")
+      : "按 Mark Verified 后会自动建去：" + ts.map(nm).join("、"); })()), /*#__PURE__*/React.createElement("input", {
     style: {
       ...S.input,
       ...(staffError ? {
