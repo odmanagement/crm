@@ -9090,7 +9090,8 @@ function VerifyPage({
   const [adding, setAdding] = useState(false);
   /* 只有建立的人（Staff）可以更改 */
   const canEditV = v => !!v && (sameUser(v.staff, currentUser) || sameUser(v.createdBy, currentUser));
-  const canVerifyV = v => !!v && (canEditV(v) || VERIFY_CHECKERS.includes(canonUser(currentUser)));
+  /* Mark Verified / Failed / Reopen：每个人都可以按（只能看的 admin 账号除外）；资料还是只有建立的人可以改 */
+  const canVerifyV = v => !!v && !READONLY_USERS.includes(canonUser(currentUser));
   const save = v => {
     const old = verifications.find(x => x.id === v.id);
     if (old && !canEditV(old)) return;
