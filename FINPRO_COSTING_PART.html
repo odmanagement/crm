@@ -75,7 +75,7 @@
   .bf-add.hot{border-color:#7c3aed;background:#ede9fe}
   .bf-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
   .bf-ov img{max-width:100%;max-height:100%;border-radius:6px}
-  @media print{ .bf-add,.bf-x{display:none !important} }
+  @media print{ .bf-add,.bf-x,.bf-cell{display:none !important} }
   #balBody td:nth-child(4){text-align:right}
   .num{font-variant-numeric:tabular-nums}
   .addrow{margin:8px 12px;background:none;border:1px dashed var(--line);color:var(--accent);
@@ -203,7 +203,7 @@
   <div class="panel">
     <div class="phead">Payment</div>
     <table>
-      <thead><tr><th style="width:30px"></th><th style="text-align:left">Date</th><th style="text-align:left">Remark</th><th style="text-align:right">Amount</th><th style="text-align:left">照片 / PDF</th><th></th></tr></thead>
+      <thead><tr><th style="width:30px"></th><th style="text-align:left">Date</th><th style="text-align:left">Remark</th><th style="text-align:right">Amount</th><th class="bf-cell" style="text-align:left">照片 / PDF</th><th></th></tr></thead>
       <tbody id="balHead"></tbody>
       <tbody id="balBody"></tbody>
       <tbody id="balFoot"></tbody>
@@ -716,13 +716,13 @@ function calcBalance(subtotal){
     <tr class="total nobar">
       <td colspan="3">SUBTOTAL (ALL PARTS)</td>
       <td class="num">${fmt(subtotal)}</td>
-      <td></td><td></td>
+      <td class="bf-cell"></td><td></td>
     </tr>`;
   document.getElementById('balFoot').innerHTML=`
     <tr class="grand">
       <td colspan="3">BALANCE</td>
       <td class="num">${fmt(bal)}</td>
-      <td></td><td></td>
+      <td class="bf-cell"></td><td></td>
     </tr>`;
 }
 // ---- Named archives in browser localStorage (LEADING SHEET style) ----
