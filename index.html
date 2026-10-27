@@ -7445,7 +7445,8 @@ function formWriteValues(doc, values) {
   if ("__ic_images__" in map) formWriteICImages(doc, map.__ic_images__);
 }
 /* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
-function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, onMoveDraft, onDelDraft, onRenameDraft }) {
+function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, onMoveDraft, onDelDraft, onRenameDraft, onEditDraft }) {
+  const [editF, setEditF] = React.useState(null);   /* 改名字 / 换分类 */
   const h = React.createElement;
   const lib = data && !Array.isArray(data) ? data : { cats: [], files: [] };
   const save = d => saveData(d);
@@ -7514,9 +7515,25 @@ function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, on
           h("div", { style: { fontWeight: 800, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#0f172a" } }, f.name),
           h("div", { style: { fontSize: 11.5, color: "#6366f1", fontWeight: 700, marginTop: 2 } }, (f.isDraft ? "📝 " + f.sub + " · " : "") + "📁 " + catName(f.cat)),
           h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 2 } }, String(f.by || "").toUpperCase() + " · " + new Date(f.at).toLocaleDateString("en-GB"))),
-        false,
+        (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => setEditF({ f, name: f.isDraft ? (f.title || "") : (f.name || ""), cat: cats.some(c => c.id === f.cat) ? f.cat : "" }), title: "更改名字 / 分类", style: { border: "none", background: "#eef2ff", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0, fontSize: 14 } }, "✏️"),
         false && h("select", { value: cats.some(c => c.id === f.cat) ? f.cat : "", title: "移到其他分类", onChange: e => f.isDraft ? onMoveDraft(f, e.target.value) : save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, cat: e.target.value } : x) }), style: { border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11.5, padding: "4px", maxWidth: 80, fontFamily: "inherit" } }, h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name))),
         (sameUser(f.by, currentUser) || isMissionBoss(currentUser)) && h("button", { onClick: () => f.isDraft ? onDelDraft(f) : delFile(f), title: "删除", style: { border: "none", background: "#fff1f2", width: 30, height: 30, borderRadius: 9, cursor: "pointer", flexShrink: 0 } }, h(Trash2, { size: 14, color: "#ef4444" }))))),
+    editF && h("div", { onClick: () => setEditF(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 420, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
+        h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900, fontSize: 16 } }, "✏️ 更改文件"),
+        h("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 14 } },
+          editF.f.isDraft && h("div", { style: { fontSize: 12.5, color: "#64748b", fontWeight: 700 } }, "表格：" + (editF.f.sub || "")),
+          h("div", null, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 5 } }, "名字"),
+            h("input", { autoFocus: true, value: editF.name, onChange: e => setEditF({ ...editF, name: e.target.value }), style: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", fontWeight: 700 } })),
+          h("div", null, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8", marginBottom: 5 } }, "分类"),
+            h("select", { value: editF.cat, onChange: e => setEditF({ ...editF, cat: e.target.value }), style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, fontFamily: "inherit", fontWeight: 700, background: "#fff" } },
+              h("option", { value: "" }, "未分类"), cats.map(c => h("option", { key: c.id, value: c.id }, c.name)))),
+          h("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } },
+            h("button", { onClick: () => setEditF(null), style: { border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", borderRadius: 10, padding: "9px 18px", fontWeight: 800, cursor: "pointer" } }, "取消"),
+            h("button", { onClick: () => { const { f, name, cat } = editF, nm = String(name || "").trim(); if (!nm) { alert("名字不能空白"); return; }
+              if (f.isDraft) { onEditDraft && onEditDraft(f, nm, cat); }
+              else save({ ...lib, files: allFiles.map(x => x.id === f.id ? { ...x, name: nm, cat } : x) });
+              setEditF(null); }, style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "9px 22px", fontWeight: 900, cursor: "pointer" } }, "保存"))))),
     adding && h("div", { onClick: () => !busy && setAdding(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
         h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900, fontSize: 16 } }, "📎 Add File"),
@@ -8001,7 +8018,9 @@ function FormsPage({ currentUser, tools, noLib }) {
           h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
             h("button", { onClick: () => setPasteBox(null), style: { flex: 1, padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
             h("button", { onClick: () => mergeLocalDump(pasteBox), disabled: !pasteBox.trim(), style: { flex: 2, padding: 10, borderRadius: 10, border: "none", background: "linear-gradient(120deg,#f59e0b,#d97706)", color: "#fff", fontWeight: 800, cursor: "pointer", opacity: pasteBox.trim() ? 1 : .5 } }, "开始搬"))))),
-    !noLib && h(FileLibrary, { currentUser, data: libData, saveData: saveLib, drafts: mine, onOpenDraft: d => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), onMoveDraft: (d, cat) => saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, cat } : x)), onDelDraft: delDraft, onRenameDraft: d => { const o = (drafts || []).find(x => x.id === d.id) || d; const t = window.prompt("存档名字：", o.title || ""); if (t != null) renameDraftTo(o, t); } }),
+    !noLib && h(FileLibrary, { currentUser, data: libData, saveData: saveLib, drafts: mine, onOpenDraft: d => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), onMoveDraft: (d, cat) => saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, cat } : x)), onDelDraft: delDraft, onRenameDraft: d => { const o = (drafts || []).find(x => x.id === d.id) || d; const t = window.prompt("存档名字：", o.title || ""); if (t != null) renameDraftTo(o, t); },
+      onEditDraft: (d, t, cat) => { const o = (drafts || []).find(x => x.id === d.id) || d; const oc = { ...o, cat: cat || "" };
+        if (String(t).trim() !== o.title) renameDraftTo(oc, t); else if ((o.cat || "") !== (cat || "")) saveDrafts((drafts || []).map(x => x.id === o.id ? oc : x)); } }),
     picker && h("div", { onClick: () => setPicker(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 18, overflow: "hidden" } },
         h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 900 } }, "📥 选择要导入的旧存档"),
