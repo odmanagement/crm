@@ -10630,6 +10630,10 @@ function LoanBlock({
     value: loan.supplies,
     onChange: v => setField("supplies", v)
   }), /*#__PURE__*/React.createElement(EditRow, {
+    label: "Banker",
+    value: loan.banker,
+    onChange: v => setField("banker", String(v || "").toUpperCase())
+  }), /*#__PURE__*/React.createElement(EditRow, {
     label: "Date",
     value: loan.date,
     onChange: v => setField("date", v),
@@ -10940,6 +10944,14 @@ function LoanForm({
     style: S.input,
     value: l.supplies || "",
     onChange: e => set("supplies", e.target.value)
+  }))), !isPLike(l.type) && /*#__PURE__*/React.createElement("div", {
+    style: S.grid2
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Banker"
+  }, /*#__PURE__*/React.createElement("input", {
+    style: S.input,
+    value: l.banker || "",
+    onChange: e => set("banker", e.target.value.toUpperCase())
   }))), /*#__PURE__*/React.createElement("div", {
     style: S.bankEditHead
   }, /*#__PURE__*/React.createElement("span", {
