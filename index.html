@@ -9587,14 +9587,27 @@ function HouseRemark({ loan, onSave }) {
   React.useEffect(() => { setT(loan.remark || ""); }, [loan.id, loan.remark]);
   const ro = READONLY_USERS.includes(canonUser(window.__crmUser || ""));
   const rej = (loan.banks || []).filter(b => b.status === "rejected").map(b => String(b.bank || "").toUpperCase()).filter(Boolean);
-  return h("div", { style: { margin: "12px 0 6px", padding: "12px 14px", borderRadius: 12, background: rej.length ? "#fff1f2" : "#f8fafc", border: "1px solid " + (rej.length ? "#fecaca" : "#e2e8f0") } },
+  const [busy, setBusy] = React.useState(false);
+  const idsRef = React.useRef(loan.remarkPhotos || []); idsRef.current = loan.remarkPhotos || [];
+  /* 在格子里（打字的地方也可以）直接 Ctrl+V 贴截图 / 复制的照片 */
+  const onPaste = async e => {
+    if (ro) return;
+    const fs = Array.from((e.clipboardData && e.clipboardData.items) || []).filter(it => it.kind === "file" && (it.type.startsWith("image/") || it.type === "application/pdf")).map(it => it.getAsFile()).filter(Boolean);
+    if (!fs.length) return;   /* 贴的是文字 → 照常贴进去 */
+    e.preventDefault(); e.stopPropagation(); setBusy(true);
+    const me = canonUser(window.__crmUser || ""), nid = [];
+    for (const f of fs) { try { const data = f.type === "application/pdf" ? await lfReadFile(f) : await compressImage(f); const id = uid() + "~" + me; _photoCache[id] = data; await DB.set("mphoto_" + id, data); nid.push(id); } catch (er) { alert("照片上传失败：" + (er.message || er)); } }
+    if (nid.length) onSave({ remarkPhotos: [...idsRef.current, ...nid] });
+    setBusy(false);
+  };
+  return h("div", { tabIndex: -1, onPaste, style: { outline: "none", margin: "12px 0 6px", padding: "12px 14px", borderRadius: 12, background: rej.length ? "#fff1f2" : "#f8fafc", border: "1px solid " + (rej.length ? "#fecaca" : "#e2e8f0") } },
     h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
       h("span", { style: { fontSize: 12, fontWeight: 900, color: rej.length ? "#b91c1c" : "#475569", letterSpacing: .3 } }, "📝 备注 / REJECT 原因"),
       rej.length > 0 && h("span", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c", background: "#fee2e2", borderRadius: 999, padding: "2px 8px" } }, "✕ REJECT：" + rej.join("、"))),
     h("textarea", { value: t, readOnly: ro, rows: 3, placeholder: "例如：MAYBANK reject — CCRIS 有迟还记录 …（离开格子自动保存）", onChange: e => setT(e.target.value), onBlur: () => { if ((loan.remark || "") !== t.trim()) onSave({ remark: t.trim() }); },
       style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff", minHeight: 70, lineHeight: 1.6 } }),
     h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
-      h("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "照片 / PDF（鼠标放在相机上按 Ctrl+V 贴截图）"),
+      h("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, busy ? "⏳ 上传中…" : "照片 / PDF（点一下这个格子 / 打字的地方，再按 Ctrl+V 就可以贴照片）"),
       h(LfPhotos, { ids: loan.remarkPhotos || [], compact: true, ro, onChange: ids => onSave({ remarkPhotos: ids }) })));
 }
 function LoanRemark({ value, onSave }) {
