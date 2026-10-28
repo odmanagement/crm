@@ -7628,7 +7628,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   /* Done / Commission / 照片 另外存在一个小的云端 key（costing_extras），不跟很大的表格存档挤在一起，存得快、刷新不会不见 */
   const [ext, saveExt] = useCloudList("costing_extras");
   const extRef = React.useRef(ext); extRef.current = ext;
-  const EXT_KEYS = ["photos", "commPhotos", "comm", "done"];
+  const EXT_KEYS = ["photos", "commPhotos", "comm", "done", "chk"];
   const withExt = d => { const e = (ext || []).find(x => x.id === d.id); if (!e) return d; const o = { ...d }; EXT_KEYS.forEach(k => { if (k in e) o[k] = e[k]; }); return o; };
   const patchD = (d, p) => { if (!lfCanEdit(d.by, me)) return;
     const cur = Array.isArray(extRef.current) ? extRef.current : [], old = cur.find(x => x.id === d.id) || { id: d.id };
@@ -7686,7 +7686,9 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
             h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
               h("button", { disabled: !can, onClick: () => { patchD(d, { comm: d.comm ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.comm ? "Commission DONE · " + String(d.comm.by || "").toUpperCase() + " · " + new Date(d.comm.at || 0).toLocaleDateString("en-GB") + "（按一下取消）" : "按一下 = Commission Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 11.5, cursor: can ? "pointer" : "default", whiteSpace: "nowrap", background: d.comm ? "#16a34a" : "#f1f5f9", color: d.comm ? "#fff" : "#94a3b8" } }, d.comm ? "✓ DONE" : "DONE"),
               h(LfPhotos, { ids: d.commPhotos || [], compact: true, ro: !can, onChange: ids => patchD(d, { commPhotos: ids }) }))),
-            h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase())));
+            h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase(),
+              h("button", { disabled: !can, onClick: () => { patchD(d, { chk: d.chk ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.chk ? "✓ " + String(d.chk.by || "").toUpperCase() + " · " + new Date(d.chk.at || 0).toLocaleDateString("en-GB") + (can ? "（按一下取消）" : "") : (can ? "按一下打勾" : "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以打勾"),
+                style: { marginLeft: 6, width: 22, height: 22, borderRadius: 6, border: "2px solid " + (d.chk ? "#16a34a" : "#cbd5e1"), background: d.chk ? "#16a34a" : "#fff", color: "#fff", fontSize: 13, fontWeight: 900, lineHeight: "16px", padding: 0, cursor: can ? "pointer" : "default", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, d.chk ? "✓" : ""))));
         })))));
 }
 function FormsPage({ currentUser, tools, noLib }) {
