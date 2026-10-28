@@ -9095,6 +9095,8 @@ const V_SECTIONS = [{
 const V_SALARY_DEFAULT = [["basic", "Basic", "+"], ["epf", "EPF", "-"], ["socso", "SOCSO", "-"], ["eis", "EIS", "-"], ["pcb", "PCB", "-"]];
 const vSalaryItems = v => v.salaryItems && v.salaryItems.length ? v.salaryItems : V_SALARY_DEFAULT.map(([id, name, sign]) => ({ id, name, sign, amount: "" }));
 const vNum = x => parseFloat(String(x || "").replace(/[^0-9.-]/g, "")) || 0;
+/* 工资数目一律显示 2 个小数：1000 → 1,000.00 · 1990.6 → 1,990.60（空的保持空） */
+const vFmt2 = x => { const t = String(x == null ? "" : x).trim(); if (!t || !/\d/.test(t)) return t; return vNum(t).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 const vNett = v => vSalaryItems(v).reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
 const vMoney = n => "RM " + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // 法定扣款表格行（每行有 employer/employee/subtotal 三个值）
@@ -9526,7 +9528,7 @@ function verifyCopyText(v) {
     const nt = st.items.reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
     L.push(salSets.length > 1 ? "SALARY " + (si + 1) + (st.label ? " (" + U(st.label) + ")" : "") : "SALARY");
     L.push("");
-    p2.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount), false)));
+    p2.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount), true)));
     L.push("");
     m2.forEach(it => L.push(lbl2(it) + " : " + money(vNum(it.amount), true)));
     L.push("");
@@ -9605,7 +9607,7 @@ function VSalaryEditor({ items, onItems }) {
         h("button", { title: "往下移", disabled: i === items.length - 1, onClick: () => { const l = items.slice(); [l[i + 1], l[i]] = [l[i], l[i + 1]]; save(l); }, style: { width: 22, height: 15, border: "1px solid #e2e8f0", borderRadius: 4, background: "#fff", color: i === items.length - 1 ? "#e2e8f0" : "#64748b", fontSize: 9, lineHeight: 1, padding: 0, cursor: i === items.length - 1 ? "default" : "pointer" } }, "▼")),
       h("button", { title: "切换 + / −", onClick: () => upd(i, "sign", it.sign === "-" ? "+" : "-"), style: { width: 30, height: 32, borderRadius: 8, border: "1px solid " + (it.sign === "-" ? "#fecaca" : "#bbf7d0"), background: it.sign === "-" ? "#fef2f2" : "#f0fdf4", color: it.sign === "-" ? "#dc2626" : "#16a34a", fontWeight: 900, fontSize: 16, cursor: "pointer", flexShrink: 0 } }, it.sign === "-" ? "−" : "+"),
       h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: it.name, placeholder: "项目", onCommit: val => upd(i, "name", val) }),
-      h(DebouncedInput, { style: { ...inp, width: 130, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: it.amount, placeholder: "0.00", onCommit: val => upd(i, "amount", val) }),
+      h(DebouncedInput, { style: { ...inp, width: 130, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: vFmt2(it.amount), placeholder: "0.00", onCommit: val => upd(i, "amount", vFmt2(val)) }),
       h("button", { title: "删除", onClick: () => save(items.filter((_, j) => j !== i)), style: { border: "none", background: "none", color: "#cbd5e1", width: 24, cursor: "pointer", fontSize: 16 } }, "×"))),
     h("button", { onClick: () => save([...items, { id: uid(), name: "", sign: "-", amount: "" }]), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer", marginTop: 2 } }, "+ Add Item"),
     h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "10px 14px", borderRadius: 12, background: "#fff", border: "1.5px solid #c7d2fe" } },
