@@ -3082,8 +3082,12 @@ function CRM({ onLogout, currentUser }) {
       c = { id: uid(), name: v.customerName || "", phone: v.phone || "", ic: v.icNumber || "", job: v.position || "", income: "", note: "", links: (v.links || []).filter(x => x && x.url).map(x => ({ id: uid(), label: "", url: x.url })), createdAt: today(), loans: [newLoan()] };
       list = [...clients, c];
     } else if (!(c.loans || []).some(l => l.type === type)) {
-      c = { ...c, loans: [...(c.loans || []), newLoan()] };
+      /* 已经有 House Loan、还没 Approved → Personal / Car 先等着，House Approved 了才自动开 */
+      const hl = type !== "house" && (c.loans || []).find(l => l.type === "house" && !houseApproved(l));
+      if (hl) c = { ...c, loans: c.loans.map(l => l.id === hl.id ? { ...l, waitTypes: Array.from(new Set([...(l.waitTypes || []), type])), waitInfo: { agent, remark: v.remark || "", base: v.base || "", createdBy: canonUser(v.staff || v.createdBy || "") } } : l) };
+      else c = { ...c, loans: [...(c.loans || []), newLoan()] };
       list = clients.map(x => x.id === c.id ? c : x);
+      if (hl) noJump = true;
     }
     if (list !== clients) persist(list);
     persistVerifications(verifications.map(x => {
@@ -10620,7 +10624,9 @@ function LoanBlock({
   }, !isPLike(loan.type) && /*#__PURE__*/React.createElement(StageTimeline, {
     stage: loan.stage,
     onSet: setStage
-  }), isPLike(loan.type) ? [/*#__PURE__*/React.createElement(EditRow, {
+  }), loan.type === "house" && (loan.waitTypes || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { margin: "6px 0 10px", padding: "8px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fcd34d", color: "#92400e", fontWeight: 800, fontSize: 12.5 }
+  }, "⏳ 等这个 House Loan Approved（银行选 Approved / Disbursed）后，会自动开：" + loan.waitTypes.map(t => ({ car: "Car", personal: "Personal" })[t] + " Loan").join("、")), isPLike(loan.type) ? [/*#__PURE__*/React.createElement(EditRow, {
     key: "agent",
     label: "Agent",
     value: loan.agent,
