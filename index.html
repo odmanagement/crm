@@ -4116,9 +4116,25 @@ const dtAgreeLinks = r => (Array.isArray((r.agreement || {}).links) ? r.agreemen
 /* 以前存的全部 Agreement → 一次过连进 Customer Docs（同名合并，不重复；旧的不开 Follow Up，免得一次跳出几十个） */
 const dtAgreeInfo = d => { const vals = d.values || [], g = id => { const x = vals.find(v => String(v[0]).split("#")[0] === id); return x ? String(x[1] || "").trim() : ""; };
   return { client: dtKeyName(g("fName") || d.title || ""), agent: g("fAgent").toUpperCase(), draftId: d.id, form: d.form || (/FUTURE/i.test(d.file || "") ? "Future Agreement" : "Finpro Agreement"), at: d.at || Date.now(), by: canonUser(d.by || "") }; };
+/* 只有 Alice 账号建的 Agreement 才连进 Customer Docs */
+const dtIsDtAgree = d => !!d && /AGREEMENT/i.test(d.file || "") && DT_USERS.includes(canonUser(d.by || ""));
+/* 自动建的记录有没有人动过（有文件 / 状态 / Follow Up / 备注 …） */
+const dtTouched = r => ["bank", "agreement", "details", "funder", "settlement", "card"].some(sec => dtFiles(r, sec).length) || !!(r.agreement || {}).status || !!(r.funder || {}).status || !!(r.settlement || {}).status
+  || !!(r.card || {}).collected || !!(r.salaryBank || {}).type || (Array.isArray(r.followUps) && r.followUps.length) || !!r.remark || !!r.closed || Array.isArray((r.bank || {}).checklist)
+  || ["ic", "phone", "email", "address", "company", "position"].some(k => String((r.details || {})[k] || "").trim());
 const dtMergeAgreements = (items, drafts, me) => {
-  const ag = (drafts || []).filter(d => /AGREEMENT/i.test(d.file || "") && d.values).map(dtAgreeInfo).filter(a => a.client && !/^未命名/.test(a.client));
   let list = (items || []).slice(), changed = false; const now = Date.now();
+  /* 先清掉：别的账号（不是 Alice）的 Agreement 连进来的 → 拿掉连接；自动建的、还没人动过的整笔删掉 */
+  const byId = {}; (drafts || []).forEach(d => { byId[d.id] = d; });
+  const bad = l => { const d = byId[l.draftId]; return d ? !dtIsDtAgree(d) : !DT_USERS.includes(canonUser(l.by || "")); };
+  list = list.flatMap(r => { const ls = dtAgreeLinks(r), fu = Array.isArray(r.followUps) ? r.followUps : [];
+    const badFu = f => f.auto === "agreement" && !f.done && f.agreeId && bad({ draftId: f.agreeId });   /* 自动开的「收集文件」Follow Up 也拿掉 */
+    if (!ls.some(bad) && !fu.some(badFu)) return [r];
+    changed = true; const keep = ls.filter(l => !bad(l));
+    const nr = { ...r, followUps: fu.filter(f => !badFu(f)), agreement: { ...(r.agreement || {}), links: keep } };
+    if (!keep.length && r.autoFrom === "agreement" && !dtTouched(nr)) return [];
+    return [nr]; });
+  const ag = (drafts || []).filter(d => dtIsDtAgree(d) && d.values).map(dtAgreeInfo).filter(a => a.client && !/^未命名/.test(a.client));
   ag.sort((a, b) => a.at - b.at).forEach(a => {
     if (list.some(x => dtAgreeLinks(x).some(l => l.draftId === a.draftId))) return;   /* 已经连过 */
     const link = { draftId: a.draftId, form: a.form, at: a.at, by: a.by };
@@ -7788,7 +7804,7 @@ function FormsPage({ currentUser, tools, noLib }) {
       formWriteValues(d, vals);
     }
     /* Alice 打开旧的 Agreement → 马上连到 Customer Docs */
-    if (open && open.draft && /AGREEMENT/i.test(open.tool.file || "") && DT_USERS.includes(canonUser(currentUser || ""))) setTimeout(() => { try {
+    if (open && open.draft && /AGREEMENT/i.test(open.tool.file || "") && DT_USERS.includes(canonUser(currentUser || "")) && DT_USERS.includes(canonUser(open.draft.by || ""))) setTimeout(() => { try {
       const dd = doc(); if (!dd) return; const gv = id => String((dd.getElementById(id) || {}).value || "").trim();
       const client = gv("fName") || open.draft.title; if (client) dtLinkAgreement({ client, agent: gv("fAgent"), draftId: open.draft.id, form: open.tool.name, by: currentUser });
     } catch (e) {} }, 600);
@@ -7922,7 +7938,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     const d = doc(); if (!d) return nd;
     const gv = id => String((d.getElementById(id) || {}).value || "").trim();
     const client = gv("fName").toUpperCase(); if (!client) return nd;
-    if (DT_USERS.includes(canonUser(currentUser || ""))) dtLinkAgreement({ client, agent: gv("fAgent"), draftId: nd.id, form: nd.form || (open && open.tool.name), by: currentUser });
+    if (DT_USERS.includes(canonUser(currentUser || "")) && DT_USERS.includes(canonUser(nd.by || currentUser || ""))) dtLinkAgreement({ client, agent: gv("fAgent"), draftId: nd.id, form: nd.form || (open && open.tool.name), by: currentUser });
     const LF = { "PERSONAL": "PL", "CAR LOAN": "CL", "HOUSE LOAN": "HL" };
     const lf = (gv("fLoanMulti") || gv("fLoanFor")).split(/\s*[+,]\s*/).filter(Boolean).map(x => LF[x.toUpperCase()] || x.toUpperCase()).join("+");
     const base = gv("fBase"), cat = (baseType(base) || ["ori"])[0];
