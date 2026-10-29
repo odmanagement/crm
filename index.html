@@ -3173,7 +3173,21 @@ function CRM({ onLogout, currentUser }) {
   React.useEffect(() => {
     if (waitBusy.current || !clients || !clients.length || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
     let changed = false;
-    const next = clients.map(c => {
+    /* 以前已经开出来的 Personal / Car（Verify 有选 House + 这个）：House 还没 Approved、Loan 还是空的 → 收回去等 House Approved */
+    const icOf = x => String(x || "").replace(/\D/g, "");
+    const emptyLoan = l => !(l.banks || []).length && !l.amount && !(l.followUps || []).length && !l.donePdf && !l.collected && !(l.remarkPhotos || []).length;
+    const pre = clients.map(c => {
+      const hl = (c.loans || []).find(l => l.type === "house");
+      if (!hl || houseApproved(hl) || hl.waitDoneAt) return c;
+      const vs = (verifications || []).filter(v => v.clientId === c.id || (v.icNumber && c.ic && icOf(v.icNumber) === icOf(c.ic)));
+      const wantsHouse = t => vs.some(v => { const ts = _vTypes(v); return ts.includes("house") && ts.includes(t); });
+      const back = (c.loans || []).filter(l => (l.type === "personal" || l.type === "car") && !l.fromHouse && emptyLoan(l) && wantsHouse(l.type));
+      if (!back.length) return c;
+      changed = true;
+      const bt = back.map(l => l.type), first = back[0];
+      return { ...c, loans: c.loans.filter(l => !back.includes(l)).map(l => l.id === hl.id ? { ...l, waitTypes: Array.from(new Set([...(l.waitTypes || []), ...bt])), waitInfo: l.waitInfo || { agent: first.agent || "", remark: first.remark || "", base: first.base || "", createdBy: first.createdBy || "" } } : l) };
+    });
+    const next = pre.map(c => {
       const hs = (c.loans || []).filter(l => l.type === "house" && (l.waitTypes || []).length && houseApproved(l));
       if (!hs.length) return c;
       let loans = c.loans.slice();
@@ -3188,7 +3202,7 @@ function CRM({ onLogout, currentUser }) {
       return { ...c, loans };
     });
     if (changed) { waitBusy.current = true; Promise.resolve(persist(next)).finally(() => { waitBusy.current = false; }); }
-  }, [clients]);
+  }, [clients, verifications]);
   /* Verify 删除 / 取消 Loan Type：同步删除客户那边对应的 Loan（客户没剩 Loan 就一起删） */
   const verifyDropLoans = (v, types) => {
     if (!types || !types.length) return;
