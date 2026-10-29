@@ -10739,6 +10739,8 @@ function LoanBlock({
     style: S.fuEmpty
   }, "No banks yet — tap Add Bank"), bankView.map(({ b, i }, vi) => /*#__PURE__*/React.createElement("div", {
     key: i >= 0 ? "r" + i : "v" + b.bank,
+    className: "bank-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
     className: isPLike(loan.type) ? "bank-row-p" : "",
     title: b._v ? "还没填 — 直接填就会记录" : undefined,
     style: { ...S.bankInlineRow, ...(b._v ? { opacity: .5 } : {}) }
@@ -10811,7 +10813,13 @@ function LoanBlock({
     onClick: () => i >= 0 && canDelLoan(loan, currentUser) && removeBank(i)
   }, /*#__PURE__*/React.createElement(Trash2, {
     size: 13
-  }))))), loan.type === "house" && /*#__PURE__*/React.createElement(HouseRemark, {
+  }))), /*#__PURE__*/React.createElement(DebouncedInput, {
+    className: "bank-rmk",
+    style: { ...S.bankInput, width: "100%", flex: "none", boxSizing: "border-box", margin: "2px 0 8px", fontSize: 12.5, fontWeight: 600, color: b.status === "rejected" ? "#b91c1c" : "#475569", background: b.rmk ? (b.status === "rejected" ? "#fff1f2" : "#f8fafc") : "#fff", borderStyle: b.rmk ? "solid" : "dashed" },
+    placeholder: "",
+    value: b.rmk || "",
+    onCommit: v => setBankV(i, b, "rmk", String(v || "").trim())
+  })))), loan.type === "house" && /*#__PURE__*/React.createElement(HouseRemark, {
     loan: loan,
     onSave: p => onUpdate({ ...loan, ...p })
   }), loan.note && !/[\u4e00-\u9fff]/.test(loan.note) && /*#__PURE__*/React.createElement("div", {
