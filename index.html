@@ -7816,9 +7816,15 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" } }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: "#0369a1" } }, ld ? "…" : m.custBal != null ? "RM " + lsFmt(m.custBal) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
-              h("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, CAR_DONE.map(([k, l]) => { const on = carDoneList(d).includes(k);
-                return h("button", { key: k, disabled: !can, onClick: () => toggleCarDone(d, k), title: !can ? "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以改" : on ? "按一下取消" : "按一下 = " + l + " Done",
-                  style: { border: "1px solid " + (on ? "#7c3aed" : "#e2e8f0"), borderRadius: 999, padding: "3px 10px", fontWeight: 900, fontSize: 11, fontFamily: "inherit", cursor: can ? "pointer" : "default", whiteSpace: "nowrap", textAlign: "left", background: on ? "#7c3aed" : "#f8fafc", color: on ? "#fff" : "#94a3b8" } }, (on ? "✓ " : "") + l); })),
+              h("div", { style: { display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" } },
+                /* 只显示选了的；按一下取消 */
+                CAR_DONE.filter(([k]) => carDoneList(d).includes(k)).map(([k, l]) => h("button", { key: k, disabled: !can, onClick: () => toggleCarDone(d, k), title: can ? "按一下取消" : "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以改",
+                  style: { border: "1px solid #7c3aed", borderRadius: 999, padding: "3px 10px", fontWeight: 900, fontSize: 11, fontFamily: "inherit", cursor: can ? "pointer" : "default", whiteSpace: "nowrap", background: "#7c3aed", color: "#fff" } }, "✓ " + l)),
+                /* 还没选的 → 从小选单加 */
+                can && CAR_DONE.some(([k]) => !carDoneList(d).includes(k)) && h("select", { value: "", onChange: e => { if (e.target.value) toggleCarDone(d, e.target.value); }, title: "加 Done",
+                  style: { border: "1px solid #e2e8f0", borderRadius: 999, padding: "3px 8px", fontWeight: 900, fontSize: 11, fontFamily: "inherit", cursor: "pointer", background: "#f8fafc", color: "#94a3b8" } },
+                  h("option", { value: "" }, carDoneList(d).length ? "＋" : "DONE —"), CAR_DONE.filter(([k]) => !carDoneList(d).includes(k)).map(([k, l]) => h("option", { key: k, value: k }, "✓ " + l))),
+                !can && !carDoneList(d).length && h("span", { style: { color: "#cbd5e1", fontWeight: 800, fontSize: 11 } }, "—")),
               h(LfPhotos, { ids: d.photos || [], compact: true, ro: !can, onChange: ids => patchD(d, { photos: ids }) }))),
             h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
               h("button", { disabled: !can, onClick: () => { patchD(d, { comm: d.comm ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.comm ? "Commission DONE · " + String(d.comm.by || "").toUpperCase() + " · " + new Date(d.comm.at || 0).toLocaleDateString("en-GB") + "（按一下取消）" : "按一下 = Commission Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 11.5, cursor: can ? "pointer" : "default", whiteSpace: "nowrap", background: d.comm ? "#16a34a" : "#f1f5f9", color: d.comm ? "#fff" : "#94a3b8" } }, d.comm ? "✓ DONE" : "DONE"),
@@ -8822,7 +8828,9 @@ function TypePage({
     const s = q.toLowerCase();
     return [r.client.name, r.client.phone, r.loan.bank, r.loan.subject].filter(Boolean).join(" ").toLowerCase().includes(s);
   });
-  const total = rows.reduce((s, r) => s + Number(r.loan.amount || 0), 0);
+  /* Personal / Car：总数只算 Approved + Disbursed 的银行；House 照旧 */
+  const total = isP ? rows.reduce((s, r) => s + (r.loan.banks || []).filter(b => b.status === "approved" || b.status === "disbursed").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0), 0)
+    : rows.reduce((s, r) => s + Number(r.loan.amount || 0), 0);
   const usedBanks = Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type).flatMap(l => (l.banks || []).map(b => bankKey(b.bank)))).filter(Boolean)));
   const COLS = isP ? bankListFor(type).map(x => x[0]).concat(usedBanks.filter(bk => !bankListFor(type).some(x => x[0] === bk))) : BANK_COLS.concat(usedBanks.filter(bk => !BANK_COLS.includes(bk)));
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -9040,7 +9048,7 @@ function TypePage({
     style: { ...S.td, ...S.tdNum, fontWeight: 800, color: "#0d9488" }
   }, (() => { const t = (l.banks || []).filter(b => b.dis === "collect").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
     style: { ...S.td, ...S.tdNum, fontWeight: 900, color: "#0f172a" }
-  }, (() => { const t = (l.banks || []).reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
+  }, (() => { const t = (l.banks || []).filter(b => b.status === "approved" || b.status === "disbursed").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0); return t ? money(t) : ""; })()), isP && /*#__PURE__*/React.createElement("td", {
     style: S.td,
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement(DonePdfCell, { loan: l, onPatch: patch => onPatchLoan && onPatchLoan(c.id, l.id, patch) })), !isP && /*#__PURE__*/React.createElement("td", {
