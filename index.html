@@ -8816,9 +8816,8 @@ function TypePage({
       ...S.tr,
       background: "#fde68a"
     } : S.tr,
-    "data-rid": type === "house" ? l.id : undefined,
-    onClick: type === "house" ? undefined : () => onOpen(c.id),
-    onDoubleClick: type === "house" ? () => { try { window.getSelection().removeAllRanges(); } catch (e) {} onOpen(c.id); } : undefined
+    "data-rid": l.id,   /* House / Personal / Car 一样：点一下整行 highlight，点两下打开 */
+    onDoubleClick: () => { try { window.getSelection().removeAllRanges(); } catch (e) {} onOpen(c.id); }
   }, /*#__PURE__*/React.createElement("td", {
     style: {
       ...S.td,
