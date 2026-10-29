@@ -7769,8 +7769,12 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
     const rec = { ...base, ...old, ...p, id: d.id, at: Date.now(), by: me };
     const next = [...cur.filter(x => x.id !== d.id), rec]; extRef.current = next; saveExt(next); };
   /* Car Costing 的 Done：选 Customer 或 Costing（旧的 Done 当作 Costing） */
-  const carDoneType = d => d.done ? (d.done.type || "costing") : "";
-  const setCarDone = (d, v) => { patchD(d, { done: v ? { type: v, by: me, at: Date.now() } : null }); monetSfx("save"); };
+  /* Car Costing 的 Done：Salary / Costing / Customer 可以同时选（旧的单选照样读得到） */
+  const CAR_DONE = [["salary", "SALARY"], ["costing", "COSTING"], ["customer", "CUSTOMER"]];
+  const carDoneList = d => !d.done ? [] : Array.isArray(d.done.types) ? d.done.types : [d.done.type || "costing"];
+  const carDoneType = d => carDoneList(d).map(t => (CAR_DONE.find(x => x[0] === t) || [t, t])[1]).join(" + ");
+  const toggleCarDone = (d, t) => { const cur = carDoneList(d), next = cur.includes(t) ? cur.filter(x => x !== t) : CAR_DONE.map(x => x[0]).filter(x => x === t || cur.includes(x));
+    patchD(d, { done: next.length ? { types: next, by: me, at: Date.now() } : null }); monetSfx("save"); };
   const toggleDone = d => { patchD(d, { done: d.done ? null : { by: me, at: Date.now() } }); monetSfx("save"); };
   const th = S.th, td = S.td;
   const hasCar = tools.some(t => t.file === "CAR_SALES_QUOTATION.html");
@@ -7812,9 +7816,9 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" } }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: "#0369a1" } }, ld ? "…" : m.custBal != null ? "RM " + lsFmt(m.custBal) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
-              h("select", { disabled: !can, title: !can ? "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以改" : "选 Customer 或 Costing = Done", value: carDoneType(d), onChange: e => setCarDone(d, e.target.value),
-                style: { border: "1px solid " + (d.done ? "#7c3aed" : "#e2e8f0"), borderRadius: 999, padding: "4px 10px", fontWeight: 900, fontSize: 11.5, fontFamily: "inherit", cursor: can ? "pointer" : "default", background: d.done ? "#7c3aed" : "#f8fafc", color: d.done ? "#fff" : "#94a3b8" } },
-                h("option", { value: "" }, "DONE —"), h("option", { value: "customer" }, "✓ CUSTOMER"), h("option", { value: "costing" }, "✓ COSTING")),
+              h("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, CAR_DONE.map(([k, l]) => { const on = carDoneList(d).includes(k);
+                return h("button", { key: k, disabled: !can, onClick: () => toggleCarDone(d, k), title: !can ? "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以改" : on ? "按一下取消" : "按一下 = " + l + " Done",
+                  style: { border: "1px solid " + (on ? "#7c3aed" : "#e2e8f0"), borderRadius: 999, padding: "3px 10px", fontWeight: 900, fontSize: 11, fontFamily: "inherit", cursor: can ? "pointer" : "default", whiteSpace: "nowrap", textAlign: "left", background: on ? "#7c3aed" : "#f8fafc", color: on ? "#fff" : "#94a3b8" } }, (on ? "✓ " : "") + l); })),
               h(LfPhotos, { ids: d.photos || [], compact: true, ro: !can, onChange: ids => patchD(d, { photos: ids }) }))),
             h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
               h("button", { disabled: !can, onClick: () => { patchD(d, { comm: d.comm ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.comm ? "Commission DONE · " + String(d.comm.by || "").toUpperCase() + " · " + new Date(d.comm.at || 0).toLocaleDateString("en-GB") + "（按一下取消）" : "按一下 = Commission Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 11.5, cursor: can ? "pointer" : "default", whiteSpace: "nowrap", background: d.comm ? "#16a34a" : "#f1f5f9", color: d.comm ? "#fff" : "#94a3b8" } }, d.comm ? "✓ DONE" : "DONE"),
