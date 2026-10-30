@@ -751,7 +751,7 @@ const DB = {
         try {
           const row = payload.new || payload.old || {};
           const key = row.key;
-          if (!key || String(key).startsWith("mphoto_") || String(key).startsWith("backup_") || String(key).startsWith("bkdraft_") || String(key).startsWith("dtfile_")) return;
+          if (!key || String(key).startsWith("celeb_seen_") || String(key).startsWith("mphoto_") || String(key).startsWith("backup_") || String(key).startsWith("bkdraft_") || String(key).startsWith("dtfile_")) return;
           const sk = Object.keys(this._split).find(k => String(key).startsWith(this._split[k]));
           if (sk) {   /* 拆开存的清单：别人改了其中一份 → 重新读整个清单 */
             if (String(key).endsWith("_meta")) return;
@@ -5546,7 +5546,7 @@ async function crmCelebrate(info) {
   const ev = { id: uid(), at: Date.now(), by: canonUser(window.__crmUser || ""), ...info };
   (window.__celebSeen = window.__celebSeen || new Set()).add(ev.id);
   crmFireworks(ev.label, ev.sub);
-  try { const raw = await DB.get("crm_celebrate"); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) {} const next = [ev, ...(Array.isArray(list) ? list : [])].slice(0, 30);
+  try { const raw = await DB.get("crm_celebrate"); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) {} const next = [ev, ...(Array.isArray(list) ? list : [])].slice(0, 100);
     await DB.set("crm_celebrate", JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: "crm_celebrate", next } })); } catch (e) {} } catch (e) {}
 }
 function CelebrateWatcher() {
@@ -5563,11 +5563,41 @@ function CelebrateWatcher() {
     const vis = () => { if (!document.hidden) load(); }; document.addEventListener("visibilitychange", vis);
     return () => { alive = false; clearInterval(t); un && un(); window.removeEventListener("crm-cloudlist", f); document.removeEventListener("visibilitychange", vis); };
   }, []);
+  const [missed, setMissed] = React.useState(null);
+  const me = canonUser(window.__crmUser || "");
+  const markSeen = () => { if (!me || isReadOnlyUser()) return; try { DB.set("celeb_seen_" + me, String(Date.now())); } catch (e) {} };
+  const topRef = React.useRef("");
   React.useEffect(() => { if (!Array.isArray(list)) return; const seen = window.__celebSeen = window.__celebSeen || new Set();
-    if (first.current) { first.current = false; list.forEach(e => e && seen.add(e.id)); return; }   /* 打开 CRM 之前的不补放 */
+    if (first.current) { first.current = false; list.forEach(e => e && seen.add(e.id));
+      /* 没开电脑的时候 approved 的 → 打开 CRM 就补通知（每个人自己记着看到哪里，换电脑也一样） */
+      (async () => { let last = 0; try { last = Number(await DB.get("celeb_seen_" + me)) || 0; } catch (e) {}
+        if (!last) { markSeen(); return; }   /* 第一次用：从现在开始算，不补放以前的 */
+        const miss = list.filter(e => e && (e.at || 0) > last && !sameUser(e.by, me)).sort((a, b) => (a.at || 0) - (b.at || 0));
+        if (miss.length) { setMissed(miss); const e = miss[miss.length - 1]; setTimeout(() => crmFireworks(e.label, e.sub), 600); }
+        else markSeen(); })();
+      return; }
     list.filter(e => e && !seen.has(e.id) && Date.now() - (e.at || 0) < 5 * 60 * 1000).reverse().forEach((e, i) => { seen.add(e.id); setTimeout(() => crmFireworks(e.label, e.sub), i * 4000); });
-    list.forEach(e => e && seen.add(e.id)); }, [list]);
-  return null;
+    list.forEach(e => e && seen.add(e.id));
+    const top = (list[0] || {}).id || ""; if (top !== topRef.current) { topRef.current = top; if (!document.hidden) markSeen(); }   /* 有新的才记，不会每 10 秒写一次 */
+    /* 开着 CRM 但是在别的视窗 → 电脑右下角通知 */
+    list.filter(e => e && document.hidden && Date.now() - (e.at || 0) < 5 * 60 * 1000 && !sameUser(e.by, me) && !(window.__celebNotified = window.__celebNotified || new Set()).has(e.id)).forEach(e => { window.__celebNotified.add(e.id);
+      try { if ("Notification" in window && Notification.permission === "granted") new Notification("🎉 " + e.label, { body: e.sub || "" }); } catch (er) {} });
+  }, [list]);
+  /* 第一次：请浏览器允许通知 */
+  React.useEffect(() => { try { if ("Notification" in window && Notification.permission === "default") { const ask = () => { Notification.requestPermission(); document.removeEventListener("click", ask); }; document.addEventListener("click", ask); } } catch (e) {} }, []);
+  if (!missed || !missed.length) return null;
+  const h = React.createElement, fmt = t => { const d = new Date(t); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+  return h("div", { onClick: () => { setMissed(null); markSeen(); }, style: { position: "fixed", inset: 0, zIndex: 100001, background: "rgba(15,15,40,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 460, maxHeight: "80vh", overflow: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,.35)" } },
+      h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#f59e0b,#ef4444 60%,#ec4899)", color: "#fff" } },
+        h("div", { style: { fontSize: 18, fontWeight: 900 } }, "🎉 你不在的时候 Approved 了 " + missed.length + " 笔"),
+        h("div", { style: { fontSize: 12, opacity: .9, marginTop: 2 } }, "按「知道了」关掉")),
+      h("div", { style: { padding: "8px 16px" } }, missed.slice().reverse().map(e => h("div", { key: e.id, style: { padding: "10px 4px", borderBottom: "1px solid #f1f5f9" } },
+        h("div", { style: { fontWeight: 900, fontSize: 14, color: "#b45309" } }, "✓ " + (e.label || "")),
+        e.sub && h("div", { style: { fontWeight: 800, fontSize: 13, color: "#1e293b", marginTop: 2 } }, e.sub),
+        h("div", { style: { fontSize: 11.5, color: "#94a3b8", marginTop: 2 } }, fmt(e.at) + (e.by ? " · " + String(e.by).toUpperCase() : ""))))),
+      h("div", { style: { padding: "12px 16px 16px", textAlign: "right" } },
+        h("button", { onClick: () => { setMissed(null); markSeen(); }, style: { border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", borderRadius: 10, padding: "10px 22px", fontWeight: 900, cursor: "pointer" } }, "知道了"))));
 }
 /* 新增 Agent（全部页面共用，存在云端 closing_agents_extra）→ 回传小写名字，取消就回传 "" */
 async function crmAddAgent() {
@@ -10698,10 +10728,8 @@ function LoanBlock({
     ...loan,
     followUps: (loan.followUps || []).filter(f => f.id !== fid)
   });
-  const setStage = s => onUpdate({
-    ...loan,
-    stage: s
-  });
+  const setStage = s => { if (s === "approved" && loan.stage !== "approved") crmCelebrate({ label: crmLoanLabel(loan.type) + " APPROVED", sub: [String(clientName || "").toUpperCase(), loan.approved ? "RM " + lsFmt(lsNum(loan.approved)) : ""].filter(Boolean).join(" · ") });
+    onUpdate({ ...loan, stage: s }); };
   const setField = (k, v) => onUpdate({
     ...loan,
     [k]: v
@@ -10923,7 +10951,7 @@ function LoanBlock({
       ...bankStatusStyle(b.status)
     },
     value: b.status,
-    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && loan.type === "personal") crmCelebrate({ label: crmLoanLabel(loan.type) + " APPROVED", sub: [String(clientName || "").toUpperCase(), String(b.bank || "").toUpperCase(), b.amount ? "RM " + lsFmt(lsNum(b.amount)) : ""].filter(Boolean).join(" · ") }); setBankV(i, b, "status", e.target.value); }
+    onChange: e => { if (e.target.value === "approved" && b.status !== "approved") crmCelebrate({ label: crmLoanLabel(loan.type) + " APPROVED", sub: [String(clientName || "").toUpperCase(), String(b.bank || "").toUpperCase(), b.amount ? "RM " + lsFmt(lsNum(b.amount)) : ""].filter(Boolean).join(" · ") }); setBankV(i, b, "status", e.target.value); }
   }, b._v && /*#__PURE__*/React.createElement("option", { value: "" }, "—"), /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
@@ -11232,7 +11260,7 @@ function LoanForm({
       flex: 2
     },
     value: b.status,
-    onChange: e => { if (e.target.value === "approved" && b.status !== "approved" && l.type === "personal") crmCelebrate({ label: crmLoanLabel(l.type) + " APPROVED", sub: [String(b.bank || "").toUpperCase(), b.amount ? "RM " + lsFmt(lsNum(b.amount)) : ""].filter(Boolean).join(" · ") }); setBank(i, "status", e.target.value); }
+    onChange: e => { if (e.target.value === "approved" && b.status !== "approved") crmCelebrate({ label: crmLoanLabel(l.type) + " APPROVED", sub: [String(b.bank || "").toUpperCase(), b.amount ? "RM " + lsFmt(lsNum(b.amount)) : ""].filter(Boolean).join(" · ") }); setBank(i, "status", e.target.value); }
   }, /*#__PURE__*/React.createElement("option", {
     value: "submitted"
   }, "Submitted"), /*#__PURE__*/React.createElement("option", {
