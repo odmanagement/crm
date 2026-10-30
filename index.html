@@ -8646,7 +8646,7 @@ function ClientsPage({
       ...S.td,
       ...S.tdName,
       ...S.tdSticky,
-      background: "#fde68a"
+      background: "#b6ff3b"
     } : {
       ...S.td,
       ...S.tdName,
@@ -8730,6 +8730,13 @@ const tpTag = (v, icon, hue) => v ? React.createElement("span", { className: "tp
 const TP_MONTHS = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
 /* 2026-10-08 这种格式 → 显示成 8-OCTOBER，跟旧资料一样 */
 const tpDateText = v => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(v).trim()); return m && +m[2] >= 1 && +m[2] <= 12 ? (+m[3]) + "-" + TP_MONTHS[+m[2] - 1] : String(v); };
+/* Date 变成可以排序的数字：2026-10-08 / 13-AUGUST / 15-May（没写年份当今年） */
+const tpDateKey = v => { const t = String(v || "").trim(); if (!t) return 9e15;
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t); if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  m = /^(\d{1,2})[\s\-\/]*([A-Za-z]+)[\s\-\/]*(\d{2,4})?/.exec(t);
+  if (m) { const mi = TP_MONTHS.findIndex(x => x.startsWith(m[2].toUpperCase().slice(0, 3))); if (mi >= 0) { let y = m[3] ? +m[3] : new Date().getFullYear(); if (y < 100) y += 2000; return new Date(y, mi, +m[1]).getTime(); } }
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(t); if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]).getTime(); }
+  return 9e15 - 1; };
 const tpDate = v => v ? React.createElement("span", { className: "tp-date", title: String(v) }, tpDateText(v)) : "";
 /* ---------- Type page ---------- */
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
@@ -8829,6 +8836,8 @@ function TypePage({
     return [r.client.name, r.client.phone, r.loan.bank, r.loan.subject].filter(Boolean).join(" ").toLowerCase().includes(s);
   });
   /* Personal / Car：总数只算 Approved + Disbursed 的银行；House 照旧 */
+  /* House Loan：跟着 Date 排（旧到新）；没日期的放最后 */
+  if (type === "house") rows.sort((a, b) => tpDateKey(a.loan.date) - tpDateKey(b.loan.date));
   const total = isP ? rows.reduce((s, r) => s + (r.loan.banks || []).filter(b => b.status === "approved" || b.status === "disbursed").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0), 0)
     : rows.reduce((s, r) => s + Number(r.loan.amount || 0), 0);
   const usedBanks = Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type).flatMap(l => (l.banks || []).map(b => bankKey(b.bank)))).filter(Boolean)));
@@ -8961,7 +8970,7 @@ function TypePage({
     key: l.id,
     style: c.flag ? {
       ...S.tr,
-      background: "#fde68a"
+      background: "#b6ff3b"   /* 标记的客户：荧光绿 */
     } : S.tr,
     "data-rid": l.id,   /* House / Personal / Car 一样：点一下整行 highlight，点两下打开 */
     onDoubleClick: () => { try { window.getSelection().removeAllRanges(); } catch (e) {} onOpen(c.id); }
@@ -8988,7 +8997,7 @@ function TypePage({
       ...S.td,
       ...S.tdName,
       ...S.tdSticky,
-      background: "#fde68a"
+      background: "#b6ff3b"
     } : {
       ...S.td,
       ...S.tdName,
