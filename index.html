@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "258";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "259";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3595,7 +3595,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
-  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(LendingLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(LendingLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(CostingAutoSync, { currentUser: currentUser })), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -5654,7 +5654,56 @@ function LendingLoader() {
       const nm = x => [String(x.desc || "").trim().toUpperCase(), String(x.acc || "").trim().toUpperCase()].filter(Boolean).join(" - ") || "SETTLEMENT";
       return { name: String(r.name).trim().toUpperCase(), at: r.updatedAt || r.at || 0, a: xs.filter(x => !x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)) })), aa: xs.filter(x => x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)), pct: String(x.pct == null ? "" : x.pct) })) }; })
       .sort((x, y) => y.at - x.at);
+    try { window.dispatchEvent(new Event("crm-lending")); } catch (e) {}
   }, [list]);
+  return null;
+}
+/* ===== Bank Statement / Lending Sheet 有任何变动 → 已经存好的 PL Costing Part 自动跟着改 =====
+   - SALARY - 日期（Part A / A.A）：数目跟着那个月的 Sub-Total
+   - 新的月份（Costing 里还没有）→ Part A.A，+10%
+   - Part C · Salary 的 SALARY：跟着 Bank Statement Balance
+   - Lending 自动加的项目：数目 / % 跟着 Lending
+   只改自动加的行，自己手动加的不动 */
+function costSyncData(data, p, L) {
+  if (!data || !data.parts) return null;
+  const parts = {}; Object.keys(data.parts).forEach(k => parts[k] = (data.parts[k] || []).map(r => ({ ...r })));
+  const N = r => String(r.name || "").trim().toUpperCase();
+  const mon = {}; ((p && p.months) || []).forEach(m => { mon["SALARY - " + m.date] = m; });
+  const la = {}, laa = {}; if (L) { L.a.forEach(x => la[x.name] = x); L.aa.forEach(x => laa[x.name] = x); }
+  ["partABody", "partCBody"].forEach(b => (parts[b] || []).forEach(r => { const n = N(r);
+    if (mon[n] && r.amt !== mon[n].amt) r.amt = mon[n].amt;
+    if (r.auto && b === "partABody" && la[n] && r.amt !== la[n].amt) r.amt = la[n].amt;
+    if (r.auto && b === "partCBody" && laa[n]) { if (r.amt !== laa[n].amt) r.amt = laa[n].amt; if (laa[n].pct !== "" && r.mult !== laa[n].pct) r.mult = laa[n].pct; } }));
+  const have = new Set([...(parts.partABody || []), ...(parts.partCBody || [])].map(N));
+  Object.keys(mon).forEach(n => { if (!have.has(n)) (parts.partCBody = parts.partCBody || []).push({ name: n, amt: mon[n].amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); });
+  if (p && p.bal) (parts.partSalBody || []).forEach(r => { if (N(r) === "SALARY" && r.auto && r.amt !== p.bal) r.amt = p.bal; });
+  const nd = { ...data, parts };
+  return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;
+}
+function CostingAutoSync({ currentUser }) {
+  const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => { const f = () => setTick(x => x + 1); window.addEventListener("crm-bs-people", f); window.addEventListener("crm-lending", f); return () => { window.removeEventListener("crm-bs-people", f); window.removeEventListener("crm-lending", f); }; }, []);
+  React.useEffect(() => {
+    if (!fresh || !Array.isArray(drafts) || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
+    const t = setTimeout(() => {
+      const K = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+      const P = window.__crmBsPeople || [], LL = window.__crmLending || [];
+      if (!P.length && !LL.length) return;
+      let changed = false; const marks = [];
+      const next = drafts.map(d => {
+        if (!d || !/COSTING_PART/i.test(d.file || "") || !d.native || !d.native.data) return d;
+        const k = K(d.native.data.clientName || d.title); if (!k) return d;
+        const p = P.find(x => K(x.name) === k) || null, L = LL.find(x => K(x.name) === k) || null;
+        if (!p && !L) return d;
+        const nd = costSyncData(d.native.data, p, L); if (!nd) return d;
+        changed = true; marks.push([k, nd]);
+        return { ...d, native: { ...d.native, data: nd, saved: new Date().toISOString() }, at: Date.now() };
+      });
+      if (changed) saveDrafts(next);   /* 颜色要等那份 Costing 重新存档才变 */
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [fresh, drafts, tick]);
   return null;
 }
 function BsPeopleLoader() {
@@ -5689,12 +5738,13 @@ async function bsMarkCosted(clientName, data) {
   try {
     const k = String(clientName || "").trim().toUpperCase().replace(/\s+/g, " "); if (!k || !data || !data.parts) return;
     const p = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k); if (!p || !p.store) return;
-    const dates = new Set();
-    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (\d{2}\/\d{2}\/\d{4})$/.exec(String(r.name || "").trim().toUpperCase()); if (m) dates.add(bsDmy2Iso(m[1])); }));
+    /* Part A 的月份 → 浅黄色（"a"）；后来加进 Part A.A（+10%）的 → 浅青色（"aa"） */
+    const dates = new Map();
+    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (\d{2}\/\d{2}\/\d{4})$/.exec(String(r.name || "").trim().toUpperCase()); if (m) dates.set(bsDmy2Iso(m[1]), b === "partABody" ? "a" : "aa"); }));
     if (!dates.size) return;
     const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
     let ch = false;
-    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { if (x && !x.costed && dates.has(x.date)) { ch = true; return { ...x, costed: true, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
+    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { const want = x && dates.get(x.date); if (want && (x.costed === true ? "a" : x.costed) !== want) { ch = true; return { ...x, costed: want, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
     if (!ch) return;
     await DB.set(p.store, JSON.stringify(next));
     try { _clMem[p.store] = next; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: p.store, next } })); } catch (e) {}
@@ -5804,8 +5854,8 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
-      h("td", { style: { ...cell, minWidth: 100, ...(c && c.costed ? { background: "#fef9c3" } : {}) }, title: c && c.costed ? "已经放进 PL Costing Part" : undefined }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined, ...(c && c.costed ? { background: "#fef9c3" } : {}) } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
+      h("td", { style: { ...cell, minWidth: 100, ...(c && c.costed ? { background: c.costed === "aa" ? "#cffafe" : "#fef9c3" } : {}) }, title: c && c.costed ? (c.costed === "aa" ? "已经放进 PL Costing Part 的 Part A.A（+10%）" : "已经放进 PL Costing Part") : undefined }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
+      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined, ...(c && c.costed ? { background: c.costed === "aa" ? "#cffafe" : "#fef9c3" } : {}) } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           c && (c.date || c.amount) && h("button", { title: c.stop ? "取消 Stop Salary" : "从这一行开始 Stop Salary", onClick: () => { const nx = { ...d, credits: d.credits.map((y, j) => ({ ...y, stop: j === ci ? !c.stop : false })) }; setD(nx); commit(nx); }, style: { border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: 11, opacity: c.stop ? 1 : .25 } }, "⛔"),
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),

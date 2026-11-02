@@ -883,7 +883,6 @@ if(saved && saved.parts){
       var have={}; ['partABody','partCBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ have[nameOf(tr)]=1; }); });
       var added=0; mon.forEach(function(m){ var n='SALARY - '+m.date; if(!have[n]){ addAuto('partCBody',n,m.amt,'10'); added++; } });
       if(!added) return;
-      setTimeout(function(){ try{ var ps=window.parent && window.parent!==window ? window.parent.__crmFormSave : null; if(ps) ps(); }catch(e){} }, 300);   /* 自动存档 → Bank Statement 那几个月也会变浅黄色 */
     }
     try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); if(typeof calc==='function') calc(); if(typeof autoSave==='function') autoSave(); }catch(e){}
   };
