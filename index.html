@@ -5789,7 +5789,8 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const addPerson = () => { savePpl([{ id: uid(), name: "", by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); };
   const delPerson = (e, id, name) => { e.stopPropagation(); if (window.confirm("删除「" + name + "」？")) savePpl(people.filter(p => p.id !== id)); };
   const rows = [];
-  (clients || []).forEach(c => {
+  /* Bank Statement 不再连接 Salary Listing：只显示自己加的人（以前连过来的不显示，资料还在客户里，没删） */
+  false && (clients || []).forEach(c => {
     const banks = new Set();
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) banks.add(k); }));
     if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null, owner: c.staff || c.createdBy || (c.bankStmt && c.bankStmt.updatedBy) || "" });
@@ -5868,13 +5869,13 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser 
       h("span", { style: { width: 8 } }),
       chip(!fs, () => setFs(""), "全部", "s"), SL_KEYS.map(k => chip(fs === k, () => setFs(k), SL_ST[k][0], "s" + k))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, "Bank Statement"), h("th", { style: S.th }, "Salary Status"))),
-      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
+      h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, "Salary Status"))),
+      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
         shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(r.st !== "build" ? { background: m[1] + "66" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
           h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => onOpen(r.c.id), title: "打开客户" }, String(r.c.name).toUpperCase(), r.banks.map(tag)),
-          h("td", { style: S.td }, (() => { const bs = r.c.bankStmt, bal = bsBalance(bs); return h("button", { onClick: () => setStmtId(r.c.id), style: { border: "1px solid " + (bs ? "#eab308" : "#e2e8f0"), background: bs ? "#fef9c3" : "#fff", color: bs ? "#713f12" : "#64748b", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" } }, "🏦 " + (bs ? "BAL " + lsFmt(bal) : "＋ 填写")); })()),
+          /* Bank Statement 栏拿掉了（不再连接） */
           h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
             SL_KEYS.map(k => h("button", { key: k, onClick: () => { if (r.st !== k) onSetStatus(r.c.id, k); }, title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8" } }, SL_ST[k][0])))));
         })))),
@@ -5933,7 +5934,7 @@ function BsReturnPage({ clients, currentUser }) {
   const [list, save] = useCloudList("bs_return_salary");
   const items = list || [];
   const [bsP1] = useCloudList("bank_stmt_people"), [bsP2] = useCloudList("bank_stmt_people_rencai");
-  const names = Array.from(new Set([...(clients || []).filter(c => c.bankStmt).map(c => c.name), ...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name)].map(n => String(n || "").trim().toUpperCase()).filter(Boolean))).sort();
+  const names = Array.from(new Set([...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name)].map(n => String(n || "").trim().toUpperCase()).filter(Boolean))).sort();
   const [f, setF] = React.useState({ name: "", amount: "", date: today(), photos: [] });
   const [q, setQ] = React.useState("");
   const [only, setOnly] = React.useState("");
@@ -6004,7 +6005,7 @@ function ReceiptPage({ currentUser, clients }) {
   const [list, save] = useCloudList("receipts");
   const items = list || [];
   const [bsP1] = useCloudList("bank_stmt_people"), [bsP2] = useCloudList("bank_stmt_people_rencai");
-  const bsNames = Array.from(new Set([...items.map(x => x.from), ...(clients || []).filter(c => c.bankStmt).map(c => c.name), ...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name)].map(n => String(n || "").trim().toUpperCase()).filter(Boolean))).sort();
+  const bsNames = Array.from(new Set([...items.map(x => x.from), ...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name)].map(n => String(n || "").trim().toUpperCase()).filter(Boolean))).sort();
   /* 改错名字（一次性）：JANICE LEE → JANICE LEE SZE CHEE，KHONG CHIA WYE → KHONG CHIU WYE */
   React.useEffect(() => { if (!list || READONLY_USERS.includes(me)) return; const FIX = { "JANICE LEE": "JANICE LEE SZE CHEE", "KHONG CHIA WYE": "KHONG CHIU WYE" };
     const key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
