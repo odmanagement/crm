@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "257";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "258";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -7636,7 +7636,7 @@ function formReadValues(doc) {
     if (el.type === "checkbox" || el.type === "radio") return [key, el.checked ? "1" : ""];
     if (el.type === "file" || el.type === "button" || el.type === "submit") return [key, null];
     return [key, el.value];
-  }).filter(x => x[1] !== null).concat(extra).concat(formReadICImages(doc)).concat(formReadDyn(doc));
+  }).filter(x => x[1] !== null).concat(extra).concat(formReadICImages(doc)).concat(formReadDyn(doc)).concat(formReadExtra(doc));
 }
 /* 会自己加行的表格（例如 Future / Finpro Agreement 的费用行 + Add）：存几行，打开时先把行数补回来，资料才不会错位不见 */
 const FORM_DYN = [{ rows: ".feerow", add: "#btnAddFee", del: ".del" }];
@@ -7672,6 +7672,23 @@ function formICSides(doc) {
 }
 function icHash(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + "_" + str.length.toString(36); }
 const _icSaved = new Map(); // 照片另外存，不塞进存档清单
+/* 表格自己的照片 / 签名（例如 Consent Form 的签名 + IC 正反面）：表格提供 __crmGetExtra / __crmSetExtra */
+function formReadExtra(doc) {
+  const w = doc && doc.defaultView; if (!w || typeof w.__crmGetExtra !== "function") return [];
+  let o = {}; try { o = w.__crmGetExtra() || {}; } catch (e) { return []; }
+  const out = {};
+  Object.keys(o).forEach(k => { const v = o[k]; if (!v) return;
+    if (/^data:/.test(String(v))) { let ref = _icSaved.get(v); if (!ref) { ref = icHash(v); _icSaved.set(v, ref); try { DB.set("ficimg_" + ref, v); } catch (e) {} } out[k] = { ref }; }
+    else out[k] = { v }; });
+  return [["__extra__", JSON.stringify(out)]];
+}
+async function formWriteExtra(doc, raw) {
+  const w = doc && doc.defaultView; if (!w || typeof w.__crmSetExtra !== "function") return;
+  let o = {}; try { o = JSON.parse(raw) || {}; } catch (e) {}
+  const res = {};
+  for (const k of Object.keys(o)) { const it = o[k] || {}; try { if (it.ref) { const src = await DB.get("ficimg_" + it.ref); if (src) { _icSaved.set(src, it.ref); res[k] = src; } } else if (it.v != null) res[k] = it.v; } catch (e) {} }
+  try { w.__crmSetExtra(res); } catch (e) {}
+}
 function formReadICImages(doc) {
   const sides = formICSides(doc); if (!sides) return [];
   const imgs = sides.filter(sd => sd && sd.dataURL).map(sd => {
@@ -7724,6 +7741,9 @@ function formWriteValues(doc, values) {
     if (el.type === "checkbox") el.checked = map[k] === "1"; else el.value = map[k];
     el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); });
   if ("__ic_images__" in map) formWriteICImages(doc, map.__ic_images__);
+  /* 打开存档后：表格自己的照片 / 签名放回去，再重新生成预览 */
+  if ("__extra__" in map) formWriteExtra(doc, map.__extra__);
+  else try { const w = doc.defaultView; if (w && typeof w.__crmAfterLoad === "function") setTimeout(() => { try { w.__crmAfterLoad(); } catch (e) {} }, 50); } catch (e) {}
 }
 /* ---------- Forms 下面的文件库：自己加文件、自己分类 ---------- */
 function FileLibrary({ currentUser, data, saveData, drafts = [], onOpenDraft, onMoveDraft, onDelDraft, onRenameDraft, onEditDraft }) {

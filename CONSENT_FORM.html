@@ -340,6 +340,11 @@ document.addEventListener('paste',e=>{
 });
 
 generate();
+
+/* 给 CRM 存档用：签名 + IC 正反面一起存；打开存档后自动重新生成表格 */
+window.__crmGetExtra = function(){ return { sign: signData, icFront: icFrontData, icBack: icBackData }; };
+window.__crmSetExtra = function(o){ o = o || {}; signData = o.sign || ''; icFrontData = o.icFront || ''; icBackData = o.icBack || ''; generate(); };
+window.__crmAfterLoad = function(){ generate(); };
 </script>
 </body>
 </html>
