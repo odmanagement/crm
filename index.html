@@ -5306,7 +5306,11 @@ function LendingFeePage({ currentUser }) {
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
             h("div", { style: { flex: "1 1 150px" } }, lbl("AGENT"), h("input", { list: "lf-agents", value: form.agent || "", placeholder: "选 / 打 Agent", onChange: e => setForm({ ...form, agent: e.target.value.toUpperCase() }), style: { ...inp, fontWeight: 800, textTransform: "uppercase" } }),
               h("datalist", { id: "lf-agents" }, (window.CLOSING_AGENTS || []).map(a => h("option", { key: a, value: String(a).toUpperCase() })))),
-            fld("NAME", "name", { style: { ...inp, textTransform: "uppercase", fontWeight: 800 } }, "2 1 240px"),
+            fld("NAME", "name", { list: "lf-bsnames", autoComplete: "off", style: { ...inp, textTransform: "uppercase", fontWeight: 800 },
+              /* 连接 Bank Statement 的名字：选了就自动填 Agent（Agent 还空的时候） */
+              onChange: e => { const v = e.target.value, k = v.trim().toUpperCase().replace(/\s+/g, " "), pp = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k);
+                setForm({ ...form, name: v, ...(pp && pp.agent && !String(form.agent || "").trim() ? { agent: pp.agent } : {}) }); } }, "2 1 240px"),
+            h("datalist", { id: "lf-bsnames" }, (window.__crmBsPeople || []).map(x => h("option", { key: x.name, value: x.name }, (x.agent || "") + (x.cf ? " · C.F " + x.cf + "%" : "")))),
             fld("TEL", "tel", { inputMode: "tel", onBlur: e => setForm({ ...form, tel: lfTel(e.target.value) }) }),
             h("div", { style: { flex: "1 1 150px" } }, lbl("DATE OF AGREEMENT"), h("input", { type: "date", value: form.date || "", onChange: e => setForm({ ...form, date: e.target.value }), style: inp })),
             fld("BY MONTH(S)", "months", { inputMode: "numeric", onChange: e => { const v = e.target.value.replace(/[^\d]/g, ""); setForm({ ...form, months: v, ...(v ? { interest: String(+v * 10) } : {}) }); } }, "0 1 100px"),
