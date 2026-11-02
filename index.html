@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "256";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "257";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3595,7 +3595,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
-  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(LendingLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -5177,9 +5177,9 @@ function LendingFeePage({ currentUser }) {
   const inp = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid #cbd5e1", fontSize: 13.5, fontFamily: "inherit", outline: "none", background: "#fff" };
   const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, t);
   const fld = (t, k, extra, flex) => h("div", { style: { flex: flex || "1 1 160px" } }, lbl(t), h("input", { value: form[k] == null ? "" : form[k], onChange: e => setForm({ ...form, [k]: e.target.value }), style: inp, ...(extra || {}) }));
-  const sec = (title, key, cols, extra, headRight) => {
-    const rows = form[key] || [];
-    const setRow = (id, k, v) => setForm({ ...form, [key]: rows.map(x => x.id === id ? { ...x, [k]: v, ...(k === "photos" ? { photosBy: v.length ? (x.photosBy || me) : null } : {}) } : x) });
+  const sec = (title, key, cols, extra, headRight, opt) => {
+    const all = form[key] || [], rows = opt && opt.only ? all.filter(opt.only) : all;
+    const setRow = (id, k, v) => setForm({ ...form, [key]: all.map(x => x.id === id ? { ...x, [k]: v, ...(k === "photos" ? { photosBy: v.length ? (x.photosBy || me) : null } : {}) } : x) });
     const tot = rows.reduce((a, x) => a + lsNum(x.amount), 0);
     return h("div", { style: { border: "1px solid #fde68a", borderRadius: 12, marginTop: 14, overflow: "hidden" } },
       h("div", { style: { background: "#fce9c8", padding: "6px 12px", fontWeight: 900, fontSize: 13, color: "#78350f", display: "flex", alignItems: "center", gap: 8 } }, h("span", { style: { flex: 1 } }, title), headRight || null),
@@ -5188,9 +5188,9 @@ function LendingFeePage({ currentUser }) {
           cols.map(([k, ph, w, num]) => h("input", { key: k, value: x[k] || "", placeholder: ph, readOnly: key === "settlement" && lfLocked(x), title: key === "settlement" && lfLocked(x) ? "已上传照片，不能更改 —— 有变动请加多一行" : undefined, inputMode: num ? "decimal" : undefined, onChange: e => setRow(x.id, k, num ? e.target.value.replace(/[^\d.,]/g, "") : e.target.value), onBlur: num ? e => { const v = e.target.value.trim(); if (v) setRow(x.id, k, lsFmt(lsNum(v))); } : undefined, style: { ...inp, flex: w, minWidth: 0, textAlign: num ? "right" : "left", textTransform: "uppercase", ...(key === "settlement" && lfLocked(x) ? { background: "#f1f5f9", color: "#475569", cursor: "not-allowed" } : {}) } })),
           extra && extra(x, (k, v) => setRow(x.id, k, v)),
           key === "settlement" && lfLocked(x) ? h("span", { style: { width: 24 } }) :
-          h("button", { onClick: () => setForm({ ...form, [key]: rows.filter(y => y.id !== x.id) }), title: "删除", style: { border: "none", background: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", width: 24 } }, "×"))),
+          h("button", { onClick: () => setForm({ ...form, [key]: all.filter(y => y.id !== x.id) }), title: "删除", style: { border: "none", background: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", width: 24 } }, "×"))),
         h("div", { style: { display: "flex", alignItems: "center" } },
-          h("button", { onClick: () => setForm({ ...form, [key]: [...rows, { id: uid(), desc: "", acc: "", amount: "" }] }), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "4px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Add Item"),
+          h("button", { onClick: () => setForm({ ...form, [key]: [...all, { id: uid(), desc: "", acc: "", amount: "", ...((opt && opt.add) || {}) }] }), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 8, padding: "4px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Add Item"),
           h("span", { style: { flex: 1 } }),
           h("b", { style: { fontSize: 13 } }, "TOTAL : " + lsFmt(tot)))));
   };
@@ -5318,7 +5318,12 @@ function LendingFeePage({ currentUser }) {
           sec("(A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
             h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
             h(LfPhotos, { key: "ph", ids: x.lfPhotos, ownAfter: true, pre: [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])], tail: [...(x.retPhotos || []), ...(x.pays || []).flatMap(p => p.retPhotos || []), ...(x.balRetPhotos || [])], noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.lfPhotos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("lfPhotos", v); } })],
-            (() => { const ids = (form.settlement || []).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || []), ...(x.lfPhotos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })()),
+            (() => { const ids = (form.settlement || []).filter(x => !x.aa).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || []), ...(x.lfPhotos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement", "xs")); })(), { only: x => !x.aa }),
+          sec("(A.A) SETTLEMENT", "settlement", [["desc", "Name / Description", 2], ["acc", "Bank Acc", 1.4], ["amount", "0.00", 1, true]], (x, set) => [
+            h("div", { key: "pct", style: { display: "flex", alignItems: "center", gap: 3, flex: "0 0 66px" } }, h("input", { value: x.pct == null ? "" : x.pct, placeholder: "%", inputMode: "decimal", onChange: e => set("pct", e.target.value.replace(/[^\d.]/g, "")), style: { ...inp, textAlign: "right", padding: "7px 6px" } }), h("b", { style: { fontSize: 12 } }, "%")),
+            h("input", { key: "pd", type: "date", value: x.payDate || "", title: "付款日期", readOnly: lfLocked(x), onChange: e => { if (!lfLocked(x)) set("payDate", e.target.value); }, style: { ...inp, flex: "0 0 132px", padding: "7px 6px", fontSize: 12.5, ...(lfLocked(x) ? { background: "#f1f5f9", color: "#475569", pointerEvents: "none" } : {}) } }),
+            h(LfPhotos, { key: "ph", ids: x.lfPhotos, ownAfter: true, pre: [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || [])], tail: [...(x.retPhotos || []), ...(x.pays || []).flatMap(p => p.retPhotos || []), ...(x.balRetPhotos || [])], noDel: true, ro: READONLY_USERS.includes(me), onChange: v => { if (v.length > (x.lfPhotos || []).length) lfNotifyPhoto(form.by, me, form.name, x.desc, x.amount); set("lfPhotos", v); } })],
+            (() => { const ids = (form.settlement || []).filter(x => x.aa).flatMap(x => [...(x.photos || []), ...(x.pays || []).flatMap(p => p.photos || []), ...(x.lfPhotos || [])]); return h("span", { style: { fontWeight: 600 } }, lfCopyBtn(h, ids, (form.name || "") + " settlement A.A", "xs")); })(), { only: x => !!x.aa, add: { aa: true, pct: "10" } }),
           secB(),
           sumBox(),
           h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 } },
@@ -5641,11 +5646,24 @@ function avaResize(file) {
   return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { const S = 220, c = document.createElement("canvas"); c.width = c.height = S; const k = Math.min(im.width, im.height); c.getContext("2d").drawImage(im, (im.width - k) / 2, (im.height - k) / 2, k, k, 0, 0, S, S); ok(c.toDataURL("image/jpeg", .86)); }; im.onerror = no; im.src = r.result; }; r.onerror = no; r.readAsDataURL(file); });
 }
 /* Bank Statement 的名字 / Agent / C.F% → 给 Costing Part 表格（iframe）用 */
+/* Lending Sheet 的 Settlement（A / A.A）→ 给 Costing Part 用 */
+function LendingLoader() {
+  const [list] = useCloudList("lending_fee");
+  React.useEffect(() => {
+    window.__crmLending = (list || []).filter(r => r && String(r.name || "").trim()).map(r => { const xs = (r.settlement || []).filter(x => x && (x.desc || x.amount));
+      const nm = x => [String(x.desc || "").trim().toUpperCase(), String(x.acc || "").trim().toUpperCase()].filter(Boolean).join(" - ") || "SETTLEMENT";
+      return { name: String(r.name).trim().toUpperCase(), at: r.updatedAt || r.at || 0, a: xs.filter(x => !x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)) })), aa: xs.filter(x => x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)), pct: String(x.pct == null ? "" : x.pct) })) }; })
+      .sort((x, y) => y.at - x.at);
+  }, [list]);
+  return null;
+}
 function BsPeopleLoader() {
   const [a] = useCloudList("bank_stmt_people"), [b] = useCloudList("bank_stmt_people_rencai");
+  const [rcL] = useCloudList("receipts"), [rtL] = useCloudList("bs_return_salary");
   React.useEffect(() => {
-    const out = [];
-    [...(a || []), ...(b || [])].forEach(p => { if (!p || !String(p.name || "").trim()) return; const bs = p.bankStmt || {};
+    const out = [], key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+    const rcSum = n => [...(rcL || []).filter(x => x.checked && key(x.from) === key(n)), ...(rtL || []).filter(x => x.done && key(x.name) === key(n))].reduce((t, x) => t + lsNum(x.amount), 0);
+    [...(a || []).map(p => [p, "bank_stmt_people"]), ...(b || []).map(p => [p, "bank_stmt_people_rencai"])].forEach(([p, store]) => { if (!p || !String(p.name || "").trim()) return; const bs = p.bankStmt || {};
       const mm = !bs.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(bs.agent || ""));
       /* Salary 里面的 Sub-Total（Employer + Employee）：EPF / SOCSO+EIS+Tax；Backdate 用 Backdate 的费用 */
       let epf = "", soc = "", bd = "";
@@ -5657,12 +5675,30 @@ function BsPeopleLoader() {
       try { const cr = bs.credits || [], stopAt = cr.findIndex(x => x && x.stop);
         cr.forEach((x, i) => { if (!x || (stopAt >= 0 && i >= stopAt) || !x.date) return;
           const o = x.calc ? bsCalcOut(x.calc) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null); if (!o) return;
-          months.push({ date: bsIso2Dmy(x.date), amt: lsFmt(o.er + o.ee) }); }); } catch (e) {}
-      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months }); });
+          months.push({ date: bsIso2Dmy(x.date), amt: lsFmt(o.er + o.ee), costed: !!x.costed }); }); } catch (e) {}
+      /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
+      let bal = ""; try { const bd = bs.backdate ? bsBackdate(bs.backdate).fee : 0; const v = bsTot(bs.credits) + bsTot(bs.fees) + bd - bsTot(bs.received) - rcSum(p.name); if (bsTot(bs.credits) || bsTot(bs.fees)) bal = lsFmt(v); } catch (e) {}
+      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     window.__crmBsPeople = out;
     try { window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {}
-  }, [a, b]);
+  }, [a, b, rcL, rtL]);
   return null;
+}
+/* Costing Part 存档 → Bank Statement 有放进 Costing 的月份标浅黄色（costed） */
+async function bsMarkCosted(clientName, data) {
+  try {
+    const k = String(clientName || "").trim().toUpperCase().replace(/\s+/g, " "); if (!k || !data || !data.parts) return;
+    const p = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k); if (!p || !p.store) return;
+    const dates = new Set();
+    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (\d{2}\/\d{2}\/\d{4})$/.exec(String(r.name || "").trim().toUpperCase()); if (m) dates.add(bsDmy2Iso(m[1])); }));
+    if (!dates.size) return;
+    const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
+    let ch = false;
+    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { if (x && !x.costed && dates.has(x.date)) { ch = true; return { ...x, costed: true, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
+    if (!ch) return;
+    await DB.set(p.store, JSON.stringify(next));
+    try { _clMem[p.store] = next; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: p.store, next } })); } catch (e) {}
+  } catch (e) { console.error(e); }
 }
 function AgentsLoader() {   /* Closing 自己加的 Agent，Verify / 其他地方也一起用 */
   const [extra] = useCloudList("closing_agents_extra");
@@ -5768,8 +5804,8 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
-      h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
+      h("td", { style: { ...cell, minWidth: 100, ...(c && c.costed ? { background: "#fef9c3" } : {}) }, title: c && c.costed ? "已经放进 PL Costing Part" : undefined }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
+      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined, ...(c && c.costed ? { background: "#fef9c3" } : {}) } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           c && (c.date || c.amount) && h("button", { title: c.stop ? "取消 Stop Salary" : "从这一行开始 Stop Salary", onClick: () => { const nx = { ...d, credits: d.credits.map((y, j) => ({ ...y, stop: j === ci ? !c.stop : false })) }; setD(nx); commit(nx); }, style: { border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: 11, opacity: c.stop ? 1 : .25 } }, "⛔"),
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
@@ -8041,6 +8077,8 @@ function FormsPage({ currentUser, tools, noLib }) {
       const ad = FORM_NATIVE[open.tool.file], w = frameRef.current.contentWindow;
       nativeWrite(open.tool.file, open.draft.title, open.draft.native);
       try { const data = open.draft.native.data; if (typeof w[ad.apply] === "function") { w[ad.apply](data); if (ad.after && typeof w[ad.after] === "function") w[ad.after](); } } catch (e) { console.error(e); }
+      /* 已经存过的 Costing：Bank Statement 后来再加的月份 → 自动放进 Part A.A（+10%） */
+      if (/COSTING_PART/i.test(open.tool.file || "") && !(noLib && !lfCanEdit(open.draft.by, canonUser(currentUser || "")))) setTimeout(() => { try { w.__bsSync && w.__bsSync(false); } catch (e) {} }, 400);
     } else if (open && open.draft) {
       let vals = (open.draft.values || []).map(([k, v]) => String(k).split("#")[0] === "fDocType" && v === "NO NEED" ? [k, "PDF ONLY"] : [k, v]);
       formWriteValues(d, vals);
@@ -8161,6 +8199,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     const ex = list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me)) || (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null);
     const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: me, at: Date.now(), values: undefined };
     saveDrafts(ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list]);
+    if (/COSTING_PART/i.test(open.tool.file || "")) try { const dd = (hit.entry || {}).data || {}; bsMarkCosted(dd.clientName || hit.label, dd); } catch (e) {}
     try { const sk = "crm_nseen_" + me + "_" + open.tool.file; localStorage.setItem(sk, JSON.stringify(after.map(x => x.label))); } catch (e) {}
     baseRef.current = JSON.stringify(currentVals());
     setSaveDlg(null);

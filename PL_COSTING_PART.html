@@ -148,9 +148,9 @@
   <div class="panel" id="chargesPanel">
     <div class="phead phead-toggle" onclick="toggleCharges()">
       <span>Part A · A.Charges</span>
-      <span id="chargesArrow">▸ 点击展开</span>
+      <span id="chargesArrow">▾ 点击收起</span>
     </div>
-    <div id="chargesBody" style="display:none">
+    <div id="chargesBody" style="display:block">
       <table>
         <thead><tr><th>Item</th><th>Amount</th><th>%</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
         <tbody id="partCBody"></tbody>
@@ -513,7 +513,8 @@ function collectData(){
         mult:multEl?multEl.value:'',
         hasMult:!!multEl,
         pinned:r.classList.contains('pinned-row'),
-        lock:r.querySelector('.amt-input').hasAttribute('readonly')
+        lock:r.querySelector('.amt-input').hasAttribute('readonly'),
+        auto:r.dataset.auto==='1'
       };
     });
   });
@@ -531,10 +532,11 @@ function restoreData(d){
   BODIES.forEach(id=>{
     (d.parts[id]||[]).forEach(row=>{
       // a Part A non-pinned row without a mult column is a plain added row
-      const noMult = (id==='partABody' && !row.pinned && row.hasMult===false);
+      const noMult = (id==='partABody' && !row.pinned && (row.hasMult===false || !!row.auto));
       const tr=addRow(id,row.name,row.amt,row.pinned,row.lock,noMult);
       const multEl=tr.querySelector('.mult-input');
       if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
+      if(row.auto) tr.dataset.auto='1';
     });
   });
   document.getElementById('balBody').innerHTML='';
@@ -848,17 +850,43 @@ if(saved && saved.parts){
     var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0]; if(!p) return;
     if(p.agent && ag){ ag.value=p.agent; }
     if(p.cf && cr){ cr.value=p.cf; }
-    /* EPF / SOCSO/EIS/PCB / BACKDATE 跟着 Bank Statement 的 Salary Sub-Total */
+    /* EPF / SOCSO/EIS/PCB / BACKDATE 跟着 Bank Statement 的 Salary Sub-Total；有月份记录就一个月一行 */
     var mon=(p.months||[]);
-    /* 有 Bank Statement record → 一个月一行「SALARY - 日期」，EPF / SOCSO 那两行留空（不会重复算） */
-    [].forEach.call(document.querySelectorAll('#partABody tr'), function(tr){ var n=tr.querySelector('.name-input'); if(n && /^SALARY - /i.test(String(n.value||'').trim())) tr.remove(); });
-    if(mon.length && typeof addRow==='function') mon.forEach(function(m){ addRow('partABody','SALARY - '+m.date,m.amt); });
     var MAP=[[/^EPF$/,mon.length?'':p.epf,!!mon.length],[/^SOCSO\/EIS\/PCB$/,mon.length?'':p.soc,!!mon.length],[/^BACKDATE EPF\/SOCSO$/,p.bd,false]];
     [].forEach.call(document.querySelectorAll('#partABody tr'), function(tr){ var n=tr.querySelector('.name-input'), a=tr.querySelector('.amt-input'); if(!n||!a) return;
       var k=String(n.value||'').trim().toUpperCase(); MAP.forEach(function(m){ if(m[0].test(k) && (m[1] || m[2])) a.value=m[1]; }); });
+    window.__bsSync(true);
     try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); }catch(e){}
     try{ if(typeof updateTitle==='function') updateTitle(); if(typeof calc==='function') calc(); if(typeof autoSave==='function') autoSave(); }catch(e){}
   }
+
+  /* ===== 自动连接 Bank Statement + Lending Sheet =====
+     新的（选名字）：Part A = 每个月 SALARY + Lending (A) Settlement；Part A.A = Lending (A.A) Settlement（跟着 %）；Part C · Salary = Bank Statement Balance
+     旧的（打开存过的）：Bank Statement 后来再加的月份 → Part A.A，+10%
+     自动加的行没有 × 格子 */
+  function lend(k){ try{ return ((window.parent && window.parent.__crmLending) || []).filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0] || null; }catch(e){ return null; } }
+  function rowsOf(id){ return [].slice.call(document.querySelectorAll('#'+id+' tr')); }
+  function nameOf(tr){ var n=tr.querySelector('.name-input'); return n ? String(n.value||'').trim().toUpperCase() : ''; }
+  function addAuto(id,name,amt,pct){ var tr=addRow(id,name,amt,false,false,true); tr.dataset.auto='1'; var m=tr.querySelector('.mult-input'); if(m && pct!=null) m.value=pct; return tr; }
+  window.__bsSync = function(fresh){
+    var k=String(nm.value||'').trim().toUpperCase().replace(/\s+/g,' '); if(!k || typeof addRow!=='function') return;
+    var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0] || null, L=lend(k);
+    if(!p && !L) return;
+    var mon=(p && p.months) || [];
+    if(fresh){
+      ['partABody','partCBody','partSalBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ if(tr.dataset.auto==='1' || (id==='partABody' && /^SALARY - /.test(nameOf(tr)))) tr.remove(); }); });
+      mon.forEach(function(m){ addAuto('partABody','SALARY - '+m.date,m.amt); });
+      if(L) L.a.forEach(function(x){ addAuto('partABody',x.name,x.amt); });
+      if(L) L.aa.forEach(function(x){ addAuto('partCBody',x.name,x.amt,x.pct); });
+      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); }
+    } else {
+      var have={}; ['partABody','partCBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ have[nameOf(tr)]=1; }); });
+      var added=0; mon.forEach(function(m){ var n='SALARY - '+m.date; if(!have[n]){ addAuto('partCBody',n,m.amt,'10'); added++; } });
+      if(!added) return;
+      setTimeout(function(){ try{ var ps=window.parent && window.parent!==window ? window.parent.__crmFormSave : null; if(ps) ps(); }catch(e){} }, 300);   /* 自动存档 → Bank Statement 那几个月也会变浅黄色 */
+    }
+    try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); if(typeof calc==='function') calc(); if(typeof autoSave==='function') autoSave(); }catch(e){}
+  };
   nm.addEventListener('change', pick); nm.addEventListener('input', function(){ if(list().some(function(x){ return x.name===String(nm.value||'').trim().toUpperCase(); })) pick(); });
 })();
 </script>
