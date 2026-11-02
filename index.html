@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "263";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "265";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5698,7 +5698,16 @@ function costSyncData(data, p, L) {
   }
   /* BACKDATE 跟着 Bank Statement → 没有 × 格子 */
   if (p && p.bd) A.forEach(r => { if (/^BACKDATE EPF\/SOCSO$/.test(N(r))) { if (r.amt !== p.bd) r.amt = p.bd; if (r.hasMult !== false) { r.hasMult = false; r.mult = ""; } r.auto = true; } });
-  if (p && p.bal) (parts.partSalBody || []).forEach(r => { if (N(r) === "SALARY" && r.auto && r.amt !== p.bal) r.amt = p.bal; });
+  /* Part C · Salary：存档了的 SALARY（和之前存过的 BALANCE）固定不动；Bank Statement Balance 剩下的 → 另外一行 BALANCE */
+  if (p && p.bal && (parts.partSalBody || []).some(r => N(r) === "SALARY")) {
+    const S = parts.partSalBody;
+    const fixedSum = S.reduce((t, r) => t + ((N(r) === "SALARY" || (N(r) === "BALANCE" && !r.auto)) ? lsNum(r.amt) : 0), 0);
+    const rem = Math.round((lsNum(p.bal) - fixedSum) * 100) / 100;
+    const bi = S.findIndex(r => N(r) === "BALANCE" && r.auto);
+    if (Math.abs(rem) < 0.005) { if (bi >= 0) S.splice(bi, 1); }
+    else if (bi >= 0) { if (S[bi].amt !== lsFmt(rem)) S[bi].amt = lsFmt(rem); }
+    else S.push({ name: "BALANCE", amt: lsFmt(rem), mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
+  }
   const nd = { ...data, parts };
   return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;
 }
@@ -8289,6 +8298,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     const before = nativeRead(open.tool.file);
     const oa = w.alert, op = w.prompt, oc = w.confirm;
     w.alert = () => {}; w.prompt = () => label; w.confirm = () => true;
+    try { if (typeof w.__crmBeforeSave === "function") w.__crmBeforeSave(); } catch (e) {}
     try { w.saveArchive(); } catch (e) {}
     w.alert = oa; w.prompt = op; w.confirm = oc;
     const after = nativeRead(open.tool.file);
@@ -11205,7 +11215,7 @@ function LoanBlock({
     size: 13
   }))), /*#__PURE__*/React.createElement(DebouncedInput, {
     className: "bank-rmk",
-    style: { ...S.bankInput, width: "100%", flex: "none", boxSizing: "border-box", margin: "2px 0 8px", fontSize: 12.5, fontWeight: 600, color: b.status === "rejected" ? "#b91c1c" : "#475569", background: b.rmk ? (b.status === "rejected" ? "#fff1f2" : "#f8fafc") : "#fff", borderStyle: b.rmk ? "solid" : "dashed" },
+    style: { ...S.bankInput, width: "100%", flex: "none", boxSizing: "border-box", margin: "2px 0 8px", fontSize: 12.5, fontWeight: 600, color: ["rejected", "unable", "fraud"].includes(b.status) ? "#b91c1c" : "#475569", background: b.rmk ? (["rejected", "unable", "fraud"].includes(b.status) ? "#fff1f2" : "#f8fafc") : "#fff", borderStyle: b.rmk ? "solid" : "dashed" },
     placeholder: "",
     value: b.rmk || "",
     onCommit: v => setBankV(i, b, "rmk", String(v || "").trim())
