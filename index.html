@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "255";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "256";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5652,7 +5652,13 @@ function BsPeopleLoader() {
       try { const cc = ((bs.credits || []).find(x => x && x.calc) || {}).calc; const o = cc ? bsCalcOut(cc) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null);
         if (o) { epf = lsFmt(o.v("epfEr") + o.v("epfEe")); soc = lsFmt(o.v("socEr") + o.v("socEe") + o.v("eisEr") + o.v("eisEe") + o.v("taxEe")); }
         if (bs.backdate) { const b2 = bsBackdate(bs.backdate); if (b2.fee) bd = lsFmt(b2.fee); } } catch (e) {}
-      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd }); });
+      /* 每个月一行：SALARY - 日期 = 那个月的 Sub-Total（Employer + Employee 全部加起来）；Stop Salary 之后的不算 */
+      const months = [];
+      try { const cr = bs.credits || [], stopAt = cr.findIndex(x => x && x.stop);
+        cr.forEach((x, i) => { if (!x || (stopAt >= 0 && i >= stopAt) || !x.date) return;
+          const o = x.calc ? bsCalcOut(x.calc) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null); if (!o) return;
+          months.push({ date: bsIso2Dmy(x.date), amt: lsFmt(o.er + o.ee) }); }); } catch (e) {}
+      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months }); });
     window.__crmBsPeople = out;
     try { window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {}
   }, [a, b]);

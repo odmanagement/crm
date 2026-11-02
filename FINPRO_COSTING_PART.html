@@ -849,9 +849,13 @@ if(saved && saved.parts){
     if(p.agent && ag){ ag.value=p.agent; }
     if(p.cf && cr){ cr.value=p.cf; }
     /* EPF / SOCSO/EIS/PCB / BACKDATE 跟着 Bank Statement 的 Salary Sub-Total */
-    var MAP=[[/^EPF$/,p.epf],[/^SOCSO\/EIS\/PCB$/,p.soc],[/^BACKDATE EPF\/SOCSO$/,p.bd]];
+    var mon=(p.months||[]);
+    /* 有 Bank Statement record → 一个月一行「SALARY - 日期」，EPF / SOCSO 那两行留空（不会重复算） */
+    [].forEach.call(document.querySelectorAll('#partABody tr'), function(tr){ var n=tr.querySelector('.name-input'); if(n && /^SALARY - /i.test(String(n.value||'').trim())) tr.remove(); });
+    if(mon.length && typeof addRow==='function') mon.forEach(function(m){ addRow('partABody','SALARY - '+m.date,m.amt); });
+    var MAP=[[/^EPF$/,mon.length?'':p.epf,!!mon.length],[/^SOCSO\/EIS\/PCB$/,mon.length?'':p.soc,!!mon.length],[/^BACKDATE EPF\/SOCSO$/,p.bd,false]];
     [].forEach.call(document.querySelectorAll('#partABody tr'), function(tr){ var n=tr.querySelector('.name-input'), a=tr.querySelector('.amt-input'); if(!n||!a) return;
-      var k=String(n.value||'').trim().toUpperCase(); MAP.forEach(function(m){ if(m[0].test(k) && m[1]) a.value=m[1]; }); });
+      var k=String(n.value||'').trim().toUpperCase(); MAP.forEach(function(m){ if(m[0].test(k) && (m[1] || m[2])) a.value=m[1]; }); });
     try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); }catch(e){}
     try{ if(typeof updateTitle==='function') updateTitle(); if(typeof calc==='function') calc(); if(typeof autoSave==='function') autoSave(); }catch(e){}
   }
