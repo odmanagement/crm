@@ -5730,7 +5730,14 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...cyan } },
         k === 0 ? (onName ? h("input", { ...ro, value: nm, placeholder: "名字", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus, onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) onName(nm.trim()); }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : fr(k, "b")),
-      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? tx(d.agent, v => set("agent", v.toUpperCase()), { textAlign: "center", fontWeight: 900 }, "AGENT") : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
+      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? (() => {
+          /* Agent + C.F %（以前打成「CANDY - 16%」的自动分开显示） */
+          const mm = !d.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(d.agent || "")), ag = mm ? mm[1] : (d.agent || ""), cf = mm ? mm[2] : (d.cf || "");
+          return h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" } },
+            h("div", { style: { flex: "1 1 auto", minWidth: 60 } }, tx(ag, v => setD(p => ({ ...p, agent: v.toUpperCase(), cf: p.cf || cf })), { textAlign: "center", fontWeight: 900 }, "AGENT")),
+            h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "C.F"),
+            h("div", { style: { width: 34 } }, tx(cf, v => setD(p => ({ ...p, cf: v.replace(/[^\d.]/g, ""), agent: ag })), { textAlign: "center", fontWeight: 900 }, "")),
+            h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
