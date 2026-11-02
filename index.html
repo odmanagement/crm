@@ -6855,6 +6855,7 @@ const TODO_FLOAT_USERS = ["alice"];
 function TodoFloat({ currentUser, onOpenPage }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
+  const drag = useDragPos("crm_todo_pos");
   const [list, save] = useCloudList("todo_" + me);
   const [min, setMin] = React.useState(() => { try { return sessionStorage.getItem("crm_todo_min") === "1"; } catch (e) { return false; } });
   const setMinS = v => { setMin(v); try { sessionStorage.setItem("crm_todo_min", v ? "1" : "0"); } catch (e) {} };
@@ -6881,16 +6882,16 @@ function TodoFloat({ currentUser, onOpenPage }) {
     setAT(""); setADl(""); setAdding(false); monetSfx("create");
   };
   const nOver = items.filter(x => dtDlState(x) === "over").length;
-  const pos = wide ? { position: "fixed", left: 410, bottom: 90, zIndex: 9990 } : { position: "fixed", right: 14, bottom: 90, zIndex: 9990 };
+  const pos = { ...(wide ? { position: "fixed", left: 410, bottom: 90, zIndex: 9990 } : { position: "fixed", right: 14, bottom: 90, zIndex: 9990 }), ...(drag.style || {}) };
   const grad = nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#6366f1,#4338ca)";
   const inp = { width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "#fff", textTransform: "none" };
   const sbtn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 8, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" });
   const css = h("style", null, "@keyframes dtBlink{0%,100%{opacity:1}50%{opacity:.55}}");
-  if (min) return h("button", { onClick: () => { monetSfx("open"); setMinS(false); }, title: "打开 To-Do", style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: grad, color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "📝 To-Do " + items.length + (nOver ? " · ⛔ " + nOver : ""));
-  return h("div", { style: { ...pos, width: 340, maxWidth: "calc(100vw - 28px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#6366f1") } },
+  if (min) return h("button", { "data-drag": 1, onMouseDown: drag.start, onTouchStart: drag.start, onClick: drag.guard(() => { monetSfx("open"); setMinS(false); }), title: "打开 To-Do（可以拖去别的位置）", style: { ...pos, cursor: "grab", touchAction: "none", border: "none", borderRadius: 999, padding: "10px 16px", background: grad, color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "📝 To-Do " + items.length + (nOver ? " · ⛔ " + nOver : ""));
+  return h("div", { "data-drag": 1, style: { ...pos, width: 340, maxWidth: "calc(100vw - 28px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#6366f1") } },
     css,
-    h("div", { style: { padding: "10px 14px", background: grad, color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
-      h("b", { style: { flex: 1, fontSize: 14, cursor: "pointer" }, title: "去 To-Do 页面", onClick: () => onOpenPage && onOpenPage() }, "📝 To-Do（" + items.length + " 未完成" + (nOver ? " · ⛔ " + nOver + " 过期" : "") + "）"),
+    h("div", { onMouseDown: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onTouchStart: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onDoubleClick: drag.reset, title: "按住拖动 · 双击回原位", style: { cursor: "grab", touchAction: "none", userSelect: "none", padding: "10px 14px", background: grad, color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+      h("b", { style: { flex: 1, fontSize: 14, cursor: "pointer" }, title: "去 To-Do 页面（按住可以拖）", onClick: drag.guard(() => onOpenPage && onOpenPage()) }, "📝 To-Do（" + items.length + " 未完成" + (nOver ? " · ⛔ " + nOver + " 过期" : "") + "）"),
       h("button", { onClick: () => setAdding(!adding), title: "+ Add To-Do", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "3px 10px", fontWeight: 900, cursor: "pointer" } }, "＋ Add"),
       h("button", { onClick: () => { monetSfx("minimize"); setMinS(true); }, title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer", fontWeight: 900 } }, "–")),
     adding && h("div", { style: { padding: "10px 14px", background: "#eef2ff", borderBottom: "1px solid #e0e7ff", display: "flex", flexDirection: "column", gap: 6 } },
@@ -11359,6 +11360,7 @@ function CollectReminder({ clients, currentUser, onOpen, onDone }) {
   const h = React.createElement;
   const [hide, setHide] = React.useState(() => { try { return Number(sessionStorage.getItem("crm_collect_hide") || 0); } catch (e) { return 0; } });
   const [min, setMin] = React.useState(false);
+  const drag = useDragPos("crm_collect_pos");
   const [, tick] = React.useState(0);
   React.useEffect(() => { const t = setInterval(() => tick(x => x + 1), 10 * 60 * 1000); return () => clearInterval(t); }, []);
   const items = [];
@@ -11375,9 +11377,9 @@ function CollectReminder({ clients, currentUser, onOpen, onDone }) {
   }));
   if (!items.length || (hide && Date.now() < hide)) return null;
   const later = () => { const t = Date.now() + 2 * 60 * 60 * 1000; setHide(t); try { sessionStorage.setItem("crm_collect_hide", String(t)); } catch (e) {} };
-  if (min) return h("button", { onClick: () => setMin(false), style: { position: "fixed", left: 18, bottom: 18, zIndex: 9990, border: "none", borderRadius: 999, padding: "10px 16px", background: "linear-gradient(135deg,#f59e0b,#dc2626)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(220,38,38,.6)" } }, "💰 收钱提醒 " + items.length);
-  return h("div", { style: { position: "fixed", left: 18, bottom: 18, zIndex: 9990, width: 340, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #f59e0b" } },
-    h("div", { style: { padding: "10px 14px", background: "linear-gradient(135deg,#f59e0b,#dc2626)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+  if (min) return h("button", { "data-drag": 1, onMouseDown: drag.start, onTouchStart: drag.start, onClick: drag.guard(() => setMin(false)), title: "打开（可以拖去别的位置）", style: { position: "fixed", left: 18, bottom: 18, zIndex: 9990, ...(drag.style || {}), cursor: "grab", touchAction: "none", border: "none", borderRadius: 999, padding: "10px 16px", background: "linear-gradient(135deg,#f59e0b,#dc2626)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(220,38,38,.6)" } }, "💰 收钱提醒 " + items.length);
+  return h("div", { "data-drag": 1, style: { position: "fixed", left: 18, bottom: 18, zIndex: 9990, ...(drag.style || {}), width: 340, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #f59e0b" } },
+    h("div", { onMouseDown: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onTouchStart: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onDoubleClick: drag.reset, title: "按住拖动 · 双击回原位", style: { cursor: "grab", touchAction: "none", userSelect: "none", padding: "10px 14px", background: "linear-gradient(135deg,#f59e0b,#dc2626)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
       h("b", { style: { flex: 1, fontSize: 14 } }, "💰 记得收钱！（" + items.length + "）"),
       h("button", { onClick: () => setMin(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer" } }, "–")),
     h("div", { style: { maxHeight: 300, overflowY: "auto" } }, items.map((x, k) => h("div", { key: k, style: { padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 } },
