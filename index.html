@@ -11563,16 +11563,30 @@ function AeonRemind({ clients, currentUser, onOpen, onDone }) {
   const items = [];
   (clients || []).forEach(c => (c.loans || []).forEach(l => {
     if (l.type !== "personal" || l.aeonGxDone) return;
+    /* 跟着那笔 Loan 的 Admin 提醒；没有 Admin 的才给 Alice / VV / Money */
+    const adm = canonUser(l.admin || l.createdBy || "");
+    if (adm ? adm !== me : !AEON_REMIND_USERS.includes(me)) return;
     const bs = l.banks || [], has = k => bs.some(b => bankKey(b.bank) === k && b.status);
     const ac = bs.find(b => bankKey(b.bank) === "AEON CREDIT" && AEON_SENT.includes(b.status));
     if (!ac) return;
     if (has("AEON BANK") && has("GX BANK")) return;
     items.push({ c, l, ac, miss: [!has("AEON BANK") && "AEON DEBIT", !has("GX BANK") && "GX BANK"].filter(Boolean) });
   }));
+  const loudAt = React.useRef(0);
+  const goFirst = () => { const x = items[0]; if (x) onOpen(x.c.id); };
+  React.useEffect(() => {
+    if (!items.length || snooze === td) return;
+    const fire = () => { if (Date.now() - loudAt.current < 110 * 60 * 1000) return; loudAt.current = Date.now();
+      const play = () => crmLoudAlert({ title: "记得 Submit AEON DEBIT + GX BANK（" + items.length + "）", task: items.map(x => String(x.c.name || "").toUpperCase()).slice(0, 4).join("、") }, goFirst);
+      const ac = window.__crmFireAC; if (ac && ac.state === "running") play();
+      else { play(); const once = () => { document.removeEventListener("click", once, true); try { const a = window.__crmFireAC; if (a && a.state !== "running") a.resume().then(() => { loudAt.current = 0; fire(); }); } catch (e) {} }; document.addEventListener("click", once, true); } };
+    const t0 = setTimeout(fire, 2500), t = setInterval(fire, 10 * 60 * 1000);
+    return () => { clearTimeout(t0); clearInterval(t); };
+  }, [items.length, snooze]);
   const notified = React.useRef("");
   React.useEffect(() => { if (!items.length || snooze === td) return; const k = td + ":" + items.length; if (notified.current === k) return; notified.current = k;
     try { if ("Notification" in window && Notification.permission === "granted" && document.hidden) new Notification("🏦 记得 Submit AEON DEBIT + GX BANK（" + items.length + "）", { body: items.map(x => String(x.c.name || "").toUpperCase()).slice(0, 5).join("、") }); } catch (e) {} }, [items.length, snooze]);
-  if (!AEON_REMIND_USERS.includes(me) || !items.length || snooze === td) return null;
+  if (!items.length || snooze === td) return null;
   const head = "linear-gradient(135deg,#0ea5e9,#6366f1)";
   if (min) return h("button", { "data-drag": 1, onMouseDown: drag.start, onTouchStart: drag.start, onClick: drag.guard(() => setMin(false)), title: "打开（可以拖去别的位置）", style: { position: "fixed", right: 18, top: 140, zIndex: 9990, ...(drag.style || {}), cursor: "grab", touchAction: "none", border: "none", borderRadius: 999, padding: "10px 16px", background: head, color: "#fff", fontWeight: 900, boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, "🏦 AEON DEBIT / GX " + items.length);
   return h("div", { "data-drag": 1, style: { position: "fixed", right: 18, top: 140, zIndex: 9990, ...(drag.style || {}), width: 360, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #6366f1" } },
