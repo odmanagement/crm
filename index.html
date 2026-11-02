@@ -4551,9 +4551,31 @@ function DtFollowUp({ r, me, onSave, onClose }) {
 }
 /* 全局 Follow Up 视窗（只给 Customer Docs 的人）：列出全部未完成的 Follow Up；
    新加 Follow Up 会自动打开；可以缩小成浮动按钮；全部完成才会消失 */
+/* 可以拖来拖去的浮动视窗：记住位置（每台电脑自己记） */
+function useDragPos(key) {
+  const [p, setP] = React.useState(() => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } });
+  const moved = React.useRef(false);
+  const start = e => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest && e.target.closest("input,textarea,select") ) return;
+    const el = e.currentTarget.closest("[data-drag]") || e.currentTarget, r = el.getBoundingClientRect();
+    const pt = ev => ev.touches ? ev.touches[0] : ev, s0 = pt(e), ox = s0.clientX - r.left, oy = s0.clientY - r.top;
+    moved.current = false;
+    const mv = ev => { const q = pt(ev); if (!moved.current && Math.abs(q.clientX - s0.clientX) + Math.abs(q.clientY - s0.clientY) < 5) return; moved.current = true; if (ev.cancelable) ev.preventDefault();
+      const x = Math.max(4, Math.min(window.innerWidth - r.width - 4, q.clientX - ox)), y = Math.max(4, Math.min(window.innerHeight - 40, q.clientY - oy)); setP({ x, y }); };
+    const up = () => { document.removeEventListener("mousemove", mv); document.removeEventListener("mouseup", up); document.removeEventListener("touchmove", mv); document.removeEventListener("touchend", up);
+      setP(cur => { if (cur && moved.current) try { localStorage.setItem(key, JSON.stringify(cur)); } catch (er) {} return cur; }); };
+    document.addEventListener("mousemove", mv); document.addEventListener("mouseup", up); document.addEventListener("touchmove", mv, { passive: false }); document.addEventListener("touchend", up);
+  };
+  /* 拖完不要当成按一下 */
+  const guard = fn => e => { if (moved.current) { moved.current = false; e.preventDefault(); e.stopPropagation(); return; } fn && fn(e); };
+  const style = p ? { left: Math.min(p.x, window.innerWidth - 60), top: Math.min(p.y, window.innerHeight - 40), bottom: "auto", right: "auto" } : null;
+  return { style, start, guard, reset: () => { setP(null); try { localStorage.removeItem(key); } catch (e) {} } };
+}
 function DtFollowUpReminder({ currentUser, onOpen }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
+  const drag = useDragPos("crm_dtfu_pos");
   const [list, save] = useCloudList("doc_tracking");
   const [min, setMin] = React.useState(() => { try { return sessionStorage.getItem("crm_dtfu_min") === "1"; } catch (e) { return false; } });
   const setMinS = v => { setMin(v); try { sessionStorage.setItem("crm_dtfu_min", v ? "1" : "0"); } catch (e) {} };
@@ -4582,14 +4604,14 @@ function DtFollowUpReminder({ currentUser, onOpen }) {
     setAdding(false); setAT(""); setADl(""); monetSfx("create");
   };
   const nOver = items.filter(x => dtDlState(x.f) === "over").length;
-  const pos = { position: "fixed", left: 18, bottom: 90, zIndex: 9991 };
+  const pos = { position: "fixed", left: 18, bottom: 90, zIndex: 9991, ...(drag.style || {}) };
   const inp = { width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "#fff" };
   const sbtn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 8, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" });
   const css = h("style", null, "@keyframes dtBlink{0%,100%{opacity:1}50%{opacity:.55}}");
-  if (min) return h("button", { onClick: () => { monetSfx("open"); setMinS(false); }, title: "打开 Follow Up", style: { ...pos, border: "none", borderRadius: 999, padding: "10px 16px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "💬 Follow Up " + items.length + (nOver ? " · ⛔ " + nOver : ""));
-  return h("div", { style: { ...pos, width: 380, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#16a34a") } },
+  if (min) return h("button", { "data-drag": 1, onMouseDown: drag.start, onTouchStart: drag.start, onClick: drag.guard(() => { monetSfx("open"); setMinS(false); }), title: "打开 Follow Up（可以拖去别的位置）", style: { ...pos, cursor: "grab", touchAction: "none", border: "none", borderRadius: 999, padding: "10px 16px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, css, "💬 Follow Up " + items.length + (nOver ? " · ⛔ " + nOver : ""));
+  return h("div", { "data-drag": 1, style: { ...pos, width: 380, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid " + (nOver ? "#ef4444" : "#16a34a") } },
     css,
-    h("div", { style: { padding: "10px 14px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+    h("div", { onMouseDown: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onTouchStart: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onDoubleClick: drag.reset, title: "按住拖动 · 双击回原位", style: { cursor: "grab", touchAction: "none", userSelect: "none", padding: "10px 14px", background: nOver ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
       h("b", { style: { flex: 1, fontSize: 14 } }, "💬 Follow Up（" + items.length + " 未完成" + (nOver ? " · ⛔ " + nOver + " 过期" : "") + "）"),
       h("button", { onClick: () => { setAdding(!adding); if (!aR && recs[0]) setAR(recs[0].id); }, title: "+ Add Follow Up", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "3px 10px", fontWeight: 900, cursor: "pointer" } }, "＋ Add"),
       h("button", { onClick: () => { monetSfx("minimize"); setMinS(true); }, title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer", fontWeight: 900 } }, "–")),
