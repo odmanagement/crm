@@ -5490,7 +5490,8 @@ function BsSalaryCalc({ init, name, onSave, onClose, onDelete }) {
 }
 
 /* BACKDATE：(EPF + SOCSO + EIS) × 多少个月 × 7.5% */
-const bsBackdate = b => { b = b || {}; const m = lsNum(b.epf) + lsNum(b.socso) + lsNum(b.eis), months = lsNum(b.months), rate = b.rate === "" || b.rate == null ? 7.5 : lsNum(b.rate); const total = m * months; return { monthly: m, months, rate, total, fee: Math.round(total * rate) / 100 }; };
+/* BACKDATE = (EPF + SOCSO + EIS) × 月 + 7.5%（例：1,996.35 × 3 = 5,989.05 + 7.5% = 6,438.23） */
+const bsBackdate = b => { b = b || {}; const m = lsNum(b.epf) + lsNum(b.socso) + lsNum(b.eis), months = lsNum(b.months), rate = b.rate === "" || b.rate == null ? 7.5 : lsNum(b.rate); const total = m * months; const pctAmt = Math.round(total * rate) / 100; return { monthly: m, months, rate, total, pctAmt, fee: Math.round((total + pctAmt) * 100) / 100 }; };
 const bsBackdateFromCalc = d => { const c = ((d.credits || []).find(x => x.calc) || {}).calc; let o = null; if (c) o = bsCalcOut(c); else if (lsNum(d.salary)) o = bsCalcOut({ salary: d.salary, ov: {}, adds: [] });
   return o ? { epf: lsFmt(o.v("epfEr") + o.v("epfEe")), socso: lsFmt(o.v("socEr") + o.v("socEe")), eis: lsFmt(o.v("eisEr") + o.v("eisEe")), months: "", rate: "7.5" } : { epf: "", socso: "", eis: "", months: "", rate: "7.5" }; };
 function BsBackdate({ name, init, onSave, onClose }) {
@@ -5509,7 +5510,7 @@ function BsBackdate({ name, init, onSave, onClose }) {
         h("tr", null, h("td", { style: { padding: "6px 12px 6px 0", fontSize: 13, color: "#64748b" } }, "每月合计"), h("td", { style: { fontWeight: 800 } }, lsFmt(o.monthly))),
         fld("months", "× 多少个月", "个月"), fld("rate", "× %", "%"))),
       h("div", { style: { marginTop: 12, background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 12, padding: "10px 14px" } },
-        h("div", { style: { fontSize: 12.5, color: "#6b21a8", fontWeight: 700 } }, lsFmt(o.monthly) + " × " + (o.months || 0) + " 个月 = " + lsFmt(o.total) + "  × " + o.rate + "%"),
+        h("div", { style: { fontSize: 12.5, color: "#6b21a8", fontWeight: 700 } }, lsFmt(o.monthly) + " × " + (o.months || 0) + " 个月 = " + lsFmt(o.total) + " + " + o.rate + "%（" + lsFmt(o.pctAmt) + "）"),
         h("div", { style: { fontSize: 22, fontWeight: 900, color: "#6b21a8", marginTop: 4 } }, "BACKDATE " + lsFmt(o.fee))),
       h("div", { style: { display: "flex", gap: 8, marginTop: 14 } },
         h("button", { onClick: () => { if (window.confirm("清除 BACKDATE？")) { onSave(null); onClose(); } }, style: { marginRight: "auto", border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "9px 14px", fontWeight: 800, cursor: "pointer" } }, "🗑 删除"),
