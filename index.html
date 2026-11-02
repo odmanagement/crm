@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "254";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "255";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5419,7 +5419,7 @@ const bsSocso = w => { if (!(w > 0)) return [0, 0]; let prev = 0, up = null; for
   const mid = (prev + up) / 2, r5 = x => Math.round(x * 20 + 1e-9) / 20; return [r5(mid * 0.0175), r5(mid * 0.0125)]; };
 const bsEpf = (w, rate) => { if (!(w > 0)) return 0; const band = w <= 5000 ? Math.ceil(w / 20) * 20 : Math.ceil(w / 100) * 100; return Math.ceil(band * rate / 100); };
 function bsCalcOut(c) {
-  const sal = lsNum(c.salary), bon = lsNum(c.bonus), w = sal + bon, o = c.ov || {};
+  const sal = lsNum(c.salary), bon = lsNum(c.bonus) + lsNum(c.commission), w = sal + bon, o = c.ov || {};   /* bonus = Allowance；Commission 跟 Allowance 一样算 EPF */
   const rate = c.epfRate === "" || c.epfRate == null ? (w > 5000 ? 12 : 13) : lsNum(c.epfRate);
   const [se, sw] = bsSocso(sal), [ee, ew] = lfEis(sal);
   const auto = { epfEr: bsEpf(w, rate), epfEe: bsEpf(w, 11), socEr: se, socEe: sw, eisEr: ee, eisEe: ew, taxEe: 0 };
@@ -5431,7 +5431,7 @@ function bsCalcOut(c) {
 }
 function BsSalaryCalc({ init, name, onSave, onClose, onDelete }) {
   const h = React.createElement;
-  const [c, setC] = React.useState(() => ({ salary: "", bonus: "", epfRate: "", ov: {}, adds: [], ...(init || {}) }));
+  const [c, setC] = React.useState(() => ({ salary: "", bonus: "", commission: "", epfRate: "", ov: {}, adds: [], ...(init || {}) }));
   const out = bsCalcOut(c);
   const f2 = x => lsFmt(x);
   const [cp, setCp] = React.useState("");
@@ -5453,7 +5453,7 @@ function BsSalaryCalc({ init, name, onSave, onClose, onDelete }) {
       h("div", { style: { display: "flex", alignItems: "center", marginBottom: 10 } }, h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16 } }, "💰 SALARY · " + String(name || "").toUpperCase()),
         h("button", { onClick: onClose, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, width: 32, height: 32, cursor: "pointer" } }, h(X, { size: 15 }))),
       h("table", { style: { borderCollapse: "collapse" } }, h("tbody", null,
-        money("salary", "Salary:"), money("bonus", "Bonus:"),
+        money("salary", "Salary:"), money("bonus", "Allowance:"), money("commission", "Commission:"),
         h("tr", null, lbl(h("b", { style: { color: "#1677ff", fontSize: 16 } }, "Net Salary:")), td(cv("net", f2(out.net), { color: "#1677ff", fontWeight: 900, fontSize: 17 }), { colSpan: 3 })),
         h("tr", null, td("", { padding: 0 }), td(h("div", { style: { fontSize: 12, color: "#64748b", fontWeight: 700 } }, f2(out.gross) + " − " + f2(out.ee) + " (Employee)" + (c.adds || []).filter(x => lsNum(x.amount)).map(x => (x.sign === "-" ? " − " : " + ") + f2(lsNum(x.amount)) + (x.desc ? " (" + x.desc + ")" : "")).join("")), { colSpan: 3, padding: "0 8px" })))),
       h("table", { style: { borderCollapse: "collapse", marginTop: 16 } }, h("tbody", null,
@@ -5643,7 +5643,12 @@ function BsPeopleLoader() {
     const out = [];
     [...(a || []), ...(b || [])].forEach(p => { if (!p || !String(p.name || "").trim()) return; const bs = p.bankStmt || {};
       const mm = !bs.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(bs.agent || ""));
-      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim() }); });
+      /* Salary 里面的 Sub-Total（Employer + Employee）：EPF / SOCSO+EIS+Tax；Backdate 用 Backdate 的费用 */
+      let epf = "", soc = "", bd = "";
+      try { const cc = ((bs.credits || []).find(x => x && x.calc) || {}).calc; const o = cc ? bsCalcOut(cc) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null);
+        if (o) { epf = lsFmt(o.v("epfEr") + o.v("epfEe")); soc = lsFmt(o.v("socEr") + o.v("socEe") + o.v("eisEr") + o.v("eisEe") + o.v("taxEe")); }
+        if (bs.backdate) { const b2 = bsBackdate(bs.backdate); if (b2.fee) bd = lsFmt(b2.fee); } } catch (e) {}
+      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd }); });
     window.__crmBsPeople = out;
     try { window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {}
   }, [a, b]);
