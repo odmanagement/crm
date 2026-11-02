@@ -1585,7 +1585,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "253";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "254";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3595,7 +3595,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
-  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -5635,6 +5635,19 @@ function AvatarsLoader() {   /* 每个人上传的头像 */
 }
 function avaResize(file) {
   return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { const S = 220, c = document.createElement("canvas"); c.width = c.height = S; const k = Math.min(im.width, im.height); c.getContext("2d").drawImage(im, (im.width - k) / 2, (im.height - k) / 2, k, k, 0, 0, S, S); ok(c.toDataURL("image/jpeg", .86)); }; im.onerror = no; im.src = r.result; }; r.onerror = no; r.readAsDataURL(file); });
+}
+/* Bank Statement 的名字 / Agent / C.F% → 给 Costing Part 表格（iframe）用 */
+function BsPeopleLoader() {
+  const [a] = useCloudList("bank_stmt_people"), [b] = useCloudList("bank_stmt_people_rencai");
+  React.useEffect(() => {
+    const out = [];
+    [...(a || []), ...(b || [])].forEach(p => { if (!p || !String(p.name || "").trim()) return; const bs = p.bankStmt || {};
+      const mm = !bs.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(bs.agent || ""));
+      out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim() }); });
+    window.__crmBsPeople = out;
+    try { window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {}
+  }, [a, b]);
+  return null;
 }
 function AgentsLoader() {   /* Closing 自己加的 Agent，Verify / 其他地方也一起用 */
   const [extra] = useCloudList("closing_agents_extra");
