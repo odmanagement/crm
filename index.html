@@ -3590,6 +3590,11 @@ function CRM({ onLogout, currentUser }) {
   })), DT_USERS.includes(canonUser(currentUser)) && /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(DtFollowUpReminder, {
     currentUser: currentUser,
     onOpen: rid => { setOpenId(null); window.__dtOpenFu = rid; setPage("doctrack"); setTimeout(() => window.dispatchEvent(new Event("dt-open-fu")), 50); }
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(AeonRemind, {
+    clients: clients,
+    currentUser: currentUser,
+    onOpen: cid => { setPage("personal"); setOpenId(cid); },
+    onDone: (cid, lid) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, aeonGxDone: { by: canonUser(currentUser || ""), at: Date.now() } } : l) } : c))
   })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(CollectReminder, {
     clients: clients,
     currentUser: currentUser,
@@ -11543,6 +11548,44 @@ function CollectReminder({ clients, currentUser, onOpen, onDone }) {
       h("button", { onClick: () => onDone(x.c.id, x.l.id, x.bi), style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "✓ Done")))),
     h("div", { style: { padding: "8px 14px", textAlign: "right", background: "#fffbeb" } },
       h("button", { onClick: later, style: { border: "none", background: "none", color: "#b45309", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "2 小时后再提醒")));
+}
+/* Personal Loan 有 AEON.C submit → 提醒 Alice / VV / Money 每天去 submit AEON DEBIT（AEON BANK）+ GX BANK，直到有人按 ✓ 已 Submit
+   （那笔 Loan 已经有 AEON BANK 和 GX BANK 也会自动消失） */
+const AEON_REMIND_USERS = ["alice", "vv", "money"];
+const AEON_SENT = ["submitted", "pending", "holdon", "approved", "disbursed", "rejected", "unable", "fraud"];
+function AeonRemind({ clients, currentUser, onOpen, onDone }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const drag = useDragPos("crm_aeon_pos");
+  const [min, setMin] = React.useState(false);
+  const td = today();
+  const [snooze, setSnooze] = React.useState(() => { try { return localStorage.getItem("crm_aeon_snooze_" + me) || ""; } catch (e) { return ""; } });
+  const items = [];
+  (clients || []).forEach(c => (c.loans || []).forEach(l => {
+    if (l.type !== "personal" || l.aeonGxDone) return;
+    const bs = l.banks || [], has = k => bs.some(b => bankKey(b.bank) === k && b.status);
+    const ac = bs.find(b => bankKey(b.bank) === "AEON CREDIT" && AEON_SENT.includes(b.status));
+    if (!ac) return;
+    if (has("AEON BANK") && has("GX BANK")) return;
+    items.push({ c, l, ac, miss: [!has("AEON BANK") && "AEON DEBIT", !has("GX BANK") && "GX BANK"].filter(Boolean) });
+  }));
+  const notified = React.useRef("");
+  React.useEffect(() => { if (!items.length || snooze === td) return; const k = td + ":" + items.length; if (notified.current === k) return; notified.current = k;
+    try { if ("Notification" in window && Notification.permission === "granted" && document.hidden) new Notification("🏦 记得 Submit AEON DEBIT + GX BANK（" + items.length + "）", { body: items.map(x => String(x.c.name || "").toUpperCase()).slice(0, 5).join("、") }); } catch (e) {} }, [items.length, snooze]);
+  if (!AEON_REMIND_USERS.includes(me) || !items.length || snooze === td) return null;
+  const head = "linear-gradient(135deg,#0ea5e9,#6366f1)";
+  if (min) return h("button", { "data-drag": 1, onMouseDown: drag.start, onTouchStart: drag.start, onClick: drag.guard(() => setMin(false)), title: "打开（可以拖去别的位置）", style: { position: "fixed", right: 18, top: 140, zIndex: 9990, ...(drag.style || {}), cursor: "grab", touchAction: "none", border: "none", borderRadius: 999, padding: "10px 16px", background: head, color: "#fff", fontWeight: 900, boxShadow: "0 10px 24px -8px rgba(0,0,0,.45)" } }, "🏦 AEON DEBIT / GX " + items.length);
+  return h("div", { "data-drag": 1, style: { position: "fixed", right: 18, top: 140, zIndex: 9990, ...(drag.style || {}), width: 360, maxWidth: "calc(100vw - 36px)", background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px -14px rgba(0,0,0,.4)", overflow: "hidden", border: "2px solid #6366f1" } },
+    h("div", { onMouseDown: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onTouchStart: e => { if (!(e.target.closest && e.target.closest("button"))) drag.start(e); }, onDoubleClick: drag.reset, title: "按住拖动 · 双击回原位", style: { cursor: "grab", touchAction: "none", userSelect: "none", padding: "10px 14px", background: head, color: "#fff", display: "flex", alignItems: "center", gap: 8 } },
+      h("b", { style: { flex: 1, fontSize: 14 } }, "🏦 记得 Submit AEON DEBIT + GX BANK（" + items.length + "）"),
+      h("button", { onClick: () => setMin(true), title: "缩小", style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 26, height: 26, cursor: "pointer" } }, "–")),
+    h("div", { style: { maxHeight: 320, overflowY: "auto" } }, items.map((x, k) => h("div", { key: k, style: { padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 } },
+      h("div", { style: { flex: 1, minWidth: 0, cursor: "pointer" }, onClick: () => onOpen(x.c.id), title: "打开客户" },
+        h("div", { style: { fontWeight: 800, fontSize: 13.5, color: "#0f172a" } }, String(x.c.name || "(没名字)").toUpperCase()),
+        h("div", { style: { fontSize: 12, color: "#64748b" } }, "AEON.C 已 Submit" + (x.ac.date ? "（" + dtDMY(x.ac.date) + "）" : "") + " · 还没：" + x.miss.join(" + "))),
+      h("button", { onClick: () => { if (window.confirm("「" + String(x.c.name || "").toUpperCase() + "」AEON DEBIT 跟 GX BANK 已经 Submit 了？")) onDone(x.c.id, x.l.id); }, style: { border: "none", background: "#16a34a", color: "#fff", borderRadius: 8, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "✓ 已 Submit")))),
+    h("div", { style: { padding: "8px 14px", textAlign: "right", background: "#eef2ff" } },
+      h("button", { onClick: () => { setSnooze(td); try { localStorage.setItem("crm_aeon_snooze_" + me, td); } catch (e) {} }, style: { border: "none", background: "none", color: "#4338ca", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "今天先不提醒（明天会再提醒）")));
 }
 /* Mission 回复：像 chat 一样，会通知指派的人 / 被指派的人 */
 function MissionReplies({ m, currentUser, onSave }) {
