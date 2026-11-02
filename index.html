@@ -5830,12 +5830,16 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   trs.push(h("tr", { key: "st" }, h("td", { colSpan: 2, style: { ...cell, background: stOn ? "#dcfce7" : (so ? so.bg : "#fafafa"), textAlign: "center" } },
       h("label", { title: "打勾 = 已经 START，自动排到最上面", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: stOn ? "#15803d" : "#64748b" } },
         h("input", { type: "checkbox", checked: stOn, onChange: e => { const nx = { ...d, started: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx); }, style: { width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" } }), "START")),
-    h("td", { colSpan: 9, style: { ...cell, height: 40, padding: "6px 10px", textAlign: "center", background: so ? so.bg : "#fafafa" } },
+    h("td", { colSpan: 8, style: { ...cell, height: 40, padding: "6px 10px", textAlign: "center", background: so ? so.bg : "#fafafa" } },
     h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, maxWidth: 820, margin: "0 auto" } },
       h("select", { value: d.startType || "", title: "选择", onChange: e => { const o = ST_OPT.find(x => x.k === e.target.value); const nx = { ...d, startType: o ? o.k : "", startText: o ? o.t + " " : "" }; setD(nx); commit(nx); },
         style: { border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 14, fontWeight: 900, color: so ? so.c : "#64748b", background: "#fff", maxWidth: so ? 30 : 340, cursor: "pointer" } },
         h("option", { value: "" }, "— 选择 START SALARY —"), ST_OPT.map(o => h("option", { key: o.k, value: o.k, style: { color: o.c } }, o.t))),
-      so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 20, color: so.c, letterSpacing: .5, WebkitTextStroke: ".4px " + so.c }))))));
+      so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 20, color: so.c, letterSpacing: .5, WebkitTextStroke: ".4px " + so.c })))),
+    /* 最后面：END 打勾 → 整个变紫色 */
+    h("td", { style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
+      h("label", { title: d.ended ? "已经 END · " + String(d.ended.by || "").toUpperCase() + " · " + new Date(d.ended.at || 0).toLocaleDateString("en-GB") : "打勾 = END（整个变紫色）", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: d.ended ? "#6d28d9" : "#64748b" } },
+        h("input", { type: "checkbox", checked: !!d.ended, onChange: e => { const nx = { ...d, ended: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx); }, style: { width: 18, height: 18, accentColor: "#7c3aed", cursor: "pointer" } }), "END"))));
   for (let k = 0; k < N; k++) {
     const ci = k - 1, c = ci >= 0 ? credits[ci] : null, ri = k - 1 - RO, rv = ri >= 0 ? recv[ri] : null, au = k >= 1 && k <= RO ? autos[k - 1] : null, rcRow = !!au;
     const cyan = k === 7 ? { background: "#22d3ee" } : {};
@@ -5874,7 +5878,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     h("td", { style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" } }, lsFmt(bal)),
     h("td", { style: cell })));
-  return h("div", { className: "bs-sheet", style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
+  return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", top: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
     bdOpen && h(BsBackdate, { name: r.c.name, init: d.backdate || bsBackdateFromCalc(d), onClose: () => setBdOpen(false), onSave: v => { const nx = { ...d, backdate: v }; setD(nx); commit(nx); } }),
@@ -12062,6 +12066,9 @@ button:active, a:active { transform: scale(.97); }
 .theme-mono .app-header > :first-child, .theme-mono .app-header > :first-child * { background: linear-gradient(90deg,#ffffff,#a3a3a3,#f5f5f5) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; text-shadow: none !important; letter-spacing: .06em; }
 .theme-mono .app-header button:not([style*="gradient"]), .theme-mono .app-header span[title^="登录邮箱"] { background: rgba(255,255,255,.06) !important; color: #e5e5e5 !important; border: 1px solid rgba(255,255,255,.18) !important; }
 .theme-mono button[style*="gradient"]:not(.stat-card):not(.td-chk):not(.co-doc) { background: linear-gradient(120deg,#0a0a0a,#2b2b2b) !important; color: #ffffff !important; border: 1px solid #0a0a0a !important; box-shadow: 0 8px 18px -8px rgba(0,0,0,.6) !important; letter-spacing: .03em; }
+/* Bank Statement：END 打勾 → 整个变紫色 */
+div.bs-sheet.bs-ended, div.bs-sheet.bs-ended td, div.bs-sheet.bs-ended th { background: #ede9fe !important; }
+div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 /* Bank Statement 表格：全部字体粗体 */
 .bs-sheet, .bs-sheet * , div.bs-sheet.bs-sheet input, div.bs-sheet.bs-sheet select, div.bs-sheet.bs-sheet textarea, div.bs-sheet.bs-sheet td, div.bs-sheet.bs-sheet th { font-weight: 800 !important; }
 .bs-sheet input::placeholder, .bs-sheet textarea::placeholder { font-weight: 700 !important; }
