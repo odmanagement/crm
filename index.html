@@ -1695,7 +1695,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "268";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "269";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3679,7 +3679,12 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     onOpen: setOpenId,
     onNew: () => quickNewClient(page),
-    onSetBase: (cid, lid, v) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, base: v } : l) } : c)),
+    onSetBase: (cid, lid, v) => {   /* 改 BASE → Verify 那边也一起改，不然会被 Verify 盖回去 */
+      const cl = clients.find(c => c.id === cid), ln = cl && (cl.loans || []).find(l => l.id === lid);
+      if (ln && (verifications || []).some(x => x.clientId === cid && _vTypes(x).includes(ln.type) && (x.base || "") !== v))
+        persistVerifications(verifications.map(x => x.clientId === cid && _vTypes(x).includes(ln.type) ? { ...x, base: v } : x));
+      persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, base: v } : l) } : c));
+    },
     onPatchLoan: (cid, lid, patch) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, ...patch } : l) } : c))
   }))), open && /*#__PURE__*/React.createElement(Detail, {
     onlyType: ["house", "car", "personal"].includes(page) ? page : null,
@@ -9351,7 +9356,12 @@ function TypePage({
     style: S.td
   }, tpPerson(l.agent)), /*#__PURE__*/React.createElement("td", {
     style: S.td
-  }, basePill(l.base, "跟着 Verify")), /*#__PURE__*/React.createElement("td", {
+  }, onSetBase ? React.createElement("select", {
+    value: l.base || "", title: "BASE（会一起更新 Verify）",
+    onClick: e => e.stopPropagation(), onDoubleClick: e => e.stopPropagation(),
+    onChange: e => onSetBase(c.id, l.id, e.target.value),
+    style: l.base ? czPill(baseHue(l.base), { padding: "3px 6px", fontSize: 12, fontWeight: 800, cursor: "pointer", border: "none", outline: "none", maxWidth: 130, fontFamily: "inherit" }) : { padding: "3px 6px", fontSize: 12, color: "#94a3b8", border: "1px dashed #cbd5e1", borderRadius: 999, background: "#fff", cursor: "pointer", fontFamily: "inherit" }
+  }, React.createElement("option", { value: "" }, "—"), (l.base && !LOAN_BASES.includes(l.base) ? [l.base] : []).concat(LOAN_BASES).map(b => React.createElement("option", { key: b, value: b }, baseLabel(b).toUpperCase()))) : basePill(l.base, "跟着 Verify")), /*#__PURE__*/React.createElement("td", {
     style: c.flag ? {
       ...S.td,
       ...S.tdName,
