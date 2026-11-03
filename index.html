@@ -1695,7 +1695,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "270";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "271";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5470,7 +5470,7 @@ const SL_KEYS = ["build", "stop", "new", "net"];
 /* ---------- Bank Statement（每个 Salary 客户一份）：Charges & Fees / CHQ Date + Credited / 收回的钱 ---------- */
 const BS_FEES = ["EPF =3m", "SOCSO =3m", "EIS =3m", "TAX =3m", "CHQ FEES"];
 const bsTot = (rows, k) => (rows || []).reduce((a, x) => a + lsNum(x[k || "amount"]), 0);
-const bsBalance = bs => { if (!bs) return null; return bsTot(bs.credits) + bsTot(bs.fees) - bsTot(bs.received); };   /* Balance 不算 Backdate */
+const bsBalance = bs => { if (!bs) return null; return bsTot(bs.credits) - bsTot(bs.received); };   /* Balance 不算 Backdate（以前的 Fees EPF=3m 等也是 Backdate，不算） */
 function BankStmtModal({ c, banks, onSave, onClose }) {
   const h = React.createElement;
   const init = c.bankStmt || {};
@@ -5490,7 +5490,7 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
   const box = (title, color, kids, total) => h("div", { style: { flex: "1 1 260px", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", minWidth: 0 } },
     h("div", { style: { background: color, padding: "6px 10px", fontWeight: 900, fontSize: 12.5, color: "#1e293b", display: "flex" } }, h("span", { style: { flex: 1 } }, title), total != null && h("span", null, lsFmt(total))),
     h("div", { style: { padding: 8, display: "flex", flexDirection: "column", gap: 5 } }, kids));
-  const tC = bsTot(d.credits), tF = bsTot(d.fees), tR = bsTot(d.received), bal = tC + tF - tR;
+  const tC = bsTot(d.credits), tF = bsTot(d.fees), tR = bsTot(d.received), bal = tC - tR;
   const stopAt = d.credits.findIndex(x => x.stop);
   return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 12px", overflowY: "auto" } },
     h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 1000, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
@@ -5539,6 +5539,10 @@ const BS_START_OPTS = [
   { k: "purple", t: "BACKDATE EPF/SOCSO , START SALARY ON", c: "#6b21a8", bg: "#faf5ff" },
   { k: "blue", t: "PAYSLIP BANKSTATEMENT , START SALARY ON", c: "#1e3a8a", bg: "#eff6ff" }];
 const bsIso2Dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); return m ? m[3] + "/" + m[2] + "/" + m[1] : (v || ""); };
+/* 日期统一成 dd/mm/yyyy（11/08/26、2026-08-11、1/8/2026 都可以） */
+const bsNormDmy = v => { const t = String(v || "").trim(); let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t); if (m) return m[3].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + m[1];
+  m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(t); if (m) return m[1].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + (m[3].length === 2 ? "20" + m[3] : m[3]); return t; };
+const bsSalKey = n => { const u = String(n || "").trim().toUpperCase(), m = /^SALARY - (.+)$/.exec(u); return m ? "SALARY - " + bsNormDmy(m[1]) : u; };
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
 /* ---------- 薪水计算（Bank Statement 的 Credited 格子点进去）---------- */
@@ -5796,7 +5800,8 @@ function costSyncData(data, p, L) {
   if (!data || !data.parts) return null;
   const parts = {}; Object.keys(data.parts).forEach(k => parts[k] = (data.parts[k] || []).map(r => ({ ...r })));
   const N = r => String(r.name || "").trim().toUpperCase();
-  const mon = {}; ((p && p.months) || []).forEach(m => { mon["SALARY - " + m.date] = m; });
+  ["partABody", "partCBody"].forEach(b => (parts[b] || []).forEach(r => { const k = bsSalKey(r.name); if (/^SALARY - /.test(k) && k !== N(r)) r.name = k; }));
+  const mon = {}; ((p && p.months) || []).forEach(m => { mon["SALARY - " + bsNormDmy(m.date)] = m; });
   const la = {}, laa = {}; if (L) { L.a.forEach(x => la[x.name] = x); L.aa.forEach(x => laa[x.name] = x); }
   ["partABody", "partCBody"].forEach(b => (parts[b] || []).forEach(r => { const n = N(r);
     if (mon[n] && r.amt !== mon[n].amt) r.amt = mon[n].amt;
@@ -5874,10 +5879,10 @@ function BsPeopleLoader() {
         cr.forEach((x, i) => { if (!x || (stopAt >= 0 && i >= stopAt) || !x.date) return;
           const cc0 = ((bs.credits || []).find(y => y && y.calc) || {}).calc;
           const o = x.calc ? bsCalcOut(x.calc) : cc0 ? bsCalcOut(cc0) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null); if (!o) return;
-          const ds = String(x.date).trim(), dt = /^\d{4}-\d{2}-\d{2}/.test(ds) ? bsIso2Dmy(ds.slice(0, 10)) : ds.replace(/[.\-]/g, "/");
+          const dt = bsNormDmy(x.date);
           months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: !!x.costed }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
-      let bal = ""; try { const v = bsTot(bs.credits) + bsTot(bs.fees) - bsTot(bs.received) - rcSum(p.name); if (bsTot(bs.credits) || bsTot(bs.fees)) bal = lsFmt(v); } catch (e) {}
+      let bal = ""; try { const v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name); if (bsTot(bs.credits)) bal = lsFmt(v); } catch (e) {}
       out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
@@ -5893,11 +5898,11 @@ async function bsMarkCosted(clientName, data) {
     const p = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k); if (!p || !p.store) return;
     /* Part A 的月份 → 浅黄色（"a"）；后来加进 Part A.A（+10%）的 → 浅青色（"aa"） */
     const dates = new Map();
-    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (\d{2}\/\d{2}\/\d{4})$/.exec(String(r.name || "").trim().toUpperCase()); if (m) dates.set(bsDmy2Iso(m[1]), b === "partABody" ? "a" : "aa"); }));
+    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (.+)$/.exec(bsSalKey(r.name)); if (m) dates.set(m[1], b === "partABody" ? "a" : "aa"); }));
     if (!dates.size) return;
     const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
     let ch = false;
-    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { const want = x && dates.get(x.date); if (want && (x.costed === true ? "a" : x.costed) !== want) { ch = true; return { ...x, costed: want, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
+    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { const want = x && dates.get(bsNormDmy(x.date)); if (want && (x.costed === true ? "a" : x.costed) !== want) { ch = true; return { ...x, costed: want, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
     if (!ch) return;
     await DB.set(p.store, JSON.stringify(next));
     try { _clMem[p.store] = next; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: p.store, next } })); } catch (e) {}
@@ -5975,7 +5980,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
   const bdFee = d.backdate ? bsBackdate(d.backdate).fee : 0;
-  const tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = tC + bsTot(d.fees) - tR;   /* Balance 不算 Backdate */
+  const tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = tC - tR;   /* Balance 不算 Backdate（以前的 Fees 也不算） */
   const trs = [];
   /* 最上面：START SALARY ON 选择（选了之后字还可以手动改） */
   const ST_OPT = BS_START_OPTS, so = ST_OPT.find(o => o.k === d.startType);
@@ -6011,8 +6016,8 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
-      h("td", { style: { ...cell, minWidth: 100, ...(c && c.costed ? { background: c.costed === "aa" ? "#cffafe" : "#fef9c3" } : {}) }, title: c && c.costed ? (c.costed === "aa" ? "已经放进 PL Costing Part 的 Part A.A（+10%）" : "已经放进 PL Costing Part") : undefined }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined, ...(c && c.costed ? { background: c.costed === "aa" ? "#cffafe" : "#fef9c3" } : {}) } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
+      h("td", { style: { ...cell, minWidth: 100, ...(c && c.costed ? { background: c.costed === "aa" ? "#bfdbfe" : "#fef9c3" } : {}) }, title: c && c.costed ? (c.costed === "aa" ? "已经放进 PL Costing Part 的 Part A.A（+10%）" : "已经放进 PL Costing Part") : undefined }, k === 0 ? hdr("DATE") : ci <= credits.length ? dt(c && c.date, v => setRow("credits", ci, "date", v)) : ""),
+      h("td", { style: { ...cell, minWidth: 110, color: c && c.stop ? "#dc2626" : undefined, ...(c && c.costed ? { background: c.costed === "aa" ? "#bfdbfe" : "#fef9c3" } : {}) } }, k === 0 ? h("div", { onClick: () => setBdOpen(true), title: "点进去填 BACKDATE（EPF / SOCSO / EIS × 月 × %）", style: { cursor: "pointer", textAlign: "right", fontWeight: 900, fontSize: 13, color: d.backdate ? "#6b21a8" : "#cbd5e1", whiteSpace: "nowrap" } }, d.backdate ? "BACKDATE " + lsFmt(bsBackdate(d.backdate).fee) : "＋ BACKDATE") : ci > credits.length ? "" :
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           c && (c.date || c.amount) && h("button", { title: c.stop ? "取消 Stop Salary" : "从这一行开始 Stop Salary", onClick: () => { const nx = { ...d, credits: d.credits.map((y, j) => ({ ...y, stop: j === ci ? !c.stop : false })) }; setD(nx); commit(nx); }, style: { border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: 11, opacity: c.stop ? 1 : .25 } }, "⛔"),
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
