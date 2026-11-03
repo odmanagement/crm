@@ -892,12 +892,20 @@ if(saved && saved.parts){
       if(L) L.aa.forEach(function(x){ addAuto('partCBody',x.name,x.amt,x.pct); });
       if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); }
     } else {
+      /* 旧的 Costing：第一次存档的月份放错在 Part A.A（全部蓝色）→ 最早那一批搬回 Part A（没有 ×） */
+      var moved=0;
+      if(!rowsOf('partABody').some(function(tr){ return /^SALARY - /.test(nameOf(tr)); }) && !mon.some(function(m){ return m.costed==='a'; })){
+        var mm={}; mon.forEach(function(m){ mm['SALARY - '+normDmy(m.date)]=m; });
+        var blue=rowsOf('partCBody').filter(function(tr){ var m=mm[nameOf(tr)]; return m && m.costed==='aa'; });
+        if(blue.length){ var t0=Math.min.apply(null, blue.map(function(tr){ return mm[nameOf(tr)].costedAt||0; }));
+          var done={}; blue.forEach(function(tr){ var n=nameOf(tr), m=mm[n]; if((m.costedAt||0)<=t0+120000 && !done[n]){ done[n]=1; var a=tr.querySelector('.amt-input'); addAuto('partABody',n,a?a.value:m.amt); moved++; } tr.remove && (m.costedAt||0)<=t0+120000 && tr.remove(); }); }
+      }
       /* Part A.A：重复的月份删掉；黄色（已经在 Part A 算过）的不放这里 */
       var costedA={}; mon.forEach(function(m){ if(m.costed==='a') costedA['SALARY - '+normDmy(m.date)]=1; });
       var seenC={}; rowsOf('partABody').forEach(function(tr){ if(/^SALARY - /.test(nameOf(tr))) seenC[nameOf(tr)]=1; });
       var removed=0; rowsOf('partCBody').forEach(function(tr){ var n=nameOf(tr); if(!/^SALARY - /.test(n)) return; if(seenC[n] || (tr.dataset.auto==='1' && costedA[n])){ tr.remove(); removed++; } else seenC[n]=1; });
       var newMon=mon.filter(function(m){ return !m.costed; });
-      var added=removed, aHas=rowsOf('partABody').some(function(tr){ return /^SALARY - /.test(nameOf(tr)); });
+      var added=removed+moved, aHas=rowsOf('partABody').some(function(tr){ return /^SALARY - /.test(nameOf(tr)); });
       if(newMon.length && !aHas && newMon.length===mon.length){
         rowsOf('partCBody').forEach(function(tr){ if(/^SALARY - /.test(nameOf(tr))) tr.remove(); });
         newMon.forEach(function(m){ addAuto('partABody','SALARY - '+normDmy(m.date),m.amt); added++; });
