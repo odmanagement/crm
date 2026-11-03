@@ -612,7 +612,91 @@ const DB = {
   /* ===== 大清单拆开存：form_drafts（全部表格存档）每一份存成自己一行 "fdraft:<id>"
      以前整个清单是一行，很大（有照片），常常存不进去 / 被别人的旧版本盖掉 → 别人看不到、刷新不见。
      现在只写有改动的那几份；别人的新存档不会被我盖掉。 ===== */
+  /* ===== 照片 / PDF 搬去 Supabase Storage（bucket "crm-files"，私人）=====
+     存进数据库前：大的 data:...;base64 → 上传 Storage，资料里只留 "sbfile://文件名"（数据库变轻，不会 timeout）
+     读出来时：再把 "sbfile://..." 下载回来换成原本的照片，所以系统其他地方完全不用改。
+     Storage 还没开 / 上传失败 → 照旧存在数据库，不会坏。 */
+  _fb: "crm-files",
+  _offMap: new Map(),      /* data → "sbfile://..." */
+  _inMap: new Map(),       /* "sbfile://..." → Promise(data) */
+  _offOff: 0,              /* 上传失败后暂停到这个时间 */
+  _b64Blob(b64, mime) { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type: mime }); },
+  async _hash(str) { const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)); return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join(""); },
+  async _offOne(du) {
+    if (this._offMap.has(du)) return this._offMap.get(du);
+    if (Date.now() < this._offOff) return null;
+    const m = /^data:([\w.+-]+\/[\w.+-]+);base64,(.*)$/s.exec(du); if (!m) return null;
+    const mime = m[1].toLowerCase(), name = (await this._hash(du)) + "--" + mime.replace("/", "_");
+    try {
+      await this._pick(); const s = this._init();
+      const { error } = await s.storage.from(this._fb).upload(name, this._b64Blob(m[2], mime), { contentType: mime, upsert: false, cacheControl: "31536000" });
+      if (error && !/exist|duplicate|409/i.test(String(error.message || error.error || "") + " " + String(error.statusCode || ""))) { console.warn("Storage upload", error); this._offOff = Date.now() + 10 * 60000; return null; }
+    } catch (e) { console.warn("Storage upload", e); this._offOff = Date.now() + 10 * 60000; return null; }
+    const ref = "sbfile://" + name;
+    this._offMap.set(du, ref); if (!this._inMap.has(ref)) this._inMap.set(ref, Promise.resolve(du));
+    return ref;
+  },
+  async _off(v) {
+    if (typeof v !== "string" || v.length < 20000 || v.indexOf("data:") < 0) return v;
+    const re = /data:[\w.+-]+\/[\w.+-]+;base64,[A-Za-z0-9+\/=]{15000,}/g, found = Array.from(new Set(v.match(re) || []));
+    if (!found.length) return v;
+    let out = v;
+    for (const du of found) { const ref = await this._offOne(du); if (ref) out = out.split(du).join(ref); }
+    return out;
+  },
+  async _inOne(ref) {
+    if (!this._inMap.has(ref)) this._inMap.set(ref, (async () => {
+      const name = ref.slice(9), mime = (name.split("--")[1] || "application/octet-stream").replace("_", "/");
+      for (let i = 0; i < 3; i++) {
+        try { await this._pick(); const { data, error } = await this._init().storage.from(this._fb).download(name); if (error) throw error;
+          const du = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(data); });
+          const full = "data:" + mime + ";base64," + String(du).split(",")[1]; this._offMap.set(full, ref); return full;
+        } catch (e) { await new Promise(r => setTimeout(r, 600 * (i + 1))); }
+      }
+      this._inMap.delete(ref); return null;
+    })());
+    return this._inMap.get(ref);
+  },
+  async _in(v) {
+    if (typeof v !== "string" || v.indexOf("sbfile://") < 0) return v;
+    const refs = Array.from(new Set(v.match(/sbfile:\/\/[A-Za-z0-9_.+-]+/g) || []));
+    let out = v;
+    for (let i = 0; i < refs.length; i += 6) {
+      const got = await Promise.all(refs.slice(i, i + 6).map(r => this._inOne(r)));
+      got.forEach((d, j) => { if (d) out = out.split(refs[i + j]).join(d); });
+    }
+    return out;
+  },
+  /* 以前存的照片：背景慢慢搬去 Storage（一次一行，同一时间只有一台电脑在搬），全部搬好就不再做 */
+  async migrateFiles() {
+    if (!useCloud || isReadOnlyUser()) return;
+    try {
+      await this._pick(); const s = this._init();
+      if (await this._rawGet("filemig_done")) return;
+      const me = (() => { try { let v = localStorage.getItem("crm_filemig_id"); if (!v) { v = Math.random().toString(36).slice(2); localStorage.setItem("crm_filemig_id", v); } return v; } catch (e) { return "x"; } })();
+      const lockOk = async () => { const l = await this._rawGet("filemig_lock"); let o = null; try { o = l ? JSON.parse(l) : null; } catch (e) {}
+        if (o && o.by !== me && Date.now() - (o.at || 0) < 15 * 60000) return false;
+        await s.from("crm_store").upsert({ key: "filemig_lock", value: JSON.stringify({ by: me, at: Date.now() }) }, { onConflict: "key" }); return true; };
+      if (!(await lockOk())) return;
+      let keys = [], from = 0;
+      while (true) { const { data, error } = await s.from("crm_store").select("key").order("key").range(from, from + 499); if (error) return; keys = keys.concat((data || []).map(r => r.key)); if (!data || data.length < 500) break; from += 500; }
+      keys = keys.filter(k => !/^(filemig_|celeb_seen_)/.test(k) && !/_meta$/.test(k));
+      let n = 0;
+      for (const k of keys) {
+        if (Date.now() < this._offOff) return;   /* Storage 还不能用 → 下次再搬 */
+        if (++n % 15 === 0 && !(await lockOk())) return;
+        const v = await this._rawGet(k); if (typeof v !== "string" || v.length < 20000 || v.indexOf("data:") < 0) continue;
+        const nv = await this._off(v); if (nv === v) continue;
+        const again = await this._rawGet(k); if (again !== v) continue;   /* 刚好有人在改 → 跳过，下次再搬 */
+        this._noteSent(k, nv);
+        const { error } = await s.from("crm_store").upsert({ key: k, value: nv }, { onConflict: "key" }); if (error) return;
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      if (Date.now() >= this._offOff) await s.from("crm_store").upsert({ key: "filemig_done", value: JSON.stringify({ at: new Date().toISOString(), n: keys.length }) }, { onConflict: "key" });
+    } catch (e) { console.warn("migrateFiles", e); }
+  },
   _split: { form_drafts: "fdraft:" },
+  _splitArr: {},
   _known: {},
   _splitQ: {},
   _delSent: {},
@@ -631,14 +715,15 @@ const DB = {
       this._known[key] = new Map(arr.filter(x => x && x.id).map(x => [x.id, JSON.stringify(x)]));
       return legacy;
     }
-    let all = [], from = 0;
+    /* 一次拿少一点（有照片的 Costing 很大，Nano 数据库一次拿太多会 statement timeout）；失败就拿更少再试 */
+    let all = [], from = 0, size = 30, fails = 0;
     while (true) {
-      const { data, error } = await s.from("crm_store").select("key,value").like("key", pre + "%").range(from, from + 199);
-      if (error) { console.error(error); return null; }
-      all = all.concat(data || []); if (!data || data.length < 200) break; from += 200;
+      const { data, error } = await s.from("crm_store").select("key,value").like("key", pre + "%").order("key").range(from, from + size - 1);
+      if (error) { console.error(error); if (++fails > 4) return null; size = Math.max(3, Math.floor(size / 2)); await new Promise(r => setTimeout(r, 800 * fails)); continue; }
+      all = all.concat(data || []); if (!data || data.length < size) break; from += data.length;
     }
     const known = new Map(), arr = [];
-    all.forEach(r => { if (!r.key.startsWith(pre) || r.key === pre + "_meta") return; try { const x = JSON.parse(r.value); if (x && x.id) { arr.push(x); known.set(x.id, r.value); } } catch (e) {} });
+    for (const r of all) { if (!r.key.startsWith(pre) || r.key === pre + "_meta") continue; try { const x = JSON.parse(await this._in(r.value)); if (x && x.id) { arr.push(x); known.set(x.id, r.value); } } catch (e) {} }
     /* 搬家后 3 天内：还没更新的电脑可能还在写旧的那一行 → 把旧行里新加的补进来 */
     try { const mt = Date.parse(JSON.parse(meta).migratedAt) || 0;
       if (Date.now() - mt < 3 * 864e5 && !isReadOnlyUser()) {
@@ -647,7 +732,7 @@ const DB = {
         for (const x of add) { const v = JSON.stringify(x); const { error } = await s.from("crm_store").upsert({ key: pre + x.id, value: v }, { onConflict: "key" }); if (!error) { arr.push(x); known.set(x.id, v); } }
       } } catch (e) {}
     arr.sort((a, b) => (b.at || 0) - (a.at || 0));
-    this._known[key] = known;
+    this._known[key] = known; this._splitArr[key] = arr;
     return JSON.stringify(arr);
   },
   _splitSet(key, value) {
@@ -657,12 +742,13 @@ const DB = {
       await this._pick(); const s = this._init();
       const known = this._known[key];   /* 还没从云端读过 → 只加 / 改，不删 */
       const ups = [], seen = new Set();
-      arr.forEach(x => { if (!x || !x.id) return; seen.add(x.id); const v = JSON.stringify(x); if (!known || known.get(x.id) !== v) ups.push({ key: pre + x.id, value: v }); });
+      this._splitArr[key] = arr.filter(x => x && x.id);
+      for (const x of arr) { if (!x || !x.id) continue; seen.add(x.id); const v = await this._off(JSON.stringify(x)); if (!known || known.get(x.id) !== v) ups.push({ key: pre + x.id, value: v }); }
       const dels = known ? Array.from(known.keys()).filter(id => !seen.has(id)) : [];
       let ok = true;
       for (const r of ups) { this._noteSent(r.key, r.value); const { error } = await s.from("crm_store").upsert(r, { onConflict: "key" }); if (error) { ok = false; console.error(error); crmSaveFail(error); } else if (known) known.set(r.key.slice(pre.length), r.value); }
       for (const id of dels) { this._delSent[pre + id] = Date.now(); const { error } = await s.from("crm_store").delete().eq("key", pre + id); if (error) { ok = false; console.error(error); } else known.delete(id); }
-      if (!known && ok) this._known[key] = new Map(arr.filter(x => x && x.id).map(x => [x.id, JSON.stringify(x)]));
+      if (!known && ok) this._known[key] = new Map(ups.map(r => [r.key.slice(pre.length), r.value]));
     };
     const p = (this._splitQ[key] || Promise.resolve()).then(job, job);
     this._splitQ[key] = p.catch(() => {});
@@ -681,7 +767,7 @@ const DB = {
         console.error(error);
         return null;
       }
-      return data ? data.value : null;
+      return data ? await this._in(data.value) : null;
     }
     return localStorage.getItem("crm_" + key);
   },
@@ -715,7 +801,8 @@ const DB = {
             try {
               await this._pick();
               const s = this._init();
-              const { error } = await s.from("crm_store").upsert({ key, value: v }, { onConflict: "key" });
+              const v2 = await this._off(v); if (v2 !== v) this._noteSent(key, v2);
+              const { error } = await s.from("crm_store").upsert({ key, value: v2 }, { onConflict: "key" });
               if (error) { console.error(error); crmSaveFail(error); }
             } catch (e) { console.error(e); }
             ws.forEach(r => r());
@@ -756,13 +843,25 @@ const DB = {
           if (sk) {   /* 拆开存的清单：别人改了其中一份 → 重新读整个清单 */
             if (String(key).endsWith("_meta")) return;
             if (payload.eventType === "DELETE" ? (Date.now() - (this._delSent[key] || 0) < 20000) : (row.value != null && this._isEcho(key, row.value))) return;
+            /* 只更新改了的那一份，不用整个清单重新读（数据库轻很多） */
+            const cur = this._splitArr[sk], kn = this._known[sk], id = String(key).slice(this._split[sk].length);
+            if (cur && kn) {
+              let nv = null;
+              if (payload.eventType !== "DELETE") { const raw = row.value != null ? row.value : await this._rawGet(key); if (raw == null) return; if (kn.get(id) === raw) return; try { nv = JSON.parse(await this._in(raw)); } catch (e) { return; } kn.set(id, raw); }
+              else { if (!kn.has(id)) return; kn.delete(id); }
+              const arr = cur.filter(x => x.id !== id); if (nv && nv.id) arr.push(nv);
+              arr.sort((a, b) => (b.at || 0) - (a.at || 0)); this._splitArr[sk] = arr;
+              const out = JSON.stringify(arr); this._listeners.forEach(fn => { try { fn(sk, out); } catch (e) {} });
+              return;
+            }
             clearTimeout(this["_t_" + sk]);
             this["_t_" + sk] = setTimeout(async () => { try { const v = await this.get(sk); if (v != null) this._listeners.forEach(fn => { try { fn(sk, v); } catch (e) {} }); } catch (e) {} }, 700);
             return;
           }
           if (this._queue[key] && this._queue[key].running) return; // 自己还在保存中，忽略
           let v = row.value;
-          if (v == null) v = await this.get(key);
+          if (v != null && this._isEcho(key, v)) return;
+          if (v == null) v = await this.get(key); else v = await this._in(v);
           if (v == null || this._isEcho(key, v)) return; // 自己刚存的回音，忽略
           this._listeners.forEach(fn => { try { fn(key, v); } catch (e) {} });
         } catch (e) {}
@@ -1585,7 +1684,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "265";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "267";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -2954,6 +3053,7 @@ function App() {
   });
 }
 function CRM({ onLogout, currentUser }) {
+  React.useEffect(() => { const t = setTimeout(() => { try { DB.migrateFiles(); } catch (e) {} }, 40000); return () => clearTimeout(t); }, []);   /* 以前的照片慢慢搬去 Storage */
   const [clients, setClients] = useState([]);
   const [verifications, setVerifications] = useState([]);
   const [bankers, setBankers] = useState([]);
