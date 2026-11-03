@@ -1695,7 +1695,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "271";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "272";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5809,15 +5809,18 @@ function costSyncData(data, p, L) {
     if (r.auto && b === "partCBody" && laa[n]) { if (r.amt !== laa[n].amt) r.amt = laa[n].amt; if (laa[n].pct !== "" && r.mult !== laa[n].pct) r.mult = laa[n].pct; } }));
   const isSal = r => /^SALARY - /.test(N(r));
   const A = parts.partABody = parts.partABody || [], C = parts.partCBody = parts.partCBody || [];
+  /* Part A.A：同一个月重复的删掉；已经是黄色（别的 Costing Part A 算过）的月份不放这里 */
+  { const seenC = new Set(A.filter(isSal).map(N)); for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r)) continue; const n = N(r);
+      if (seenC.has(n) || (r.auto && mon[n] && mon[n].costed === "a")) { C.splice(i, 1); i--; } else seenC.add(n); } }
   const putA = row => { const i = A.findIndex(r => r.pinned); if (i >= 0) A.splice(i, 0, row); else A.push(row); };
-  if (Object.keys(mon).length && !A.some(isSal)) {
+  if (Object.keys(mon).length && !A.some(isSal) && !Object.keys(mon).some(n => mon[n].costed)) {   /* 还没有算过任何月份 → 全部放 Part A */
     /* 这份 Costing 还没有每个月的 SALARY（旧的 / 以前只填 EPF、SOCSO）→ 全部月份放进 Part A，没有 × 格子；EPF / SOCSO 那两行清空 */
     for (let i = C.length - 1; i >= 0; i--) if (isSal(C[i])) C.splice(i, 1);
-    Object.keys(mon).forEach(n => putA({ name: n, amt: mon[n].amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }));
+    Object.keys(mon).filter(n => !mon[n].costed).forEach(n => putA({ name: n, amt: mon[n].amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }));
     A.forEach(r => { if (/^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && r.amt) r.amt = ""; });
   } else {
     const have = new Set([...A, ...C].map(N));
-    Object.keys(mon).forEach(n => { if (!have.has(n)) C.push({ name: n, amt: mon[n].amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); });
+    Object.keys(mon).forEach(n => { if (!have.has(n) && !mon[n].costed) C.push({ name: n, amt: mon[n].amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); });
   }
   /* BACKDATE 跟着 Bank Statement → 没有 × 格子 */
   if (p && p.bd) A.forEach(r => { if (/^BACKDATE EPF\/SOCSO$/.test(N(r))) { if (r.amt !== p.bd) r.amt = p.bd; if (r.hasMult !== false) { r.hasMult = false; r.mult = ""; } r.auto = true; } });
@@ -5880,7 +5883,7 @@ function BsPeopleLoader() {
           const cc0 = ((bs.credits || []).find(y => y && y.calc) || {}).calc;
           const o = x.calc ? bsCalcOut(x.calc) : cc0 ? bsCalcOut(cc0) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null); if (!o) return;
           const dt = bsNormDmy(x.date);
-          months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: !!x.costed }); }); } catch (e) {}
+          months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || "") }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
       let bal = ""; try { const v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name); if (bsTot(bs.credits)) bal = lsFmt(v); } catch (e) {}
       out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
@@ -5902,7 +5905,8 @@ async function bsMarkCosted(clientName, data) {
     if (!dates.size) return;
     const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
     let ch = false;
-    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { const want = x && dates.get(bsNormDmy(x.date)); if (want && (x.costed === true ? "a" : x.costed) !== want) { ch = true; return { ...x, costed: want, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
+    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { const want = x && dates.get(bsNormDmy(x.date)); if (want && !x.costed) {   /* 已经有颜色的不改（黄色不会被盖成蓝色） */
+ ch = true; return { ...x, costed: want, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
     if (!ch) return;
     await DB.set(p.store, JSON.stringify(next));
     try { _clMem[p.store] = next; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: p.store, next } })); } catch (e) {}
@@ -9344,10 +9348,12 @@ function TypePage({
     "data-rid": l.id,   /* House / Personal / Car 一样：点一下整行 highlight，点两下打开 */
     onDoubleClick: () => { try { window.getSelection().removeAllRanges(); } catch (e) {} onOpen(c.id); }
   }, /*#__PURE__*/React.createElement("td", {
-    style: {
-      ...S.td,
-      ...S.tdNumCol
-    }
+    /* Personal / Car：点号码 → 紫色 = 已经 Close；再点一次取消 */
+    className: isP && l.closedMark ? "tp-closed" : undefined,
+    style: isP && l.closedMark ? { ...S.td, ...S.tdNumCol, background: "#7c3aed", color: "#fff", fontWeight: 900, cursor: "pointer" } : { ...S.td, ...S.tdNumCol, ...(isP ? { cursor: "pointer" } : {}) },
+    title: isP ? (l.closedMark ? "已 Close（点一下取消）" : "点一下 = 已 Close（变紫色）") : undefined,
+    onClick: isP && onPatchLoan ? e => { e.stopPropagation(); onPatchLoan(c.id, l.id, { closedMark: l.closedMark ? null : { by: canonUser(window.__crmUser || ""), at: Date.now() } }); } : undefined,
+    onDoubleClick: isP ? e => e.stopPropagation() : undefined
   }, _i + 1), /*#__PURE__*/React.createElement("td", {
     style: S.td,
     onClick: e => e.stopPropagation()
@@ -12539,6 +12545,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .cz-table tbody tr td { transition: background .15s; border-color: #eef0fb !important; }
 .cz-table tbody tr:nth-child(even) td { background: #fbfaff; }
 .cz-table tbody tr:hover td { background: #f3f0ff !important; }
+.cz-table tbody tr td.tp-closed, .cz-table tbody tr:hover td.tp-closed { background: #7c3aed !important; color: #fff !important; font-weight: 900; }
 .cz-table select, .cz-table input { cursor: pointer; }
 .tp-wrap { border-radius: 16px !important; overflow: auto !important; box-shadow: 0 12px 34px -14px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
 .tp-table tbody tr { cursor: pointer; }

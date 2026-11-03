@@ -882,7 +882,8 @@ if(saved && saved.parts){
     var mon=(p && p.months) || [];
     if(fresh){
       ['partABody','partCBody','partSalBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ if((tr.dataset.auto==='1' && !/^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/.test(nameOf(tr))) || (id==='partABody' && /^SALARY - /.test(nameOf(tr)))) tr.remove(); }); });
-      mon.forEach(function(m){ addAuto('partABody','SALARY - '+normDmy(m.date),m.amt); });
+      var anyCosted=mon.some(function(m){ return m.costed; });
+      mon.forEach(function(m){ if(m.costed) return; if(anyCosted) addAuto('partCBody','SALARY - '+normDmy(m.date),m.amt,'10'); else addAuto('partABody','SALARY - '+normDmy(m.date),m.amt); });
       rowsOf('partABody').forEach(function(tr){ var n=nameOf(tr), a=tr.querySelector('.amt-input'); if(!a) return;
         if(/^BACKDATE EPF\/SOCSO$/.test(n) && p && p.bd) swapNoX(tr,p.bd);
         else if(!mon.length && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);
@@ -891,14 +892,19 @@ if(saved && saved.parts){
       if(L) L.aa.forEach(function(x){ addAuto('partCBody',x.name,x.amt,x.pct); });
       if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); }
     } else {
-      var added=0, aHas=rowsOf('partABody').some(function(tr){ return /^SALARY - /.test(nameOf(tr)); });
-      if(mon.length && !aHas){
+      /* Part A.A：重复的月份删掉；黄色（已经在 Part A 算过）的不放这里 */
+      var costedA={}; mon.forEach(function(m){ if(m.costed==='a') costedA['SALARY - '+normDmy(m.date)]=1; });
+      var seenC={}; rowsOf('partABody').forEach(function(tr){ if(/^SALARY - /.test(nameOf(tr))) seenC[nameOf(tr)]=1; });
+      var removed=0; rowsOf('partCBody').forEach(function(tr){ var n=nameOf(tr); if(!/^SALARY - /.test(n)) return; if(seenC[n] || (tr.dataset.auto==='1' && costedA[n])){ tr.remove(); removed++; } else seenC[n]=1; });
+      var newMon=mon.filter(function(m){ return !m.costed; });
+      var added=removed, aHas=rowsOf('partABody').some(function(tr){ return /^SALARY - /.test(nameOf(tr)); });
+      if(newMon.length && !aHas && newMon.length===mon.length){
         rowsOf('partCBody').forEach(function(tr){ if(/^SALARY - /.test(nameOf(tr))) tr.remove(); });
-        mon.forEach(function(m){ addAuto('partABody','SALARY - '+normDmy(m.date),m.amt); added++; });
+        newMon.forEach(function(m){ addAuto('partABody','SALARY - '+normDmy(m.date),m.amt); added++; });
         rowsOf('partABody').forEach(function(tr){ var n=nameOf(tr), a=tr.querySelector('.amt-input'); if(a && /^(EPF|SOCSO\/EIS\/PCB)$/.test(n)) a.value=''; });
       } else {
         var have={}; ['partABody','partCBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ have[nameOf(tr)]=1; }); });
-        mon.forEach(function(m){ var n='SALARY - '+normDmy(m.date); if(!have[n]){ addAuto('partCBody',n,m.amt,'10'); added++; } });
+        newMon.forEach(function(m){ var n='SALARY - '+normDmy(m.date); if(!have[n]){ addAuto('partCBody',n,m.amt,'10'); added++; } });
       }
       if(!added) return;
     }
