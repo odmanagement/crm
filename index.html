@@ -928,6 +928,17 @@ const STAGES = [{
   color: "#dc2626"
 }];
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0];
+/* 进度自动跟着 Bank Submissions：
+   有一家 Disbursed → Disbursed；有一家 Approved → Approved；有 Submitted / Pending / Hold On → Pending；
+   全部都是 Rejected / Unable Apply / Fraud → Rejected；还没有银行状态 → 维持原本（New / Collecting Docs） */
+const autoStage = l => {
+  if (!l) return l;
+  const st = (l.banks || []).map(b => b && b.status).filter(Boolean);
+  if (!st.length) return l;
+  const ns = st.includes("disbursed") ? "disbursed" : st.includes("approved") ? "approved" : st.some(x => ["submitted", "pending", "holdon"].includes(x)) ? "pending" : st.every(x => ["rejected", "unable", "fraud"].includes(x)) ? "rejected" : null;
+  return ns && ns !== l.stage ? { ...l, stage: ns } : l;
+};
+const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
 const APP_BUILD = "20261005073609";
 (function autoUpdate() {
@@ -1684,7 +1695,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "267";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "268";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3102,7 +3113,8 @@ function CRM({ onLogout, currentUser }) {
             return l;
           })
         }));
-        if (migrated) {
+        { const au = autoStageClients(list); if (au !== list) { list = au; migrated = true; } }
+        if (migrated && !isReadOnlyUser()) {
           try {
             await DB.set("clients", JSON.stringify(list));
           } catch (e) {}
@@ -3254,6 +3266,7 @@ function CRM({ onLogout, currentUser }) {
   };
   const persist = async next => {
     next = next.map(c => c && c.ic && fmtIC(c.ic) !== c.ic ? { ...c, ic: fmtIC(c.ic) } : c);
+    next = autoStageClients(next);
     ensureDailyBackup({ clients, missions, bankers, verifications });
     setClients(next);
     setSaving(true);
