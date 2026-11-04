@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "287";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "288";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5879,7 +5879,13 @@ function CostingAutoSync({ currentUser }) {
         changed = true; marks.push([k, nd]);
         return { ...d, native: { ...d.native, data: nd, saved: new Date().toISOString() }, at: Date.now() };
       });
-      if (changed) saveDrafts(next);   /* 颜色只在按「存档」后才变（黄色 = Part A，蓝色 = Part A.A） */
+      if (changed) {   /* 颜色只在按「存档」后才变（黄色 = Part A，蓝色 = Part A.A） */
+        /* 只改有变动的那几份，套在「最新」的清单上（不会用旧的清单盖掉刚存的 / 不会多出或少掉存档） */
+        const upd = new Map(); next.forEach((d, i) => { if (d !== drafts[i] && d && d.id) upd.set(d.id, d); });
+        const latest = Array.isArray(_clMem["form_drafts"]) ? _clMem["form_drafts"] : drafts;
+        const merged = latest.map(x => { const u = x && upd.get(x.id); if (!u) return x; const o = drafts.find(y => y && y.id === x.id); return o && JSON.stringify(o.native) !== JSON.stringify(x.native) ? x : u; });
+        if (merged.some((x, i) => x !== latest[i])) saveDrafts(merged);
+      }
     }, 1500);
     return () => clearTimeout(t);
   }, [fresh, drafts, tick]);
@@ -8465,7 +8471,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     if (!hit) { alert(ad.type === "arr" ? "请先在表格里填写客户姓名再存档" : "存档失败"); return true; }
     const me = canonUser(currentUser);
     const list = (drafts || []).slice();
-    const ex = list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me)) || (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null);
+    const ex = (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null) || list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me));   /* 打开的那一份优先，不会另外多开一份 */
     const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: me, at: Date.now(), values: undefined };
     saveDrafts(ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list]);
     if (/COSTING_PART/i.test(open.tool.file || "")) try { const dd = (hit.entry || {}).data || {}; bsMarkCosted(dd.clientName || hit.label, dd); } catch (e) {}
