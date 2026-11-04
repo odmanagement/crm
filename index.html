@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "278";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "279";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9991,9 +9991,8 @@ function printVerification(v, client) {
     ${bar("(d) Emergency's Contact")}
     <table><tr><th>FULL NAME AS IC</th><th>RELATIONSHIP</th><th>CONTACT NO</th><th>RESIDENTIAL ADDRESS</th></tr>
     <tr><td>${up(v.emName)}</td><td>${up(v.emRelation)}</td><td>${up(v.emPhone)}</td><td>${up(v.emAddress)}</td></tr></table>
-    ${bar("(e) Disbursement Details")}
-    <div class="two">${row("BANK", v.disburseBankName)}${row("BANK ACCOUNT NO.", v.disburseAccountNumber)}</div>
-    ${bar("(f) Previous Company's Details")}
+    ${v.noPrintDisburse ? "" : bar("(e) Disbursement Details") + `<div class="two">${row("BANK", v.disburseBankName)}${row("BANK ACCOUNT NO.", v.disburseAccountNumber)}</div>`}
+    ${bar((v.noPrintDisburse ? "(e)" : "(f)") + " Previous Company's Details")}
     ${row("PREVIOUS", v.prevCompany)}
     ${row("POSITION", v.prevPosition)}
     ${row("WORK HOW LONG", v.prevDuration)}
@@ -10374,7 +10373,10 @@ function VerifyDetail({
       style: {
         fontSize: 15
       }
-    }, sec.emoji), " ", sec.title), sec.key === "spouse" && /*#__PURE__*/React.createElement("div", {
+    }, sec.emoji), " ", sec.title, sec.key === "disburse" && React.createElement("label", {
+      title: "打勾 = PRINT PDF 不显示这一段",
+      style: { marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: v.noPrintDisburse ? "#dc2626" : "#64748b", cursor: "pointer", textTransform: "none", letterSpacing: 0 }
+    }, React.createElement("input", { type: "checkbox", checked: !!v.noPrintDisburse, onChange: e => setField("noPrintDisburse", e.target.checked), style: { width: 16, height: 16, accentColor: "#dc2626", cursor: "pointer" } }), "PRINT PDF 不展示")), sec.key === "spouse" && /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", gap: 8, padding: "10px 12px", borderBottom: "1px solid #f1f5f9" }
     }, [["single", "Single"], ["married", "Married"]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
       key: k,
