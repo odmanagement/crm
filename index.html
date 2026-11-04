@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "277";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "278";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9207,16 +9207,17 @@ function LoanSumBar({ rows }) {
   const h = React.createElement;
   const [yr, setYr] = React.useState(new Date().getFullYear());
   let collect = 0, approved = 0; const mon = Array(12).fill(0), cnt = Array(12).fill(0);
-  const addM = (d, a) => { const m = /^(\d{4})-(\d{2})/.exec(String(d || "")); if (m && +m[1] === yr) { mon[+m[2] - 1] += a; cnt[+m[2] - 1]++; } };
+  const inYr = d => { const m = /^(\d{4})-/.exec(String(d || "")); return !!m && +m[1] === yr; };
+  const addM = (d, a) => { const m = /^(\d{4})-(\d{2})/.exec(String(d || "")); if (m && +m[1] === yr) { approved += a; mon[+m[2] - 1] += a; cnt[+m[2] - 1]++; } };
   (rows || []).forEach(({ loan: l }) => {
     let got = 0; const ab = [];
     (l.banks || []).forEach(b => {
       if (!b) return;
-      if (b.dis === "collect") collect += lsAmt(b.amount);
-      if (b.status === "approved" || b.status === "disbursed") { const a = lsAmt(b.amount); ab.push(b); if (a) { got += a; approved += a; addM(b.approvedAt || b.date, a); } }
+      if (b.dis === "collect" && inYr(b.date)) collect += lsAmt(b.amount);   /* COLLECT / APPROVED 也跟着年份 */
+      if (b.status === "approved" || b.status === "disbursed") { const a = lsAmt(b.amount); ab.push(b); if (a) { got += a; addM(b.approvedAt || b.date, a); } }
     });
     /* House Loan：银行没写数目 → 用贷款的 Amount */
-    if (!got && l.type === "house" && houseApproved(l) && lsAmt(l.amount)) { const a = lsAmt(l.amount); approved += a; addM((ab[0] && (ab[0].approvedAt || ab[0].date)) || l.date, a); }
+    if (!got && l.type === "house" && houseApproved(l) && lsAmt(l.amount)) { const a = lsAmt(l.amount); addM((ab[0] && (ab[0].approvedAt || ab[0].date)) || l.date, a); }
   });
   const fmt = n => "RM " + n.toLocaleString("en-US", { maximumFractionDigits: 2 });
   const box = (label, val, c, bg) => h("div", { style: { flex: "0 0 auto", minWidth: 170, background: bg, border: "1.5px solid " + c + "55", borderRadius: 14, padding: "8px 16px" } },
@@ -9224,7 +9225,7 @@ function LoanSumBar({ rows }) {
   const curM = new Date().getFullYear() === yr ? new Date().getMonth() : -1;
   const MN = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   return h("div", { style: { display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap", margin: "0 0 12px" } },
-    box("COLLECT", collect, "#0d9488", "#f0fdfa"), box("APPROVED", approved, "#16a34a", "#f0fdf4"),
+    box("COLLECT " + yr, collect, "#0d9488", "#f0fdfa"), box("APPROVED " + yr, approved, "#16a34a", "#f0fdf4"),
     h("div", { style: { flex: "1 1 520px", background: "#fff", border: "1.5px solid #c4b5fd", borderRadius: 14, padding: "6px 10px" } },
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4 } },
         h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#7c3aed", letterSpacing: .5 } }, "MONTH APPROVED"),
