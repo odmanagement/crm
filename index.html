@@ -744,7 +744,9 @@ const DB = {
       const ups = [], seen = new Set();
       this._splitArr[key] = arr.filter(x => x && x.id);
       for (const x of arr) { if (!x || !x.id) continue; seen.add(x.id); const v = await this._off(JSON.stringify(x)); if (!known || known.get(x.id) !== v) ups.push({ key: pre + x.id, value: v }); }
-      const dels = known ? Array.from(known.keys()).filter(id => !seen.has(id)) : [];
+      let dels = known ? Array.from(known.keys()).filter(id => !seen.has(id)) : [];
+      /* 保护：一次不见很多份（这台电脑的清单不完整 / 旧的）→ 不删，只是重新读；真正按删除一次只会删一两份 */
+      if (dels.length > 2) { console.warn("skip mass delete", dels.length); dels = []; setTimeout(async () => { try { const v = await this.get(key); if (v != null) this._listeners.forEach(fn => { try { fn(key, v); } catch (e) {} }); } catch (e) {} }, 300); }
       let ok = true;
       for (const r of ups) { this._noteSent(r.key, r.value); const { error } = await s.from("crm_store").upsert(r, { onConflict: "key" }); if (error) { ok = false; console.error(error); crmSaveFail(error); } else if (known) known.set(r.key.slice(pre.length), r.value); }
       for (const id of dels) { this._delSent[pre + id] = Date.now(); const { error } = await s.from("crm_store").delete().eq("key", pre + id); if (error) { ok = false; console.error(error); } else known.delete(id); }
@@ -1695,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "274";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "275";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
