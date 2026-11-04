@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "286";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "287";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5812,19 +5812,23 @@ function costSyncData(data, p, L, opt) {
   /* 1. 旧的行（没有 cid）→ 用日期对上还没被认领的那一行 */
   const claimed = new Set([...A, ...C].filter(r => isSal(r) && r.cid && byId.has(r.cid)).map(r => r.cid));
   [...A, ...C].forEach(r => { if (!isSal(r) || (r.cid && byId.has(r.cid))) return; const k = bsSalKey(r.name); const m = months.find(x => !claimed.has(x.cid) && x.name === k); if (m) { r.cid = m.cid; claimed.add(m.cid); } });
+  /* 1b. 自动加的 SALARY 行，Bank Statement 已经没有那一行（删了 / 改了日期）→ 删掉，不会越来越多 */
+  if (p) [A, C].forEach(arr => { for (let i = arr.length - 1; i >= 0; i--) { const r = arr[i]; if (isSal(r) && r.auto && !(r.cid && byId.has(r.cid))) arr.splice(i, 1); } });
   /* 2. 同一行重复的删掉（Part A 的优先）；已经在别的 Costing Part A 算过（黄色）的不放 Part A.A */
   const seen = new Set(); A.forEach(r => { if (isSal(r) && r.cid) seen.add(r.cid); });
   for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r) || !r.cid) continue; const m = byId.get(r.cid);
     if (seen.has(r.cid) || (r.auto && m && m.costed === "a")) { C.splice(i, 1); i--; } else seen.add(r.cid); }
   /* 3. 名字 / 数目跟着 Bank Statement */
   [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (r.name !== m.name) r.name = m.name; if (r.amt !== m.amt) r.amt = m.amt; });
+  /* 3b. Part A 还没有月份、也还没有任何月份存档过（没颜色）→ Part A.A 里自动加的月份搬去 Part A（第一次都放 Part A） */
+  if (months.length && !A.some(isSal) && !months.some(m => m.costed)) for (let i = 0; i < C.length; i++) { const r = C[i]; if (isSal(r) && r.auto && r.cid && byId.has(r.cid)) { C.splice(i, 1); i--; putA({ ...r, mult: "", hasMult: false }); } }
   /* 4. 还没进这份 Costing 的月份 */
   const hasSal = [...A, ...C].some(isSal), epfOld = A.some(r => /^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && lsNum(r.amt));
   const missing = months.filter(m => !seen.has(m.cid));
   const allCosted = months.length && months.every(m => m.costed), noneCosted = !months.some(m => m.costed);
   const rowA = m => ({ name: m.name, amt: m.amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
   const rowC = m => ({ name: m.name, amt: m.amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
-  if (!hasSal && missing.length && (fresh || epfOld || noneCosted || allCosted)) {
+  if (missing.length && (noneCosted || (!hasSal && (fresh || epfOld || allCosted)))) {   /* 还没存档过（没颜色）→ 全部 Part A */
     /* 第一次（还没有任何月份）→ 全部放 Part A（没有 ×）；EPF / SOCSO 清空 */
     missing.forEach(m => putA(rowA(m)));
     A.forEach(r => { if (/^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && r.amt) r.amt = ""; });
