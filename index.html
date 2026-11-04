@@ -1695,7 +1695,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "273";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "274";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9206,11 +9206,13 @@ function TypePage({
   const isP = isPLike(type);
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
+  const [showClosed, setShowClosed] = useState(false);   /* Personal / Car：CLOSING = 点了号码（紫色）已经 Close 的 */
   const t = typeOf(type);
+  const closedN = isP ? clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark).length, 0) : 0;
   const rows = clients.flatMap(c => (c.loans || []).filter(l => l.type === type).map(l => ({
     loan: l,
     client: c
-  }))).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
+  }))).filter(r => !isP || (showClosed ? !!r.loan.closedMark : !r.loan.closedMark)).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
     if (!q) return true;
     const s = q.toLowerCase();
     return [r.client.name, r.client.phone, r.loan.bank, r.loan.subject].filter(Boolean).join(" ").toLowerCase().includes(s);
@@ -9231,7 +9233,7 @@ function TypePage({
 }, /*#__PURE__*/React.createElement(t.icon, {
   size: 20,
   color: t.color
-}), /*#__PURE__*/React.createElement("span", null, rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), /*#__PURE__*/React.createElement("div", {
+}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING · " : "", rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), /*#__PURE__*/React.createElement("div", {
   style: { display: "flex", gap: 10, alignItems: "center", marginBottom: S.searchWrap.marginBottom || 12 }
 }, /*#__PURE__*/React.createElement("div", {
   style: { ...S.searchWrap, flex: 1, marginBottom: 0 }
@@ -9248,7 +9250,11 @@ function TypePage({
   onClick: onNew
 }, /*#__PURE__*/React.createElement(Plus, {
   size: 16
-}), " New Client")), !isP && /*#__PURE__*/React.createElement("div", {
+}), " New Client"), isP && React.createElement("button", {
+  onClick: () => setShowClosed(v => !v),
+  title: showClosed ? "回去还没 Close 的" : "看已经 Close 的（紫色号码）",
+  style: { ...S.addBtn, background: showClosed ? "linear-gradient(135deg,#7c3aed,#6b21a8)" : "#fff", color: showClosed ? "#fff" : "#7c3aed", border: "2px solid #7c3aed", boxShadow: "none", whiteSpace: "nowrap" }
+}, showClosed ? "← BACK" : "CLOSING", " (", showClosed ? clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && !l.closedMark).length, 0) : closedN, ")")), !isP && /*#__PURE__*/React.createElement("div", {
   style: S.filters
 }, /*#__PURE__*/React.createElement(Chip, {
   active: stageFilter === "all",
