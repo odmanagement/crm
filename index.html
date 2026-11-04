@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "285";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "286";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5798,47 +5798,51 @@ function LendingLoader() {
    - Part C · Salary 的 SALARY：跟着 Bank Statement Balance
    - Lending 自动加的项目：数目 / % 跟着 Lending
    只改自动加的行，自己手动加的不动 */
-function costSyncData(data, p, L) {
+function costSyncData(data, p, L, opt) {
+  /* 每个月（Bank Statement 的每一行）用那一行自己的 id 对上 Costing 的行（cid）→ 同一个日期填几行都会分开 */
   if (!data || !data.parts) return null;
+  const fresh = !!(opt && opt.fresh);
   const parts = {}; Object.keys(data.parts).forEach(k => parts[k] = (data.parts[k] || []).map(r => ({ ...r })));
   const N = r => String(r.name || "").trim().toUpperCase();
-  ["partABody", "partCBody"].forEach(b => (parts[b] || []).forEach(r => { const k = bsSalKey(r.name); if (/^SALARY - /.test(k) && k !== N(r)) r.name = k; }));
-  const mon = {}; ((p && p.months) || []).forEach(m => { mon["SALARY - " + bsNormDmy(m.date)] = m; });
-  const la = {}, laa = {}; if (L) { L.a.forEach(x => la[x.name] = x); L.aa.forEach(x => laa[x.name] = x); }
-  ["partABody", "partCBody"].forEach(b => (parts[b] || []).forEach(r => { const n = N(r);
-    if (mon[n] && r.amt !== mon[n].amt) r.amt = mon[n].amt;
-    if (r.auto && b === "partABody" && la[n] && r.amt !== la[n].amt) r.amt = la[n].amt;
-    if (r.auto && b === "partCBody" && laa[n]) { if (r.amt !== laa[n].amt) r.amt = laa[n].amt; if (laa[n].pct !== "" && r.mult !== laa[n].pct) r.mult = laa[n].pct; } }));
   const isSal = r => /^SALARY - /.test(N(r));
-  const noneSal = ![...(parts.partABody || []), ...(parts.partCBody || [])].some(isSal) && (parts.partABody || []).some(r => /^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && lsNum(r.amt));   /* 还没有月份、EPF / SOCSO 有填（旧的做法）→ 换成每个月一行 */
   const A = parts.partABody = parts.partABody || [], C = parts.partCBody = parts.partCBody || [];
   const putA = row => { const i = A.findIndex(r => r.pinned); if (i >= 0) A.splice(i, 0, row); else A.push(row); };
-  /* 旧的 Costing：第一次存档的月份放错在 Part A.A（全部变蓝色）→ 最早存档的那一批搬回 Part A（没有 ×，存档后变黄色） */
-  if (!A.some(isSal) && !Object.keys(mon).some(n => mon[n].costed === "a")) {
-    const blue = C.filter(r => isSal(r) && mon[N(r)] && mon[N(r)].costed === "aa");
-    if (blue.length) { const t0 = Math.min(...blue.map(r => mon[N(r)].costedAt || 0));
-      const done = new Set(); blue.filter(r => (mon[N(r)].costedAt || 0) <= t0 + 120000).forEach(r => { C.splice(C.indexOf(r), 1); if (!done.has(N(r))) { done.add(N(r)); putA({ ...r, mult: "", hasMult: false, auto: true }); } }); }
-  }
-  /* Part A.A：同一个月重复的删掉；已经是黄色（别的 Costing Part A 算过）的月份不放这里 */
-  { const seenC = new Set(A.filter(isSal).map(N)); for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r)) continue; const n = N(r);
-      if (seenC.has(n) || (r.auto && mon[n] && mon[n].costed === "a")) { C.splice(i, 1); i--; } else seenC.add(n); } }
-  if (Object.keys(mon).length && !A.some(isSal) && (noneSal || !Object.keys(mon).some(n => mon[n].costed))) {   /* 还没有算过任何月份 → 全部放 Part A */
-    /* 这份 Costing 还没有每个月的 SALARY（旧的 / 以前只填 EPF、SOCSO）→ 全部月份放进 Part A，没有 × 格子；EPF / SOCSO 那两行清空 */
-    for (let i = C.length - 1; i >= 0; i--) if (isSal(C[i])) C.splice(i, 1);
-    Object.keys(mon).filter(n => noneSal || !mon[n].costed).forEach(n => putA({ name: n, amt: mon[n].amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }));
+  const months = ((p && p.months) || []).map(m => ({ ...m, name: "SALARY - " + bsNormDmy(m.date) }));
+  const byId = new Map(months.map(m => [m.cid, m]));
+  /* 1. 旧的行（没有 cid）→ 用日期对上还没被认领的那一行 */
+  const claimed = new Set([...A, ...C].filter(r => isSal(r) && r.cid && byId.has(r.cid)).map(r => r.cid));
+  [...A, ...C].forEach(r => { if (!isSal(r) || (r.cid && byId.has(r.cid))) return; const k = bsSalKey(r.name); const m = months.find(x => !claimed.has(x.cid) && x.name === k); if (m) { r.cid = m.cid; claimed.add(m.cid); } });
+  /* 2. 同一行重复的删掉（Part A 的优先）；已经在别的 Costing Part A 算过（黄色）的不放 Part A.A */
+  const seen = new Set(); A.forEach(r => { if (isSal(r) && r.cid) seen.add(r.cid); });
+  for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r) || !r.cid) continue; const m = byId.get(r.cid);
+    if (seen.has(r.cid) || (r.auto && m && m.costed === "a")) { C.splice(i, 1); i--; } else seen.add(r.cid); }
+  /* 3. 名字 / 数目跟着 Bank Statement */
+  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (r.name !== m.name) r.name = m.name; if (r.amt !== m.amt) r.amt = m.amt; });
+  /* 4. 还没进这份 Costing 的月份 */
+  const hasSal = [...A, ...C].some(isSal), epfOld = A.some(r => /^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && lsNum(r.amt));
+  const missing = months.filter(m => !seen.has(m.cid));
+  const allCosted = months.length && months.every(m => m.costed), noneCosted = !months.some(m => m.costed);
+  const rowA = m => ({ name: m.name, amt: m.amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
+  const rowC = m => ({ name: m.name, amt: m.amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
+  if (!hasSal && missing.length && (fresh || epfOld || noneCosted || allCosted)) {
+    /* 第一次（还没有任何月份）→ 全部放 Part A（没有 ×）；EPF / SOCSO 清空 */
+    missing.forEach(m => putA(rowA(m)));
     A.forEach(r => { if (/^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && r.amt) r.amt = ""; });
-  } else {
-    const have = new Set([...A, ...C].map(N));
-    Object.keys(mon).forEach(n => { if (!have.has(n) && !mon[n].costed) C.push({ name: n, amt: mon[n].amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); });
-  }
-  /* Lending Sheet 新加的 Settlement：(A) → Part A（没有 ×）；(A.A) → Part A.A Charges（跟着 %） */
-  if (L) { const haveL = new Set([...A, ...C].map(N));
+  } else if (hasSal || !fresh) {
+    /* 已经有月份 → 后来加的（还没颜色的）放 Part A.A，+10% */
+    missing.filter(m => !m.costed).forEach(m => C.push(rowC(m)));
+  } else missing.filter(m => !m.costed).forEach(m => C.push(rowC(m)));
+  /* Lending：自动加的行数目 / % 跟着；新加的 Settlement：(A) → Part A（没有 ×），(A.A) → Part A.A Charges（跟着 %） */
+  if (L) { const la = {}, laa = {}; L.a.forEach(x => la[x.name] = x); L.aa.forEach(x => laa[x.name] = x);
+    A.forEach(r => { const x = r.auto && la[N(r)]; if (x && r.amt !== x.amt) r.amt = x.amt; });
+    C.forEach(r => { const x = r.auto && laa[N(r)]; if (x) { if (r.amt !== x.amt) r.amt = x.amt; if (x.pct !== "" && r.mult !== x.pct) r.mult = x.pct; } });
+    const haveL = new Set([...A, ...C].map(N));
     L.a.forEach(x => { if (!haveL.has(x.name)) { putA({ name: x.name, amt: x.amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); haveL.add(x.name); } });
     L.aa.forEach(x => { if (!haveL.has(x.name)) { C.push({ name: x.name, amt: x.amt, mult: x.pct || "", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); haveL.add(x.name); } }); }
   /* BACKDATE 跟着 Bank Statement → 没有 × 格子 */
   if (p && p.bd) A.forEach(r => { if (/^BACKDATE EPF\/SOCSO$/.test(N(r))) { if (r.amt !== p.bd) r.amt = p.bd; if (r.hasMult !== false) { r.hasMult = false; r.mult = ""; } r.auto = true; } });
   /* Part C · Salary：存档了的 SALARY（和之前存过的 BALANCE）固定不动；Bank Statement Balance 剩下的 → 另外一行 BALANCE */
-  if (p && p.bal && (parts.partSalBody || []).some(r => N(r) === "SALARY")) {
+  if (!fresh && p && p.bal && (parts.partSalBody || []).some(r => N(r) === "SALARY")) {
     const S = parts.partSalBody;
     const fixedSum = S.reduce((t, r) => t + ((N(r) === "SALARY" || (N(r) === "BALANCE" && !r.auto)) ? lsNum(r.amt) : 0), 0);
     const rem = Math.round((lsNum(p.bal) - fixedSum) * 100) / 100;
@@ -5850,6 +5854,7 @@ function costSyncData(data, p, L) {
   const nd = { ...data, parts };
   return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;
 }
+window.__crmCostSync = costSyncData;
 function CostingAutoSync({ currentUser }) {
   const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
   const [tick, setTick] = React.useState(0);
@@ -5896,7 +5901,7 @@ function BsPeopleLoader() {
           const cc0 = ((bs.credits || []).find(y => y && y.calc) || {}).calc;
           const o = x.calc ? bsCalcOut(x.calc) : cc0 ? bsCalcOut(cc0) : (lsNum(bs.salary) ? bsCalcOut({ salary: bs.salary, ov: {}, adds: [] }) : null); if (!o) return;
           const dt = bsNormDmy(x.date);
-          months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || ""), costedAt: x.costedAt || 0 }); }); } catch (e) {}
+          months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || ""), costedAt: x.costedAt || 0, cid: x.id || ("i" + i) }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
       let bal = ""; try { const v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name); if (bsTot(bs.credits)) bal = lsFmt(v); } catch (e) {}
       out.push({ name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
@@ -5913,12 +5918,12 @@ async function bsMarkCosted(clientName, data) {
     const k = String(clientName || "").trim().toUpperCase().replace(/\s+/g, " "); if (!k || !data || !data.parts) return;
     const p = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k); if (!p || !p.store) return;
     /* Part A 的月份 → 浅黄色（"a"）；后来加进 Part A.A（+10%）的 → 浅青色（"aa"） */
-    const dates = new Map();
-    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (.+)$/.exec(bsSalKey(r.name)); if (m) dates.set(m[1], b === "partABody" ? "a" : "aa"); }));
-    if (!dates.size) return;
+    const dates = new Map(), ids = new Map();
+    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (.+)$/.exec(bsSalKey(r.name)); if (!m) return; const w = b === "partABody" ? "a" : "aa"; if (r.cid) ids.set(r.cid, w); else dates.set(m[1], w); }));
+    if (!dates.size && !ids.size) return;
     const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
     let ch = false;
-    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map(x => { const want = x && dates.get(bsNormDmy(x.date)); if (want && (want === "a" ? x.costed !== "a" && x.costed !== true : !x.costed)) {   /* Part A → 黄色（蓝色也改回黄色）；Part A.A → 蓝色（已经有颜色的不改） */
+    const next = list.map(q => { if (q.id !== p.pid || !q.bankStmt) return q; const cr = (q.bankStmt.credits || []).map((x, ci) => { const want = x && (ids.get(x.id || ("i" + ci)) || dates.get(bsNormDmy(x.date))); if (want && (want === "a" ? x.costed !== "a" && x.costed !== true : !x.costed)) {   /* Part A → 黄色（蓝色也改回黄色）；Part A.A → 蓝色（已经有颜色的不改） */
  ch = true; return { ...x, costed: want, costedAt: Date.now() }; } return x; }); return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
     if (!ch) return;
     await DB.set(p.store, JSON.stringify(next));
