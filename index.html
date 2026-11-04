@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "281";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "282";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5810,6 +5810,7 @@ function costSyncData(data, p, L) {
     if (r.auto && b === "partABody" && la[n] && r.amt !== la[n].amt) r.amt = la[n].amt;
     if (r.auto && b === "partCBody" && laa[n]) { if (r.amt !== laa[n].amt) r.amt = laa[n].amt; if (laa[n].pct !== "" && r.mult !== laa[n].pct) r.mult = laa[n].pct; } }));
   const isSal = r => /^SALARY - /.test(N(r));
+  const noneSal = ![...(parts.partABody || []), ...(parts.partCBody || [])].some(isSal) && (parts.partABody || []).some(r => /^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && lsNum(r.amt));   /* 还没有月份、EPF / SOCSO 有填（旧的做法）→ 换成每个月一行 */
   const A = parts.partABody = parts.partABody || [], C = parts.partCBody = parts.partCBody || [];
   const putA = row => { const i = A.findIndex(r => r.pinned); if (i >= 0) A.splice(i, 0, row); else A.push(row); };
   /* 旧的 Costing：第一次存档的月份放错在 Part A.A（全部变蓝色）→ 最早存档的那一批搬回 Part A（没有 ×，存档后变黄色） */
@@ -5821,10 +5822,10 @@ function costSyncData(data, p, L) {
   /* Part A.A：同一个月重复的删掉；已经是黄色（别的 Costing Part A 算过）的月份不放这里 */
   { const seenC = new Set(A.filter(isSal).map(N)); for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r)) continue; const n = N(r);
       if (seenC.has(n) || (r.auto && mon[n] && mon[n].costed === "a")) { C.splice(i, 1); i--; } else seenC.add(n); } }
-  if (Object.keys(mon).length && !A.some(isSal) && !Object.keys(mon).some(n => mon[n].costed)) {   /* 还没有算过任何月份 → 全部放 Part A */
+  if (Object.keys(mon).length && !A.some(isSal) && (noneSal || !Object.keys(mon).some(n => mon[n].costed))) {   /* 还没有算过任何月份 → 全部放 Part A */
     /* 这份 Costing 还没有每个月的 SALARY（旧的 / 以前只填 EPF、SOCSO）→ 全部月份放进 Part A，没有 × 格子；EPF / SOCSO 那两行清空 */
     for (let i = C.length - 1; i >= 0; i--) if (isSal(C[i])) C.splice(i, 1);
-    Object.keys(mon).filter(n => !mon[n].costed).forEach(n => putA({ name: n, amt: mon[n].amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }));
+    Object.keys(mon).filter(n => noneSal || !mon[n].costed).forEach(n => putA({ name: n, amt: mon[n].amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }));
     A.forEach(r => { if (/^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && r.amt) r.amt = ""; });
   } else {
     const have = new Set([...A, ...C].map(N));
