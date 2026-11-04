@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "283";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "284";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5831,6 +5831,10 @@ function costSyncData(data, p, L) {
     const have = new Set([...A, ...C].map(N));
     Object.keys(mon).forEach(n => { if (!have.has(n) && !mon[n].costed) C.push({ name: n, amt: mon[n].amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); });
   }
+  /* Lending Sheet 新加的 Settlement：(A) → Part A（没有 ×）；(A.A) → Part A.A Charges（跟着 %） */
+  if (L) { const haveL = new Set([...A, ...C].map(N));
+    L.a.forEach(x => { if (!haveL.has(x.name)) { putA({ name: x.name, amt: x.amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); haveL.add(x.name); } });
+    L.aa.forEach(x => { if (!haveL.has(x.name)) { C.push({ name: x.name, amt: x.amt, mult: x.pct || "", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); haveL.add(x.name); } }); }
   /* BACKDATE 跟着 Bank Statement → 没有 × 格子 */
   if (p && p.bd) A.forEach(r => { if (/^BACKDATE EPF\/SOCSO$/.test(N(r))) { if (r.amt !== p.bd) r.amt = p.bd; if (r.hasMult !== false) { r.hasMult = false; r.mult = ""; } r.auto = true; } });
   /* Part C · Salary：存档了的 SALARY（和之前存过的 BALANCE）固定不动；Bank Statement Balance 剩下的 → 另外一行 BALANCE */

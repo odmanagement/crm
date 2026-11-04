@@ -890,7 +890,8 @@ if(saved && saved.parts){
   fill(); try{ window.parent.addEventListener('crm-bs-people', fill); }catch(e){}
   function pick(){
     var k=String(nm.value||'').trim().toUpperCase().replace(/\s+/g,' '); if(!k) return;
-    var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0]; if(!p) return;
+    var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0];
+    if(!p){ /* Bank Statement 没有这个人 → 还是要带 Lending Sheet 的 Settlement */ window.__bsSync(true); try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); if(typeof calc==='function') calc(); }catch(e){} return; }
     if(p.agent && ag){ ag.value=p.agent; }
     if(p.cf && cr){ cr.value=p.cf; }
     /* EPF / SOCSO/EIS/PCB / BACKDATE 跟着 Bank Statement 的 Salary Sub-Total；有月份记录就一个月一行 */
@@ -959,6 +960,10 @@ if(saved && saved.parts){
         var have={}; ['partABody','partCBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ have[nameOf(tr)]=1; }); });
         newMon.forEach(function(m){ var n='SALARY - '+normDmy(m.date); if(!have[n]){ addAuto('partCBody',n,m.amt,'10'); added++; } });
       }
+      /* Lending Sheet 新加的 Settlement：(A) → Part A；(A.A) → Part A.A Charges（跟着 %） */
+      if(L){ var haveL={}; ['partABody','partCBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ haveL[nameOf(tr)]=1; }); });
+        L.a.forEach(function(x){ if(!haveL[x.name]){ addAuto('partABody',x.name,x.amt); haveL[x.name]=1; added++; } });
+        L.aa.forEach(function(x){ if(!haveL[x.name]){ addAuto('partCBody',x.name,x.amt,x.pct); haveL[x.name]=1; added++; } }); }
       if(!added) return;
     }
     try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); if(typeof calc==='function') calc(); if(typeof autoSave==='function') autoSave(); }catch(e){}
