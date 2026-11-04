@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "280";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "281";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6544,12 +6544,21 @@ function LeavePage({ currentUser }) {
   const boss = isMissionBoss(currentUser);
   const t = today();
   const items = list || [];
-  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, ...(k === "status" ? { decidedBy: currentUser } : {}) } : x));
+  const lvLabel = x => (LEAVE_TYPES.find(y => y[0] === x.type) || [0, x.type])[1] + " · " + x.from + (x.to && x.to !== x.from ? " → " + x.to : "") + (x.reason ? " · " + x.reason : "");
+  const lvNotify = (to, title, x) => { const me = canonUser(currentUser); if (!to || sameUser(to, me)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "leave", to: canonUser(to), from: me, loud: true, title, task: String(x.name || "").toUpperCase() + " · " + lvLabel(x), at: Date.now() }); } catch (e) {} };
+  const upd = (id, k, v) => {
+    save(items.map(x => x.id === id ? { ...x, [k]: v, ...(k === "status" ? { decidedBy: currentUser } : {}) } : x));
+    /* 老板 Approve / Reject → 通知申请的人 */
+    if (k === "status" && (v === "approved" || v === "rejected")) { const x = items.find(y => y.id === id); if (x) lvNotify(x.by || x.name, (v === "approved" ? "✅ 请假已批准" : "❌ 请假不批准") + "（" + String(currentUser || "").toUpperCase() + "）", x); }
+  };
   const add = () => setForm({ name: canonUser(currentUser), type: "annual", from: t, to: t, reason: "" });
   const submitForm = () => {
     if (!form.reason.trim()) { alert("请填写请假原因"); return; }
     if (form.to < form.from) { alert("结束日期不能早于开始日期"); return; }
-    save([{ id: uid(), ...form, reason: form.reason.trim(), status: boss ? "approved" : "pending", by: currentUser, at: Date.now() }, ...items]); monetSfx("create");
+    const rec = { id: uid(), ...form, reason: form.reason.trim(), status: boss ? "approved" : "pending", by: currentUser, at: Date.now() };
+    save([rec, ...items]); monetSfx("create");
+    /* 有人申请请假 → 老板马上收到（有声音） */
+    if (!boss) MISSION_BOSSES.forEach(b => lvNotify(b, "🏖 " + String(currentUser || "").toUpperCase() + " 申请请假", rec));
     setForm(null);
   };
   const del = x => { if (window.confirm("删除 " + String(x.name).toUpperCase() + " 的请假记录？")) save(items.filter(y => y.id !== x.id)); };
