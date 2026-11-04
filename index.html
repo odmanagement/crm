@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "279";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "280";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9206,14 +9206,14 @@ const lsAmt = v => Number(String(v || 0).replace(/,/g, "")) || 0;
 function LoanSumBar({ rows }) {
   const h = React.createElement;
   const [yr, setYr] = React.useState(new Date().getFullYear());
-  let collect = 0, approved = 0; const mon = Array(12).fill(0), cnt = Array(12).fill(0);
+  let collect = 0, approved = 0; const mon = Array(12).fill(0), cnt = Array(12).fill(0), cmon = Array(12).fill(0), ccnt = Array(12).fill(0);
   const inYr = d => { const m = /^(\d{4})-/.exec(String(d || "")); return !!m && +m[1] === yr; };
   const addM = (d, a) => { const m = /^(\d{4})-(\d{2})/.exec(String(d || "")); if (m && +m[1] === yr) { approved += a; mon[+m[2] - 1] += a; cnt[+m[2] - 1]++; } };
   (rows || []).forEach(({ loan: l }) => {
     let got = 0; const ab = [];
     (l.banks || []).forEach(b => {
       if (!b) return;
-      if (b.dis === "collect" && inYr(b.date)) collect += lsAmt(b.amount);   /* COLLECT / APPROVED 也跟着年份 */
+      if (b.dis === "collect") { const m = /^(\d{4})-(\d{2})/.exec(String(b.collectAt || b.date || "")); if (m && +m[1] === yr) { const a = lsAmt(b.amount); collect += a; cmon[+m[2] - 1] += a; ccnt[+m[2] - 1]++; } }   /* COLLECT / APPROVED 也跟着年份 */
       if (b.status === "approved" || b.status === "disbursed") { const a = lsAmt(b.amount); ab.push(b); if (a) { got += a; addM(b.approvedAt || b.date, a); } }
     });
     /* House Loan：银行没写数目 → 用贷款的 Amount */
@@ -9223,7 +9223,10 @@ function LoanSumBar({ rows }) {
   const box = (label, val, c, bg) => h("div", { style: { flex: "0 0 auto", minWidth: 170, background: bg, border: "1.5px solid " + c + "55", borderRadius: 14, padding: "8px 16px" } },
     h("div", { style: { fontSize: 11.5, fontWeight: 900, color: c, letterSpacing: .5 } }, label), h("div", { style: { fontSize: 20, fontWeight: 900, color: c, fontVariantNumeric: "tabular-nums" } }, fmt(val)));
   const curM = new Date().getFullYear() === yr ? new Date().getMonth() : -1;
-  const MN = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const grid = (arr, cn, lab, c, cur, has, showM) => h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12, minmax(0,1fr))", gap: 4 } },
+    arr.map((v, i) => h("div", { key: i, title: cn[i] + " 家银行 " + lab, style: { textAlign: "center", borderRadius: 8, padding: "3px 2px", background: i === curM ? cur : v ? has : "#f8fafc", border: i === curM ? "1.5px solid " + c : "1px solid " + cur } },
+      showM && h("div", { style: { fontSize: 10.5, fontWeight: 900, color: c } }, (i + 1) + "月"),
+      h("div", { style: { fontSize: 11.5, fontWeight: 800, color: v ? "#111827" : "#cbd5e1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v ? v.toLocaleString("en-US", { maximumFractionDigits: 0 }) : "—"))));
   return h("div", { style: { display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap", margin: "0 0 12px" } },
     box("COLLECT " + yr, collect, "#0d9488", "#f0fdfa"), box("APPROVED " + yr, approved, "#16a34a", "#f0fdf4"),
     h("div", { style: { flex: "1 1 520px", background: "#fff", border: "1.5px solid #c4b5fd", borderRadius: 14, padding: "6px 10px" } },
@@ -9233,10 +9236,11 @@ function LoanSumBar({ rows }) {
         h("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#4c1d95" } }, yr),
         h("button", { onClick: () => setYr(y => y + 1), style: { border: "none", background: "transparent", cursor: "pointer", color: "#7c3aed", fontWeight: 900 } }, "▶"),
         h("span", { style: { marginLeft: "auto", fontSize: 12, fontWeight: 900, color: "#4c1d95" } }, "全年 " + fmt(mon.reduce((a, b) => a + b, 0)))),
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12, minmax(0,1fr))", gap: 4 } },
-        mon.map((v, i) => h("div", { key: i, title: cnt[i] + " 家银行 Approved", style: { textAlign: "center", borderRadius: 8, padding: "3px 2px", background: i === curM ? "#ede9fe" : v ? "#faf5ff" : "#f8fafc", border: i === curM ? "1.5px solid #7c3aed" : "1px solid #ede9fe" } },
-          h("div", { style: { fontSize: 10.5, fontWeight: 900, color: "#7c3aed" } }, (i + 1) + "月"),
-          h("div", { style: { fontSize: 11.5, fontWeight: 800, color: v ? "#111827" : "#cbd5e1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, v ? v.toLocaleString("en-US", { maximumFractionDigits: 0 }) : "—"))))));
+      grid(mon, cnt, "Approved", "#7c3aed", "#ede9fe", "#faf5ff", true),
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "6px 0 4px" } },
+        h("span", { style: { fontSize: 11.5, fontWeight: 900, color: "#0d9488", letterSpacing: .5 } }, "MONTH COLLECT"),
+        h("span", { style: { marginLeft: "auto", fontSize: 12, fontWeight: 900, color: "#115e59" } }, "全年 " + fmt(cmon.reduce((a, b) => a + b, 0)))),
+      grid(cmon, ccnt, "Collect", "#0d9488", "#ccfbf1", "#f0fdfa", false)));
 }
 function TypePage({
   type,
@@ -11165,7 +11169,8 @@ function LoanBlock({
     banks: banks.map((b, j) => j === i ? {
       ...b,
       [k]: v,
-      ...(k === "status" && (v === "approved" || v === "disbursed") && !b.approvedAt ? { approvedAt: today() } : {})
+      ...(k === "status" && (v === "approved" || v === "disbursed") && !b.approvedAt ? { approvedAt: today() } : {}),
+      ...(k === "dis" && v === "collect" && !b.collectAt ? { collectAt: today() } : {})
     } : b)
   });
   const removeBank = i => onUpdate({
@@ -11188,7 +11193,7 @@ function LoanBlock({
   const setBankV = (i, b, k, v) => {
     if (i >= 0) return setBank(i, k, v);
     if (v === "" || v == null) return;
-    onUpdate({ ...loan, banks: [...banks, { bank: b.bank, officer: "", status: "submitted", amount: "", date: today(), dis: "", [k]: v, ...(k === "status" && (v === "approved" || v === "disbursed") ? { approvedAt: today() } : {}) }] });
+    onUpdate({ ...loan, banks: [...banks, { bank: b.bank, officer: "", status: "submitted", amount: "", date: today(), dis: "", [k]: v, ...(k === "status" && (v === "approved" || v === "disbursed") ? { approvedAt: today() } : {}), ...(k === "dis" && v === "collect" ? { collectAt: today() } : {}) }] });
   };
   if (editingLoan) return /*#__PURE__*/React.createElement(LoanForm, {
     initial: loan,
@@ -11546,7 +11551,8 @@ function LoanForm({
   const setBank = (i, k, v) => set("banks", banks.map((b, j) => j === i ? {
     ...b,
     [k]: v,
-    ...(k === "status" && (v === "approved" || v === "disbursed") && !b.approvedAt ? { approvedAt: today() } : {})
+    ...(k === "status" && (v === "approved" || v === "disbursed") && !b.approvedAt ? { approvedAt: today() } : {}),
+    ...(k === "dis" && v === "collect" && !b.collectAt ? { collectAt: today() } : {})
   } : b));
   const removeBank = i => set("banks", banks.filter((_, j) => j !== i));
   return /*#__PURE__*/React.createElement("div", {
