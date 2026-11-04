@@ -1697,7 +1697,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "289";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "290";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -8119,6 +8119,8 @@ const costMetaFromDoc = d => {
   }
   return { client: v("clientName").toUpperCase(), agent: v("agentName").toUpperCase(), subtotal: num("balHead"), balance: num("balFoot") };
 };
+/* Costing 的「名字」：表格里的 Client Name（没有才用存档名字） */
+const costKeyName = d => String((d && d.native && d.native.data && d.native.data.clientName) || (d && d.meta && d.meta.client) || (d && d.title) || "").trim().toUpperCase().replace(/\s+/g, " ").replace(/\s*\(\d+\)$/, "");
 function costComputeMeta(tool, draft) {
   return new Promise(res => {
     const f = document.createElement("iframe");
@@ -8142,7 +8144,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const [q, setQ] = React.useState("");
   /* 同一个表格、同一个名字只显示一份（最新那份）；重复的不再出现在清单 */
   const allRows = (() => { const seen = new Set(); return drafts.filter(d => files.includes(d.file)).sort((a, b) => (b.at || 0) - (a.at || 0))
-    .filter(d => { const k = d.file + "|" + String(d.title || "").trim().toUpperCase().replace(/\s+/g, " "); if (seen.has(k)) return false; seen.add(k); return true; }); })();
+    .filter(d => { const nm = costKeyName(d); if (!nm) return true; const k = d.file + "|" + nm; if (seen.has(k)) return false; seen.add(k); return true; }); })();
   const ql = q.trim().toLowerCase();
   const rows = allRows.filter(d => !ql || [d.title, d.by, d.meta && d.meta.client, d.meta && d.meta.agent].join(" ").toLowerCase().includes(ql));
   const latest = React.useRef(drafts); latest.current = drafts;
@@ -8421,7 +8423,7 @@ function FormsPage({ currentUser, tools, noLib }) {
           /* 别人建的存档（打开看过所以这台电脑也有一份）→ 不要变成我的新存档 */
           if (!c && list.some(d => d.native && d.file === t.file && d.title === label && !sameUser(d.by, me))) { if (!foreign.includes(label)) foreign.push(label); return; }
           if (!c && foreign.includes(label)) { try { nativeDelete(t.file, label); } catch (e) {} return; }   /* 别人的存档已经被删了 → 这台电脑的那份也删掉 */
-          if (!c && /COSTING_PART/i.test(t.file) && list.some(d => d.native && d.file === t.file && String(d.title || "").trim().toUpperCase() === String(label || "").trim().toUpperCase())) return;   /* Costing：同名已经有了 → 不再多开一份 */
+          if (!c && /COSTING_PART/i.test(t.file) && list.some(d => d.native && d.file === t.file && costKeyName(d) === costKeyName({ native: entry, title: label }))) return;   /* Costing：同名已经有了 → 不再多开一份 */
           if (!c) { list.unshift({ id: uid(), file: t.file, form: t.name, title: label, native: entry, cat: formCatId(t.name, { cats: (lib.cats || []).concat(newCats) }, newCats), by: me, at: ts || Date.now() }); changed = true; }
           else if (JSON.stringify(c.native) !== JSON.stringify(entry) && (ts || 0) >= (c.at || 0)) { list = list.map(d => d.id === c.id ? { ...d, native: entry, at: ts || Date.now() } : d); changed = true; }
         });
@@ -8476,7 +8478,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     const list = (drafts || []).slice();
     const tk = t => String(t || "").trim().toUpperCase().replace(/\s+/g, " ");
     const ex = (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null) || list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me))
-      || (/COSTING_PART/i.test(open.tool.file || "") ? list.filter(x => x.native && x.file === open.tool.file && tk(x.title) === tk(hit.label)).sort((a, b) => (b.at || 0) - (a.at || 0))[0] : null);   /* Costing：同一个名字只有一份 */   /* 打开的那一份优先，不会另外多开一份 */
+      || (/COSTING_PART/i.test(open.tool.file || "") ? list.filter(x => x.native && x.file === open.tool.file && costKeyName(x) === costKeyName({ native: hit.entry, title: hit.label })).sort((a, b) => (b.at || 0) - (a.at || 0))[0] : null);   /* Costing：同一个名字只有一份 */   /* 打开的那一份优先，不会另外多开一份 */
     const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: me, at: Date.now(), values: undefined };
     saveDrafts(ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list]);
     if (/COSTING_PART/i.test(open.tool.file || "")) try { const dd = (hit.entry || {}).data || {}; bsMarkCosted(dd.clientName || hit.label, dd); } catch (e) {}
