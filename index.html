@@ -840,7 +840,7 @@ const DB = {
         try {
           const row = payload.new || payload.old || {};
           const key = row.key;
-          if (!key || String(key).startsWith("celeb_seen_") || String(key).startsWith("mphoto_") || String(key).startsWith("backup_") || String(key).startsWith("bkdraft_") || String(key).startsWith("dtfile_")) return;
+          if (!key || String(key).startsWith("celeb_seen_") || String(key).startsWith("mphoto_") || String(key).startsWith("backup_") || String(key).startsWith("bkdraft_") || String(key).startsWith("fullbk") || String(key).startsWith("dtfile_")) return;
           const sk = Object.keys(this._split).find(k => String(key).startsWith(this._split[k]));
           if (sk) {   /* 拆开存的清单：别人改了其中一份 → 重新读整个清单 */
             if (String(key).endsWith("_meta")) return;
@@ -1481,6 +1481,43 @@ async function checkRestorePw(pw) {
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("") === RESTORE_PW_HASH;
   } catch (e) { return false; }
 }
+/* ===== 全部资料：每天自动备份（每一页都有）+ 下载到电脑 ===== */
+const FULLBK_KEEP = 14;
+const FULLBK_SKIP = /^(fdraft:_meta|backup_|bkdraft_|fullbk_|ffile_|ficimg_|mphoto_|dtfile_|celeb_seen_|filemig_|data_version)/;
+const DL_SKIP = /^(backup_|bkdraft_|fullbk_|celeb_seen_|filemig_)/;
+const CRM_KEY_LABELS = { clients: "客户 / 贷款（House / Car / Personal）", bank_stmt_people: "Bank Statement", bank_stmt_people_rencai: "Rencai Bank Statement", lending_fee: "Lending Sheet", od_payments: "OD Payment", receipts: "Boss Take", bs_return_salary: "Return Salary", return_salary: "Return Salary · Alice", leaves: "On Leave", missions: "Mission", bankers: "Banker", verifications: "Verify", submissions: "Closing", costing_extras: "Costing（Done / Commission / 照片）", doc_tracking: "Customer Docs", phones: "Phone", referrals: "Referral", form_files: "HTML 文件库", form_drafts: "表格存档（旧）" };
+const crmKeyLabelX = k => /^fdraft:/.test(k) ? "表格存档 · " + k.slice(7) : null;
+const crmKeyLabel = k => CRM_KEY_LABELS[k] || (/^fdraft:/.test(k) ? "表格存档 " + k.slice(7) : k);
+async function crmAllKeys() {
+  await DB._pick(); const s = DB._init(); let keys = [], from = 0;
+  while (true) { const { data, error } = await s.from("crm_store").select("key").order("key").range(from, from + 499); if (error) throw error; keys = keys.concat((data || []).map(r => r.key)); if (!data || data.length < 500) break; from += 500; }
+  return keys;
+}
+let _fullBkDone = null;
+async function ensureFullBackup() {
+  const d = _bkDate(); if (_fullBkDone === d || !useCloud || isReadOnlyUser()) return; _fullBkDone = d;
+  try {
+    const raw = await DB._rawGet("fullbk_index"); let idx = raw ? JSON.parse(raw) : [];
+    if (idx.includes(d)) return;
+    const keys = (await crmAllKeys()).filter(k => !FULLBK_SKIP.test(k)), data = {};
+    for (const k of keys) { const v = await DB._rawGet(k); if (v != null) data[k] = v; }
+    if (!Object.keys(data).length) return;
+    await DB.set("fullbk_" + d, JSON.stringify({ at: new Date().toISOString(), by: window.__crmUser || "", data }));
+    const again = await DB._rawGet("fullbk_index"); idx = again ? JSON.parse(again) : idx;
+    if (!idx.includes(d)) idx = [...idx, d].sort();
+    const drop = idx.slice(0, Math.max(0, idx.length - FULLBK_KEEP)); idx = idx.slice(-FULLBK_KEEP);
+    await DB.set("fullbk_index", JSON.stringify(idx));
+    for (const k of drop) { try { await DB.del("fullbk_" + k); } catch (e) {} }
+  } catch (e) { console.warn("fullbackup", e); }
+}
+/* 下载全部资料（连照片 / PDF 一起）→ 一个文件，存在自己电脑 */
+async function crmDownloadAll(onProg) {
+  const keys = (await crmAllKeys()).filter(k => !DL_SKIP.test(k)), data = {};
+  for (let i = 0; i < keys.length; i++) { const k = keys[i]; const v = await DB._rawGet(k); if (v != null) data[k] = await DB._in(v); if (onProg) onProg(i + 1, keys.length); }
+  const blob = new Blob([JSON.stringify({ app: "OD MANAGEMENT CRM", at: new Date().toISOString(), by: window.__crmUser || "", n: Object.keys(data).length, data })], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "OD-CRM-BACKUP-" + _bkDate() + ".json"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  return Object.keys(data).length;
+}
 function BackupPanel({ onClose, current, onRestore }) {
   const h = React.createElement;
   const [idx, setIdx] = React.useState(null);
@@ -1501,11 +1538,27 @@ function BackupPanel({ onClose, current, onRestore }) {
   const [dIdx, setDIdx] = React.useState([]), [dInfo, setDInfo] = React.useState({});
   React.useEffect(() => { (async () => { try { const raw = await DB.get("bkdraft_index"); const l = raw ? JSON.parse(raw) : []; setDIdx(l.slice().reverse());
     const inf = {}; for (const d of l) { try { const b = await DB.get("bkdraft_" + d); if (b) { const j = JSON.parse(b); inf[d] = (j.drafts || []).length; } } catch (e) {} } setDInfo(inf); } catch (e) {} })(); }, []);
+  const [fIdx, setFIdx] = React.useState([]), [fOpen, setFOpen] = React.useState(null), [fData, setFData] = React.useState({}), [dl, setDl] = React.useState("");
+  React.useEffect(() => { (async () => { try { const raw = await DB._rawGet("fullbk_index"); setFIdx((raw ? JSON.parse(raw) : []).slice().reverse()); } catch (e) {} })(); }, []);
+  const openFull = async d => { if (fOpen === d) { setFOpen(null); return; } setFOpen(d); if (!fData[d]) { try { const raw = await DB.get("fullbk_" + d); setFData(x => ({ ...x, [d]: raw ? JSON.parse(raw) : { data: {} } })); } catch (e) { setFData(x => ({ ...x, [d]: { data: {} } })); } } };
+  const doDownload = async () => { if (dl) return; setDl("准备中…"); try { const n = await crmDownloadAll((i, t) => setDl("下载中 " + i + " / " + t)); setDl(""); alert("✓ 已下载全部资料（" + n + " 项）\n请把这个文件存好（电脑 / Google Drive）"); } catch (e) { setDl(""); alert("下载失败：" + (e.message || e)); } };
+  const upRef = React.useRef(null);
   const restoreKey = (key, label) => { setAsk({ key, label }); setPw(""); setPwErr(""); };
   const doRestore = async () => {
     const { key, label } = ask;
     if (!(await checkRestorePw(pw))) { setPwErr("密码错误"); setPw(""); return; }
     setAsk(null);
+    if (ask.full) {   /* 全部资料备份：只还原选的那一页 */
+      setBusy(key);
+      try { const cur = await DB._rawGet(ask.full.k); await DB.set("fullbk_undo", JSON.stringify({ at: new Date().toISOString(), by: window.__crmUser || "", data: cur == null ? {} : { [ask.full.k]: cur } }));
+        await DB.set(ask.full.k, await DB._in(ask.full.v)); alert("✓ 已还原「" + crmKeyLabel(ask.full.k) + "」到 " + ask.full.d + "，系统会重新整理"); location.reload(); } catch (e) { alert("还原失败：" + (e.message || e)); }
+      setBusy(""); return;
+    }
+    if (ask.file) {   /* 从下载的文件还原（全部盖掉） */
+      setBusy(key);
+      try { const ks = Object.keys(ask.file.data || {}); for (const k of ks) await DB.set(k, ask.file.data[k]); alert("✓ 已从文件还原 " + ks.length + " 项，系统会重新整理"); location.reload(); } catch (e) { alert("还原失败：" + (e.message || e)); }
+      setBusy(""); return;
+    }
     if (String(key).indexOf("bkdraft_") === 0) {   /* Costing / Quotation：只加回不见的，不会盖掉现在的 */
       setBusy(key);
       try { const n = await restoreMissingDrafts(String(key).slice(8)); alert(n ? "✓ 已加回 " + n + " 份不见的 Costing / Quotation（" + label + "）" : "这份备份里没有不见的，不用加回"); } catch (e) { alert("还原失败：" + e.message); }
@@ -1539,6 +1592,25 @@ function BackupPanel({ onClose, current, onRestore }) {
             h("div", { style: { fontWeight: 700, fontSize: 14, color: "#1e1b4b" } }, d, i === 0 ? h("span", { style: { marginLeft: 6, fontSize: 11, color: "#059669", background: "#d1fae5", padding: "1px 7px", borderRadius: 999 } }, "最新") : null),
             h("div", { style: { fontSize: 12, color: "#64748b", marginTop: 2 } }, info[d] ? info[d].clients + " 个客户 · " + info[d].missions + " 个任务 · " + fmt(info[d].at) : "…")),
           h("button", { onClick: () => restoreKey("backup_" + d, d), disabled: !!busy || !!ask, style: { padding: "7px 14px", borderRadius: 999, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 700, fontSize: 12.5, boxShadow: "0 4px 12px rgba(79,70,229,.3)" } }, busy === "backup_" + d ? "还原中…" : "还原"))),
+      h("div", { style: { padding: "4px 14px 10px" } },
+        h("div", { style: { fontSize: 12.5, fontWeight: 900, color: "#0f766e", margin: "6px 0 4px" } }, "🗂 全部资料备份（每一页，每天自动）"),
+        h("div", { style: { fontSize: 11.5, color: "#64748b", marginBottom: 6 } }, "点日期 → 选要还原哪一页（只还原那一页，要密码）"),
+        fIdx.length === 0 ? h("div", { style: { fontSize: 12.5, color: "#94a3b8", padding: "6px" } }, "还没有 — 今天打开系统约 1 分钟后会自动做第一份") :
+        fIdx.map(d => h("div", { key: d, style: { borderBottom: "1px solid #f1f5f9" } },
+          h("div", { onClick: () => openFull(d), style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 6px", cursor: "pointer" } },
+            h("div", { style: { flex: 1, fontSize: 13, fontWeight: 700, color: "#1e1b4b" } }, (fOpen === d ? "▾ " : "▸ ") + d)),
+          fOpen === d && h("div", { style: { padding: "0 6px 8px 18px" } }, !fData[d] ? h("div", { style: { fontSize: 12, color: "#94a3b8" } }, "载入中…") :
+            Object.keys(fData[d].data || {}).sort((a, b) => (CRM_KEY_LABELS[a] ? 0 : 1) - (CRM_KEY_LABELS[b] ? 0 : 1) || a.localeCompare(b)).map(k => h("div", { key: k, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0" } },
+              h("div", { style: { flex: 1, fontSize: 12.5, color: "#334155", fontWeight: CRM_KEY_LABELS[k] ? 800 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, crmKeyLabel(k)),
+              h("button", { onClick: () => { setAsk({ key: "full:" + d + ":" + k, label: crmKeyLabel(k) + " · " + d, full: { d, k, v: fData[d].data[k] } }); setPw(""); setPwErr(""); }, disabled: !!busy || !!ask, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid #99f6e4", background: "#f0fdfa", color: "#0f766e", fontWeight: 800, fontSize: 11.5, cursor: "pointer" } }, "还原")))))),
+        h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
+          h("button", { onClick: doDownload, disabled: !!dl, style: { flex: 1, padding: "10px 12px", borderRadius: 12, border: "none", background: "linear-gradient(120deg,#0d9488,#0ea5e9)", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, dl || "⬇ 下载全部备份（存去电脑）"),
+          h("button", { onClick: () => upRef.current && upRef.current.click(), title: "只在资料全部不见时用：用下载的文件把全部资料放回去", style: { padding: "10px 12px", borderRadius: 12, border: "1px solid #fca5a5", background: "#fff1f2", color: "#b91c1c", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "⬆ 从文件还原"),
+          h("input", { ref: upRef, type: "file", accept: ".json,application/json", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+            try { const j = JSON.parse(await f.text()); if (!j || !j.data) throw new Error("不是 CRM 备份文件");
+              if (!window.confirm("⚠️ 会用这个文件（" + String(j.at || "").slice(0, 10) + "，" + Object.keys(j.data).length + " 项）把现在的资料全部盖掉。\n只在资料不见时才用。确定？")) return;
+              setAsk({ key: "file", label: "备份文件 " + String(j.at || "").slice(0, 10), file: j }); setPw(""); setPwErr(""); } catch (er) { alert("读不到文件：" + (er.message || er)); } } })),
+        h("div", { style: { fontSize: 11, color: "#94a3b8", marginTop: 6, lineHeight: 1.5 } }, "建议每个星期按一次「下载全部备份」，把文件存在电脑或 Google Drive。万一 Supabase 出事，资料还在你手上。")),
       dIdx.length > 0 && h("div", { style: { padding: "4px 14px 14px" } },
         h("div", { style: { fontSize: 12.5, fontWeight: 900, color: "#6d28d9", margin: "6px 0 4px" } }, "📄 Costing / Quotation 存档备份"),
         h("div", { style: { fontSize: 11.5, color: "#64748b", marginBottom: 6 } }, "只会加回不见的存档，不会盖掉现在的（要密码）"),
@@ -1703,7 +1775,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "294";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "295";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3074,7 +3146,7 @@ function App() {
 function CRM({ onLogout, currentUser }) {
   /* Salary Listing 按了 STOP SALARY 的名字 → Bank Statement 显示 STOP SALARY、不能再加 */
   const _slStopKey = React.useRef("");
-  React.useEffect(() => { const t = setTimeout(() => { try { DB.migrateFiles(); } catch (e) {} }, 40000); return () => clearTimeout(t); }, []);   /* 以前的照片慢慢搬去 Storage */
+  React.useEffect(() => { const t = setTimeout(() => { try { DB.migrateFiles(); } catch (e) {} }, 40000); const t2 = setTimeout(() => { try { ensureFullBackup(); } catch (e) {} }, 60000); return () => { clearTimeout(t); clearTimeout(t2); }; }, []);   /* 以前的照片慢慢搬去 Storage */
   const [clients, setClients] = useState([]);
   React.useEffect(() => { const set = new Set((clients || []).filter(c => c && c.salaryStatus === "stop" && String(c.name || "").trim()).map(c => String(c.name).trim().toUpperCase().replace(/\s+/g, " ")));
     const k = Array.from(set).sort().join("|"); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients]);
