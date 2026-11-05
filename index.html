@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "303";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "304";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9410,7 +9410,7 @@ const tpDate = v => v ? React.createElement("span", { className: "tp-date", titl
 /* ---------- Type page ---------- */
 const BANK_COLS = ["B.RAKYAT","BSN","PBB","MUAMALAT","BANK ISLAM","ALRAJHI","MBSB","RHB","CIMB","HLB"];
 /* Personal 表格固定显示的银行（顺序 + 显示名） */
-const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["RHB", "RHB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
+const PERSONAL_BANKS = [["MUAMALAT", "MUAMALAT"], ["HLB", "HLB"], ["ALLIANCE", "ALB"], ["RHB", "RHB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON .C"], ["AEON BANK", "AEON.B"], ["GX BANK", "GX BANK"], ["AMBANK", "AMB"], ["B.RAKYAT", "B.RAKYAT"], ["BANK ISLAM", "BANK ISLAM"], ["MAYBANK", "MBB"], ["UOB", "UOB"], ["MBSB", "MBSB"], ["HSBC", "HSBC"], ["ALRAJHI", "ALRAJHI"]];
 const PB_PROGRESS = [["collect", "Collect", "#0d9488"], ["nopickup", "No Pick Up", "#ea580c"], ["noaccept", "No Accept", "#111827"], ["incomplete", "Incomplete", "#0ea5e9"], ["run", "Run", "#dc2626"]];
 const pbStyle = k => { const c = (PB_PROGRESS.find(x => x[0] === k) || [0, 0, "#94a3b8"])[2]; return { color: c, borderColor: c + "55", background: c + "0f" }; };
 const CAR_BANKS = [["PBB", "PBB"], ["HLB", "HLB"], ["AMBANK", "AMB"], ["CIMB", "CIMB"], ["AEON CREDIT", "AEON"], ["GFS", "GFS"], ["X STAR", "X STAR"], ["CHAILEASE", "CHAILEASE"], ["GENIE", "GENIE"], ["CARSOME", "CARSOME"], ["MUAMALAT", "MUAMALAT"]];
