@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "304";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "305";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6309,7 +6309,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" } }, lsFmt(bal)),
     h("td", { style: cell })));
   return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
-    onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", top: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
+    onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", bottom: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
     bdOpen && h(BsBackdate, { name: r.c.name, init: d.backdate || bsBackdateFromCalc(d), wage: bsBackdateWage(d), onClose: () => setBdOpen(false), onSave: v => { const nx = { ...d, backdate: v }; setD(nx); commit(nx); } }),
     showRc && (() => { const au = autos.find(a => a.k === showRc); if (!au) return null; const rc = au.list, rcT = au.total; return h("div", { onClick: () => setShowRc(false), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 12px", overflowY: "auto" } },
@@ -6354,7 +6354,12 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   rows.forEach(r => { r.rc = rcBy[rcKey(r.c.name)] || []; r.rt = rtBy[rcKey(r.c.name)] || []; });
   const rcSum = r => [...r.rc, ...r.rt].reduce((a, x) => a + lsNum(x.amount), 0);
   const ql = q.trim().toLowerCase();
+  /* 上面年份：进行中 / END 按年份（打勾 END 的自动搬去那一年） */
+  const endY = r => { const e = r.bs && r.bs.ended; return e ? String(new Date(e.at || Date.now()).getFullYear()) : ""; };
+  const endYears = Array.from(new Set(rows.map(endY).filter(Boolean))).sort((a, b) => b.localeCompare(a));
+  const [ey, setEy] = React.useState("");
   const shown = rows.filter(r => {
+    if (endY(r) !== ey) return false;
     const bal = bsBalance(r.bs);
     if (only === "owe" && !(bal > 0.004)) return false;
     if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
@@ -6368,6 +6373,10 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       h("div", { style: { ...S.searchWrap, flex: "1 1 240px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / bank acc / company / agent", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: addPerson }, h(Plus, { size: 16 }), " 新增人头")),
+    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
+      [["", "进行中", rows.filter(r => !endY(r)).length]].concat(endYears.map(y => [y, "END " + y, rows.filter(r => endY(r) === y).length])).map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
+        style: { border: ey === k ? "2px solid " + (k ? "#7c3aed" : "#16a34a") : "1px solid #e2e8f0", background: ey === k ? (k ? "#f3e8ff" : "#dcfce7") : "#fff", color: ey === k ? (k ? "#6d28d9" : "#15803d") : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, (k ? "📅 " : "▶ ") + l + " (" + n + ")")),
+      endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 END 的会自动搬去那一年")),
     shown.length === 0 ? h("div", { style: { background: "#fff", borderRadius: 14, padding: 30, textAlign: "center", color: "#94a3b8", border: "1px solid #eef0f6" } }, rows.length ? "找不到" : "还没有 — 按「新增人头」，或 Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现") :
     h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
       shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? n => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase() } : p)) : null, onDel: r.manual ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
