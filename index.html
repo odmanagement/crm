@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "317";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "319";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5692,8 +5692,8 @@ function LendingFeePage({ currentUser }) {
 }
 /* ---------- Salary Listing：Personal Loan 有填 CIMB / AEON CREDIT 的客户，自动列出来 ---------- */
 const SALARY_BANKS = ["CIMB", "AEON CREDIT"];
-const SL_ST = { notyet: ["⏳ 还没开始", "#f1f5f9", "#475569", "#cbd5e1", "⏳"], build: ["▶ CONTINUE BUILD", "#dcfce7", "#15803d", "#86efac", "✅"], stop: ["⛔ STOP SALARY", "#fee2e2", "#b91c1c", "#fca5a5", "⛔"], new: ["🆕 NEW SALARY", "#dbeafe", "#1d4ed8", "#93c5fd", "🆕"], net: ["💰 NET SALARY", "#f3e8ff", "#7e22ce", "#d8b4fe", "💰"] };
-const SL_KEYS = ["notyet", "build", "stop", "new", "net"];
+const SL_ST = { notyet: ["⏳ HAVEN'T START", "#f1f5f9", "#475569", "#cbd5e1", "⏳"], build: ["▶ CONTINUE SALARY", "#dcfce7", "#15803d", "#86efac", "✅"], stop: ["⛔ STOP SALARY", "#fee2e2", "#b91c1c", "#fca5a5", "⛔"], new: ["🆕 NEW SALARY", "#dbeafe", "#1d4ed8", "#93c5fd", "🆕"], net: ["💰 NETT SALARY", "#f3e8ff", "#7e22ce", "#d8b4fe", "💰"] };
+const SL_KEYS = ["notyet", "new", "build", "net", "stop"];   /* 顺序：HAVEN'T START → NEW → CONTINUE → NETT → STOP（列表也照这个顺序排） */
 /* ---------- Bank Statement（每个 Salary 客户一份）：Charges & Fees / CHQ Date + Credited / 收回的钱 ---------- */
 const BS_FEES = ["EPF =3m", "SOCSO =3m", "EIS =3m", "TAX =3m", "CHQ FEES"];
 const bsTot = (rows, k) => (rows || []).reduce((a, x) => a + lsNum(x[k || "amount"]), 0);
@@ -6448,7 +6448,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const ql = q.trim().toLowerCase();
   const inMonth = r => !month || (r.date ? r.date.slice(0, 7) : "0000-00") === month;
   const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
-    .sort((x, y) => String(y.date || "").localeCompare(String(x.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));
+    .sort((x, y) => { const o = r => { const i = SL_KEYS.indexOf(r.st0 != null ? r.st0 : r.st); return i < 0 ? 99 : i; }; return o(x) - o(y) || String(y.date || "").localeCompare(String(x.date || "")) || String(x.c.name).localeCompare(String(y.c.name)); });
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   const copyText = () => {
     const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
