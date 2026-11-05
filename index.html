@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "321";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "322";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6438,7 +6438,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   (clients || []).forEach(c => {
     const banks = new Set(); let date = "";
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) { banks.add(k); if (b.date && (!date || b.date < date)) date = b.date; } }));
-    if (banks.size && String(c.name || "").trim()) { const [st, auto] = stOf(c.salaryStatusM, c.name); rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st, auto, stopped: !!c.slStopped }); }   /* 没选 = 空的，给人选 */
+    if (banks.size && String(c.name || "").trim() && bpOf(c.name)) { const [st, auto] = stOf(c.salaryStatusM, c.name);   /* 只有 Bank Statement 有的人才连接 Personal Loan */ rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st, auto, stopped: !!c.slStopped }); }   /* 没选 = 空的，给人选 */
   });
   /* 跟 Bank Statement：Bank Statement 有的人也列出来（Personal Loan 没有 CIMB / AEON 也会出现） */
   { const have = new Set(rows.map(r => slNameKey(r.c.name)));
