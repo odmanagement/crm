@@ -1775,7 +1775,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "295";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "296";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3307,6 +3307,7 @@ function CRM({ onLogout, currentUser }) {
     await Promise.all(jobs);
   };
   const persistVerifications = async next => {
+    next = ownGuardList(verifications, next, v => v.owner || v.createdBy || v.staff || "");
     next = next.map(v => v && v.icNumber && fmtIC(v.icNumber) !== v.icNumber ? { ...v, icNumber: fmtIC(v.icNumber) } : v);
     setVerifications(next);
     setSaving(true);
@@ -3318,6 +3319,7 @@ function CRM({ onLogout, currentUser }) {
     setSaving(false);
   };
   const persistBankers = async next => {
+    next = ownGuardList(bankers, next);
     setBankers(next);
     setSaving(true);
     try {
@@ -3349,6 +3351,7 @@ function CRM({ onLogout, currentUser }) {
     alert(`${client.name} sent to verify queue`);
   };
   const persist = async next => {
+    next = ownGuardClients(clients, next);   /* 只有建立的人可以改（Lucas 全部可以；备注大家可以） */
     next = next.map(c => c && c.ic && fmtIC(c.ic) !== c.ic ? { ...c, ic: fmtIC(c.ic) } : c);
     next = autoStageClients(next);
     ensureDailyBackup({ clients, missions, bankers, verifications });
@@ -4201,6 +4204,53 @@ const _clIdb = (() => { let p = null; return () => p || (p = new Promise(res => 
 const clCacheGet = async key => { try { const db = await _clIdb(); if (!db) return null; return await new Promise(res => { const t = db.transaction("kv", "readonly").objectStore("kv").get(key); t.onsuccess = () => res(t.result == null ? null : t.result); t.onerror = () => res(null); }); } catch (e) { return null; } };
 const _clPut = {};
 const clCachePut = (key, val) => { clearTimeout(_clPut[key]); _clPut[key] = setTimeout(async () => { try { const db = await _clIdb(); if (db) db.transaction("kv", "readwrite").objectStore("kv").put(val, key); } catch (e) {} }, 1500); };
+/* ===== 谁建立，只有那个人可以改（Lucas 全部都可以；备注大家都可以）=====
+   旧资料没有记录是谁建立的 → 第一个改的人变成主人（owner） */
+const OWN_KEYS = ["bank_stmt_people", "bank_stmt_people_rencai", "lending_fee", "od_payments", "receipts", "bs_return_salary", "return_salary", "leaves", "phones", "submissions", "doc_tracking"];
+const OWN_FREE = /remark|rmk|note|memo|followups|comments|replies|备注|^(waitTypes|waitDoneAt|waitInfo|aeonGxDone|stage|meta|updatedAt|updatedBy)$/i;   /* 备注 + 系统自己更新的栏位 */
+const ownBoss = () => { try { return isMissionBoss(window.__crmUser); } catch (e) { return false; } };
+const ownerOf = x => x ? (x.owner || x.createdBy || x.by || x.staff || "") : "";
+let _ownToastT = 0;
+function ownToast(who) {
+  if (Date.now() - _ownToastT < 1500) return; _ownToastT = Date.now();
+  try { const d = document.createElement("div"); d.textContent = "🔒 只有建立的人（" + String(who || "").toUpperCase() + "）可以更改，备注除外";
+    Object.assign(d.style, { position: "fixed", left: "50%", bottom: "28px", transform: "translateX(-50%)", background: "#1e1b4b", color: "#fff", padding: "10px 18px", borderRadius: 12, fontWeight: "800", fontSize: "14px", zIndex: 100000, boxShadow: "0 12px 30px rgba(0,0,0,.3)" });
+    document.body.appendChild(d); setTimeout(() => d.remove(), 2600); } catch (e) {}
+  try { window.dispatchEvent(new Event("crm-own-block")); } catch (e) {}
+}
+/* 一个一个比较：别人的只准改备注；删除别人的 → 放回去；新的 / 没主人的 → 记下主人 */
+function ownGuardList(prev, next, ownerFn, stampKey) {
+  if (!Array.isArray(prev) || !Array.isArray(next)) return next;
+  const me = canonUser(window.__crmUser || ""); if (!me) return next;
+  const of = ownerFn || ownerOf, sk = stampKey || "owner";
+  const pm = new Map(prev.filter(x => x && x.id != null).map(x => [x.id, x])); let blocked = null;
+  const out = next.map(x => {
+    if (!x || x.id == null) return x;
+    const o = pm.get(x.id);
+    if (!o) return (x.owner || x.createdBy || x.by || x.staff) ? x : { ...x, [sk]: me };   /* 新的 → 记下谁建立 */
+    if (_J(o) === _J(x)) return x;
+    const ow = of(o);
+    if (!ow) return { ...x, [sk]: me };   /* 旧资料：第一个改的人变成主人 */
+    if (ownBoss() || sameUser(ow, me)) return x;
+    const m = { ...o }; let cut = false;
+    new Set([...Object.keys(o), ...Object.keys(x)]).forEach(k => { if (_J(o[k]) === _J(x[k])) return; if (OWN_FREE.test(k)) m[k] = x[k]; else cut = true; });
+    if (cut) blocked = ow;
+    return cut ? m : x;
+  });
+  if (!ownBoss()) prev.forEach((o, i) => { if (!o || o.id == null || next.some(x => x && x.id === o.id)) return; const ow = of(o); if (ow && !sameUser(ow, me)) { out.splice(Math.min(i, out.length), 0, o); blocked = ow; } });
+  if (blocked) ownToast(blocked);
+  return out;
+}
+/* 客户：每一笔 Loan 看那笔的主人；客户本身（名字 / 电话…）看客户的主人 */
+function ownGuardClients(prev, next) {
+  if (!Array.isArray(prev) || !Array.isArray(next) || ownBoss()) return next;
+  const cOwn = c => c ? (c.owner || c.createdBy || c.staff || "") : "";
+  const pm = new Map(prev.filter(c => c && c.id).map(c => [c.id, c]));
+  const g = ownGuardList(prev.map(c => ({ ...c, loans: undefined })), next.map(c => ({ ...c, loans: undefined })), cOwn);
+  return next.map((c, i) => { if (!c || !c.id) return c; const o = pm.get(c.id), gc = g.find(x => x && x.id === c.id) || c;
+    const loans = o ? ownGuardList(o.loans || [], c.loans || [], l => l.owner || l.createdBy || l.admin || cOwn(o), "createdBy") : (c.loans || []).map(l => l.createdBy ? l : { ...l, createdBy: canonUser(window.__crmUser || "") });
+    return { ...gc, loans }; }).concat(g.filter(x => x && x.id && !next.some(c => c && c.id === x.id)).map(x => ({ ...x, loans: (pm.get(x.id) || {}).loans || [] })));
+}
 function useCloudList(key) {
   const [list, setListRaw] = React.useState(() => _clMem[key] !== undefined ? _clMem[key] : null);
   const [fresh, setFresh] = React.useState(false);
@@ -4209,7 +4259,8 @@ function useCloudList(key) {
     if (_clMem[key] === undefined) clCacheGet(key).then(v => { if (!gotCloud && v != null && _clMem[key] === undefined) { _clMem[key] = v; setListRaw(v); } });
     DB.get(key).then(v => { gotCloud = true; const d = v ? JSON.parse(v) : []; setList(d); setFresh(true); clCachePut(key, d); }).catch(() => { gotCloud = true; if (_clMem[key] === undefined) setList([]); setFresh(true); }); }, [key]);
   React.useEffect(() => DB.subscribe((k, v) => { if (k === key && v) { try { const d = JSON.parse(v); setList(d); clCachePut(key, d); } catch (e) {} } }), [key]);
-  const save = next => { setList(next); clCachePut(key, next); DB.set(key, JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key, next } })); } catch (e) {} };
+  const save = next => { if (OWN_KEYS.includes(key) && !isReadOnlyUser()) next = ownGuardList(_clMem[key] !== undefined ? _clMem[key] : list, next);
+    setList(next); clCachePut(key, next); DB.set(key, JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key, next } })); } catch (e) {} };
   React.useEffect(() => { const f = e => { if (e.detail && e.detail.key === key) setList(e.detail.next); }; window.addEventListener("crm-cloudlist", f); return () => window.removeEventListener("crm-cloudlist", f); }, [key]);
   return [list, save, fresh];
 }
@@ -6059,6 +6110,7 @@ function lfFallbackCopy(v) { try { const ta = document.createElement("textarea")
 function BankStmtSheet({ r, onSave, onName, onDel }) {
   const [, setSlTick] = React.useState(0);
   React.useEffect(() => { const f = () => setSlTick(x => x + 1); window.addEventListener("crm-salstop", f); return () => window.removeEventListener("crm-salstop", f); }, []);
+  React.useEffect(() => { const f = () => { if (!focus.current) setD(norm(r.bs)); }; window.addEventListener("crm-own-block", f); return () => window.removeEventListener("crm-own-block", f); });
   const slStop = !!(window.__crmSalStop && window.__crmSalStop.has(String(r.c.name || "").trim().toUpperCase().replace(/\s+/g, " ")));
   const autos = [{ k: "rc", icon: "🧾", label: "BOSS TAKE", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
   const rcT = autos.reduce((t, a) => t + a.total, 0), RO = autos.length;
