@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "305";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "306";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9546,12 +9546,16 @@ function TypePage({
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [showClosed, setShowClosed] = useState(false);   /* Personal / Car：CLOSING = 点了号码（紫色）已经 Close 的 */
+  const [closeYr, setCloseYr] = useState("");   /* CLOSING 按年份归档（Close 那一天的年份） */
+  const clYear = l => l && l.closedMark ? String(new Date(l.closedMark.at || Date.now()).getFullYear()) : "";
+  const clYears = isP ? Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type && l.closedMark).map(clYear)))).sort((a, b) => b.localeCompare(a)) : [];
+  const curClYr = clYears.includes(closeYr) ? closeYr : (clYears[0] || "");
   const t = typeOf(type);
   const closedN = isP ? clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark).length, 0) : 0;
   const rows = clients.flatMap(c => (c.loans || []).filter(l => l.type === type).map(l => ({
     loan: l,
     client: c
-  }))).filter(r => !isP || (showClosed ? !!r.loan.closedMark : !r.loan.closedMark)).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
+  }))).filter(r => !isP || (showClosed ? !!r.loan.closedMark && clYear(r.loan) === curClYr : !r.loan.closedMark)).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
     if (!q) return true;
     const s = q.toLowerCase();
     return [r.client.name, r.client.phone, r.loan.bank, r.loan.subject].filter(Boolean).join(" ").toLowerCase().includes(s);
@@ -9572,7 +9576,11 @@ function TypePage({
 }, /*#__PURE__*/React.createElement(t.icon, {
   size: 20,
   color: t.color
-}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING · " : "", rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), React.createElement(LoanSumBar, { rows }), /*#__PURE__*/React.createElement("div", {
+}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING " + curClYr + " · " : "", rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), isP && showClosed && clYears.length > 0 && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
+  React.createElement("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#6d28d9" } }, "CLOSING 年份："),
+  clYears.map(y => React.createElement("button", { key: y, onClick: () => setCloseYr(y), style: { border: curClYr === y ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: curClYr === y ? "#f3e8ff" : "#fff", color: curClYr === y ? "#6d28d9" : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } },
+    "📅 " + y + " (" + clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark && clYear(l) === y).length, 0) + ")"))),
+React.createElement(LoanSumBar, { rows }), /*#__PURE__*/React.createElement("div", {
   style: { display: "flex", gap: 10, alignItems: "center", marginBottom: S.searchWrap.marginBottom || 12 }
 }, /*#__PURE__*/React.createElement("div", {
   style: { ...S.searchWrap, flex: 1, marginBottom: 0 }
