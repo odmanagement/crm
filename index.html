@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "299";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "300";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3235,8 +3235,9 @@ function CRM({ onLogout, currentUser }) {
   const _slStopKey = React.useRef("");
   React.useEffect(() => { const t = setTimeout(() => { try { DB.migrateFiles(); } catch (e) {} }, 40000); const t2 = setTimeout(() => { try { ensureFullBackup(); } catch (e) {} }, 60000); return () => { clearTimeout(t); clearTimeout(t2); }; }, []);   /* 以前的照片慢慢搬去 Storage */
   const [clients, setClients] = useState([]);
-  React.useEffect(() => { const set = new Set((clients || []).filter(c => c && c.salaryStatus === "stop" && String(c.name || "").trim()).map(c => String(c.name).trim().toUpperCase().replace(/\s+/g, " ")));
-    const k = Array.from(set).sort().join("|"); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients]);
+  const [slStatusList] = useCloudList("salary_status");
+  React.useEffect(() => { const set = new Set([...(clients || []).filter(c => c && c.salaryStatus === "stop" && String(c.name || "").trim()).map(c => slNameKey(c.name)), ...(slStatusList || []).filter(x => x && x.st === "stop").map(x => x.id)]);
+    const k = Array.from(set).sort().join("|"); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients, slStatusList]);
   const [verifications, setVerifications] = useState([]);
   const [bankers, setBankers] = useState([]);
   const [missions, setMissions] = useState([]);
@@ -6140,7 +6141,8 @@ function BsPeopleLoader() {
             ["epf", "EPF", "-", o.v("epfEe")], ["socso", "SOCSO", "-", o.v("socEe")], ["eis", "EIS", "-", o.v("eisEe")], ["pcb", "PCB", "-", o.v("taxEe")]]
             .map(([id, name, sign, n]) => ({ id: id + "_bs", name, sign, amount: f(n) })); } } catch (e) {}
       let nMon = 0; try { const cr2 = bs.credits || [], st2 = cr2.findIndex(x => x && x.stop); nMon = cr2.filter((x, i) => x && (x.date || x.amount) && (st2 < 0 || i < st2)).length; } catch (e) {}
-      out.push({ nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
+      out.push({ firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -6198,7 +6200,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const [, setSlTick] = React.useState(0);
   React.useEffect(() => { const f = () => setSlTick(x => x + 1); window.addEventListener("crm-salstop", f); return () => window.removeEventListener("crm-salstop", f); }, []);
   React.useEffect(() => { const f = () => { if (!focus.current) setD(norm(r.bs)); }; window.addEventListener("crm-own-block", f); return () => window.removeEventListener("crm-own-block", f); });
-  const slStop = !!(window.__crmSalStop && window.__crmSalStop.has(String(r.c.name || "").trim().toUpperCase().replace(/\s+/g, " ")));
+  const slStop = !!(window.__crmSalStop && window.__crmSalStop.has(slNameKey(r.c.name)));
   const autos = [{ k: "rc", icon: "🧾", label: "BOSS TAKE", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
   const rcT = autos.reduce((t, a) => t + a.total, 0), RO = autos.length;
   const [showRc, setShowRc] = React.useState(false);
@@ -6375,13 +6377,18 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser 
   const [stmtId, setStmtId] = React.useState(null);
   const [, setBpTick] = React.useState(0);
   React.useEffect(() => { const f = () => setBpTick(x => x + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
-  const bpOf = n => { const k = String(n || "").trim().toUpperCase().replace(/\s+/g, " "); return (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k) || null; };
+  const bpOf = n => { const k = slNameKey(n); return k ? (window.__crmBsPeople || []).find(x => slNameKey(x.name) === k) || null : null; };
+  const [slSt, saveSlSt] = useCloudList("salary_status");   /* 只在 Bank Statement 的人：状态存这里 */
   const rows = [];
   (clients || []).forEach(c => {
     const banks = new Set(); let date = "";
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) { banks.add(k); if (b.date && (!date || b.date < date)) date = b.date; } }));
     if (banks.size && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st: SL_KEYS.includes(c.salaryStatus) ? c.salaryStatus : "build" });
   });
+  /* 跟 Bank Statement：Bank Statement 有的人也列出来（Personal Loan 没有 CIMB / AEON 也会出现） */
+  { const have = new Set(rows.map(r => slNameKey(r.c.name)));
+    (window.__crmBsPeople || []).forEach(p => { const k = slNameKey(p.name); if (!k || have.has(k)) return; have.add(k); const s0 = (slSt || []).find(x => x && x.id === k);
+      rows.push({ c: { id: "bs:" + k, name: p.name, salaryStatusBy: s0 && s0.by }, banks: [], date: p.firstDate || "", st: s0 && SL_KEYS.includes(s0.st) ? s0.st : "build", bsOnly: k }); }); }
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
@@ -6423,10 +6430,10 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser 
         shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(r.st !== "build" ? { background: m[1] + "66" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
-          h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => onOpen(r.c.id), title: "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
+          h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => r.bsOnly ? (window.__crmGoPage && window.__crmGoPage("bankstmt")) : onOpen(r.c.id), title: r.bsOnly ? "打开 Bank Statement" : "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
           /* Bank Statement 栏拿掉了（不再连接） */
           h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
-            SL_KEYS.map(k => h("button", { key: k, onClick: () => { if (r.st !== k) onSetStatus(r.c.id, k); }, title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8" } }, SL_ST[k][0])))));
+            SL_KEYS.map(k => h("button", { key: k, onClick: () => { if (r.st === k) return; if (r.bsOnly) { const me = canonUser(window.__crmUser || ""); const L = (slSt || []).filter(x => x && x.id !== r.bsOnly); saveSlSt([...L, { id: r.bsOnly, name: r.c.name, st: k, by: me, at: Date.now() }]); } else onSetStatus(r.c.id, k); }, title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8" } }, SL_ST[k][0])))));
         })))),
     stmtId && (() => { const r = rows.find(x => x.c.id === stmtId); return r && h(BankStmtModal, { c: r.c, banks: r.banks, onSave: bs => onSaveStmt && onSaveStmt(r.c.id, bs), onClose: () => setStmtId(null) }); })());
 }
@@ -10514,6 +10521,8 @@ function VSalaryEditor({ items, onItems }) {
       h("span", { style: { fontWeight: 900, fontSize: 18, color: nett < 0 ? "#dc2626" : "#16a34a", fontVariantNumeric: "tabular-nums" } }, vMoney(nett))));
 }
 /* Verify：名字跟 Bank Statement 一样 → Salary 自动带过来（还没填过才带） */
+/* 名字对名字：大小写、空格、标点（A/P、@、.）都不管 */
+const slNameKey = n => String(n || "").toUpperCase().replace(/[^A-Z0-9\u4e00-\u9fff]/g, "");
 const vBsPerson = name => { const k = String(name || "").trim().toUpperCase().replace(/\s+/g, " "); return k ? (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k) || null : null; };
 const vSalaryEmpty = v => vSalaryItems(v).every(it => !vNum(it.amount));
 const vNewSalarySet = () => ({ id: uid(), label: "", items: V_SALARY_DEFAULT.map(([id, name, sign]) => ({ id: id + "_" + uid(), name, sign, amount: "" })) });
