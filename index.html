@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "298";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "299";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3438,7 +3438,7 @@ function CRM({ onLogout, currentUser }) {
     alert(`${client.name} sent to verify queue`);
   };
   const persist = async next => {
-    next = ownGuardClients(clients, next);   /* 只有建立的人可以改（Lucas 全部可以；备注大家可以） */
+    /* Loan（House / Car / Personal）：谁都可以操作，不套用「只有建立的人可以改」 */
     next = next.map(c => c && c.ic && fmtIC(c.ic) !== c.ic ? { ...c, ic: fmtIC(c.ic) } : c);
     next = autoStageClients(next);
     ensureDailyBackup({ clients, missions, bankers, verifications });
