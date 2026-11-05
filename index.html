@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "315";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "316";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3831,6 +3831,7 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
+    onSetStatusBatch: (list, mo) => { const mp = new Map(list); persist(clients.map(c => mp.has(c.id) ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: mp.get(c.id) }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)); },
     onSetStopped: (cid, val) => persist(clients.map(c => c.id === cid ? { ...c, slStopped: val } : c)),
     onClearAll: () => persist(clients.map(c => c.salaryStatus || c.salaryStatusM ? { ...c, salaryStatus: "", salaryStatusM: {}, salaryStatusBy: "", salaryStatusAt: Date.now() } : c)),
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c)),
@@ -6392,7 +6393,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
 }
-function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped }) {
+function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped, onSetStatusBatch }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
   const [fb, setFb] = React.useState("");
@@ -6410,13 +6411,27 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     await DB.set("sl_reset_v1", JSON.stringify({ at: new Date().toISOString(), by: canonUser(window.__crmUser || "") })); onClearAll && onClearAll(); saveSlSt([]); } catch (e) {} })(); }, [(clients || []).length > 0]);
   const nowM = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
   const [stM, setStM] = React.useState(nowM);   /* 选月份来按 Salary Status；还没按的月份是空的 */
+  /* 按了先放着（虚线），按「✓ 确认更改」才存 */
+  const [pend, setPend] = React.useState({});
+  React.useEffect(() => { setPend({}); }, [stM]);
+  const nPend = Object.keys(pend).length;
+  const applyPend = () => {
+    const me = canonUser(window.__crmUser || ""), ids = Object.keys(pend); if (!ids.length) return;
+    const cl = ids.filter(id => !id.startsWith("bs:")).map(id => [id, pend[id]]);
+    if (cl.length) onSetStatusBatch && onSetStatusBatch(cl, stM);
+    const bs = ids.filter(id => id.startsWith("bs:")); if (bs.length) { let L = (slSt || []).slice();
+      bs.forEach(id => { const key = id.slice(3), o = L.find(x => x && x.id === key) || { id: key, name: (rows.find(r => r.c.id === id) || { c: {} }).c.name }; L = L.filter(x => x && x.id !== key).concat([{ ...o, m: { ...(o.m || {}), [stM]: pend[id] }, by: me, at: Date.now() }]); });
+      saveSlSt(L); }
+    setPend({}); };
   const setSt = (r, k) => { if (r.bsOnly) { const me = canonUser(window.__crmUser || ""); const o = (slSt || []).find(x => x && x.id === r.bsOnly) || {}; const L = (slSt || []).filter(x => x && x.id !== r.bsOnly); saveSlSt([...L, { id: r.bsOnly, name: r.c.name, m: { ...(o.m || {}), [stM]: k }, by: me, at: Date.now() }]); } else onSetStatus(r.c.id, k, stM); };
   /* 点 # 号码 → 搬去 STOP SALARY（浅红色）；在 STOP SALARY 那边再点一次 → 搬回来 */
   const setStopped = (r, on) => { const me = canonUser(window.__crmUser || ""), val = on ? { by: me, at: Date.now() } : null;
     if (r.bsOnly) { const o = (slSt || []).find(x => x && x.id === r.bsOnly) || { id: r.bsOnly, name: r.c.name }; saveSlSt([...(slSt || []).filter(x => x && x.id !== r.bsOnly), { ...o, stopped: val }]); }
     else onSetStopped && onSetStopped(r.c.id, val); };
   /* 那个月还没按：Bank Statement 0 个月 → 自动 NEW SALARY */
-  const stOf = (map, name) => { const v = (map || {})[stM]; if (SL_KEYS.includes(v)) return [v, false]; const bp = bpOf(name); return bp && bp.nMon === 0 ? ["new", true] : ["", false]; };
+  const stOf = (map, name) => { const v = (map || {})[stM]; if (SL_KEYS.includes(v)) return [v, false];
+    /* 这个月还没按 → 跟回上次（之前最近一个月）的记录 */
+    const prev = Object.keys(map || {}).filter(k => k < stM && SL_KEYS.includes(map[k])).sort().pop(); if (prev) return [map[prev], false]; const bp = bpOf(name); return bp && bp.nMon === 0 ? ["new", true] : ["", false]; };
   const rows = [];
   (clients || []).forEach(c => {
     const banks = new Set(); let date = "";
@@ -6427,6 +6442,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   { const have = new Set(rows.map(r => slNameKey(r.c.name)));
     (window.__crmBsPeople || []).forEach(p => { const k = slNameKey(p.name); if (!k || have.has(k)) return; have.add(k); const s0 = (slSt || []).find(x => x && x.id === k);
       const [st, auto] = stOf(s0 && s0.m, p.name); rows.push({ c: { id: "bs:" + k, name: p.name, salaryStatusBy: s0 && s0.by }, banks: [], date: p.firstDate || "", st, auto, bsOnly: k, stopped: !!(s0 && s0.stopped) }); }); }
+  rows.forEach(r => { r.st0 = r.st; if (pend[r.c.id] != null) { r.st = pend[r.c.id]; r.auto = false; r.pending = true; } });
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
@@ -6452,8 +6468,8 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   return h("div", { className: "cz-page" },
     h("div", { style: card },
       /* 不跟日期：按「确认」→ 记下确认更改的日期 */
-      h("button", { onClick: () => { if (!window.confirm("确认 Salary Listing 的更改？")) return; const me = canonUser(window.__crmUser || ""); saveCf([{ id: uid(), by: me, at: Date.now() }, ...(cfList || [])].slice(0, 50)); },
-        style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 900, fontSize: 13.5, cursor: "pointer", boxShadow: "0 6px 14px rgba(22,163,74,.3)" } }, "✓ 确认更改"),
+      h("button", { onClick: () => { if (!window.confirm(nPend ? "确认 " + nPend + " 个更改？" : "确认 Salary Listing？")) return; applyPend(); const me = canonUser(window.__crmUser || ""); saveCf([{ id: uid(), by: me, at: Date.now(), n: nPend, m: stM }, ...(cfList || [])].slice(0, 50)); },
+        style: { border: "none", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", borderRadius: 10, padding: "8px 16px", fontWeight: 900, fontSize: 13.5, cursor: "pointer", boxShadow: "0 6px 14px rgba(22,163,74,.3)" } }, nPend ? "✓ 确认更改 (" + nPend + ")" : "✓ 确认更改"), nPend > 0 && h("span", { style: { fontSize: 12, fontWeight: 800, color: "#ca8a04" } }, "⚠ 还有 " + nPend + " 个更改没确认（黄色虚线）"),
       (() => { const last = (cfList || [])[0]; return h("span", { title: (cfList || []).slice(0, 10).map(x => new Date(x.at).toLocaleString("en-GB") + " · " + String(x.by || "").toUpperCase()).join("\n"), style: { fontSize: 13, fontWeight: 900, color: last ? "#15803d" : "#94a3b8", background: last ? "#f0fdf4" : "#f8fafc", border: "1px solid " + (last ? "#86efac" : "#e2e8f0"), borderRadius: 10, padding: "7px 12px" } },
         last ? "📅 已确认：" + new Date(last.at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " · " + String(last.by || "").toUpperCase() : "还没确认过"); })(),
       SL_KEYS.map(k => h("span", { key: k, style: { fontSize: 12.5, fontWeight: 800, color: SL_ST[k][2] } }, SL_ST[k][4] + " " + nOf(k))),
@@ -6461,23 +6477,19 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
       h("button", { onClick: doCopy, style: { border: "1px solid #86efac", background: copied ? "#22c55e" : "#f0fdf4", color: copied ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied ? "✓ 已复制" : "📋 Copy (WhatsApp)")),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
-      chip(!fb, () => setFb(""), "全部银行", "b"),
-      SALARY_BANKS.map(k => chip(fb === k, () => setFb(k), bankLabel(k, "personal"), k)),
-      h("span", { style: { width: 8 } }),
       chip(!fs, () => setFs(""), "全部 (" + rows.filter(r => inMonth(r) && !r.stopped).length + ")", "s"), chip(fs === "stopped", () => setFs("stopped"), "⛔ STOP SALARY (" + rows.filter(r => inMonth(r) && r.stopped).length + ")", "sstop")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } }, "Salary Status",
         h("input", { type: "month", value: stM, onChange: e => e.target.value && setStM(e.target.value), title: "选月份来按 Salary Status", style: { border: "1px solid rgba(255,255,255,.6)", borderRadius: 8, padding: "2px 6px", fontWeight: 900, fontSize: 12, fontFamily: "inherit", background: "#fff", color: "#9d174d" } }),
-        stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))), h("th", { style: S.th }, ""))),
-      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
+        stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))))),
+      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 4, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
         shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol, cursor: "pointer", ...(r.stopped ? { background: "#fecaca", color: "#b91c1c", fontWeight: 900 } : {}) }, title: r.stopped ? "在 STOP SALARY · 再点一次搬回来" : "点一下 = 搬去 STOP SALARY", onClick: () => setStopped(r, !r.stopped) }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
           h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => r.bsOnly ? (window.__crmGoPage && window.__crmGoPage("bankstmt")) : onOpen(r.c.id), title: r.bsOnly ? "打开 Bank Statement" : "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
           /* Bank Statement 栏拿掉了（不再连接） */
           h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
-            SL_KEYS.map(k => h("button", { key: k, onClick: () => { if (r.st !== k || r.auto) setSt(r, k); }, title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8", ...(r.st === k && r.auto ? { opacity: .75, outline: "2px dashed #fff", outlineOffset: -4 } : {}) }, ...(r.st === k && r.auto ? { title: "Bank Statement 0 个月 → 自动 NEW SALARY" } : {}) }, SL_ST[k][0])))),
-          h("td", { style: { ...S.td, whiteSpace: "nowrap" } }, h("button", { onClick: () => { if (window.confirm("「" + String(r.c.name).toUpperCase() + "」重置 " + stM + " 的 Salary Status？\n会变回空的，重新选。")) setSt(r, ""); }, title: "重置（确认后 Salary Status 变回空的）", style: { border: "1px solid #c7d2fe", background: "#eef2ff", color: "#4338ca", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer" } }, "↺ 重置")));
+            SL_KEYS.map(k => h("button", { key: k, onClick: () => setPend(p => { const n = { ...p }; if (r.st0 === k && !r.auto) delete n[r.c.id]; else n[r.c.id] = k; return n; }), title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8", ...(r.st === k && r.auto ? { opacity: .75, outline: "2px dashed #fff", outlineOffset: -4 } : {}), ...(r.st === k && r.pending ? { outline: "3px dashed #facc15", outlineOffset: -3 } : {}) }, ...(r.st === k && r.auto ? { title: "Bank Statement 0 个月 → 自动 NEW SALARY" } : {}) }, SL_ST[k][0])))));
         })))),
     stmtId && (() => { const r = rows.find(x => x.c.id === stmtId); return r && h(BankStmtModal, { c: r.c, banks: r.banks, onSave: bs => onSaveStmt && onSaveStmt(r.c.id, bs), onClose: () => setStmtId(null) }); })());
 }
