@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "300";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "301";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6141,8 +6141,15 @@ function BsPeopleLoader() {
             ["epf", "EPF", "-", o.v("epfEe")], ["socso", "SOCSO", "-", o.v("socEe")], ["eis", "EIS", "-", o.v("eisEe")], ["pcb", "PCB", "-", o.v("taxEe")]]
             .map(([id, name, sign, n]) => ({ id: id + "_bs", name, sign, amount: f(n) })); } } catch (e) {}
       let nMon = 0; try { const cr2 = bs.credits || [], st2 = cr2.findIndex(x => x && x.stop); nMon = cr2.filter((x, i) => x && (x.date || x.amount) && (st2 < 0 || i < st2)).length; } catch (e) {}
+      /* Verify：每个月一份 Salary（Bank Statement 有几个月就几份） */
+      const mkSal = c => { const o = bsCalcOut(c), f = n => n ? lsFmt(n) : "";
+        return [["basic", "Basic", "+", lsNum(c.salary)], ...(lsNum(c.bonus) ? [["allowance", "Allowance", "+", lsNum(c.bonus)]] : []), ...(lsNum(c.commission) ? [["commission", "Commission", "+", lsNum(c.commission)]] : []),
+          ["epf", "EPF", "-", o.v("epfEe")], ["socso", "SOCSO", "-", o.v("socEe")], ["eis", "EIS", "-", o.v("eisEe")], ["pcb", "PCB", "-", o.v("taxEe")]].map(([id, name, sign, n]) => ({ id: id + "_bs", name, sign, amount: f(n) })); };
+      const salSets = [];
+      try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
+        cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -10531,24 +10538,38 @@ function VSalaryBlock({ v, onSave }) {
   /* 名字跟 Bank Statement 一样、Salary 还空的 → 自动带 Bank Statement 的 Salary */
   const [bsTick, setBsTick] = React.useState(0);
   React.useEffect(() => { const f = () => setBsTick(x => x + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
-  React.useEffect(() => { if (isReadOnlyUser()) return; const bp = vBsPerson(v.customerName); if (bp && bp.salItems && vSalaryEmpty(v)) onSave({ ...v, salaryItems: bp.salItems.map(x => ({ ...x })) }); }, [v.id, v.customerName, bsTick]);
+  /* 跟 Bank Statement：有几个月就几份 Salary（自己改过数目就不再自动盖掉） */
+  const autoOk = v.salaryAuto === true || (v.salaryAuto == null && (vSalaryEmpty(v) || vSalaryItems(v).every(it => /_bs$/.test(String(it.id || "")))));
+  React.useEffect(() => { if (isReadOnlyUser() || !autoOk) return; const bp = vBsPerson(v.customerName); const sets = bp && bp.salSets; if (!sets || !sets.length) return;
+    const want = { salaryLabel: sets[0].label, salaryItems: sets[0].items.map(x => ({ ...x })), extraSalaries: sets.slice(1).map((st, i) => ({ id: "bs" + (i + 1), label: st.label, items: st.items.map(x => ({ ...x })) })) };
+    if (v.salaryAuto !== true || _J(want.salaryItems) !== _J(v.salaryItems || []) || _J(want.extraSalaries) !== _J(v.extraSalaries || []) || want.salaryLabel !== (v.salaryLabel || "")) onSave({ ...v, ...want, salaryAuto: true }); }, [v.id, v.customerName, bsTick, autoOk]);
+  const saveMan = patch => onSave({ ...v, ...patch, salaryAuto: false });   /* 自己改 → 不再自动跟 */
   const items = vSalaryItems(v);
   const extras = v.extraSalaries || [];
+  const nSets = 1 + extras.length;
+  const [openSet, setOpenSet] = React.useState(() => new Set([nSets - 1]));   /* 默认只打开最后（最新）那份 */
+  React.useEffect(() => { setOpenSet(new Set([nSets - 1])); }, [nSets, v.id]);
+  const isOpen = i => nSets === 1 || openSet.has(i);
+  const tog = i => setOpenSet(o => { const n = new Set(o); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const nettOf = list => (list || []).reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
   const inp = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 10px", fontSize: 13.5, fontFamily: "inherit", outline: "none", minWidth: 0, background: "#fff" };
-  const setExtra = (i, patch) => onSave({ ...v, extraSalaries: extras.map((x, j) => j === i ? { ...x, ...patch } : x) });
-  const subHead = (txt, labelVal, onLabel, onDel) => h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "4px 0 10px" } },
-    h("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#4f46e5", background: "#eef2ff", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" } }, txt),
+  const setExtra = (i, patch) => saveMan({ extraSalaries: extras.map((x, j) => j === i ? { ...x, ...patch } : x) });
+  const subHead = (txt, labelVal, onLabel, onDel, idx, list) => h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "4px 0 " + (isOpen(idx) ? 10 : 0) + "px" } },
+    nSets > 1 && h("button", { onClick: () => tog(idx), title: isOpen(idx) ? "收起" : "打开", style: { border: "none", background: "transparent", cursor: "pointer", fontSize: 14, color: "#4f46e5", padding: 0, width: 18 } }, isOpen(idx) ? "▾" : "▸"),
+    h("span", { onClick: () => nSets > 1 && tog(idx), style: { fontWeight: 900, fontSize: 12.5, color: "#4f46e5", background: "#eef2ff", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap", cursor: nSets > 1 ? "pointer" : "default" } }, txt),
+    !isOpen(idx) && h("span", { style: { fontSize: 12, fontWeight: 800, color: "#15803d", whiteSpace: "nowrap" } }, "Nett " + vMoney(nettOf(list))),
     h(DebouncedInput, { style: { ...inp, flex: 1, fontSize: 12.5, padding: "5px 10px" }, value: labelVal || "", placeholder: "备注，例如 月份 / 第二份工作", onCommit: onLabel }),
     onDel && h("button", { title: "删除这份 Salary", onClick: onDel, style: { border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", borderRadius: 8, padding: "5px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "删除"));
   return h("div", { style: { ...S.vSection } },
-    h("div", { style: S.vSectionHead }, "💰 Salary"),
+    h("div", { style: S.vSectionHead }, "💰 Salary" + (nSets > 1 ? "（" + nSets + " 份）" : ""), v.salaryAuto === true && h("span", { style: { marginLeft: 8, fontSize: 11, color: "#16a34a", textTransform: "none" } }, "✓ 跟 Bank Statement"),
+      nSets > 1 && h("button", { onClick: () => setOpenSet(o => o.size === nSets ? new Set() : new Set(Array.from({ length: nSets }, (_, i) => i))), style: { marginLeft: "auto", border: "1px solid #c7d2fe", background: "#fff", color: "#4338ca", borderRadius: 8, padding: "3px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", textTransform: "none" } }, openSet.size === nSets ? "全部收起" : "全部打开")),
     h("div", { style: { padding: "10px 12px 12px" } },
-      extras.length > 0 && subHead("SALARY 1", v.salaryLabel, val => onSave({ ...v, salaryLabel: val })),
-      h(VSalaryEditor, { items, onItems: list => onSave({ ...v, salaryItems: list }) }),
-      extras.map((ex, i) => h("div", { key: ex.id, style: { marginTop: 16, paddingTop: 14, borderTop: "2px dashed #c7d2fe" } },
-        subHead("SALARY " + (i + 2), ex.label, val => setExtra(i, { label: val }), () => { if (window.confirm("删除 SALARY " + (i + 2) + "？")) onSave({ ...v, extraSalaries: extras.filter((_, j) => j !== i) }); }),
-        h(VSalaryEditor, { items: ex.items || [], onItems: list => setExtra(i, { items: list }) }))),
-      h("button", { onClick: () => onSave({ ...v, extraSalaries: [...extras, vNewSalarySet()] }), style: { marginTop: 14, width: "100%", border: "1.5px dashed #818cf8", background: "#eef2ff", color: "#4338ca", borderRadius: 10, padding: "9px 12px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, "＋ Add Salary"),
+      extras.length > 0 && subHead("SALARY 1", v.salaryLabel, val => saveMan({ salaryLabel: val }), null, 0, items),
+      isOpen(0) && h(VSalaryEditor, { items, onItems: list => saveMan({ salaryItems: list }) }),
+      extras.map((ex, i) => h("div", { key: ex.id, style: { marginTop: isOpen(i + 1) ? 16 : 8, paddingTop: isOpen(i + 1) ? 14 : 8, borderTop: "2px dashed #c7d2fe" } },
+        subHead("SALARY " + (i + 2), ex.label, val => setExtra(i, { label: val }), () => { if (window.confirm("删除 SALARY " + (i + 2) + "？")) saveMan({ extraSalaries: extras.filter((_, j) => j !== i) }); }, i + 1, ex.items),
+        isOpen(i + 1) && h(VSalaryEditor, { items: ex.items || [], onItems: list => setExtra(i, { items: list }) }))),
+      h("button", { onClick: () => saveMan({ extraSalaries: [...extras, vNewSalarySet()] }), style: { marginTop: 14, width: "100%", border: "1.5px dashed #818cf8", background: "#eef2ff", color: "#4338ca", borderRadius: 10, padding: "9px 12px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, "＋ Add Salary"),
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
         h("span", { style: { fontWeight: 800, fontSize: 13, color: "#334155", whiteSpace: "nowrap" } }, "SALARY TRANSFER TO"),
         h(DebouncedInput, { style: { ...inp, flex: 1, fontWeight: 700 }, value: v.salaryTransfer, placeholder: "银行，例如 UOB", onCommit: val => onSave({ ...v, salaryTransfer: val }) }))));
