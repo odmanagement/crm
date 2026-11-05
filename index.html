@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "313";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "314";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3236,7 +3236,7 @@ function CRM({ onLogout, currentUser }) {
   React.useEffect(() => { const t = setTimeout(() => { try { DB.migrateFiles(); } catch (e) {} }, 40000); const t2 = setTimeout(() => { try { ensureFullBackup(); } catch (e) {} }, 60000); return () => { clearTimeout(t); clearTimeout(t2); }; }, []);   /* 以前的照片慢慢搬去 Storage */
   const [clients, setClients] = useState([]);
   const [slStatusList] = useCloudList("salary_status");
-  React.useEffect(() => { const set = new Set([...(clients || []).filter(c => c && slLatest(c.salaryStatusM) === "stop" && String(c.name || "").trim()).map(c => slNameKey(c.name)), ...(slStatusList || []).filter(x => x && slLatest(x.m) === "stop").map(x => x.id)]);
+  React.useEffect(() => { const set = new Set([...(clients || []).filter(c => c && (slLatest(c.salaryStatusM) === "stop" || c.slStopped) && String(c.name || "").trim()).map(c => slNameKey(c.name)), ...(slStatusList || []).filter(x => x && (slLatest(x.m) === "stop" || x.stopped)).map(x => x.id)]);
     const k = Array.from(set).sort().join("|"); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients, slStatusList]);
   const [verifications, setVerifications] = useState([]);
   const [bankers, setBankers] = useState([]);
@@ -3831,6 +3831,7 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
+    onSetStopped: (cid, val) => persist(clients.map(c => c.id === cid ? { ...c, slStopped: val } : c)),
     onClearAll: () => persist(clients.map(c => c.salaryStatus || c.salaryStatusM ? { ...c, salaryStatus: "", salaryStatusM: {}, salaryStatusBy: "", salaryStatusAt: Date.now() } : c)),
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c)),
     onOpen: cid => { setPage("personal"); setOpenId(cid); }
@@ -6391,7 +6392,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
 }
-function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll }) {
+function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
   const [fb, setFb] = React.useState("");
@@ -6409,23 +6410,27 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const nowM = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
   const [stM, setStM] = React.useState(nowM);   /* 选月份来按 Salary Status；还没按的月份是空的 */
   const setSt = (r, k) => { if (r.bsOnly) { const me = canonUser(window.__crmUser || ""); const o = (slSt || []).find(x => x && x.id === r.bsOnly) || {}; const L = (slSt || []).filter(x => x && x.id !== r.bsOnly); saveSlSt([...L, { id: r.bsOnly, name: r.c.name, m: { ...(o.m || {}), [stM]: k }, by: me, at: Date.now() }]); } else onSetStatus(r.c.id, k, stM); };
+  /* 点 # 号码 → 搬去 STOP SALARY（浅红色）；在 STOP SALARY 那边再点一次 → 搬回来 */
+  const setStopped = (r, on) => { const me = canonUser(window.__crmUser || ""), val = on ? { by: me, at: Date.now() } : null;
+    if (r.bsOnly) { const o = (slSt || []).find(x => x && x.id === r.bsOnly) || { id: r.bsOnly, name: r.c.name }; saveSlSt([...(slSt || []).filter(x => x && x.id !== r.bsOnly), { ...o, stopped: val }]); }
+    else onSetStopped && onSetStopped(r.c.id, val); };
   /* 那个月还没按：Bank Statement 0 个月 → 自动 NEW SALARY */
   const stOf = (map, name) => { const v = (map || {})[stM]; if (SL_KEYS.includes(v)) return [v, false]; const bp = bpOf(name); return bp && bp.nMon === 0 ? ["new", true] : ["", false]; };
   const rows = [];
   (clients || []).forEach(c => {
     const banks = new Set(); let date = "";
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) { banks.add(k); if (b.date && (!date || b.date < date)) date = b.date; } }));
-    if (banks.size && String(c.name || "").trim()) { const [st, auto] = stOf(c.salaryStatusM, c.name); rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st, auto }); }   /* 没选 = 空的，给人选 */
+    if (banks.size && String(c.name || "").trim()) { const [st, auto] = stOf(c.salaryStatusM, c.name); rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), date, st, auto, stopped: !!c.slStopped }); }   /* 没选 = 空的，给人选 */
   });
   /* 跟 Bank Statement：Bank Statement 有的人也列出来（Personal Loan 没有 CIMB / AEON 也会出现） */
   { const have = new Set(rows.map(r => slNameKey(r.c.name)));
     (window.__crmBsPeople || []).forEach(p => { const k = slNameKey(p.name); if (!k || have.has(k)) return; have.add(k); const s0 = (slSt || []).find(x => x && x.id === k);
-      const [st, auto] = stOf(s0 && s0.m, p.name); rows.push({ c: { id: "bs:" + k, name: p.name, salaryStatusBy: s0 && s0.by }, banks: [], date: p.firstDate || "", st, auto, bsOnly: k }); }); }
+      const [st, auto] = stOf(s0 && s0.m, p.name); rows.push({ c: { id: "bs:" + k, name: p.name, salaryStatusBy: s0 && s0.by }, banks: [], date: p.firstDate || "", st, auto, bsOnly: k, stopped: !!(s0 && s0.stopped) }); }); }
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
   const inMonth = r => !month || (r.date ? r.date.slice(0, 7) : "0000-00") === month;
-  const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && (!fs || r.st === fs) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
+  const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
     .sort((x, y) => String(y.date || "").localeCompare(String(x.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   const copyText = () => {
@@ -6456,14 +6461,14 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
       chip(!fb, () => setFb(""), "全部银行", "b"),
       SALARY_BANKS.map(k => chip(fb === k, () => setFb(k), bankLabel(k, "personal"), k)),
       h("span", { style: { width: 8 } }),
-      chip(!fs, () => setFs(""), "全部", "s"), SL_KEYS.map(k => chip(fs === k, () => setFs(k), SL_ST[k][0], "s" + k))),
+      chip(!fs, () => setFs(""), "全部 (" + rows.filter(r => inMonth(r) && !r.stopped).length + ")", "s"), chip(fs === "stopped", () => setFs("stopped"), "⛔ STOP SALARY (" + rows.filter(r => inMonth(r) && r.stopped).length + ")", "sstop")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } }, "Salary Status",
         h("input", { type: "month", value: stM, onChange: e => e.target.value && setStM(e.target.value), title: "选月份来按 Salary Status", style: { border: "1px solid rgba(255,255,255,.6)", borderRadius: 8, padding: "2px 6px", fontWeight: 900, fontSize: 12, fontFamily: "inherit", background: "#fff", color: "#9d174d" } }),
         stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))), h("th", { style: S.th }, ""))),
       h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
         shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}) } },
-          h("td", { style: { ...S.td, ...S.tdNumCol } }, i + 1),
+          h("td", { style: { ...S.td, ...S.tdNumCol, cursor: "pointer", ...(r.stopped ? { background: "#fecaca", color: "#b91c1c", fontWeight: 900 } : {}) }, title: r.stopped ? "在 STOP SALARY · 再点一次搬回来" : "点一下 = 搬去 STOP SALARY", onClick: () => setStopped(r, !r.stopped) }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
           h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => r.bsOnly ? (window.__crmGoPage && window.__crmGoPage("bankstmt")) : onOpen(r.c.id), title: r.bsOnly ? "打开 Bank Statement" : "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
           /* Bank Statement 栏拿掉了（不再连接） */
