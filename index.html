@@ -1703,7 +1703,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "293";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "294";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5856,15 +5856,12 @@ function costSyncData(data, p, L, opt) {
     L.aa.forEach(x => { if (!haveL.has(x.name)) { C.push({ name: x.name, amt: x.amt, mult: x.pct || "", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true }); haveL.add(x.name); } }); }
   /* BACKDATE 跟着 Bank Statement → 没有 × 格子 */
   if (p && p.bd) A.forEach(r => { if (/^BACKDATE EPF\/SOCSO$/.test(N(r))) { if (r.amt !== p.bd) r.amt = p.bd; if (r.hasMult !== false) { r.hasMult = false; r.mult = ""; } r.auto = true; } });
-  /* Part C · Salary：存档了的 SALARY（和之前存过的 BALANCE）固定不动；Bank Statement Balance 剩下的 → 另外一行 BALANCE */
-  if (!fresh && p && p.bal && (parts.partSalBody || []).some(r => N(r) === "SALARY")) {
-    const S = parts.partSalBody;
-    const fixedSum = S.reduce((t, r) => t + ((N(r) === "SALARY" || (N(r) === "BALANCE" && !r.auto)) ? lsNum(r.amt) : 0), 0);
-    const rem = Math.round((lsNum(p.bal) - fixedSum) * 100) / 100;
-    const bi = S.findIndex(r => N(r) === "BALANCE" && r.auto);
-    if (rem < 0.005) { if (bi >= 0) S.splice(bi, 1); }   /* 只有多出来的才开 BALANCE */
-    else if (bi >= 0) { if (S[bi].amt !== lsFmt(rem)) S[bi].amt = lsFmt(rem); }
-    else S.push({ name: "BALANCE", amt: lsFmt(rem), mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
+  /* Part C · Salary：永远跟着 Bank Statement 最新的 Balance → 只有一行 SALARY（以前多开的 BALANCE 删掉，不会重叠加下去） */
+  if (!fresh && p && p.bal) {
+    const S = parts.partSalBody = (parts.partSalBody || []).filter(r => N(r) !== "BALANCE");
+    const si = S.findIndex(r => N(r) === "SALARY");
+    if (si >= 0) { if (S[si].amt !== p.bal) S[si].amt = p.bal; S[si].auto = true; }
+    else S.unshift({ name: "SALARY", amt: p.bal, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
   }
   const nd = { ...data, parts };
   return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;

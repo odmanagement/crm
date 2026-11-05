@@ -28,7 +28,7 @@
   .btn-primary:hover{background:#a01049}
   .btn-danger{color:var(--danger);border-color:#e3c3c3}
   .btn-danger:hover{background:#fbeaea}
-  @media print{
+  @media print{ .no-print{display:none !important} 
     *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
     @page{size:A4;margin:8mm}
     .actions,.addrow,.del,.topbar,.sub{display:none !important}
@@ -172,7 +172,7 @@
   </div>
 
   <div class="panel">
-    <div class="phead">Part C · Salary</div>
+    <div class="phead" style="display:flex;align-items:center">Part C · Salary<button type="button" class="no-print" onclick="window.__salReload&&window.__salReload(this)" title="拿 Bank Statement 最新的 Balance" style="margin-left:auto;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.18);color:#fff;border-radius:8px;padding:3px 12px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">⟳ RELOAD</button></div>
     <table>
       <thead><tr><th>Item</th><th>Amount</th><th>Lucas</th><th>Agent</th><th></th></tr></thead>
       <tbody id="partSalBody"></tbody>
@@ -877,6 +877,8 @@ if(saved && saved.parts){
   /* 日期统一 dd/mm/yyyy（11/08/26 → 11/08/2026），旧的 SALARY 行也改名，不会重复 */
   function normDmy(v){ var x=String(v||'').trim(), m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(x); if(m) return ('0'+m[3]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+m[1];
     m=/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(x); if(m) return ('0'+m[1]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+(m[3].length===2?'20'+m[3]:m[3]); return x; }
+  /* Part C · Salary 旁边的 RELOAD：马上拿 Bank Statement 最新的 Balance */
+  window.__salReload = function(btn){ try{ window.__bsSync(false); }catch(e){} if(btn){ var o=btn.textContent; btn.textContent='✓ 已更新'; setTimeout(function(){ btn.textContent=o; },1200); } };
   window.__bsSync = function(fresh){
     var k=String(nm.value||'').trim().toUpperCase().replace(/\s+/g,' '); if(!k || typeof addRow!=='function') return;
     var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0] || null, L=lend(k);
