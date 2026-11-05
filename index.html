@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "306";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "307";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9495,9 +9495,10 @@ const BANK_ALIAS = { "ALB": "ALLIANCE", "ALLIANCE BANK": "ALLIANCE", "AEON .C": 
 const bankKey = b => { const k = String(b || "").trim().toUpperCase().replace(/\s+/g, " "); return BANK_ALIAS[k] || k; };
 /* Personal / Car / House 上面：COLLECT 总数、APPROVED 总数、每个月 Approved（跟着 Approve 的日期自动归月） */
 const lsAmt = v => Number(String(v || 0).replace(/,/g, "")) || 0;
-function LoanSumBar({ rows }) {
+function LoanSumBar({ rows, yr: yrP, setYr: setYrP }) {
   const h = React.createElement;
-  const [yr, setYr] = React.useState(new Date().getFullYear());
+  const [yrS, setYrS] = React.useState(new Date().getFullYear());
+  const yr = yrP != null ? yrP : yrS, setYr = setYrP || setYrS;
   let collect = 0, approved = 0; const mon = Array(12).fill(0), cnt = Array(12).fill(0), cmon = Array(12).fill(0), ccnt = Array(12).fill(0);
   const inYr = d => { const m = /^(\d{4})-/.exec(String(d || "")); return !!m && +m[1] === yr; };
   const addM = (d, a) => { const m = /^(\d{4})-(\d{2})/.exec(String(d || "")); if (m && +m[1] === yr) { approved += a; mon[+m[2] - 1] += a; cnt[+m[2] - 1]++; } };
@@ -9546,10 +9547,11 @@ function TypePage({
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [showClosed, setShowClosed] = useState(false);   /* Personal / Car：CLOSING = 点了号码（紫色）已经 Close 的 */
-  const [closeYr, setCloseYr] = useState("");   /* CLOSING 按年份归档（Close 那一天的年份） */
+  const [sumYr, setSumYr] = useState(new Date().getFullYear());   /* 上面的年份（◀ 2026 ▶）：CLOSING 也跟着这个年份 */
+  const closeYr = String(sumYr), setCloseYr = y => setSumYr(+y);
   const clYear = l => l && l.closedMark ? String(new Date(l.closedMark.at || Date.now()).getFullYear()) : "";
   const clYears = isP ? Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type && l.closedMark).map(clYear)))).sort((a, b) => b.localeCompare(a)) : [];
-  const curClYr = clYears.includes(closeYr) ? closeYr : (clYears[0] || "");
+  const curClYr = closeYr;
   const t = typeOf(type);
   const closedN = isP ? clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark).length, 0) : 0;
   const rows = clients.flatMap(c => (c.loans || []).filter(l => l.type === type).map(l => ({
@@ -9576,11 +9578,11 @@ function TypePage({
 }, /*#__PURE__*/React.createElement(t.icon, {
   size: 20,
   color: t.color
-}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING " + curClYr + " · " : "", rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), isP && showClosed && clYears.length > 0 && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
+}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING " + curClYr + " · " : "", rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), isP && showClosed && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
   React.createElement("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#6d28d9" } }, "CLOSING 年份："),
-  clYears.map(y => React.createElement("button", { key: y, onClick: () => setCloseYr(y), style: { border: curClYr === y ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: curClYr === y ? "#f3e8ff" : "#fff", color: curClYr === y ? "#6d28d9" : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } },
+  Array.from(new Set([closeYr, ...clYears])).sort((a, b) => b.localeCompare(a)).map(y => React.createElement("button", { key: y, onClick: () => setCloseYr(y), style: { border: curClYr === y ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: curClYr === y ? "#f3e8ff" : "#fff", color: curClYr === y ? "#6d28d9" : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } },
     "📅 " + y + " (" + clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark && clYear(l) === y).length, 0) + ")"))),
-React.createElement(LoanSumBar, { rows }), /*#__PURE__*/React.createElement("div", {
+React.createElement(LoanSumBar, { rows, yr: sumYr, setYr: setSumYr }), /*#__PURE__*/React.createElement("div", {
   style: { display: "flex", gap: 10, alignItems: "center", marginBottom: S.searchWrap.marginBottom || 12 }
 }, /*#__PURE__*/React.createElement("div", {
   style: { ...S.searchWrap, flex: 1, marginBottom: 0 }
