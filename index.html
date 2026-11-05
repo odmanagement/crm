@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "319";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "320";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6400,7 +6400,8 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const [fs, setFs] = React.useState("");
   const [month, setMonth] = React.useState("");
   const [copied, setCopied] = React.useState(false);
-  const [cfList, saveCf] = useCloudList("salary_confirm");   /* 按「确认更改」的记录 */
+  const [cfList, saveCf] = useCloudList("salary_confirm");
+  const [src, setSrc] = React.useState("bs");   /* 按「确认更改」的记录 */
   const [stmtId, setStmtId] = React.useState(null);
   const [, setBpTick] = React.useState(0);
   React.useEffect(() => { const f = () => setBpTick(x => x + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
@@ -6442,12 +6443,14 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   { const have = new Set(rows.map(r => slNameKey(r.c.name)));
     (window.__crmBsPeople || []).forEach(p => { const k = slNameKey(p.name); if (!k || have.has(k)) return; have.add(k); const s0 = (slSt || []).find(x => x && x.id === k);
       const [st, auto] = stOf(s0 && s0.m, p.name); rows.push({ c: { id: "bs:" + k, name: p.name, salaryStatusBy: s0 && s0.by }, banks: [], date: p.firstDate || "", st, auto, bsOnly: k, stopped: !!(s0 && s0.stopped) }); }); }
+  /* Bank Statement / Rencai 分开看 */
+  rows.forEach(r => { const bp = bpOf(r.c.name); r.src = bp && bp.store === "bank_stmt_people_rencai" ? "rencai" : "bs"; });
   rows.forEach(r => { r.st0 = r.st; if (pend[r.c.id] != null) { r.st = pend[r.c.id]; r.auto = false; r.pending = true; } });
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
   const inMonth = r => !month || (r.date ? r.date.slice(0, 7) : "0000-00") === month;
-  const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
+  const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && r.src === src && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
     .sort((x, y) => { const o = r => { const i = SL_KEYS.indexOf(r.st0 != null ? r.st0 : r.st); return i < 0 ? 99 : i; }; return o(x) - o(y) || String(y.date || "").localeCompare(String(x.date || "")) || String(x.c.name).localeCompare(String(y.c.name)); });
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   const copyText = () => {
@@ -6477,7 +6480,9 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
       h("button", { onClick: doCopy, style: { border: "1px solid #86efac", background: copied ? "#22c55e" : "#f0fdf4", color: copied ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied ? "✓ 已复制" : "📋 Copy (WhatsApp)")),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       h("div", { style: { ...S.searchWrap, flex: "1 1 220px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: q, onChange: e => setQ(e.target.value) })),
-      chip(!fs, () => setFs(""), "全部 (" + rows.filter(r => inMonth(r) && !r.stopped).length + ")", "s"), chip(fs === "stopped", () => setFs("stopped"), "⛔ STOP SALARY (" + rows.filter(r => inMonth(r) && r.stopped).length + ")", "sstop")),
+      [["bs", "🏦 BANK STATEMENT", "#0369a1", "#e0f2fe"], ["rencai", "👥 RENCAI BANK STATEMENT", "#7c2d12", "#ffedd5"]].map(([k, l, c, bg]) => h("button", { key: "src" + k, onClick: () => setSrc(k), style: { border: src === k ? "2px solid " + c : "1px solid #e2e8f0", background: src === k ? bg : "#fff", color: src === k ? c : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, l + " (" + rows.filter(r => r.src === k).length + ")")),
+      h("span", { style: { width: 8 } }),
+      chip(!fs, () => setFs(""), "全部 (" + rows.filter(r => inMonth(r) && r.src === src && !r.stopped).length + ")", "s"), chip(fs === "stopped", () => setFs("stopped"), "⛔ STOP SALARY (" + rows.filter(r => inMonth(r) && r.src === src && r.stopped).length + ")", "sstop")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } }, "Salary Status",
         h("input", { type: "month", value: stM, onChange: e => e.target.value && setStM(e.target.value), title: "选月份来按 Salary Status", style: { border: "1px solid rgba(255,255,255,.6)", borderRadius: 8, padding: "2px 6px", fontWeight: 900, fontSize: 12, fontFamily: "inherit", background: "#fff", color: "#9d174d" } }),
