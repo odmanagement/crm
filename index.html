@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "320";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "321";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3832,6 +3832,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
     onSetStatusBatch: (list, mo) => { const mp = new Map(list); persist(clients.map(c => mp.has(c.id) ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: mp.get(c.id) }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)); },
+    onSetRemark: (cid, val) => persist(clients.map(c => c.id === cid ? { ...c, slRemark: val } : c)),
     onSetStopped: (cid, val) => persist(clients.map(c => c.id === cid ? { ...c, slStopped: val } : c)),
     onClearAll: () => persist(clients.map(c => c.salaryStatus || c.salaryStatusM ? { ...c, salaryStatus: "", salaryStatusM: {}, salaryStatusBy: "", salaryStatusAt: Date.now() } : c)),
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c)),
@@ -6393,7 +6394,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
 }
-function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped, onSetStatusBatch }) {
+function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped, onSetStatusBatch, onSetRemark }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
   const [fb, setFb] = React.useState("");
@@ -6486,8 +6487,8 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } }, "Salary Status",
         h("input", { type: "month", value: stM, onChange: e => e.target.value && setStM(e.target.value), title: "选月份来按 Salary Status", style: { border: "1px solid rgba(255,255,255,.6)", borderRadius: 8, padding: "2px 6px", fontWeight: 900, fontSize: 12, fontFamily: "inherit", background: "#fff", color: "#9d174d" } }),
-        stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))), h("th", { style: S.th }, "Company"))),
-      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
+        stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))), h("th", { style: S.th }, "Remark"), h("th", { style: S.th }, "Company"))),
+      h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
         shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol, cursor: "pointer", ...(r.stopped ? { background: "#fecaca", color: "#b91c1c", fontWeight: 900 } : {}) }, title: r.stopped ? "在 STOP SALARY · 再点一次搬回来" : "点一下 = 搬去 STOP SALARY", onClick: () => setStopped(r, !r.stopped) }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
@@ -6495,6 +6496,10 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
           /* Bank Statement 栏拿掉了（不再连接） */
           h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
             SL_KEYS.map(k => h("button", { key: k, onClick: () => setPend(p => { const n = { ...p }; if (r.st0 === k && !r.auto) delete n[r.c.id]; else n[r.c.id] = k; return n; }), title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8", ...(r.st === k && r.auto ? { opacity: .75, outline: "2px dashed #fff", outlineOffset: -4 } : {}), ...(r.st === k && r.pending ? { outline: "3px dashed #facc15", outlineOffset: -3 } : {}) }, ...(r.st === k && r.auto ? { title: "Bank Statement 0 个月 → 自动 NEW SALARY" } : {}) }, SL_ST[k][0])))),
+          /* Remark：大家都可以写 */
+          h("td", { style: { ...S.td, minWidth: 200 } }, h(DebouncedInput, { value: r.bsOnly ? (((slSt || []).find(x => x && x.id === r.bsOnly) || {}).remark || "") : (r.c.slRemark || ""), placeholder: "Remark…",
+            onCommit: val => { if (r.bsOnly) { const o = (slSt || []).find(x => x && x.id === r.bsOnly) || { id: r.bsOnly, name: r.c.name }; saveSlSt([...(slSt || []).filter(x => x && x.id !== r.bsOnly), { ...o, remark: val }]); } else onSetRemark && onSetRemark(r.c.id, val); },
+            style: { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontFamily: "inherit", outline: "none", fontWeight: 600 } })),
           /* Company：跟 Bank Statement 的 Company */
           h("td", { style: { ...S.td, fontWeight: 800, color: "#334155" } }, (() => { const bp = bpOf(r.c.name); return bp && bp.company ? String(bp.company).toUpperCase() : h("span", { style: { color: "#cbd5e1" } }, "—"); })()));
         })))),
