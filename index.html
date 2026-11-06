@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261107012000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261107013500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "352";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "353";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6089,7 +6089,7 @@ function costSyncData(data, p, L, opt) {
   for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r) || !r.cid) continue; const m = byId.get(r.cid);
     if (seen.has(r.cid) || (r.auto && m && m.costed === "a")) { C.splice(i, 1); i--; } else seen.add(r.cid); }
   /* 3. 名字 / 数目跟着 Bank Statement */
-  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (bsSalKey(r.name) !== m.name) r.name = m.name;   /* SALARY - / EPF/SOCSO/PCB - 同一个日期就不改名（不会跟旧版互相改来改去） */ if (r.amt !== m.amt) r.amt = m.amt; });
+  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (r.name !== m.name) r.name = m.name;   /* 存档一律用「SALARY - 日期」（旧版看得懂 → 不会再一直加；表格上显示 EPF/SOCSO/PCB） */ if (r.amt !== m.amt) r.amt = m.amt; });
   /* 3b. Part A 还没有月份、也还没有任何月份存档过（没颜色）→ Part A.A 里自动加的月份搬去 Part A（第一次都放 Part A） */
   if (months.length && !A.some(isSal) && !months.some(m => m.costed)) for (let i = 0; i < C.length; i++) { const r = C[i]; if (isSal(r) && r.auto && r.cid && byId.has(r.cid)) { C.splice(i, 1); i--; putA({ ...r, mult: "", hasMult: false }); } }
   /* 4. 还没进这份 Costing 的月份 */
