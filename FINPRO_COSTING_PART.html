@@ -890,7 +890,7 @@ if(saved && saved.parts){
     var mon=(p && p.months) || [];
     if(fresh){
       /* 新的：自动加的行、每个月的 SALARY 全部清掉重来 */
-      ['partABody','partCBody','partSalBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ if((tr.dataset.auto==='1' && !/^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/.test(nameOf(tr))) || (id!=='partSalBody' && /^SALARY - /.test(nameOf(tr)))) tr.remove(); }); });
+      ['partABody','partCBody','partSalBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ if((tr.dataset.auto==='1' && !/^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/.test(nameOf(tr))) || (id!=='partSalBody' && /^(?:SALARY|EPF\/SOCSO\/PCB) - /.test(nameOf(tr)))) tr.remove(); }); });
       rowsOf('partABody').forEach(function(tr){ var n=nameOf(tr), a=tr.querySelector('.amt-input'); if(!a) return;
         if(/^BACKDATE EPF\/SOCSO$/.test(n) && p && p.bd) swapNoX(tr,p.bd);
         else if(!mon.length && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);

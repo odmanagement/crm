@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "345";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "346";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5808,7 +5808,9 @@ const bsIso2Dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); re
 /* 日期统一成 dd/mm/yyyy（11/08/26、2026-08-11、1/8/2026 都可以） */
 const bsNormDmy = v => { const t = String(v || "").trim(); let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t); if (m) return m[3].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + m[1];
   m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(t); if (m) return m[1].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + (m[3].length === 2 ? "20" + m[3] : m[3]); return t; };
-const bsSalKey = n => { const u = String(n || "").trim().toUpperCase(), m = /^SALARY - (.+)$/.exec(u); return m ? "SALARY - " + bsNormDmy(m[1]) : u; };
+/* 每个月那一行的名字：EPF/SOCSO/PCB - 日期（旧的「SALARY - 日期」也认得，会自动改名） */
+const BS_SAL_PFX = "EPF/SOCSO/PCB - ";
+const bsSalKey = n => { const u = String(n || "").trim().toUpperCase(), m = /^(?:SALARY|EPF\/SOCSO\/PCB) - (.+)$/.exec(u); return m ? BS_SAL_PFX + bsNormDmy(m[1]) : u; };
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
 /* ---------- 薪水计算（Bank Statement 的 Credited 格子点进去）---------- */
@@ -6068,10 +6070,10 @@ function costSyncData(data, p, L, opt) {
   const fresh = !!(opt && opt.fresh);
   const parts = {}; Object.keys(data.parts).forEach(k => parts[k] = (data.parts[k] || []).map(r => ({ ...r })));
   const N = r => String(r.name || "").trim().toUpperCase();
-  const isSal = r => /^SALARY - /.test(N(r));
+  const isSal = r => /^(?:SALARY|EPF\/SOCSO\/PCB) - /.test(N(r));
   const A = parts.partABody = parts.partABody || [], C = parts.partCBody = parts.partCBody || [];
   const putA = row => { const i = A.findIndex(r => r.pinned); if (i >= 0) A.splice(i, 0, row); else A.push(row); };
-  const months = ((p && p.months) || []).map(m => ({ ...m, name: "SALARY - " + bsNormDmy(m.date) }));
+  const months = ((p && p.months) || []).map(m => ({ ...m, name: BS_SAL_PFX + bsNormDmy(m.date) }));
   const byId = new Map(months.map(m => [m.cid, m]));
   /* 1. 旧的行（没有 cid）→ 用日期对上还没被认领的那一行 */
   const claimed = new Set([...A, ...C].filter(r => isSal(r) && r.cid && byId.has(r.cid)).map(r => r.cid));
@@ -6224,7 +6226,7 @@ async function bsMarkCosted(clientName, data) {
     const p = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k); if (!p || !p.store) return;
     /* Part A 的月份 → 浅黄色（"a"）；后来加进 Part A.A（+10%）的 → 浅青色（"aa"） */
     const dates = new Map(), ids = new Map();
-    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (.+)$/.exec(bsSalKey(r.name)); if (!m) return; const w = b === "partABody" ? "a" : "aa"; if (r.cid) ids.set(r.cid, w); else dates.set(m[1], w); }));
+    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^EPF\/SOCSO\/PCB - (.+)$/.exec(bsSalKey(r.name)); if (!m) return; const w = b === "partABody" ? "a" : "aa"; if (r.cid) ids.set(r.cid, w); else dates.set(m[1], w); }));
     if (!dates.size && !ids.size) return;
     const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
     let ch = false;
