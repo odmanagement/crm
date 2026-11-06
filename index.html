@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "342";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "343";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -12791,7 +12791,7 @@ button:active, a:active { transform: scale(.97); }
 .theme-sky .stat-card:nth-child(4) { background: linear-gradient(135deg,#93c5fd,#3b82f6) !important; box-shadow: 0 12px 30px rgba(59,130,246,.3) !important; }
 .theme-sky .dk-dash { background: transparent !important; }
 .theme-sky .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(14,165,233,.25) 2px, transparent 2px), linear-gradient(90deg, rgba(14,165,233,.25) 2px, transparent 2px) !important; }
-.theme-sky .dk-dash .dash3d { background: rgba(255,255,255,.78) !important; border-color: #bae6fd !important; box-shadow: 0 10px 30px rgba(14,165,233,.15) !important; }
+.theme-sky .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border-color: #bae6fd !important; box-shadow: 0 10px 30px rgba(14,165,233,.15) !important; }
 .theme-sky .dk-dash .dash3d, .theme-sky .dk-dash .dash3d button, .theme-sky .dk-dash .dash3d div { color: #0c4a6e !important; }
 .theme-sky .dk-dash .dash3d button div:last-child, .theme-sky .dk-dash .dash3d span { color: #0369a1 !important; }
 /* mono：高级黑白灰（JOEY）— 黑色 + 白 + 银灰 */
@@ -12848,7 +12848,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-mono .dk-dash { background: radial-gradient(700px 380px at 10% 0%, rgba(255,255,255,.12), transparent 70%), radial-gradient(700px 400px at 95% 100%, rgba(255,255,255,.07), transparent 70%), linear-gradient(160deg,#0a0a0a,#181818 55%,#070707) !important; }
 .theme-mono .dk-dash .fx3d .au { opacity: .12; filter: blur(90px) grayscale(1); }
 .theme-mono .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(255,255,255,.18) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(255,255,255,.18) 1.5px, transparent 1.5px) !important; }
-.theme-mono .dk-dash .dash3d { background: rgba(20,20,20,.78) !important; border: 1px solid rgba(255,255,255,.18) !important; box-shadow: 0 10px 30px rgba(0,0,0,.4) !important; }
+.theme-mono .dk-dash .dash3d { background: rgba(20,20,20,.45) !important; border: 1px solid rgba(255,255,255,.18) !important; box-shadow: 0 10px 30px rgba(0,0,0,.4) !important; }
 .theme-mono .dk-dash .dash3d, .theme-mono .dk-dash .dash3d button, .theme-mono .dk-dash .dash3d div { color: #f5f5f5 !important; }
 .theme-mono .dk-dash .dash3d > div:first-child { border-left-color: #d4d4d4 !important; }
 .theme-mono .dk-dash .dash3d button div:last-child, .theme-mono .dk-dash .dash3d span { color: #bdbdbd !important; }
@@ -12912,7 +12912,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-pink .dk-dash { background: transparent !important; }
 .theme-pink .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(236,72,153,.25) 2px, transparent 2px), linear-gradient(90deg, rgba(236,72,153,.25) 2px, transparent 2px) !important; }
 .theme-pink .dk-dash .fx3d .au { opacity: .25; }
-.theme-pink .dk-dash .dash3d { background: rgba(255,255,255,.75) !important; border-color: #fbcfe8 !important; box-shadow: 0 10px 30px rgba(236,72,153,.15) !important; }
+.theme-pink .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border-color: #fbcfe8 !important; box-shadow: 0 10px 30px rgba(236,72,153,.15) !important; }
 .theme-pink .dk-dash .dash3d, .theme-pink .dk-dash .dash3d button, .theme-pink .dk-dash .dash3d div { color: #831843 !important; }
 .theme-pink .dk-dash .dash3d button div:last-child, .theme-pink .dk-dash .dash3d span { color: #be185d !important; }
 .theme-pink .dk-dash .dash3d button { border-bottom-color: #fce7f3 !important; }
@@ -12957,7 +12957,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-monet .dk-dash { background: transparent !important; }
 .theme-monet .dk-dash .fx3d .au { display: none; }
 .theme-monet .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(111,156,138,.22) 2px, transparent 2px), linear-gradient(90deg, rgba(111,156,138,.22) 2px, transparent 2px) !important; }
-.theme-monet .dk-dash .dash3d { background: rgba(255,255,255,.82) !important; border: 1px solid #d5e6d8 !important; box-shadow: 0 10px 28px rgba(80,120,110,.12) !important; }
+.theme-monet .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border: 1px solid #d5e6d8 !important; box-shadow: 0 10px 28px rgba(80,120,110,.12) !important; }
 .theme-monet .dk-dash .dash3d, .theme-monet .dk-dash .dash3d button, .theme-monet .dk-dash .dash3d div { color: #34534c !important; }
 .theme-monet .dk-dash .dash3d button div:last-child, .theme-monet .dk-dash .dash3d span { color: #6b8f84 !important; }
 .theme-monet .dk-dash .dash3d button { border-bottom-color: #eef4ee !important; }
@@ -12992,7 +12992,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-gold .dk-dash { background: radial-gradient(700px 380px at 10% 0%, rgba(212,175,55,.22), transparent 70%), radial-gradient(700px 400px at 95% 100%, rgba(212,175,55,.14), transparent 70%), linear-gradient(160deg,#0b0a08,#17140f 55%,#0a0908) !important; }
 .theme-gold .dk-dash .fx3d .au { opacity: .15; filter: blur(90px) grayscale(1) sepia(1) saturate(4); }
 .theme-gold .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(212,175,55,.38) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(212,175,55,.38) 1.5px, transparent 1.5px) !important; }
-.theme-gold .dk-dash .dash3d { background: rgba(20,18,14,.75) !important; border: 1px solid rgba(201,162,39,.45) !important; }
+.theme-gold .dk-dash .dash3d { background: rgba(20,18,14,.45) !important; border: 1px solid rgba(201,162,39,.45) !important; }
 .theme-gold .dk-dash .dash3d > div:first-child { border-left-color: #c9a227 !important; color: #f3d98b !important; }
 .theme-gold .dk-dash .type-ic { background: linear-gradient(135deg,#f3d98b,#9c7a1c) !important; box-shadow: 0 3px 10px rgba(201,162,39,.4) !important; }
 .theme-gold .co-wrap { --a1: #b8901f; --a2: #e8c96a; --ink: #1a1610; --soft: #fbf3dc; }
@@ -13019,7 +13019,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-star .dk-dash { background: transparent !important; }
 .theme-star .dk-dash .fx3d .au { display: none; }
 .theme-star .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(214,180,90,.18) 2px, transparent 2px), linear-gradient(90deg, rgba(214,180,90,.18) 2px, transparent 2px) !important; }
-.theme-star .dk-dash .dash3d { background: rgba(255,255,255,.9) !important; border: 1px solid #f5e6b3 !important; box-shadow: 0 10px 28px rgba(180,140,40,.08) !important; }
+.theme-star .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border: 1px solid #f5e6b3 !important; box-shadow: 0 10px 28px rgba(180,140,40,.08) !important; }
 .theme-star .dk-dash .dash3d, .theme-star .dk-dash .dash3d button, .theme-star .dk-dash .dash3d div { color: #6b4e16 !important; }
 .theme-star .dk-dash .dash3d button div:last-child, .theme-star .dk-dash .dash3d span { color: #a8823a !important; }
 .theme-star .dk-dash .dash3d button { border-bottom-color: #fbf3d9 !important; }
@@ -13072,7 +13072,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-xmas .stat-card { border: 1.5px solid #fefcbf !important; }
 .theme-xmas .dk-dash { background: transparent !important; }
 .theme-xmas .dk-dash .fx3d .au { display: none; }
-.theme-xmas .dk-dash .dash3d { background: rgba(255,255,255,.88) !important; border: 1.5px solid #fbd38d !important; box-shadow: 0 10px 30px rgba(31,111,74,.12) !important; }
+.theme-xmas .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border: 1.5px solid #fbd38d !important; box-shadow: 0 10px 30px rgba(31,111,74,.12) !important; }
 .theme-xmas .dk-dash .dash3d, .theme-xmas .dk-dash .dash3d button, .theme-xmas .dk-dash .dash3d div { color: #14532d !important; }
 .theme-xmas .dk-dash .dash3d button div:last-child, .theme-xmas .dk-dash .dash3d span { color: #c53030 !important; }
 .theme-xmas .dk-dash .dash3d > div:first-child { border-left-color: #c53030 !important; }
@@ -13090,7 +13090,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-kitty .stat-card { border: 1.5px solid #fed7aa !important; }
 .theme-kitty .dk-dash { background: transparent !important; }
 .theme-kitty .dk-dash .fx3d .au { display: none; }
-.theme-kitty .dk-dash .dash3d { background: rgba(255,255,255,.85) !important; border: 1.5px solid #fed7aa !important; box-shadow: 0 10px 30px rgba(249,115,22,.12) !important; }
+.theme-kitty .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border: 1.5px solid #fed7aa !important; box-shadow: 0 10px 30px rgba(249,115,22,.12) !important; }
 .theme-kitty .dk-dash .dash3d, .theme-kitty .dk-dash .dash3d button, .theme-kitty .dk-dash .dash3d div { color: #7c2d12 !important; }
 .theme-kitty .dk-dash .dash3d button div:last-child, .theme-kitty .dk-dash .dash3d span { color: #c2410c !important; }
 .theme-kitty .dk-dash .dash3d > div:first-child { border-left-color: #f97316 !important; }
@@ -13101,7 +13101,9 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .theme-cat .dk-dash { background: transparent !important; }
 .theme-cat .dk-dash .fx3d .au { display: none; }
 .theme-cat .dk-dash .fx3d .floor { background-image: linear-gradient(rgba(220,38,38,.18) 2px, transparent 2px), linear-gradient(90deg, rgba(220,38,38,.18) 2px, transparent 2px) !important; }
-.theme-cat .dk-dash .dash3d { background: rgba(255,255,255,.82) !important; border: 1.5px solid #fcd34d !important; box-shadow: 0 10px 30px rgba(220,38,38,.12) !important; }
+.theme-cat .dk-dash .dash3d { background: rgba(255,255,255,.35) !important; border: 1.5px solid #fcd34d !important; box-shadow: 0 10px 30px rgba(220,38,38,.12) !important; }
+/* Dashboard 两个大框：透明，看得到背景 */
+.dk-dash .dash3d { backdrop-filter: blur(1.5px) !important; -webkit-backdrop-filter: blur(1.5px) !important; }
 .theme-cat .dk-dash .dash3d, .theme-cat .dk-dash .dash3d button, .theme-cat .dk-dash .dash3d div { color: #7f1d1d !important; }
 .theme-cat .dk-dash .dash3d button div:last-child, .theme-cat .dk-dash .dash3d span { color: #b91c1c !important; }
 .theme-cat .dk-dash .dash3d button { border-bottom-color: #fee2e2 !important; }
