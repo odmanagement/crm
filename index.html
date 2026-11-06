@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "346";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "347";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -8538,6 +8538,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const rows = allRows.filter(d => kYr === "all" || yrD(d) === kYr).filter(d => !ql || [d.title, d.by, d.meta && d.meta.client, d.meta && d.meta.agent].join(" ").toLowerCase().includes(ql));
   const latest = React.useRef(drafts); latest.current = drafts;
   const busy = React.useRef(false);
+  const [rt, setRt] = React.useState(0);   /* 算的时候资料又被改了 → 算完再跑一次，不会一直停在「…」 */
   React.useEffect(() => {
     if (busy.current || !fresh) return;
     const isCar = d => d.file === "CAR_SALES_QUOTATION.html";
@@ -8548,12 +8549,15 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
       const upd = {};
       await new Promise(r => setTimeout(r, 600));   /* 先让页面显示出来，再慢慢算 */
       for (let i = 0; i < need.length; i += 3) {     /* 一次算 3 份 */
-        await Promise.all(need.slice(i, i + 3).map(async d => { const t = tools.find(x => x.file === d.file); if (!t) return; const m = await costComputeMeta(t, d); upd[d.id] = { ...(m || {}), at: d.at }; }));
+        await Promise.all(need.slice(i, i + 3).map(async d => { try { const t = tools.find(x => x.file === d.file); if (!t) return; const m = await costComputeMeta(t, d); upd[d.id] = { ...(m || {}), at: d.at }; } catch (e) {} }));
       }
       busy.current = false;
-      if (Object.keys(upd).length) saveDrafts((latest.current || []).map(x => upd[x.id] && x.at === upd[x.id].at ? { ...x, meta: upd[x.id] } : x));
-    })();
-  }, [fresh, allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
+      const cur = latest.current || []; let miss = false;
+      const nx = cur.map(x => { const u = upd[x.id]; if (!u) return x; if (x.at !== u.at) { miss = true; return x; } return { ...x, meta: u }; });
+      if (Object.keys(upd).length) saveDrafts(nx);
+      if (miss) setTimeout(() => setRt(x => x + 1), 800);
+    })().catch(() => { busy.current = false; });
+  }, [fresh, rt, allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
   /* Done / Commission / 照片 另外存在一个小的云端 key（costing_extras），不跟很大的表格存档挤在一起，存得快、刷新不会不见 */
   const [ext, saveExt] = useCloudList("costing_extras");
   const extRef = React.useRef(ext); extRef.current = ext;
@@ -8602,7 +8606,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"], hasCar ? [] : ["跑了"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 8, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
-        rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
+        rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.subtotal == null && d.meta.at !== d.at, stale = !!d.meta && d.meta.at !== d.at;   /* 重新算的时候先显示旧的数目（淡一点） */
           const closed = !ld && costPaid(m);   /* Balance 没欠（0 或 负数）= 付清了 → 变色 */
           const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
           const isBad = !hasCar && !!d.bad;   /* 跑了、钱收不回 → 整行红色 */
@@ -8611,8 +8615,8 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
             h("td", { style: { ...td, ...bg, ...bg } }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
             h("td", { style: { ...td, ...bg, fontWeight: 700 } }, m.agent || "—"),
             h("td", { style: { ...td, ...bg, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, m.client || d.title || "—", tools.length > 1 && (() => { const k = /FUTURE/i.test(d.file) ? ["FUTURE", "#ea580c"] : /FINPRO/i.test(d.file) ? ["FINPRO", "#2563eb"] : /^PL_/i.test(d.file) ? ["PL", "#7c3aed"] : [t.name, "#64748b"]; return h("div", null, h("span", { style: { display: "inline-block", marginTop: 3, borderRadius: 999, padding: "1px 9px", fontSize: 10.5, fontWeight: 900, color: "#fff", background: k[1], letterSpacing: .3 } }, k[0])); })()),
-            h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 800 } }, ld ? "…" : m.subtotal != null ? "RM " + lsFmt(m.subtotal) : "—"),
-            h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" } }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
+            h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 800, opacity: stale ? .55 : 1 }, title: stale ? "重新计算中…" : undefined }, ld ? "…" : m.subtotal != null ? "RM " + lsFmt(m.subtotal) : "—"),
+            h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, opacity: stale ? .55 : 1, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" }, title: stale ? "重新计算中…" : undefined }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: "#0369a1" } }, ld ? "…" : m.custBal != null ? "RM " + lsFmt(m.custBal) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
               h("div", { style: { display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" } },
