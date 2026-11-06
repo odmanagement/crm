@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "325";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "326";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6259,7 +6259,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
       else if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); t.blur(); } },
     onBlurCapture: e => { e.target.readOnly = true; } };
   const box = { width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", font: "inherit", color: "inherit", padding: 0, margin: 0, minWidth: 0 };
-  const tx = (v, on, st, ph) => h("input", { ...ro, value: v || "", placeholder: ph || "", onChange: e => on(e.target.value), ...ev, style: { ...box, ...(st || {}) } });
+  const tx = (v, on, st, ph) => h("input", { ...ro, className: "keep-case", value: v || "", placeholder: ph || "", onChange: e => on(e.target.value), ...ev, style: { ...box, ...(st || {}) } });
   const mny = (v, on) => h("input", { ...ro, value: v || "", inputMode: "decimal", placeholder: "", onChange: e => on(e.target.value.replace(/[^\d.,-]/g, "")), onFocus: ev.onFocus, onBlur: e => { focus.current = false; on(fmtMoney(e.target.value)); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
   const dt = (v, on) => h("input", { ...ro, value: v || "", inputMode: "numeric", maxLength: 10, onChange: e => on(bsDateMask(e.target.value)), ...ev, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
   /* 空格子：每个都可以自己填 */
@@ -12571,6 +12571,7 @@ const CSS = `
 * { box-sizing: border-box; }
 #root, #root *, #root input, #root textarea, #root select, #root option, #root button { text-transform: uppercase !important; }
 #root input::placeholder, #root textarea::placeholder { text-transform: uppercase; }
+#root input.keep-case, #root textarea.keep-case { text-transform: none !important; }   /* Bank Statement：大小写照打的 */
 input:focus, textarea:focus, select:focus { outline: 2px solid #4f46e5; outline-offset: -1px; }
 button { cursor: pointer; font-family: inherit; }
 ::-webkit-scrollbar { width: 8px; }
