@@ -506,6 +506,7 @@ const L = {
     r: 4
   }), "M22 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"]),
   BarChart3: _icon(["M3 3v18h18", "M18 17V9", "M13 17V5", "M8 17v-3"]),
+  TrendingUp: _icon(["M22 7 13.5 15.5 8.5 10.5 2 17", "M16 7h6v6"]),
   ExternalLink: _icon(["M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"]),
   Shield: _icon(["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"]),
   ShieldCheck: _icon(["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z", "m9 12 2 2 4-4"]),
@@ -545,6 +546,7 @@ const {
   LayoutDashboard,
   Users,
   BarChart3,
+  TrendingUp,
   ExternalLink,
   ShieldCheck,
   Check,
@@ -1760,21 +1762,47 @@ const NAV = [{
     icon: Folder
   }]
 }, {
-  id: "agreement",
-  label: "Agreement",
-  icon: Folder
-}, {
-  id: "bankstmt",
-  label: "Bank Statement",
-  icon: Wallet
-}, {
-  id: "bankstmt2",
-  label: "Rencai Bank Statement",
-  icon: Wallet
-}, {
-  id: "lendingfee",
-  label: "Lending Sheet",
-  icon: Receipt
+  /* SALES：Agreement / Bank Statement / Rencai / Lending / Costing / Closing / Salary Status 放一个 Group，分小段比较整齐 */
+  id: "sales",
+  label: "Sales",
+  icon: TrendingUp,
+  children: [{
+    id: "agreement",
+    label: "Agreement",
+    icon: Folder,
+    sec: "📄 文件"
+  }, {
+    id: "bankstmt",
+    label: "Bank Statement",
+    icon: Wallet,
+    sec: "🏦 Statement"
+  }, {
+    id: "bankstmt2",
+    label: "Rencai",
+    icon: Wallet
+  }, {
+    id: "lendingfee",
+    label: "Lending Sheet",
+    icon: Receipt
+  }, {
+    id: "costing_pl",
+    label: "PL Costing",
+    icon: BarChart3,
+    sec: "📊 Costing"
+  }, {
+    id: "costing_car",
+    label: "Car Costing",
+    icon: Car
+  }, {
+    id: "submission",
+    label: "Closing",
+    icon: Send,
+    sec: "✅ Closing"
+  }, {
+    id: "salarylist",
+    label: "Salary Status",
+    icon: Wallet
+  }]
 }, {
   /* OD Payment / Return Salary / Boss Take 放在一个 Group */
   id: "odmgmt",
@@ -1797,23 +1825,6 @@ const NAV = [{
     label: "Boss Take",
     icon: Receipt
   }]
-}, {
-  id: "costing",
-  label: "Costing",
-  icon: BarChart3,
-  children: [{
-    id: "costing_pl",
-    label: "PL Costing Part",
-    icon: Folder
-  }, {
-    id: "costing_car",
-    label: "Car Costing Part",
-    icon: Car
-  }]
-}, {
-  id: "submission",
-  label: "Closing",
-  icon: Send
 }, {
   id: "mission",
   label: "Mission",
@@ -1839,10 +1850,6 @@ const NAV = [{
   label: "To Do",
   icon: ListTodo
 }, {
-  id: "salarylist",
-  label: "Salary Listing",
-  icon: Wallet
-}, {
   id: "doctrack",
   label: "Customer Docs",
   icon: Folder
@@ -1862,7 +1869,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "336";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "338";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4251,8 +4258,8 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
               h("span", { className: "sb-caret" + (isOpen ? " open" : "") }, "▸"), (() => { const bs = badges ? n.children.reduce((t, c) => t + (badges[c.id] || 0), 0) : 0; return h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), !isOpen && bs ? h("b", { className: "sb-badge" }, bs > 99 ? "99+" : bs) : null); })(), h("span", { className: "sb-txt" }, n.label)),
             isOpen && h("div", { className: "sb-sub" }, n.children.map(c => {
               const CIcon = c.icon;
-              return h("button", { key: c.id, className: "sb-item sb-child" + (page === c.id ? " on" : ""), title: c.label, onClick: () => setPage(c.id) },
-                h("span", { style: { position: "relative", display: "inline-flex" } }, h(CIcon, { size: 16 }), badges && badges[c.id] ? h("b", { className: "sb-badge" }, badges[c.id] > 99 ? "99+" : badges[c.id]) : null), h("span", { className: "sb-txt" }, c.label));
+              return h(React.Fragment, { key: c.id }, c.sec && h("div", { className: "sb-sec" }, c.sec), h("button", { key: c.id, className: "sb-item sb-child" + (page === c.id ? " on" : ""), title: c.label, onClick: () => setPage(c.id) },
+                h("span", { style: { position: "relative", display: "inline-flex" } }, h(CIcon, { size: 16 }), badges && badges[c.id] ? h("b", { className: "sb-badge" }, badges[c.id] > 99 ? "99+" : badges[c.id]) : null), h("span", { className: "sb-txt" }, c.label)));
             })));
         }
         return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
@@ -6502,7 +6509,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const copyText = () => {
     const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
     const lastCf = (cfList || [])[0];
-    const L = ["*SALARY LISTING" + (lastCf ? " – 确认 " + new Date(lastCf.at).toLocaleDateString("en-GB") : "") + "*"];
+    const L = ["*SALARY STATUS" + (lastCf ? " – 确认 " + new Date(lastCf.at).toLocaleDateString("en-GB") : "") + "*"];
     SL_KEYS.forEach(k => { const g = shown.filter(r => r.st === k); if (!g.length) return; L.push("", SL_ST[k][4] + " *" + SL_ST[k][0].replace(/^\S+\s/, "") + " (" + g.length + ")*"); g.forEach((r, i) => L.push(line(r, i))); });
     { const g = shown.filter(r => !r.st); if (g.length) { L.push("", "⬜ *还没选 (" + g.length + ")*"); g.forEach((r, i) => L.push(line(r, i))); } }
     if (!shown.length) L.push("", "-");
@@ -12732,6 +12739,8 @@ button:active, a:active { transform: scale(.97); }
 .sb-item { width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: none; background: none; border-radius: 10px; color: #c7cbe6; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; transition: background .15s, color .15s; font-family: inherit; }
 .sb-item:hover { background: rgba(255,255,255,.07); color: #fff; }
 .sb-item.on { background: linear-gradient(120deg,rgba(124,58,237,.55),rgba(37,99,235,.35)); color: #fff; box-shadow: inset 0 0 0 1px rgba(167,139,250,.35), 0 6px 16px rgba(79,70,229,.3); font-weight: 800; }
+.sb-sec { font-size: 10.5px; font-weight: 900; letter-spacing: .06em; opacity: .65; padding: 8px 10px 2px; text-transform: uppercase; }
+.sb-sub .sb-sec:first-child { padding-top: 2px; }
 .sb-caret { width: 8px; font-size: 10px; opacity: .7; transition: transform .2s; display: inline-block; }
 .sb-caret.open { transform: rotate(90deg); }
 .sb-sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px 18px; padding-left: 8px; border-left: 1px dashed rgba(255,255,255,.15); }
@@ -12743,7 +12752,7 @@ button:active, a:active { transform: scale(.97); }
 @media (max-width: 900px) {
   :root { --sbw: 72px; }
   .sb { padding: 12px 6px; }
-  .sb-role, .sb-name, .sb-txt, .sb-caret { display: none; }
+  .sb-role, .sb-name, .sb-txt, .sb-caret, .sb-sec { display: none; }
   .sb-ava > span { width: 40px !important; height: 40px !important; font-size: 16px !important; }
   .sb-item { justify-content: center; padding: 11px 0; }
   .sb-sub { margin-left: 0; padding-left: 0; border-left: none; }
