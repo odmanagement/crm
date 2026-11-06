@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "324";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "325";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4247,7 +4247,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
           const childActive = n.children.some(c => c.id === page);
           const isOpen = openGroups[n.id];
           return h("div", { key: n.id },
-            h("button", { className: "sb-item" + (childActive && !isOpen ? " on" : ""), title: n.label, onClick: () => setOpenGroups(g => ({ ...g, [n.id]: !g[n.id] })) },
+            h("button", { className: "sb-item" + (childActive && !isOpen ? " on" : ""), title: n.label, onClick: () => setOpenGroups(g => (g[n.id] ? {} : { [n.id]: true })) },   /* 开一个，其他自动关 */
               h("span", { className: "sb-caret" + (isOpen ? " open" : "") }, "▸"), (() => { const bs = badges ? n.children.reduce((t, c) => t + (badges[c.id] || 0), 0) : 0; return h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), !isOpen && bs ? h("b", { className: "sb-badge" }, bs > 99 ? "99+" : bs) : null); })(), h("span", { className: "sb-txt" }, n.label)),
             isOpen && h("div", { className: "sb-sub" }, n.children.map(c => {
               const CIcon = c.icon;
@@ -5507,6 +5507,14 @@ const lfFunderDone = r => { const n = lfNorm(r) || {}, pays = n.toBankPays || []
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
 const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(me);
 
+/* 年份归档：按年份 + 「全部」 */
+const yrOfItem = x => { const d = String((x && (x.date || x.submitDate)) || ""); const m = /^(\d{4})-/.exec(d) || /\/(\d{4})$/.exec(d); if (m) return m[1]; return x && x.at ? String(new Date(x.at).getFullYear()) : ""; };
+function YearBar({ items, getYear, value, onChange }) {
+  const h = React.createElement, gy = getYear || yrOfItem;
+  const ys = Array.from(new Set([String(new Date().getFullYear()), ...(items || []).map(gy).filter(Boolean)])).sort((a, b) => b.localeCompare(a));
+  const btn = (k, l, n) => h("button", { key: k, onClick: () => onChange(k), style: { border: value === k ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: value === k ? "#f3e8ff" : "#fff", color: value === k ? "#6d28d9" : "#475569", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, l + " (" + n + ")");
+  return h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } }, ys.map(y => btn(y, "📅 " + y, (items || []).filter(x => gy(x) === y).length)), btn("all", "全部", (items || []).length));
+}
 function LendingFeePage({ currentUser }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -5530,7 +5538,8 @@ function LendingFeePage({ currentUser }) {
   };
   const del = r => { if (!lfCanEdit(r.by || r.updatedBy, me)) { alert("只有 Admin 才能删除"); return; } if (window.confirm("删除「" + r.name + "」？")) save(items.filter(x => x.id !== r.id)); };
   const ql = q.trim().toLowerCase();
-  const shown = items.filter(r => !ql || [r.agent, r.name, r.tel].join(" ").toLowerCase().includes(ql)).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+  const [lYr, setLYr] = React.useState(String(new Date().getFullYear()));
+  const shown = items.filter(r => lYr === "all" || yrOfItem(r) === lYr).filter(r => !ql || [r.agent, r.name, r.tel].join(" ").toLowerCase().includes(ql)).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
   const inp = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid #cbd5e1", fontSize: 13.5, fontFamily: "inherit", outline: "none", background: "#fff" };
   const lbl = t => h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, t);
   const fld = (t, k, extra, flex) => h("div", { style: { flex: flex || "1 1 160px" } }, lbl(t), h("input", { value: form[k] == null ? "" : form[k], onChange: e => setForm({ ...form, [k]: e.target.value }), style: inp, ...(extra || {}) }));
@@ -5633,6 +5642,7 @@ function LendingFeePage({ currentUser }) {
   const th = S.th, td = S.td;
   return h("div", { className: "cz-page" },
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h(YearBar, { items, value: lYr, onChange: setLYr }),
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search agent / name / tel", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: () => setForm(blank()) }, h(Plus, { size: 16 }), " 新增 Lending")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
@@ -6381,7 +6391,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
     if (only === "none" && r.bs) return false;
     return !ql || [r.c.name, r.bs && r.bs.bankAcc, r.bs && r.bs.company, r.bs && r.bs.agent].join(" ").toLowerCase().includes(ql);
-  }).sort((a, b) => ((a.bs && a.bs.started ? 0 : 1) - (b.bs && b.bs.started ? 0 : 1)) || (a.bs && a.bs.started && b.bs && b.bs.started ? (a.bs.started.at || 0) - (b.bs.started.at || 0) : 0) || (a.manual && !a.c.name ? 0 : 1) - (b.manual && !b.c.name ? 0 : 1) || (b.manual && !b.c.name ? (b.manual.at || 0) - (a.manual.at || 0) : 0) || String(a.c.name).localeCompare(String(b.c.name)));
+  }).sort((a, b) => ((a.bs && a.bs.started ? 1 : 0) - (b.bs && b.bs.started ? 1 : 0)) || (!(a.bs && a.bs.started) && !(b.bs && b.bs.started) ? ((b.manual && b.manual.at) || 0) - ((a.manual && a.manual.at) || 0) : 0) || (a.bs && a.bs.started && b.bs && b.bs.started ? (a.bs.started.at || 0) - (b.bs.started.at || 0) : 0) || (a.manual && !a.c.name ? 0 : 1) - (b.manual && !b.c.name ? 0 : 1) || (b.manual && !b.c.name ? (b.manual.at || 0) - (a.manual.at || 0) : 0) || String(a.c.name).localeCompare(String(b.c.name)));
   const sum = k => shown.reduce((a, r) => a + (r.bs ? (k === "bal" ? bsBalance(r.bs) - rcSum(r) : bsTot(r.bs[k]) + (k === "received" ? rcSum(r) : 0)) : (k === "bal" ? -rcSum(r) : k === "received" ? rcSum(r) : 0)), 0);
   const chip = (k, l) => h("button", { key: k, onClick: () => setOnly(k), style: { border: only === k ? "2px solid #ca8a04" : "1px solid #e2e8f0", background: only === k ? "#fef9c3" : "#fff", color: only === k ? "#713f12" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l);
   const num = { ...S.td, ...S.tdNum };
@@ -7324,7 +7334,8 @@ function SubmissionPage({ currentUser }) {
     if (!window.confirm("删除「" + (x.client || "这笔") + "」？" + (dr ? "\n\n⚠ 连着的 " + (dr.form || "Agreement") + "「" + (dr.title || "") + "」也会一起删除。" : ""))) return;
     save(items.filter(y => y.id !== x.id));
     if (dr) { saveAgDrafts((agDrafts || []).filter(d => d.id !== dr.id)); czAgreementDeleted({ ...dr, closingId: "__none__" }); } };
-  const shown = items.filter(x => tab === "all" || x.cat === tab)
+  const [cYr, setCYr] = React.useState(String(new Date().getFullYear()));
+  const shown = items.filter(x => cYr === "all" || yrOfItem(x) === cYr).filter(x => tab === "all" || x.cat === tab)
     .filter(x => !q || [x.client, staffOf(x), agentOf(x), x.remark, (CZ_DOCS.find(d => d[0] === x.doc) || [])[1], x.doc === "booking" ? czBookFmt(czDocDate(x) + (czDocTime(x) ? "T" + czDocTime(x) : "")) : ""].join(" ").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at);
   const typeCard = (k, label, hue, n) => h("button", { key: k, onClick: () => setTab(k), style: { flex: "1 1 130px", textAlign: "left", border: tab === k ? "2px solid hsl(" + hue + ",70%,55%)" : "1px solid #eef0f4", borderRadius: 16, padding: "12px 16px", background: tab === k ? "linear-gradient(135deg,hsl(" + hue + ",90%,97%),#fff)" : "rgba(255,255,255,.92)", boxShadow: tab === k ? "0 10px 24px -12px hsl(" + hue + ",70%,50%)" : "0 6px 18px -14px rgba(0,0,0,.3)", cursor: "pointer", transition: "all .2s" } },
@@ -7343,6 +7354,7 @@ function SubmissionPage({ currentUser }) {
       typeCard("all", "ALL", 230, items.length),
       SUB_TYPES.map(([k, l, hue]) => typeCard(k, l.toUpperCase(), hue, items.filter(x => x.cat === k).length))),
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h(YearBar, { items, value: cYr, onChange: setCYr }),
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search client / staff / agent / remark", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { onClick: () => setShowRank(!showRank), style: { ...S.addBtn, background: showRank ? "linear-gradient(120deg,#f59e0b,#eab308)" : "#fff", color: showRank ? "#fff" : "#b45309", border: "1px solid #fcd34d", boxShadow: "none" } }, "🏆 Ranking"),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " Add Closing")),
@@ -8464,7 +8476,9 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const allRows = (() => { const seen = new Set(); return drafts.filter(d => files.includes(d.file)).sort((a, b) => (b.at || 0) - (a.at || 0))
     .filter(d => { const nm = costKeyName(d); if (!nm) return true; const k = d.file + "|" + nm; if (seen.has(k)) return false; seen.add(k); return true; }); })();
   const ql = q.trim().toLowerCase();
-  const rows = allRows.filter(d => !ql || [d.title, d.by, d.meta && d.meta.client, d.meta && d.meta.agent].join(" ").toLowerCase().includes(ql));
+  const [kYr, setKYr] = React.useState(String(new Date().getFullYear()));
+  const yrD = d => d && d.at ? String(new Date(d.createdAt || d.at).getFullYear()) : "";
+  const rows = allRows.filter(d => kYr === "all" || yrD(d) === kYr).filter(d => !ql || [d.title, d.by, d.meta && d.meta.client, d.meta && d.meta.agent].join(" ").toLowerCase().includes(ql));
   const latest = React.useRef(drafts); latest.current = drafts;
   const busy = React.useRef(false);
   React.useEffect(() => {
@@ -8509,6 +8523,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const agVal = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
   if (isAgree) return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h(YearBar, { items: allRows, getYear: yrD, value: kYr, onChange: setKYr }),
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / admin", value: q, onChange: e => setQ(e.target.value) })),
       h("select", { value: typeF, onChange: e => setTypeF(e.target.value), style: { border: "2px solid #c7d2fe", borderRadius: 12, padding: "9px 14px", fontWeight: 900, fontSize: 14, fontFamily: "inherit", background: "#fff", color: "#3730a3", cursor: "pointer" } }, h("option", { value: "" }, "全部"), h("option", { value: "FINPRO" }, "FINPRO"), h("option", { value: "FUTURE" }, "FUTURE")),
       tools.map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), " 新增 " + (/FUTURE/i.test(t.file) ? "FUTURE" : "FINPRO")))),
@@ -8524,6 +8539,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
           h("td", { style: { ...td, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase()))); })))));
   return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
+      h(YearBar, { items: allRows, getYear: yrD, value: kYr, onChange: setKYr }),
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
       tools.filter(t => !t.noAdd).map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 " + (t.file === "CAR_SALES_QUOTATION.html" ? "Quotation" : "Costing")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
@@ -10907,7 +10923,7 @@ function VerifyForm({
     marginTop: 8,
     lineHeight: 1.5
   }
-}, React.createElement("datalist", { id: "vf-bsnames" }, (window.__crmBsPeople || []).map(x => React.createElement("option", { key: x.name, value: x.name }, x.agent || ""))), vBsPerson(v.customerName) && vBsPerson(v.customerName).salItems ? React.createElement("div", { style: { color: "#16a34a", fontWeight: 800, marginBottom: 4 } }, "✓ Bank Statement 有这个人，Salary 会自动带进去") : null, "\u5148\u586B\u540D\u5B57\u4FDD\u5B58\uFF0C\u4E4B\u540E\u70B9\u5F00\u4ED6\u7684\u540D\u5B57\u518D\u586B\u5176\u4F59\u8D44\u6599\u3002", /*#__PURE__*/React.createElement("br", null), "Save with just a name, then tap the name to fill in the rest."))), /*#__PURE__*/React.createElement("div", {
+}, React.createElement("datalist", { id: "vf-bsnames" }, (() => { const seen = new Set(); return [...(window.__crmBsPeople || []).map(x => [x.name, x.agent || "Bank Statement"]), ...(window.__crmLending || []).map(x => [x.name, "Lending Sheet" + (x.agent ? " · " + x.agent : "")])].filter(([n]) => n && !seen.has(slNameKey(n)) && seen.add(slNameKey(n))).map(([n, l]) => React.createElement("option", { key: n, value: n }, l)); })()), vBsPerson(v.customerName) && vBsPerson(v.customerName).salItems ? React.createElement("div", { style: { color: "#16a34a", fontWeight: 800, marginBottom: 4 } }, "✓ Bank Statement 有这个人，Salary 会自动带进去") : null, "\u5148\u586B\u540D\u5B57\u4FDD\u5B58\uFF0C\u4E4B\u540E\u70B9\u5F00\u4ED6\u7684\u540D\u5B57\u518D\u586B\u5176\u4F59\u8D44\u6599\u3002", /*#__PURE__*/React.createElement("br", null), "Save with just a name, then tap the name to fill in the rest."))), /*#__PURE__*/React.createElement("div", {
   style: S.formActions
 }, /*#__PURE__*/React.createElement("button", {
   style: S.cancelBtn,
