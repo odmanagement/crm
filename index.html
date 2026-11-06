@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261005073609";
+const APP_BUILD = "20261107012000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "350";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "352";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5809,7 +5809,7 @@ const bsIso2Dmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); re
 const bsNormDmy = v => { const t = String(v || "").trim(); let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t); if (m) return m[3].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + m[1];
   m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(t); if (m) return m[1].padStart(2, "0") + "/" + m[2].padStart(2, "0") + "/" + (m[3].length === 2 ? "20" + m[3] : m[3]); return t; };
 /* 每个月那一行的名字：EPF/SOCSO/PCB - 日期（旧的「SALARY - 日期」也认得，会自动改名） */
-const BS_SAL_PFX = "EPF/SOCSO/PCB - ";
+const BS_SAL_PFX = "SALARY - ";   /* 存档里还是用「SALARY - 日期」（旧版也看得懂，不会互相一直加），表格上显示成「EPF/SOCSO/PCB - 日期」 */
 const bsSalKey = n => { const u = String(n || "").trim().toUpperCase(), m = /^(?:SALARY|EPF\/SOCSO\/PCB) - (.+)$/.exec(u); return m ? BS_SAL_PFX + bsNormDmy(m[1]) : u; };
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
@@ -6080,12 +6080,16 @@ function costSyncData(data, p, L, opt) {
   [...A, ...C].forEach(r => { if (!isSal(r) || (r.cid && byId.has(r.cid))) return; const k = bsSalKey(r.name); const m = months.find(x => !claimed.has(x.cid) && x.name === k); if (m) { r.cid = m.cid; claimed.add(m.cid); } });
   /* 1b. 自动加的 SALARY 行，Bank Statement 已经没有那一行（删了 / 改了日期）→ 删掉，不会越来越多 */
   if (p) [A, C].forEach(arr => { for (let i = arr.length - 1; i >= 0; i--) { const r = arr[i]; if (isSal(r) && r.auto && !(r.cid && byId.has(r.cid))) arr.splice(i, 1); } });
-  /* 2. 同一行重复的删掉（Part A 的优先）；已经在别的 Costing Part A 算过（黄色）的不放 Part A.A */
-  const seen = new Set(); A.forEach(r => { if (isSal(r) && r.cid) seen.add(r.cid); });
+  /* 1c. 同一个月份已经有一行了，其他没对上的重复行删掉 */
+  if (p) { const have = new Set([...A, ...C].filter(r => isSal(r) && r.cid && byId.has(r.cid)).map(r => byId.get(r.cid).name));
+    [A, C].forEach(arr => { for (let i = arr.length - 1; i >= 0; i--) { const r = arr[i]; if (isSal(r) && !(r.cid && byId.has(r.cid)) && have.has(bsSalKey(r.name))) arr.splice(i, 1); } }); }
+  /* 2. 同一行重复的删掉（Part A 也会删，只留第一行）；已经在别的 Costing Part A 算过（黄色）的不放 Part A.A */
+  const seen = new Set();
+  for (let i = 0; i < A.length; i++) { const r = A[i]; if (!isSal(r) || !r.cid) continue; if (seen.has(r.cid)) { A.splice(i, 1); i--; } else seen.add(r.cid); }
   for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r) || !r.cid) continue; const m = byId.get(r.cid);
     if (seen.has(r.cid) || (r.auto && m && m.costed === "a")) { C.splice(i, 1); i--; } else seen.add(r.cid); }
   /* 3. 名字 / 数目跟着 Bank Statement */
-  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (r.name !== m.name) r.name = m.name; if (r.amt !== m.amt) r.amt = m.amt; });
+  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (bsSalKey(r.name) !== m.name) r.name = m.name;   /* SALARY - / EPF/SOCSO/PCB - 同一个日期就不改名（不会跟旧版互相改来改去） */ if (r.amt !== m.amt) r.amt = m.amt; });
   /* 3b. Part A 还没有月份、也还没有任何月份存档过（没颜色）→ Part A.A 里自动加的月份搬去 Part A（第一次都放 Part A） */
   if (months.length && !A.some(isSal) && !months.some(m => m.costed)) for (let i = 0; i < C.length; i++) { const r = C[i]; if (isSal(r) && r.auto && r.cid && byId.has(r.cid)) { C.splice(i, 1); i--; putA({ ...r, mult: "", hasMult: false }); } }
   /* 4. 还没进这份 Costing 的月份 */
@@ -6237,7 +6241,7 @@ async function bsMarkCosted(clientName, data) {
     const p = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k); if (!p || !p.store) return;
     /* Part A 的月份 → 浅黄色（"a"）；后来加进 Part A.A（+10%）的 → 浅青色（"aa"） */
     const dates = new Map(), ids = new Map();
-    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^EPF\/SOCSO\/PCB - (.+)$/.exec(bsSalKey(r.name)); if (!m) return; const w = b === "partABody" ? "a" : "aa"; if (r.cid) ids.set(r.cid, w); else dates.set(m[1], w); }));
+    ["partABody", "partCBody"].forEach(b => (data.parts[b] || []).forEach(r => { const m = /^SALARY - (.+)$/.exec(bsSalKey(r.name)); if (!m) return; const w = b === "partABody" ? "a" : "aa"; if (r.cid) ids.set(r.cid, w); else dates.set(m[1], w); }));
     if (!dates.size && !ids.size) return;
     const raw = await DB.get(p.store); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { return; }
     let ch = false;
