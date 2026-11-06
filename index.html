@@ -1804,6 +1804,20 @@ const NAV = [{
     icon: Wallet
   }]
 }, {
+  /* ACCOUNT：Salary Listing / Final Record */
+  id: "account",
+  label: "Account",
+  icon: Receipt,
+  children: [{
+    id: "acc_salary",
+    label: "Salary Listing",
+    icon: Wallet
+  }, {
+    id: "acc_final",
+    label: "Final Record",
+    icon: Folder
+  }]
+}, {
   /* OD Payment / Return Salary / Boss Take 放在一个 Group */
   id: "odmgmt",
   label: "OD Management",
@@ -1869,7 +1883,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "338";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "339";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3840,7 +3854,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
-  }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
+  }) : page === "acc_salary" || page === "acc_final" ? React.createElement(AccountBlankPage, { title: page === "acc_salary" ? "Salary Listing" : "Final Record" }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
     clients: clients,
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
@@ -6443,6 +6457,13 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual && canDel(r.manual) ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
+}
+/* ACCOUNT 的新页面（内容还没定） */
+function AccountBlankPage({ title }) {
+  const h = React.createElement;
+  return h("div", { className: "cz-page" }, h("div", { style: { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: 40, textAlign: "center", border: "1px solid #eef0f4", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)" } },
+    h("div", { style: { fontSize: 22, fontWeight: 900, color: "#1e1b4b" } }, title),
+    h("div", { style: { marginTop: 8, color: "#94a3b8", fontWeight: 700 } }, "这一页准备好了，内容还没放")));
 }
 function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped, onSetStatusBatch, onSetRemark }) {
   const h = React.createElement;
