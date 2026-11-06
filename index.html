@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "349";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "350";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6133,15 +6133,18 @@ window.__crmCostOpen = costOpen;
 function CostingAutoSync({ currentUser }) {
   const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
   const [cExt] = useCloudList("costing_extras");
+  const [cMeta] = useCloudList("costing_meta");
   React.useEffect(() => {
     if (!Array.isArray(drafts)) return;
+    const mm = new Map((Array.isArray(cMeta) ? cMeta : []).filter(x => x && x.id).map(x => [x.id, x]));
+    const metaOf = d => mm.get(d.id) || d.meta;
     const badIds = new Set((cExt || []).filter(x => x && x.bad).map(x => x.id));   /* 按了「跑了」→ 也从选单拿掉 */
     const last = {};   /* 同一个名字：看最新那份 */
     drafts.filter(d => d && /COSTING_PART/i.test(d.file || "")).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(d => { const k = costNK(costKeyName(d)); if (k) last[k] = d; });
-    const S2 = new Set(Object.keys(last).filter(k => costPaid(last[k].meta) || badIds.has(last[k].id)));
+    const S2 = new Set(Object.keys(last).filter(k => costPaid(metaOf(last[k])) || badIds.has(last[k].id)));
     const a = [...S2].sort().join("|"), b = [...window.__crmCostClosed].sort().join("|");
     if (a !== b) { window.__crmCostClosed = S2; try { window.dispatchEvent(new Event("crm-cost-closed")); window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {} }
-  }, [drafts, cExt]);
+  }, [drafts, cExt, cMeta]);
   const [tick, setTick] = React.useState(0);
   const memo = React.useRef(new Map());    /* 资料没变的那份就不再算（减少卡） */
   const guard = React.useRef(new Map());   /* 同一份 2 分钟内被自动改超过 3 次 → 先停，避免一直循环 */
@@ -8538,7 +8541,11 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const files = tools.map(t => t.file);
   const [q, setQ] = React.useState("");
   /* 同一个表格、同一个名字只显示一份（最新那份）；重复的不再出现在清单 */
-  const allRows = (() => { const seen = new Set(); return drafts.filter(d => files.includes(d.file)).sort((a, b) => (b.at || 0) - (a.at || 0))
+  /* 算好的 Subtotal / Balance 另外存在小的 costing_meta（不再写回很大的 Costing 存档 → 不卡、不浪费流量） */
+  const [metaL, saveMeta] = useCloudList("costing_meta");
+  const metaRef = React.useRef(metaL); metaRef.current = metaL;
+  const mm = new Map((Array.isArray(metaL) ? metaL : []).filter(x => x && x.id).map(x => [x.id, x]));
+  const allRows = (() => { const seen = new Set(); return drafts.filter(d => files.includes(d.file)).map(d => { const x = mm.get(d.id); return x && (!d.meta || x.at === d.at || d.meta.at !== d.at) ? { ...d, meta: x } : d; }).sort((a, b) => (b.at || 0) - (a.at || 0))
     .filter(d => { const nm = costKeyName(d); if (!nm) return true; const k = d.file + "|" + nm; if (seen.has(k)) return false; seen.add(k); return true; }); })();
   const ql = q.trim().toLowerCase();
   const [kYr, setKYr] = React.useState(String(new Date().getFullYear()));
@@ -8558,9 +8565,12 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
     (async () => {
       let upd = {}, miss = false;
       const flush = () => { const ks = Object.keys(upd); if (!ks.length) return; const u0 = upd; upd = {};
-        const cur = latest.current || []; let any = false;
-        const nx = cur.map(x => { const u = u0[x.id]; if (!u) return x; if (x.at !== u.at) { miss = true; return x; } any = true; return { ...x, meta: u }; });
-        if (any) saveDrafts(nx); };
+        const cur = latest.current || [], ok = {};
+        ks.forEach(id => { const x = cur.find(y => y && y.id === id); if (!x) return; if (x.at !== u0[id].at) { miss = true; return; } ok[id] = { ...u0[id], id }; });
+        if (!Object.keys(ok).length) return;
+        const live = new Set(cur.map(x => x && x.id));
+        const base = (Array.isArray(metaRef.current) ? metaRef.current : []).filter(x => x && x.id && live.has(x.id) && !ok[x.id]);
+        const nx = base.concat(Object.values(ok)); metaRef.current = nx; saveMeta(nx); };
       await new Promise(r => setTimeout(r, 800));   /* 先让页面显示出来，再慢慢算 */
       for (let i = 0; i < need.length; i++) {        /* 一份一份算，中间休息一下，CRM 不会卡 */
         const d = need[i];
