@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "344";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "345";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6130,14 +6130,16 @@ const costOpen = n => { const k = costNK(n); if (!k) return true; if (window.__c
 window.__crmCostOpen = costOpen;
 function CostingAutoSync({ currentUser }) {
   const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
+  const [cExt] = useCloudList("costing_extras");
   React.useEffect(() => {
     if (!Array.isArray(drafts)) return;
+    const badIds = new Set((cExt || []).filter(x => x && x.bad).map(x => x.id));   /* 按了「跑了」→ 也从选单拿掉 */
     const last = {};   /* 同一个名字：看最新那份 */
     drafts.filter(d => d && /COSTING_PART/i.test(d.file || "")).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(d => { const k = costNK(costKeyName(d)); if (k) last[k] = d; });
-    const S2 = new Set(Object.keys(last).filter(k => costPaid(last[k].meta)));
+    const S2 = new Set(Object.keys(last).filter(k => costPaid(last[k].meta) || badIds.has(last[k].id)));
     const a = [...S2].sort().join("|"), b = [...window.__crmCostClosed].sort().join("|");
     if (a !== b) { window.__crmCostClosed = S2; try { window.dispatchEvent(new Event("crm-cost-closed")); window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {} }
-  }, [drafts]);
+  }, [drafts, cExt]);
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => { const f = () => setTick(x => x + 1); window.addEventListener("crm-bs-people", f); window.addEventListener("crm-lending", f); return () => { window.removeEventListener("crm-bs-people", f); window.removeEventListener("crm-lending", f); }; }, []);
   React.useEffect(() => {
@@ -8553,7 +8555,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   /* Done / Commission / 照片 另外存在一个小的云端 key（costing_extras），不跟很大的表格存档挤在一起，存得快、刷新不会不见 */
   const [ext, saveExt] = useCloudList("costing_extras");
   const extRef = React.useRef(ext); extRef.current = ext;
-  const EXT_KEYS = ["photos", "commPhotos", "comm", "done", "chk"];
+  const EXT_KEYS = ["photos", "commPhotos", "comm", "done", "chk", "bad"];
   const withExt = d => { const e = (ext || []).find(x => x.id === d.id); if (!e) return d; const o = { ...d }; EXT_KEYS.forEach(k => { if (k in e) o[k] = e[k]; }); return o; };
   const patchD = (d, p) => { if (!lfCanEdit(d.by, me)) return;
     const cur = Array.isArray(extRef.current) ? extRef.current : [], old = cur.find(x => x.id === d.id) || { id: d.id };
@@ -8596,13 +8598,14 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
       tools.filter(t => !t.noAdd).map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 " + (t.file === "CAR_SALES_QUOTATION.html" ? "Quotation" : "Costing")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
+      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"], hasCar ? [] : ["跑了"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 8, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
         rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
           const closed = !ld && costPaid(m);   /* Balance 没欠（0 或 负数）= 付清了 → 变色 */
           const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
-          const bg = isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#ede9fe", borderColor: "#ddd6fe" } : {};   /* 付清了（Balance 0）→ 整行紫色 */
-          return h("tr", { key: d.id, title: isDone ? "DONE（" + carDoneType(d).toUpperCase() + "）· " + String(d.done.by || "").toUpperCase() + " · " + new Date(d.done.at || 0).toLocaleDateString("en-GB") : closed ? "已付清 · CLOSING" : undefined },
+          const isBad = !hasCar && !!d.bad;   /* 跑了、钱收不回 → 整行红色 */
+          const bg = isBad ? { background: "#fecaca", borderColor: "#fca5a5" } : isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#ede9fe", borderColor: "#ddd6fe" } : {};   /* 付清了（Balance 0）→ 整行紫色 */
+          return h("tr", { key: d.id, className: isBad ? "cz-bad" : (isDone || closed) ? "cz-done" : undefined, title: isBad ? "跑了 · 钱收不回 · " + String(d.bad.by || "").toUpperCase() + " · " + new Date(d.bad.at || 0).toLocaleDateString("en-GB") : isDone ? "DONE（" + carDoneType(d).toUpperCase() + "）· " + String(d.done.by || "").toUpperCase() + " · " + new Date(d.done.at || 0).toLocaleDateString("en-GB") : closed ? "已付清 · CLOSING" : undefined },
             h("td", { style: { ...td, ...bg, ...bg } }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
             h("td", { style: { ...td, ...bg, fontWeight: 700 } }, m.agent || "—"),
             h("td", { style: { ...td, ...bg, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, m.client || d.title || "—", tools.length > 1 && (() => { const k = /FUTURE/i.test(d.file) ? ["FUTURE", "#ea580c"] : /FINPRO/i.test(d.file) ? ["FINPRO", "#2563eb"] : /^PL_/i.test(d.file) ? ["PL", "#7c3aed"] : [t.name, "#64748b"]; return h("div", null, h("span", { style: { display: "inline-block", marginTop: 3, borderRadius: 999, padding: "1px 9px", fontSize: 10.5, fontWeight: 900, color: "#fff", background: k[1], letterSpacing: .3 } }, k[0])); })()),
@@ -8625,7 +8628,11 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
               h(LfPhotos, { ids: d.commPhotos || [], compact: true, ro: !can, onChange: ids => patchD(d, { commPhotos: ids }) }))),
             h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase(),
               h("button", { disabled: !can, onClick: () => { patchD(d, { chk: d.chk ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.chk ? "✓ " + String(d.chk.by || "").toUpperCase() + " · " + new Date(d.chk.at || 0).toLocaleDateString("en-GB") + (can ? "（按一下取消）" : "") : (can ? "按一下打勾" : "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以打勾"),
-                style: { marginLeft: 6, width: 22, height: 22, borderRadius: 6, border: "2px solid " + (d.chk ? "#16a34a" : "#cbd5e1"), background: d.chk ? "#16a34a" : "#fff", color: "#fff", fontSize: 13, fontWeight: 900, lineHeight: "16px", padding: 0, cursor: can ? "pointer" : "default", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, d.chk ? "✓" : ""))));
+                style: { marginLeft: 6, width: 22, height: 22, borderRadius: 6, border: "2px solid " + (d.chk ? "#16a34a" : "#cbd5e1"), background: d.chk ? "#16a34a" : "#fff", color: "#fff", fontSize: 13, fontWeight: 900, lineHeight: "16px", padding: 0, cursor: can ? "pointer" : "default", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, d.chk ? "✓" : ""))),
+            !hasCar && h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("button", { disabled: !can,
+              onClick: () => { if (!d.bad && !window.confirm("「" + (m.client || d.title || "") + "」跑了、钱收不回？\n整行会变红色，名字也会从所有选单拿掉（再按一次可以取消）")) return; patchD(d, { bad: d.bad ? null : { by: me, at: Date.now() } }); monetSfx("save"); },
+              title: d.bad ? "跑了 · " + String(d.bad.by || "").toUpperCase() + " · " + new Date(d.bad.at || 0).toLocaleDateString("en-GB") + (can ? "（按一下取消）" : "") : (can ? "跑了、钱收不回 → 按一下" : "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以按"),
+              style: { border: "2px solid " + (d.bad ? "#dc2626" : "#fecaca"), borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 11.5, fontFamily: "inherit", cursor: can ? "pointer" : "default", background: d.bad ? "#dc2626" : "#fff", color: d.bad ? "#fff" : "#f87171" } }, d.bad ? "🚫 跑了" : "跑了?")));
         })))));
 }
 function FormsPage({ currentUser, tools, noLib }) {
@@ -12834,6 +12841,7 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .cz-table tr.cz-cancel td { background: #fee2e2 !important; border-color: #fecaca !important; }
 .cz-table tr.cz-cancel:hover td { background: #fecaca !important; }
 /* Closing：DONE 整行紫色 */
+.cz-table tr.cz-bad td, .cz-table tr.cz-bad:hover td { background: #fecaca !important; border-color: #fca5a5 !important; }
 .cz-table tr.cz-done td { background: #ede9fe !important; border-color: #ddd6fe !important; }
 .cz-table tr.cz-done:hover td { background: #ddd6fe !important; }
 .theme-mono .cz-table thead tr { background: linear-gradient(90deg,#0a0a0a,#1f1f1f 60%,#333333) !important; }
