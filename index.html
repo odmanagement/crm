@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "329";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "331";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4512,7 +4512,7 @@ function ReturnSalaryPage({ currentUser }) {
   return h("div", { className: "cz-page" },
     h("div", { style: card },
       h("div", { style: { fontSize: 14, fontWeight: 900, color: "#1e1b4b", marginBottom: 10 } }, "➕ 新增 Return Salary"),
-      h("datalist", { id: "rs-customers" }, custNames.map(c => h("option", { key: c.name, value: c.name }, "余额 " + rm(c.remain)))),
+      h("datalist", { id: "rs-customers" }, custNames.filter(c => costOpen(c.name)).map(c => h("option", { key: c.name, value: c.name }, "余额 " + rm(c.remain)))),
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
         h("div", { style: { flex: "1 1 180px" } }, lbl("CUSTOMER NAME"), h("input", { style: inp, list: "rs-customers", value: f.customer, onChange: e => setCustomer(e.target.value), placeholder: "打字或选择客户" })),
         field("AGENT NAME", "agent"),
@@ -5509,11 +5509,16 @@ const lfCanEdit = (owner, me) => !owner || sameUser(owner, me) || isMissionBoss(
 
 /* 年份归档：按年份 + 「全部」 */
 const yrOfItem = x => { const d = String((x && (x.date || x.submitDate)) || ""); const m = /^(\d{4})-/.exec(d) || /\/(\d{4})$/.exec(d); if (m) return m[1]; return x && x.at ? String(new Date(x.at).getFullYear()) : ""; };
+/* 年份选择：一个下拉（不一年一年排出来） */
+const yrSelStyle = on => ({ border: "2px solid " + (on ? "#7c3aed" : "#c4b5fd"), background: on ? "#f3e8ff" : "#fff", color: "#6d28d9", borderRadius: 999, padding: "6px 14px", fontWeight: 900, fontSize: 13, cursor: "pointer", outline: "none" });
 function YearBar({ items, getYear, value, onChange }) {
   const h = React.createElement, gy = getYear || yrOfItem;
   const ys = Array.from(new Set([String(new Date().getFullYear()), ...(items || []).map(gy).filter(Boolean)])).sort((a, b) => b.localeCompare(a));
   const btn = (k, l, n) => h("button", { key: k, onClick: () => onChange(k), style: { border: value === k ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: value === k ? "#f3e8ff" : "#fff", color: value === k ? "#6d28d9" : "#475569", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" } }, l + " (" + n + ")");
-  return h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } }, ys.map(y => btn(y, "📅 " + y, (items || []).filter(x => gy(x) === y).length)), btn("all", "全部", (items || []).length));
+  return h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
+    h("select", { value: ys.includes(value) || value === "all" ? value : ys[0], onChange: e => onChange(e.target.value), style: yrSelStyle(true) },
+      ys.map(y => h("option", { key: y, value: y }, "📅 " + y + " (" + (items || []).filter(x => gy(x) === y).length + ")")),
+      h("option", { value: "all" }, "📂 全部 (" + (items || []).length + ")")));
 }
 function LendingFeePage({ currentUser }) {
   const h = React.createElement;
@@ -5677,7 +5682,7 @@ function LendingFeePage({ currentUser }) {
               /* 连接 Bank Statement 的名字：选了就自动填 Agent（Agent 还空的时候） */
               onChange: e => { const v = e.target.value, k = v.trim().toUpperCase().replace(/\s+/g, " "), pp = (window.__crmBsPeople || []).find(x => x.name.replace(/\s+/g, " ") === k);
                 setForm({ ...form, name: v, ...(pp && pp.agent && !String(form.agent || "").trim() ? { agent: pp.agent } : {}) }); } }, "2 1 240px"),
-            h("datalist", { id: "lf-bsnames" }, (window.__crmBsPeople || []).map(x => h("option", { key: x.name, value: x.name }, (x.agent || "") + (x.cf ? " · C.F " + x.cf + "%" : "")))),
+            h("datalist", { id: "lf-bsnames" }, (window.__crmBsPeople || []).filter(x => costOpen(x.name)).map(x => h("option", { key: x.name, value: x.name }, (x.agent || "") + (x.cf ? " · C.F " + x.cf + "%" : "")))),
             fld("TEL", "tel", { inputMode: "tel", onBlur: e => setForm({ ...form, tel: lfTel(e.target.value) }) }),
             h("div", { style: { flex: "1 1 150px" } }, lbl("DATE OF AGREEMENT"), h("input", { type: "date", value: form.date || "", onChange: e => setForm({ ...form, date: e.target.value }), style: inp })),
             fld("BY MONTH(S)", "months", { inputMode: "numeric", onChange: e => { const v = e.target.value.replace(/[^\d]/g, ""); setForm({ ...form, months: v, ...(v ? { interest: String(+v * 10) } : {}) }); } }, "0 1 100px"),
@@ -6098,8 +6103,22 @@ function costSyncData(data, p, L, opt) {
   return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;
 }
 window.__crmCostSync = costSyncData;
+/* PL Costing Part（PL / FINPRO / FUTURE）Balance 没欠（0 或 负数）→ 变色；那个名字在所有「打字选名字」的选单里自动消失 */
+const costPaid = m => !!m && m.subtotal != null && m.subtotal > 0.004 && m.balance != null && m.balance <= 0.004;
+const costNK = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ").replace(/\s*\(\d+\)$/, "");
+window.__crmCostClosed = window.__crmCostClosed || new Set();
+const costOpen = n => !window.__crmCostClosed.has(costNK(n));
+window.__crmCostOpen = costOpen;
 function CostingAutoSync({ currentUser }) {
   const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
+  React.useEffect(() => {
+    if (!Array.isArray(drafts)) return;
+    const last = {};   /* 同一个名字：看最新那份 */
+    drafts.filter(d => d && /COSTING_PART/i.test(d.file || "")).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(d => { const k = costNK(costKeyName(d)); if (k) last[k] = d; });
+    const S2 = new Set(Object.keys(last).filter(k => costPaid(last[k].meta)));
+    const a = [...S2].sort().join("|"), b = [...window.__crmCostClosed].sort().join("|");
+    if (a !== b) { window.__crmCostClosed = S2; try { window.dispatchEvent(new Event("crm-cost-closed")); window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {} }
+  }, [drafts]);
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => { const f = () => setTick(x => x + 1); window.addEventListener("crm-bs-people", f); window.addEventListener("crm-lending", f); return () => { window.removeEventListener("crm-bs-people", f); window.removeEventListener("crm-lending", f); }; }, []);
   React.useEffect(() => {
@@ -6402,10 +6421,12 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
       h("div", { style: { ...S.searchWrap, flex: "1 1 240px", marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / bank acc / company / agent", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: addPerson }, h(Plus, { size: 16 }), " 新增人头"),
-      h("datalist", { id: "bs-lendnames" }, (window.__crmLending || []).map(x => h("option", { key: x.name, value: x.name }, "Lending Sheet" + (x.agent ? " · " + x.agent : ""))))),
+      h("datalist", { id: "bs-lendnames" }, (window.__crmLending || []).filter(x => costOpen(x.name)).map(x => h("option", { key: x.name, value: x.name }, "Lending Sheet" + (x.agent ? " · " + x.agent : ""))))),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
-      [["pending", "PENDING", rows.filter(r => tabOf(r) === "pending").length], ["", "进行中", rows.filter(r => tabOf(r) === "").length]].concat(endYears.map(y => [y, "END " + y, rows.filter(r => endY(r) === y).length])).map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
+      [["pending", "PENDING", rows.filter(r => tabOf(r) === "pending").length], ["", "进行中", rows.filter(r => tabOf(r) === "").length]].map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
         style: { border: ey === k ? "2px solid " + (k === "pending" ? "#ea580c" : k ? "#7c3aed" : "#16a34a") : "1px solid #e2e8f0", background: ey === k ? (k === "pending" ? "#ffedd5" : k ? "#f3e8ff" : "#dcfce7") : "#fff", color: ey === k ? (k === "pending" ? "#c2410c" : k ? "#6d28d9" : "#15803d") : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, (k === "pending" ? "⏳ " : k ? "📅 " : "▶ ") + l + " (" + n + ")")),
+      endYears.length > 0 && h("select", { value: endYears.includes(ey) ? ey : "", onChange: e => setEy(e.target.value || ""), style: yrSelStyle(endYears.includes(ey)) },
+        h("option", { value: "" }, "📅 END 年份 ▾"), endYears.map(y => h("option", { key: y, value: y }, "📅 END " + y + " (" + rows.filter(r => endY(r) === y).length + ")"))),
       endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 START 搬去进行中 · 打勾 END 搬去那一年")),
     shown.length === 0 ? h("div", { style: { background: "#fff", borderRadius: 14, padding: 30, textAlign: "center", color: "#94a3b8", border: "1px solid #eef0f6" } }, rows.length ? "找不到" : "还没有 — 按「新增人头」，或 Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现") :
     h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
@@ -6605,7 +6626,7 @@ function BsReturnPage({ clients, currentUser }) {
       h("div", { style: { fontSize: 14, fontWeight: 900, color: "#0f172a", marginBottom: 12 } }, "＋ 新增 Return Salary"),
       h("div", { style: { display: "grid", gridTemplateColumns: "minmax(160px,2fr) minmax(110px,1fr) minmax(130px,1fr) minmax(120px,1fr) auto", gap: 12, alignItems: "end" } },
         h("div", null, lbl("NAME"), h("input", { style: inp, list: "bsr-names", placeholder: "打字选 Bank Statement 的名字", value: f.name, onChange: e => setF({ ...f, name: e.target.value.toUpperCase() }) }),
-          h("datalist", { id: "bsr-names" }, names.map(n => h("option", { key: n, value: n })))),
+          h("datalist", { id: "bsr-names" }, names.filter(costOpen).map(n => h("option", { key: n, value: n })))),
         h("div", null, lbl("AMOUNT (RM)"), h("input", { style: { ...inp, fontWeight: 800, textAlign: "right" }, inputMode: "decimal", value: f.amount, onChange: e => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") }), onBlur: e => { const t = e.target.value.trim(); if (t) setF(p => ({ ...p, amount: lsFmt(lsNum(t)) })); }, onKeyDown: e => e.key === "Enter" && add() })),
         h("div", null, lbl("DATE"), h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
         h("div", null, lbl("PDF / 照片（可以 Ctrl+V）"), h("div", { style: { minHeight: 40, display: "flex", alignItems: "center" } }, h(LfPhotos, { ids: f.photos || [], compact: true, onChange: ids => setF(p => ({ ...p, photos: ids })) }))),
@@ -6686,7 +6707,7 @@ function ReceiptPage({ currentUser, clients }) {
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 12 } },
         fld("DATE", h("input", { type: "date", style: inp, value: f.date, onChange: e => setF({ ...f, date: e.target.value }) })),
         fld("NAME", h(React.Fragment, null, h("input", { style: inp, list: "rc-bs-names", placeholder: "打字会出 Bank Statement 的名字", value: f.from, onChange: e => setF({ ...f, from: e.target.value.toUpperCase() }) }),
-          h("datalist", { id: "rc-bs-names" }, bsNames.map(n => h("option", { key: n, value: n }))))),
+          h("datalist", { id: "rc-bs-names" }, bsNames.filter(costOpen).map(n => h("option", { key: n, value: n }))))),
         fld("AMOUNT (RM)", h("input", { style: { ...inp, fontWeight: 800 }, inputMode: "decimal", value: f.amount, onChange: e => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") }), onKeyDown: e => e.key === "Enter" && create(false) })),
         fld("PAYMENT", h("select", { value: f.atm ? (f.atmType || "withdraw") : "", onChange: e => setF({ ...f, atm: !!e.target.value, atmType: e.target.value || "" }),
           style: { ...inp, fontWeight: 800, color: f.atm ? "#fff" : "#475569", background: f.atm ? "linear-gradient(135deg,#0ea5e9,#2563eb)" : "#fff", borderColor: f.atm ? "#2563eb" : "#e2e8f0", cursor: "pointer" } },
@@ -8551,7 +8572,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
       h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
         rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.at !== d.at;
-          const closed = !ld && m.subtotal != null && m.subtotal > 0.004 && m.balance != null && Math.abs(m.balance) < 0.005;   /* 付清了 = Closing */
+          const closed = !ld && costPaid(m);   /* Balance 没欠（0 或 负数）= 付清了 → 变色 */
           const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
           const bg = isDone ? { background: "#ede9fe", borderColor: "#ddd6fe" } : closed ? { background: "#ede9fe", borderColor: "#ddd6fe" } : {};   /* 付清了（Balance 0）→ 整行紫色 */
           return h("tr", { key: d.id, title: isDone ? "DONE（" + carDoneType(d).toUpperCase() + "）· " + String(d.done.by || "").toUpperCase() + " · " + new Date(d.done.at || 0).toLocaleDateString("en-GB") : closed ? "已付清 · CLOSING" : undefined },
@@ -9662,8 +9683,9 @@ function TypePage({
   color: t.color
 }), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING " + curClYr + " · " : "", statRows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), isP && showClosed && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
   React.createElement("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#6d28d9" } }, "CLOSING 年份："),
-  Array.from(new Set([closeYr, ...clYears])).sort((a, b) => b.localeCompare(a)).map(y => React.createElement("button", { key: y, onClick: () => setCloseYr(y), style: { border: curClYr === y ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: curClYr === y ? "#f3e8ff" : "#fff", color: curClYr === y ? "#6d28d9" : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } },
-    "📅 " + y + " (" + clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark && clYear(l) === y).length, 0) + ")"))),
+  React.createElement("select", { value: curClYr, onChange: e => setCloseYr(e.target.value), style: yrSelStyle(true) },
+    Array.from(new Set([closeYr, ...clYears])).sort((a, b) => b.localeCompare(a)).map(y => React.createElement("option", { key: y, value: y },
+    "📅 " + y + " (" + clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark && clYear(l) === y).length, 0) + ")")))),
 React.createElement(LoanSumBar, { rows: statRows, yr: sumYr, setYr: setSumYr }), /*#__PURE__*/React.createElement("div", {
   style: { display: "flex", gap: 10, alignItems: "center", marginBottom: S.searchWrap.marginBottom || 12 }
 }, /*#__PURE__*/React.createElement("div", {
@@ -10928,7 +10950,7 @@ function VerifyForm({
     marginTop: 8,
     lineHeight: 1.5
   }
-}, React.createElement("datalist", { id: "vf-bsnames" }, (() => { const seen = new Set(); return [...(window.__crmBsPeople || []).map(x => [x.name, x.agent || "Bank Statement"]), ...(window.__crmLending || []).map(x => [x.name, "Lending Sheet" + (x.agent ? " · " + x.agent : "")])].filter(([n]) => n && !seen.has(slNameKey(n)) && seen.add(slNameKey(n))).map(([n, l]) => React.createElement("option", { key: n, value: n }, l)); })()), vBsPerson(v.customerName) && vBsPerson(v.customerName).salItems ? React.createElement("div", { style: { color: "#16a34a", fontWeight: 800, marginBottom: 4 } }, "✓ Bank Statement 有这个人，Salary 会自动带进去") : null, "\u5148\u586B\u540D\u5B57\u4FDD\u5B58\uFF0C\u4E4B\u540E\u70B9\u5F00\u4ED6\u7684\u540D\u5B57\u518D\u586B\u5176\u4F59\u8D44\u6599\u3002", /*#__PURE__*/React.createElement("br", null), "Save with just a name, then tap the name to fill in the rest."))), /*#__PURE__*/React.createElement("div", {
+}, React.createElement("datalist", { id: "vf-bsnames" }, (() => { const seen = new Set(); return [...(window.__crmBsPeople || []).map(x => [x.name, x.agent || "Bank Statement"]), ...(window.__crmLending || []).map(x => [x.name, "Lending Sheet" + (x.agent ? " · " + x.agent : "")])].filter(([n]) => n && costOpen(n) && !seen.has(slNameKey(n)) && seen.add(slNameKey(n))).map(([n, l]) => React.createElement("option", { key: n, value: n }, l)); })()), vBsPerson(v.customerName) && vBsPerson(v.customerName).salItems ? React.createElement("div", { style: { color: "#16a34a", fontWeight: 800, marginBottom: 4 } }, "✓ Bank Statement 有这个人，Salary 会自动带进去") : null, "\u5148\u586B\u540D\u5B57\u4FDD\u5B58\uFF0C\u4E4B\u540E\u70B9\u5F00\u4ED6\u7684\u540D\u5B57\u518D\u586B\u5176\u4F59\u8D44\u6599\u3002", /*#__PURE__*/React.createElement("br", null), "Save with just a name, then tap the name to fill in the rest."))), /*#__PURE__*/React.createElement("div", {
   style: S.formActions
 }, /*#__PURE__*/React.createElement("button", {
   style: S.cancelBtn,

@@ -890,9 +890,10 @@ if(saved && saved.parts){
   function list(){ try{ return (window.parent && window.parent!==window && window.parent.__crmBsPeople) || []; }catch(e){ return []; } }
   /* 名字选单：Bank Statement 的名字 + Lending Sheet 的名字（Bank Statement 没有、Lending 有的也可以选） */
   function lendList(){ try{ return (window.parent && window.parent!==window && window.parent.__crmLending) || []; }catch(e){ return []; } }
-  function fill(){ dl.innerHTML=''; var seen={}; list().forEach(function(p){ seen[p.name]=1; var o=document.createElement('option'); o.value=p.name; o.label=(p.agent||'')+(p.cf?' · C.F '+p.cf+'%':''); dl.appendChild(o); });
-    lendList().forEach(function(x){ var n=String(x.name||'').trim().toUpperCase(); if(!n || seen[n]) return; seen[n]=1; var o=document.createElement('option'); o.value=n; o.label='Lending Sheet'; dl.appendChild(o); }); }
-  fill(); try{ window.parent.addEventListener('crm-bs-people', fill); window.parent.addEventListener('crm-lending', fill); }catch(e){}
+  function costOpen(n){ try{ var f=window.parent && window.parent.__crmCostOpen; return !f || f(n); }catch(e){ return true; } }
+  function fill(){ dl.innerHTML=''; var seen={}; list().forEach(function(p){ seen[p.name]=1; if(!costOpen(p.name)) return; var o=document.createElement('option'); o.value=p.name; o.label=(p.agent||'')+(p.cf?' · C.F '+p.cf+'%':''); dl.appendChild(o); });
+    lendList().forEach(function(x){ var n=String(x.name||'').trim().toUpperCase(); if(!n || seen[n] || !costOpen(n)) return; seen[n]=1; var o=document.createElement('option'); o.value=n; o.label='Lending Sheet'; dl.appendChild(o); }); }
+  fill(); try{ window.parent.addEventListener('crm-bs-people', fill); window.parent.addEventListener('crm-lending', fill); window.parent.addEventListener('crm-cost-closed', fill); }catch(e){}
   function pick(){
     var k=String(nm.value||'').trim().toUpperCase().replace(/\s+/g,' '); if(!k) return;
     var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0];
