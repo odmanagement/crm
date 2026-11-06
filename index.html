@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "322";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "323";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9609,15 +9609,18 @@ function TypePage({
   const rows = clients.flatMap(c => (c.loans || []).filter(l => l.type === type).map(l => ({
     loan: l,
     client: c
-  }))).filter(r => !isP || (showClosed ? !!r.loan.closedMark && clYear(r.loan) === curClYr : !r.loan.closedMark)).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
+  }))).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
     if (!q) return true;
     const s = q.toLowerCase();
     return [r.client.name, r.client.phone, r.loan.bank, r.loan.subject].filter(Boolean).join(" ").toLowerCase().includes(s);
   });
+  /* 主页面的数目（Total / COLLECT / APPROVED / 每个月）：搬去 CLOSING 的也继续算，不会变；CLOSING 那边只算 CLOSING 的 */
+  const statRows = isP && showClosed ? rows.filter(r => !!r.loan.closedMark && clYear(r.loan) === curClYr) : rows.slice();
+  for (let i = rows.length - 1; i >= 0; i--) { const r = rows[i]; if (isP && (showClosed ? !(r.loan.closedMark && clYear(r.loan) === curClYr) : !!r.loan.closedMark)) rows.splice(i, 1); }
   /* Personal / Car：总数只算 Approved + Disbursed 的银行；House 照旧 */
   /* House Loan：跟着 Date 排（旧到新）；没日期的放最后 */
   if (type === "house") rows.sort((a, b) => tpDateKey(a.loan.date) - tpDateKey(b.loan.date));
-  const total = isP ? rows.reduce((s, r) => s + (r.loan.banks || []).filter(b => b.status === "approved" || b.status === "disbursed").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0), 0)
+  const total = isP ? statRows.reduce((s, r) => s + (r.loan.banks || []).filter(b => b.status === "approved" || b.status === "disbursed").reduce((x, b) => x + (Number(String(b.amount || 0).replace(/,/g, "")) || 0), 0), 0)
     : rows.reduce((s, r) => s + Number(r.loan.amount || 0), 0);
   const usedBanks = Array.from(new Set(clients.flatMap(c => (c.loans || []).filter(l => l.type === type).flatMap(l => (l.banks || []).map(b => bankKey(b.bank)))).filter(Boolean)));
   const COLS = isP ? bankListFor(type).map(x => x[0]).concat(usedBanks.filter(bk => !bankListFor(type).some(x => x[0] === bk))) : BANK_COLS.concat(usedBanks.filter(bk => !BANK_COLS.includes(bk)));
@@ -9630,11 +9633,11 @@ function TypePage({
 }, /*#__PURE__*/React.createElement(t.icon, {
   size: 20,
   color: t.color
-}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING " + curClYr + " · " : "", rows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), isP && showClosed && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
+}), /*#__PURE__*/React.createElement("span", null, isP && showClosed ? "CLOSING " + curClYr + " · " : "", statRows.length, " ", t.label.toLowerCase(), "s · Total ", num(total))), isP && showClosed && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 12px" } },
   React.createElement("span", { style: { fontWeight: 900, fontSize: 12.5, color: "#6d28d9" } }, "CLOSING 年份："),
   Array.from(new Set([closeYr, ...clYears])).sort((a, b) => b.localeCompare(a)).map(y => React.createElement("button", { key: y, onClick: () => setCloseYr(y), style: { border: curClYr === y ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: curClYr === y ? "#f3e8ff" : "#fff", color: curClYr === y ? "#6d28d9" : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } },
     "📅 " + y + " (" + clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && l.closedMark && clYear(l) === y).length, 0) + ")"))),
-React.createElement(LoanSumBar, { rows, yr: sumYr, setYr: setSumYr }), /*#__PURE__*/React.createElement("div", {
+React.createElement(LoanSumBar, { rows: statRows, yr: sumYr, setYr: setSumYr }), /*#__PURE__*/React.createElement("div", {
   style: { display: "flex", gap: 10, alignItems: "center", marginBottom: S.searchWrap.marginBottom || 12 }
 }, /*#__PURE__*/React.createElement("div", {
   style: { ...S.searchWrap, flex: 1, marginBottom: 0 }
