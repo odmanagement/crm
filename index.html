@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "333";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "334";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6361,13 +6361,12 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
         h("div", { style: { display: "flex", alignItems: "center", marginBottom: 10 } }, h("div", { style: { flex: 1, fontWeight: 900, fontSize: 16 } }, au.icon + " " + au.label + " · " + String(r.c.name || "").toUpperCase()),
           h("button", { onClick: () => setShowRc(false), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, width: 32, height: 32, cursor: "pointer" } }, h(X, { size: 15 }))),
         h("table", { style: { borderCollapse: "collapse", width: "100%" } },
-          h("thead", null, h("tr", null, ["No.", "Date", "Payment", "Amount (RM)"].map((t, i) => h("th", { key: i, style: { textAlign: i === 3 ? "right" : "left", fontSize: 12, color: "#64748b", padding: "6px 8px", borderBottom: "2px solid #e5e7eb" } }, t)))),
+          h("thead", null, h("tr", null, ["Date", "Payment", "Amount (RM)"].map((t, i) => h("th", { key: i, style: { textAlign: i === 2 ? "right" : "left", fontSize: 12, color: "#64748b", padding: "6px 8px", borderBottom: "2px solid #e5e7eb" } }, t)))),
           h("tbody", null, rc.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(x => h("tr", { key: x.id },
-            h("td", { style: { padding: "6px 8px", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#64748b" } }, x.no || ""),
             h("td", { style: { padding: "6px 8px", borderBottom: "1px solid #f1f5f9", fontSize: 13 } }, bsIso2Dmy(x.date)),
             h("td", { style: { padding: "6px 8px", borderBottom: "1px solid #f1f5f9", fontSize: 13 } }, au.k === "rt" ? "Return Salary" : (x.method || "Cash")),
             h("td", { style: { padding: "6px 8px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", fontWeight: 800 } }, lsFmt(lsNum(x.amount))))),
-            h("tr", null, h("td", { colSpan: 3, style: { padding: "8px", fontWeight: 900, textAlign: "right" } }, "TOTAL"), h("td", { style: { padding: "8px", fontWeight: 900, textAlign: "right", color: "#0369a1" } }, lsFmt(rcT))))))); })(),
+            h("tr", null, h("td", { colSpan: 2, style: { padding: "8px", fontWeight: 900, textAlign: "right" } }, "TOTAL"), h("td", { style: { padding: "8px", fontWeight: 900, textAlign: "right", color: "#0369a1" } }, lsFmt(rcT))))))); })(),
     calcAt >= 0 && h(BsSalaryCalc, { name: r.c.name, init: (() => { const cc = (d.credits[calcAt] || {}).calc; const sal = d.salary && /^[\d,]+(\.\d+)?$/.test(String(d.salary).trim()) ? lsFmt(lsNum(d.salary)) : ""; return cc ? { ...cc, salary: cc.salary || sal } : { salary: sal || (d.credits[calcAt] || {}).amount || "" }; })(), onClose: () => setCalcAt(-1),
       onDelete: calcAt < d.credits.length ? () => { const nx = { ...d, credits: d.credits.filter((_, j) => j !== calcAt) }; setD(nx); commit(nx); } : null,
       onSave: (calc, net) => { const arr = d.credits.slice(); while (arr.length <= calcAt) arr.push({ id: uid() }); arr[calcAt] = { ...arr[calcAt], calc, amount: lsFmt(net) }; const nx = { ...d, credits: arr }; setD(nx); commit(nx); } }));
