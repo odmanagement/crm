@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "323";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "324";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3440,6 +3440,12 @@ function CRM({ onLogout, currentUser }) {
   };
   const persist = async next => {
     /* Loan（House / Car / Personal）：谁都可以操作，不套用「只有建立的人可以改」 */
+    /* Personal Loan 一 Submit，同一个人也有 Car Loan → 通知 Lucas 去 Submit Car Loan（有声音） */
+    try { const pm = new Map((clients || []).map(c => [c.id, c])), me = canonUser(currentUser || "");
+      next.forEach(c => { if (!c || !(c.loans || []).some(l => l.type === "car")) return; const o = pm.get(c.id);
+        (c.loans || []).filter(l => l.type === "personal").forEach(l => { const ol = o && (o.loans || []).find(x => x.id === l.id);
+          (l.banks || []).forEach((b, bi) => { if (!b || b.status !== "submitted") return; const ob = ol && (ol.banks || [])[bi]; if (ob && ob.status === "submitted" && ob.bank === b.bank) return;
+            MISSION_BOSSES.forEach(to => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "car", to: canonUser(to), from: me, loud: true, title: "🚗 " + String(c.name || "").toUpperCase() + " Personal Loan 已 Submit（" + bankLabel(b.bank, "personal") + "）→ 请 Submit Car Loan", task: String(c.name || "").toUpperCase() + " · Personal Submit " + bankLabel(b.bank, "personal"), at: Date.now() }); } catch (e) {} }); }); }); }); } catch (e) {}
     next = next.map(c => c && c.ic && fmtIC(c.ic) !== c.ic ? { ...c, ic: fmtIC(c.ic) } : c);
     next = autoStageClients(next);
     ensureDailyBackup({ clients, missions, bankers, verifications });
