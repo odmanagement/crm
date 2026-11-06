@@ -1804,20 +1804,6 @@ const NAV = [{
     icon: Wallet
   }]
 }, {
-  /* ACCOUNT：Salary Listing / Final Record */
-  id: "account",
-  label: "Account",
-  icon: Receipt,
-  children: [{
-    id: "acc_salary",
-    label: "Salary Listing",
-    icon: Wallet
-  }, {
-    id: "acc_final",
-    label: "Final Record",
-    icon: Folder
-  }]
-}, {
   /* OD Payment / Return Salary / Boss Take 放在一个 Group */
   id: "odmgmt",
   label: "OD Management",
@@ -1838,6 +1824,20 @@ const NAV = [{
     id: "receipt",
     label: "Boss Take",
     icon: Receipt
+  }]
+}, {
+  /* ACCOUNT：Salary Listing / Final Record */
+  id: "account",
+  label: "Account",
+  icon: Receipt,
+  children: [{
+    id: "acc_salary",
+    label: "Salary Listing",
+    icon: Wallet
+  }, {
+    id: "acc_final",
+    label: "Final Record",
+    icon: Folder
   }]
 }, {
   id: "mission",
@@ -1883,7 +1883,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "339";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "341";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4272,7 +4272,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
               h("span", { className: "sb-caret" + (isOpen ? " open" : "") }, "▸"), (() => { const bs = badges ? n.children.reduce((t, c) => t + (badges[c.id] || 0), 0) : 0; return h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), !isOpen && bs ? h("b", { className: "sb-badge" }, bs > 99 ? "99+" : bs) : null); })(), h("span", { className: "sb-txt" }, n.label)),
             isOpen && h("div", { className: "sb-sub" }, n.children.map(c => {
               const CIcon = c.icon;
-              return h(React.Fragment, { key: c.id }, c.sec && h("div", { className: "sb-sec" }, c.sec), h("button", { key: c.id, className: "sb-item sb-child" + (page === c.id ? " on" : ""), title: c.label, onClick: () => setPage(c.id) },
+              return h(React.Fragment, { key: c.id }, h("button", { key: c.id, className: "sb-item sb-child" + (page === c.id ? " on" : ""), title: c.label, onClick: () => setPage(c.id) },
                 h("span", { style: { position: "relative", display: "inline-flex" } }, h(CIcon, { size: 16 }), badges && badges[c.id] ? h("b", { className: "sb-badge" }, badges[c.id] > 99 ? "99+" : badges[c.id]) : null), h("span", { className: "sb-txt" }, c.label)));
             })));
         }
