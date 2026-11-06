@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "348";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "349";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -8528,7 +8528,7 @@ function costComputeMeta(tool, draft) {
       try { w.calc && w.calc(); } catch (e) {}
       setTimeout(() => { try { done(costMetaFromDoc(d)); } catch (e) { done(null); } }, 120);
     } catch (e) { done(null); } };
-    f.src = tool.file + "?meta=" + Date.now();
+    f.src = tool.file + "?v=" + FORM_FILE_VER + "&meta=" + Date.now();
     document.body.appendChild(f);
   });
 }

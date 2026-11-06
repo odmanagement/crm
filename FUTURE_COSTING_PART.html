@@ -893,7 +893,13 @@ if(saved && saved.parts){
   function costOpen(n){ try{ var f=window.parent && window.parent.__crmCostOpen; return !f || f(n); }catch(e){ return true; } }
   function fill(){ dl.innerHTML=''; var seen={}; list().forEach(function(p){ seen[p.name]=1; if(!costOpen(p.name)) return; var o=document.createElement('option'); o.value=p.name; o.label=(p.agent||'')+(p.cf?' · C.F '+p.cf+'%':''); dl.appendChild(o); });
     lendList().forEach(function(x){ var n=String(x.name||'').trim().toUpperCase(); if(!n || seen[n] || !costOpen(n)) return; seen[n]=1; var o=document.createElement('option'); o.value=n; o.label='Lending Sheet'; dl.appendChild(o); }); }
-  fill(); try{ window.parent.addEventListener('crm-bs-people', fill); window.parent.addEventListener('crm-lending', fill); window.parent.addEventListener('crm-cost-closed', fill); }catch(e){}
+  fill();
+  /* 后台算数目（?meta=）的不挂监听；关掉 / 换页时拿掉监听 → 不会越积越多，CRM 不会卡 */
+  if(!/[?&]meta=/.test(location.search)){ try{ var PW=window.parent, EV=['crm-bs-people','crm-lending','crm-cost-closed'];
+    EV.forEach(function(e){ PW.addEventListener(e, fill); });
+    var unhook=function(){ try{ EV.forEach(function(e){ PW.removeEventListener(e, fill); }); }catch(_){} };
+    window.addEventListener('pagehide', unhook); window.addEventListener('unload', unhook);
+  }catch(e){} }
   function pick(){
     var k=String(nm.value||'').trim().toUpperCase().replace(/\s+/g,' '); if(!k) return;
     var p=list().filter(function(x){ return x.name.replace(/\s+/g,' ')===k; })[0];
