@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "327";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "329";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6169,7 +6169,7 @@ function BsPeopleLoader() {
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -6333,7 +6333,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     h("td", { style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" } }, lsFmt(bal)),
     h("td", { style: cell })));
-  return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
+  return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", bottom: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
     bdOpen && h(BsBackdate, { name: r.c.name, init: d.backdate || bsBackdateFromCalc(d), wage: bsBackdateWage(d), onClose: () => setBdOpen(false), onSave: v => { const nx = { ...d, backdate: v }; setD(nx); commit(nx); } }),
@@ -6368,7 +6368,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const rcBy = {}; (rcList || []).filter(x => x.checked).forEach(x => { const k = rcKey(x.from); if (k) (rcBy[k] = rcBy[k] || []).push(x); });
   const rtBy = {}; (rtList || []).filter(x => x.done).forEach(x => { const k = rcKey(x.name); if (k) (rtBy[k] = rtBy[k] || []).push(x); });
   const people = ppl || [];
-  const addPerson = () => { savePpl([{ id: uid(), name: "", by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); };
+  const addPerson = () => { setEy("pending"); savePpl([{ id: uid(), name: "", by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); };
   const delPerson = (e, id, name) => { e.stopPropagation(); if (window.confirm("删除「" + name + "」？")) savePpl(people.filter(p => p.id !== id)); };
   const rows = [];
   /* Bank Statement 不再连接 Salary Listing：只显示自己加的人（以前连过来的不显示，资料还在客户里，没删） */
@@ -6385,8 +6385,10 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const endY = r => { const e = r.bs && r.bs.ended; return e ? String(new Date(e.at || Date.now()).getFullYear()) : ""; };
   const endYears = Array.from(new Set(rows.map(endY).filter(Boolean))).sort((a, b) => b.localeCompare(a));
   const [ey, setEy] = React.useState("");
+  /* 进行中 = 打勾 START 的；还没 START 的（包括新增人头）= PENDING */
+  const tabOf = r => endY(r) || (r.bs && r.bs.started ? "" : "pending");
   const shown = rows.filter(r => {
-    if (endY(r) !== ey) return false;
+    if (tabOf(r) !== ey) return false;
     const bal = bsBalance(r.bs);
     if (only === "owe" && !(bal > 0.004)) return false;
     if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
@@ -6402,9 +6404,9 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       h("button", { style: S.addBtn, onClick: addPerson }, h(Plus, { size: 16 }), " 新增人头"),
       h("datalist", { id: "bs-lendnames" }, (window.__crmLending || []).map(x => h("option", { key: x.name, value: x.name }, "Lending Sheet" + (x.agent ? " · " + x.agent : ""))))),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
-      [["", "进行中", rows.filter(r => !endY(r)).length]].concat(endYears.map(y => [y, "END " + y, rows.filter(r => endY(r) === y).length])).map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
-        style: { border: ey === k ? "2px solid " + (k ? "#7c3aed" : "#16a34a") : "1px solid #e2e8f0", background: ey === k ? (k ? "#f3e8ff" : "#dcfce7") : "#fff", color: ey === k ? (k ? "#6d28d9" : "#15803d") : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, (k ? "📅 " : "▶ ") + l + " (" + n + ")")),
-      endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 END 的会自动搬去那一年")),
+      [["pending", "PENDING", rows.filter(r => tabOf(r) === "pending").length], ["", "进行中", rows.filter(r => tabOf(r) === "").length]].concat(endYears.map(y => [y, "END " + y, rows.filter(r => endY(r) === y).length])).map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
+        style: { border: ey === k ? "2px solid " + (k === "pending" ? "#ea580c" : k ? "#7c3aed" : "#16a34a") : "1px solid #e2e8f0", background: ey === k ? (k === "pending" ? "#ffedd5" : k ? "#f3e8ff" : "#dcfce7") : "#fff", color: ey === k ? (k === "pending" ? "#c2410c" : k ? "#6d28d9" : "#15803d") : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, (k === "pending" ? "⏳ " : k ? "📅 " : "▶ ") + l + " (" + n + ")")),
+      endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 START 搬去进行中 · 打勾 END 搬去那一年")),
     shown.length === 0 ? h("div", { style: { background: "#fff", borderRadius: 14, padding: 30, textAlign: "center", color: "#94a3b8", border: "1px solid #eef0f6" } }, rows.length ? "找不到" : "还没有 — 按「新增人头」，或 Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现") :
     h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
       shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
@@ -6462,14 +6464,16 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     (window.__crmBsPeople || []).forEach(p => { const k = slNameKey(p.name); if (!k || have.has(k)) return; have.add(k); const s0 = (slSt || []).find(x => x && x.id === k);
       const [st, auto] = stOf(s0 && s0.m, p.name); rows.push({ c: { id: "bs:" + k, name: p.name, salaryStatusBy: s0 && s0.by }, banks: [], date: p.firstDate || "", st, auto, bsOnly: k, stopped: !!(s0 && s0.stopped) }); }); }
   /* Bank Statement / Rencai 分开看 */
-  rows.forEach(r => { const bp = bpOf(r.c.name); r.src = bp && bp.store === "bank_stmt_people_rencai" ? "rencai" : "bs"; });
+  rows.forEach(r => { const bp = bpOf(r.c.name); r.src = bp && bp.store === "bank_stmt_people_rencai" ? "rencai" : "bs"; r.startAt = bp ? bp.started || 0 : 0; });
+  /* 只显示 Bank Statement 打勾 START 的人（PENDING 的不显示） */
+  for (let i = rows.length - 1; i >= 0; i--) if (!rows[i].startAt) rows.splice(i, 1);
   rows.forEach(r => { r.st0 = r.st; if (pend[r.c.id] != null) { r.st = pend[r.c.id]; r.auto = false; r.pending = true; } });
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
   const inMonth = r => !month || (r.date ? r.date.slice(0, 7) : "0000-00") === month;
   const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && r.src === src && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
-    .sort((x, y) => { const o = r => { const i = SL_KEYS.indexOf(r.st0 != null ? r.st0 : r.st); return i < 0 ? 99 : i; }; return o(x) - o(y) || String(y.date || "").localeCompare(String(x.date || "")) || String(x.c.name).localeCompare(String(y.c.name)); });
+    .sort((x, y) => (x.startAt - y.startAt) || String(x.date || "").localeCompare(String(y.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));   /* 旧 → 新：最新 START 的放最下面 */
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   const copyText = () => {
     const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
