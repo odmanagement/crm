@@ -1774,7 +1774,7 @@ const NAV = [{
     sec: "🏦 Statement"
   }, {
     id: "bankstmt2",
-    label: "Rencai",
+    label: "Rencai Bank Statement",
     icon: Wallet
   }, {
     id: "lendingfee",
@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "343";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "344";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -12756,6 +12756,7 @@ button:active, a:active { transform: scale(.97); }
 .sb-item { width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: none; background: none; border-radius: 10px; color: #c7cbe6; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; transition: background .15s, color .15s; font-family: inherit; }
 .sb-item:hover { background: rgba(255,255,255,.07); color: #fff; }
 .sb-item.on { background: linear-gradient(120deg,rgba(124,58,237,.55),rgba(37,99,235,.35)); color: #fff; box-shadow: inset 0 0 0 1px rgba(167,139,250,.35), 0 6px 16px rgba(79,70,229,.3); font-weight: 800; }
+.sb-sub .sb-txt { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.15; }
 .sb-sec { font-size: 10.5px; font-weight: 900; letter-spacing: .06em; opacity: .65; padding: 8px 10px 2px; text-transform: uppercase; }
 .sb-sub .sb-sec:first-child { padding-top: 2px; }
 .sb-caret { width: 8px; font-size: 10px; opacity: .7; transition: transform .2s; display: inline-block; }
