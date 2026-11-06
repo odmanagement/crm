@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "347";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "348";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6143,6 +6143,8 @@ function CostingAutoSync({ currentUser }) {
     if (a !== b) { window.__crmCostClosed = S2; try { window.dispatchEvent(new Event("crm-cost-closed")); window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {} }
   }, [drafts, cExt]);
   const [tick, setTick] = React.useState(0);
+  const memo = React.useRef(new Map());    /* 资料没变的那份就不再算（减少卡） */
+  const guard = React.useRef(new Map());   /* 同一份 2 分钟内被自动改超过 3 次 → 先停，避免一直循环 */
   React.useEffect(() => { const f = () => setTick(x => x + 1); window.addEventListener("crm-bs-people", f); window.addEventListener("crm-lending", f); return () => { window.removeEventListener("crm-bs-people", f); window.removeEventListener("crm-lending", f); }; }, []);
   React.useEffect(() => {
     if (!fresh || !Array.isArray(drafts) || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
@@ -6156,7 +6158,13 @@ function CostingAutoSync({ currentUser }) {
         const k = K(d.native.data.clientName || d.title); if (!k) return d;
         const p = P.find(x => K(x.name) === k) || null, L = LL.find(x => K(x.name) === k) || null;
         if (!p && !L) return d;
-        const nd = costSyncData(d.native.data, p, L); if (!nd) return d;
+        const sig = d.at + "|" + JSON.stringify(p) + "|" + JSON.stringify(L);
+        if (memo.current.get(d.id) === sig) return d;
+        const g = guard.current.get(d.id) || [], now = Date.now(), recent = g.filter(x => now - x < 120000);
+        if (recent.length >= 3) return d;
+        const nd = costSyncData(d.native.data, p, L);
+        if (!nd) { memo.current.set(d.id, sig); return d; }
+        recent.push(now); guard.current.set(d.id, recent);
         changed = true; marks.push([k, nd]);
         return { ...d, native: { ...d.native, data: nd, saved: new Date().toISOString() }, at: Date.now() };
       });
@@ -8538,24 +8546,31 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const rows = allRows.filter(d => kYr === "all" || yrD(d) === kYr).filter(d => !ql || [d.title, d.by, d.meta && d.meta.client, d.meta && d.meta.agent].join(" ").toLowerCase().includes(ql));
   const latest = React.useRef(drafts); latest.current = drafts;
   const busy = React.useRef(false);
-  const [rt, setRt] = React.useState(0);   /* 算的时候资料又被改了 → 算完再跑一次，不会一直停在「…」 */
+  const [rt, setRt] = React.useState(0), rtN = React.useRef(0);   /* 算的时候资料又被改了 → 算完再跑一次，不会一直停在「…」 */
   React.useEffect(() => {
     if (busy.current || !fresh) return;
     const isCar = d => d.file === "CAR_SALES_QUOTATION.html";
-    const need = allRows.filter(d => !/AGREEMENT/i.test(d.file || "") && (!d.meta || d.meta.at !== d.at || (isCar(d) && !d.meta.ag2)));
-    if (!need.length) return;
+    const need0 = allRows.filter(d => !/AGREEMENT/i.test(d.file || "") && (!d.meta || d.meta.at !== d.at || (isCar(d) && !d.meta.ag2)));
+    if (!need0.length) return;
+    const vis = new Set(rows.map(d => d.id));
+    const need = need0.filter(d => vis.has(d.id)).concat(need0.filter(d => !vis.has(d.id)));   /* 看得到的先算 */
     busy.current = true;
     (async () => {
-      const upd = {};
-      await new Promise(r => setTimeout(r, 600));   /* 先让页面显示出来，再慢慢算 */
-      for (let i = 0; i < need.length; i += 3) {     /* 一次算 3 份 */
-        await Promise.all(need.slice(i, i + 3).map(async d => { try { const t = tools.find(x => x.file === d.file); if (!t) return; const m = await costComputeMeta(t, d); upd[d.id] = { ...(m || {}), at: d.at }; } catch (e) {} }));
+      let upd = {}, miss = false;
+      const flush = () => { const ks = Object.keys(upd); if (!ks.length) return; const u0 = upd; upd = {};
+        const cur = latest.current || []; let any = false;
+        const nx = cur.map(x => { const u = u0[x.id]; if (!u) return x; if (x.at !== u.at) { miss = true; return x; } any = true; return { ...x, meta: u }; });
+        if (any) saveDrafts(nx); };
+      await new Promise(r => setTimeout(r, 800));   /* 先让页面显示出来，再慢慢算 */
+      for (let i = 0; i < need.length; i++) {        /* 一份一份算，中间休息一下，CRM 不会卡 */
+        const d = need[i];
+        try { const t = tools.find(x => x.file === d.file); if (t) { const m = await costComputeMeta(t, d); upd[d.id] = { ...(m || {}), at: d.at }; } } catch (e) {}
+        if ((i + 1) % 8 === 0) flush();
+        await new Promise(r => setTimeout(r, 250));
       }
+      flush();
       busy.current = false;
-      const cur = latest.current || []; let miss = false;
-      const nx = cur.map(x => { const u = upd[x.id]; if (!u) return x; if (x.at !== u.at) { miss = true; return x; } return { ...x, meta: u }; });
-      if (Object.keys(upd).length) saveDrafts(nx);
-      if (miss) setTimeout(() => setRt(x => x + 1), 800);
+      if (miss && rtN.current < 3) { rtN.current++; setTimeout(() => setRt(x => x + 1), 1500); } else if (!miss) rtN.current = 0;
     })().catch(() => { busy.current = false; });
   }, [fresh, rt, allRows.map(d => d.id + ":" + d.at + ":" + (d.meta ? d.meta.at : "")).join("|")]);
   /* Done / Commission / 照片 另外存在一个小的云端 key（costing_extras），不跟很大的表格存档挤在一起，存得快、刷新不会不见 */
