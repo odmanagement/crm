@@ -1862,7 +1862,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "335";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "336";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6389,7 +6389,9 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const rtBy = {}; (rtList || []).filter(x => x.done).forEach(x => { const k = rcKey(x.name); if (k) (rtBy[k] = rtBy[k] || []).push(x); });
   const people = ppl || [];
   const addPerson = () => { setEy("pending"); savePpl([{ id: uid(), name: "", by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); };
-  const delPerson = (e, id, name) => { e.stopPropagation(); if (window.confirm("删除「" + name + "」？")) savePpl(people.filter(p => p.id !== id)); };
+  /* 只有开这个人头的 Admin（或老板）可以删除 */
+  const canDel = p => lfCanEdit(p && p.by, canonUser(window.__crmUser || ""));
+  const delPerson = (e, id, name) => { e.stopPropagation(); const pp = people.find(p => p.id === id); if (!canDel(pp)) { window.alert("只有 Admin（" + String(pp && pp.by || "").toUpperCase() + "）可以删除"); return; } if (window.confirm("删除「" + name + "」？")) savePpl(people.filter(p => p.id !== id)); };
   const rows = [];
   /* Bank Statement 不再连接 Salary Listing：只显示自己加的人（以前连过来的不显示，资料还在客户里，没删） */
   false && (clients || []).forEach(c => {
@@ -6431,7 +6433,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 START 搬去进行中 · 打勾 END 搬去那一年")),
     shown.length === 0 ? h("div", { style: { background: "#fff", borderRadius: 14, padding: 30, textAlign: "center", color: "#94a3b8", border: "1px solid #eef0f6" } }, rows.length ? "找不到" : "还没有 — 按「新增人头」，或 Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现") :
     h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
-      shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
+      shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual && canDel(r.manual) ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
 }
