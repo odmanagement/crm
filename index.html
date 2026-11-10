@@ -954,7 +954,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110164000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1892,7 +1892,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "368";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "369";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4266,7 +4266,7 @@ function PageJump({ setPage }) {
     || x.label.toLowerCase().replace(/\s+/g, "").includes(k.replace(/\s/g, ""))).slice(0, 8);
   const go = x => { if (!x) return; setPage(x.id); setQ(""); setOpen(false); try { window.__crmGoPage && window.__crmGoPage(x.id); } catch (e) {} };
   return h("div", { style: { position: "relative" } },
-    h("input", { value: q, placeholder: "🔍 搜页面…（例如 boss take）", onChange: e => { setQ(e.target.value); setOpen(true); setHi(0); }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 150),
+    h("input", { value: q, placeholder: "🔍", onChange: e => { setQ(e.target.value); setOpen(true); setHi(0); }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 150),
       onKeyDown: e => { if (e.key === "ArrowDown") { e.preventDefault(); setHi(i => Math.min(i + 1, hits.length - 1)); } else if (e.key === "ArrowUp") { e.preventDefault(); setHi(i => Math.max(i - 1, 0)); } else if (e.key === "Enter") { e.preventDefault(); go(hits[hi] || hits[0]); } else if (e.key === "Escape") { setQ(""); e.target.blur(); } },
       style: { width: 210, padding: "7px 12px", borderRadius: 999, border: "1px solid rgba(148,163,184,.5)", background: "rgba(255,255,255,.9)", fontSize: 13, fontWeight: 700, outline: "none", fontFamily: "inherit", color: "#1e1b4b" } }),
     open && hits.length > 0 && h("div", { style: { position: "absolute", top: "110%", right: 0, minWidth: 240, background: "#fff", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.18)", border: "1px solid #e2e8f0", zIndex: 999, overflow: "hidden" } },
