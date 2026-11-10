@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110125000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110130500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1882,7 +1882,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "360";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "361";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3853,7 +3853,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
-  }) : page === "acc_salary" || page === "acc_final" ? React.createElement(AccountBlankPage, { title: page === "acc_salary" ? "Salary Listing" : "Final Record" }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
+  }) : page === "acc_salary" ? React.createElement(AccSalaryPage, { currentUser }) : page === "acc_final" ? React.createElement(AccountBlankPage, { title: "Final Record" }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
     clients: clients,
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
@@ -6495,6 +6495,68 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       shown.map(r => h(BankStmtSheet, { key: r.c.id, r, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual && canDel(r.manual) ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
+}
+/* ---------- ACCOUNT · Salary Listing（每个月一张：Company / Name / Agent / Salary / EPF / SOCSO / EIS / PCB / HRDF / ALW / COMM / NET / COMM / TOTAL） ---------- */
+const ACC_SAL_COLS = [["salary", "SALARY"], ["epf", "EPF"], ["socso", "SOCSO"], ["eis", "EIS"], ["pcb", "PCB"], ["hrdf", "HRDF 1%"], ["alw", "ALW"], ["comm", "COMM"], ["net", "NET"], ["comm2", "COMM"]];
+const ACC_SAL_SEED = [{ id: "accsal1", ym: "2026-10", company: "QVENT", name: "NG SIOK PENG", agent: "ALEX", salary: "7,500.00", epf: "1,725.00", socso: "178.55", eis: "23.80", pcb: "", hrdf: "", alw: "", comm: "", net: "6,169.50", comm2: "" }];
+function AccSalaryPage({ currentUser }) {
+  const h = React.createElement;
+  const [list, save] = useCloudList("acc_salary");
+  const seeded = React.useRef(false);
+  React.useEffect(() => { if (Array.isArray(list) && list.length === 0 && !seeded.current) { seeded.current = true; save(ACC_SAL_SEED.map(x => ({ ...x, by: currentUser, at: Date.now() }))); } }, [list]);
+  const now = new Date(), defYm = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+  const [ym, setYm] = React.useState(() => { try { return localStorage.getItem("crm_accsal_ym") || "2026-10"; } catch (e) { return "2026-10"; } });
+  const goYm = v => { setYm(v); try { localStorage.setItem("crm_accsal_ym", v); } catch (e) {} };
+  const shift = n => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); goYm(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); };
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const ymLabel = v => { const [y, m] = v.split("-"); return MON[(+m || 1) - 1] + " " + y; };
+  const items = Array.isArray(list) ? list : [];
+  const rows = items.filter(x => x.ym === ym);
+  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
+  const add = () => save([...items, { id: uid(), ym, company: "", name: "", agent: "", by: currentUser, at: Date.now() }]);
+  const copyPrev = () => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 2, 1), pv = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    const src = items.filter(x => x.ym === pv); if (!src.length) { window.alert(ymLabel(pv) + " 没有资料"); return; }
+    if (!window.confirm("把 " + ymLabel(pv) + " 的 " + src.length + " 个人复制到 " + ymLabel(ym) + "？（数目也一起复制，之后可以改）")) return;
+    save([...items, ...src.map(x => ({ ...x, id: uid(), ym, by: currentUser, at: Date.now(), updBy: null, updAt: null }))]); };
+  const del = x => { if (window.confirm("删除 " + (x.name || "(空)") + "？")) save(items.filter(y => y.id !== x.id)); };
+  const N = v => lsNum(v || 0);
+  const total = x => N(x.net) + N(x.comm2);   /* TOTAL = NET + 后面的 COMM */
+  const sum = k => rows.reduce((t, x) => t + (k === "total" ? total(x) : N(x[k])), 0);
+  const B = "1px solid #cbd5e1";
+  const td = { border: B, padding: "4px 6px", fontSize: 13.5, background: "#fff", whiteSpace: "nowrap" };
+  const th = { border: B, padding: "6px 6px", fontWeight: 900, fontSize: 12.5, textAlign: "center", fontFamily: "'Times New Roman',serif" };
+  const inp = { border: "none", outline: "none", background: "transparent", font: "inherit", color: "inherit", width: "100%", padding: 0 };
+  const money = (x, k) => h(DebouncedInput, { style: { ...inp, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: x[k] || "",
+    onCommit: v => { const t = String(v || "").trim(); upd(x.id, k, t && /^-?[\d,]*\.?\d*$/.test(t) ? lsFmt(lsNum(t)) : t); } });
+  const text = (x, k, w) => h(DebouncedInput, { style: { ...inp, minWidth: w }, value: x[k] || "", onCommit: v => upd(x.id, k, v.trim().toUpperCase()) });
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" } },
+      h("button", { onClick: () => shift(-1), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, width: 32, height: 32, cursor: "pointer", fontWeight: 900 } }, "◀"),
+      h("div", { style: { fontWeight: 900, fontSize: 20, color: "#1e1b4b", minWidth: 190, textAlign: "center" } }, ymLabel(ym) + " Salary"),
+      h("button", { onClick: () => shift(1), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, width: 32, height: 32, cursor: "pointer", fontWeight: 900 } }, "▶"),
+      ym !== defYm && h("button", { onClick: () => goYm(defYm), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, padding: "6px 12px", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "这个月"),
+      h("div", { style: { flex: 1 } }),
+      h("button", { onClick: copyPrev, style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", cursor: "pointer", fontWeight: 900, fontSize: 13 } }, "⧉ 复制上个月名单"),
+      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 加一个人")),
+    h("div", { style: { overflowX: "auto", background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,.08)" } },
+      h("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 1300 } },
+        h("thead", null, h("tr", null, ["#", "COMPANY", "NAME", "AGENT", ...ACC_SAL_COLS.map(c => c[1]), "TOTAL", ""].map((t, i) => h("th", { key: i, style: { ...th, ...(i === 0 ? { width: 34 } : {}) } }, t)))),
+        h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 16, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, "载入中…")) :
+          rows.length === 0 ? h("tr", null, h("td", { colSpan: 16, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, ymLabel(ym) + " 还没有资料 — 按「加一个人」或「复制上个月名单」")) :
+          rows.map((x, i) => h("tr", { key: x.id },
+            h("td", { style: { ...td, textAlign: "center", fontWeight: 800 } }, i + 1),
+            h("td", { style: td }, text(x, "company", 90)),
+            h("td", { style: td }, text(x, "name", 200)),
+            h("td", { style: { ...td, textAlign: "right" } }, text(x, "agent", 60)),
+            ...ACC_SAL_COLS.map(([k]) => h("td", { key: k, style: { ...td, minWidth: 80, ...(k === "net" ? { background: "#fde9d9" } : {}) } }, money(x, k))),
+            h("td", { style: { ...td, textAlign: "right", fontWeight: 900, minWidth: 90, fontVariantNumeric: "tabular-nums" } }, total(x) ? lsFmt(total(x)) : ""),
+            h("td", { style: { ...td, textAlign: "center", padding: 2 } }, h("button", { title: "删除", onClick: () => del(x), style: { border: "none", background: "none", cursor: "pointer", padding: 2 } }, h(Trash2, { size: 13, color: "#cbd5e1" })))))),
+        rows.length > 0 && h("tfoot", null, h("tr", null,
+          h("td", { colSpan: 4, style: { ...td, fontWeight: 900, textAlign: "right", background: "#f8fafc" } }, "TOTAL（" + rows.length + " 人）"),
+          ...ACC_SAL_COLS.map(([k]) => h("td", { key: k, style: { ...td, textAlign: "right", fontWeight: 900, background: "#f8fafc", fontVariantNumeric: "tabular-nums" } }, sum(k) ? lsFmt(sum(k)) : "")),
+          h("td", { style: { ...td, textAlign: "right", fontWeight: 900, background: "#fde047", fontVariantNumeric: "tabular-nums" } }, lsFmt(sum("total"))),
+          h("td", { style: { ...td, background: "#f8fafc" } }))))),
+    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 8 } }, "TOTAL = NET + 后面的 COMM · 数目打完自动加 2 个小数点 · ◀ ▶ 换月份"));
 }
 /* ACCOUNT 的新页面（内容还没定） */
 function AccountBlankPage({ title }) {
