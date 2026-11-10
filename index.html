@@ -6,6 +6,13 @@
 <title>OD CRM</title>
 <!-- App（可以安装到手机 / iPad / 电脑桌面） -->
 <link rel="manifest" href="manifest.webmanifest" />
+<script>try { if (localStorage.getItem("crm_night") === "1") document.documentElement.classList.add("crm-night"); } catch (e) {}</script>
+<style>
+/* 🌙 夜间模式：整页变暗（照片、头像、视频保持原本颜色） */
+html.crm-night { filter: invert(.9) hue-rotate(180deg); background: #111; }
+html.crm-night img, html.crm-night video, html.crm-night canvas, html.crm-night picture, html.crm-night [style*="background-image"], html.crm-night .crm-no-invert { filter: invert(1) hue-rotate(180deg); }
+html.crm-night ::-webkit-scrollbar-thumb { background: #888; }
+</style>
 <link rel="icon" type="image/png" sizes="48x48" href="crm-favicon-48.png" />
 <link rel="apple-touch-icon" href="crm-apple-touch-icon.png" />
 <meta name="theme-color" content="#7c3aed" />
@@ -954,7 +961,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110164500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110180500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1892,7 +1899,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "370";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "371";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3763,7 +3770,7 @@ function CRM({ onLogout, currentUser }) {
     return "";
   })()), /*#__PURE__*/React.createElement("div", {
     style: S.headerRight
-  }, React.createElement(PageJump, { setPage: pg => { setOpenId(null); setPage(pg); } }), dueCount > 0 && /*#__PURE__*/React.createElement("span", {
+  }, React.createElement(NightToggle, null), React.createElement(PageJump, { setPage: pg => { setOpenId(null); setPage(pg); } }), dueCount > 0 && /*#__PURE__*/React.createElement("span", {
     style: { ...S.dueBadge, cursor: "pointer" },
     onClick: () => setShowDue(true),
     title: "View follow-ups"
@@ -4257,6 +4264,11 @@ function MissionPhotos({ mission, onChange, onClose, onRemark, canManage = true 
 const ROLE_LABELS = { lucas: "Boss", admin: "Admin" };
 /* 上面的搜索：打页面名字（例如 boss take）→ 直接跳去那页 */
 const PAGE_ALIAS = { receipt: "老板 boss 收据", returnsalary: "退薪 return", bankstmt: "银行 bank statement bs", bankstmt2: "人才 rencai", lendingfee: "lending 借", costing_pl: "pl costing 成本", costing_car: "car costing 车", submission: "closing 结案", salarylist: "salary status 薪水", acc_salary: "salary listing 薪水 account", acc_final: "final record", phone: "phone sim 电话", banker: "banker 银行家", mission: "mission 任务", verify: "verify 核对", onleave: "leave 请假", referral: "referral 红包", todo: "todo 待办", dashboard: "dashboard 首页", agreement: "agreement 合约", odpayment: "od payment 付款" };
+function NightToggle() {
+  const [on, setOn] = React.useState(() => document.documentElement.classList.contains("crm-night"));
+  const flip = () => { const v = !on; setOn(v); document.documentElement.classList.toggle("crm-night", v); try { localStorage.setItem("crm_night", v ? "1" : "0"); } catch (e) {} };
+  return React.createElement("button", { onClick: flip, title: on ? "换回白天模式" : "夜间模式", style: { border: "1px solid rgba(148,163,184,.5)", background: "rgba(255,255,255,.9)", borderRadius: 999, width: 34, height: 34, cursor: "pointer", fontSize: 16, lineHeight: "30px", padding: 0 } }, on ? "☀️" : "🌙");
+}
 function PageJump({ setPage }) {
   const h = React.createElement;
   const [q, setQ] = React.useState(""), [open, setOpen] = React.useState(false), [hi, setHi] = React.useState(0);
