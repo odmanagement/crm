@@ -954,7 +954,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110164000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110164500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1892,7 +1892,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "369";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "370";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6883,6 +6883,7 @@ function BsReturnPage({ clients, currentUser }) {
           h("td", { style: { ...S.td, ...bg, width: 30 } }, lfCanEdit(x.by, me) && h("button", { onClick: () => del(x), title: "删除", style: { border: "none", background: "none", cursor: "pointer" } }, h(Trash2, { size: 14, color: "#94a3b8" })))); })))) ]; })());
 }
 
+const BT_NOTIFY = ["chialing"];
 function ReceiptPage({ currentUser, clients }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -6906,11 +6907,14 @@ function ReceiptPage({ currentUser, clients }) {
   const [paidF, setPaidF] = React.useState("unpaid");
   const [month, setMonth] = React.useState(today().slice(0, 7));
   const nextNo = () => { const ym = today().slice(0, 7).replace("-", ""); const n = items.filter(x => String(x.no || "").startsWith("OD-" + ym)).length + 1; return "OD-" + ym + "-" + String(n).padStart(3, "0"); };
+  /* Boss Take 有人新增 / 写备注 → 提醒 Chialing（响铃 + 大横幅，按一下跳来 Boss Take） */
+  const btNotify = (title, task) => BT_NOTIFY.forEach(to => { if (sameUser(to, me)) return; try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "receipt", to: canonUser(to), from: me, loud: true, title, task, at: Date.now() }); } catch (e) {} });
   const create = (andPrint) => {
     if (!f.from.trim()) { alert("请填名字"); return; }
     if (!(Number(String(f.amount).replace(/,/g, "")) > 0)) { alert("请填金额"); return; }
     const r = { id: uid(), no: nextNo(), ...f, from: f.from.trim(), amount: String(f.amount).replace(/,/g, ""), method: f.atm ? (f.atmType === "transfer" ? "ATM Transfer" : "ATM Withdraw") : "", by: me, at: Date.now() };
     save([r, ...items]); monetSfx("create");
+    btNotify(String(me || "").toUpperCase() + " 新增了一笔 Boss Take 🧾", String(r.from || "").toUpperCase() + " · RM " + lsFmt(lsNum(r.amount)) + (r.remark ? " · " + r.remark : ""));
     setF(blank());
     if (andPrint) printReceipt(r);
   };
@@ -6978,7 +6982,7 @@ function ReceiptPage({ currentUser, clients }) {
               h("td", { style: S.td }, h("select", { value: r.paid ? "paid" : "unpaid", onChange: e => save(items.map(x => x.id === r.id ? { ...x, paid: e.target.value === "paid", paidAt: e.target.value === "paid" ? today() : null, paidBy: e.target.value === "paid" ? canonUser(currentUser) : null } : x)),
                 style: { border: "1px solid " + (r.paid ? "#86efac" : "#fecaca"), background: r.paid ? "#dcfce7" : "#fef2f2", color: r.paid ? "#15803d" : "#b91c1c", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12.5, fontFamily: "inherit", cursor: "pointer" } },
                 h("option", { value: "unpaid" }, "未付"), h("option", { value: "paid" }, "✓ 已付"))),
-              h("td", { style: { ...S.td, minWidth: 160, maxWidth: 260 } }, h(AutoTextarea, { value: r.remark || "", readOnly: READONLY_USERS.includes(me), placeholder: READONLY_USERS.includes(me) ? "" : "备注…", onCommit: v => save(items.map(x => x.id === r.id ? { ...x, remark: v } : x)), style: { textAlign: "center", fontSize: 13 } })),
+              h("td", { style: { ...S.td, minWidth: 160, maxWidth: 260 } }, h(AutoTextarea, { value: r.remark || "", readOnly: READONLY_USERS.includes(me), placeholder: READONLY_USERS.includes(me) ? "" : "备注…", onCommit: v => { save(items.map(x => x.id === r.id ? { ...x, remark: v } : x)); if (String(v || "").trim() && String(v).trim() !== String(r.remark || "").trim()) btNotify(String(me || "").toUpperCase() + " 在 Boss Take 写了备注 ✍️", String(r.from || "").toUpperCase() + " · RM " + lsFmt(lsNum(r.amount)) + " · " + String(v).trim()); }, style: { textAlign: "center", fontSize: 13 } })),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
