@@ -474,6 +474,11 @@ function calcSalary(){
   let sum=0;
   rows.forEach(r=>{
     const amt=parseNum(r.querySelector('.amt-input').value);
+    /* CUSTOMER USE = 红色，只是显示（SALARY 已经扣掉了），不算进 TOTAL */
+    const cu=/^CUSTOMER USE$/i.test(String((r.querySelector('.name-input')||{}).value||'').trim());
+    [r.querySelector('.name-input'),r.querySelector('.amt-input')].forEach(function(el){ if(el){ el.style.color=cu?'#dc2626':''; el.style.fontWeight=cu?'900':''; } });
+    r.querySelector('.lucasCell').style.color=cu?'#dc2626':'';
+    if(cu){ r.querySelector('.lucasCell').textContent=fmt(amt); r.querySelector('.agentCell').textContent=fmt(0); return; }
     sum+=amt;
     r.querySelector('.lucasCell').textContent=fmt(amt);
     r.querySelector('.agentCell').textContent=fmt(0);
@@ -944,7 +949,7 @@ if(saved && saved.parts){
         if(/^BACKDATE EPF\/SOCSO$/.test(n) && p && p.bd) swapNoX(tr,p.bd);
         else if(!mon.length && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);
         else if(!mon.length && /^SOCSO\/EIS\/PCB$/.test(n) && p && p.soc) swapNoX(tr,p.soc); });
-      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); }
+      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); if(p.cuse){ addAuto('partSalBody','CUSTOMER USE',p.cuse); } }
     }
     /* 每个月 / Lending：跟主系统同一套规则（用 Bank Statement 每一行自己的 id 对，同一个日期也会分开）
        第一次 → Part A（没有 ×）；存档后再加的 → Part A.A Charges（+10%）；Lending (A) → Part A，(A.A) → Part A.A */

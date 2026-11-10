@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261107013500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "353";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "354";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6064,6 +6064,9 @@ function LendingLoader() {
    - Part C · Salary 的 SALARY：跟着 Bank Statement Balance
    - Lending 自动加的项目：数目 / % 跟着 Lending
    只改自动加的行，自己手动加的不动 */
+/* Bank Statement 黄色那一栏上面的空白格子（j 栏）填的数目 = CUSTOMER USE（红色）；黄色 = Balance − 红色 */
+const BS_NUM_RE = /^\s*-?[\d,]+(\.\d+)?\s*$/;
+function bsCustUse(bs) { let t = 0; const c = (bs && bs.cells) || {}; Object.keys(c).forEach(k => { if (/_j$/.test(k) && BS_NUM_RE.test(String(c[k] || ""))) t += lsNum(c[k]); }); return t; }
 function costSyncData(data, p, L, opt) {
   /* 每个月（Bank Statement 的每一行）用那一行自己的 id 对上 Costing 的行（cid）→ 同一个日期填几行都会分开 */
   if (!data || !data.parts) return null;
@@ -6121,6 +6124,11 @@ function costSyncData(data, p, L, opt) {
     const si = S.findIndex(r => N(r) === "SALARY");
     if (si >= 0) { if (S[si].amt !== p.bal) S[si].amt = p.bal; S[si].auto = true; }
     else S.unshift({ name: "SALARY", amt: p.bal, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
+    /* 红色 CUSTOMER USE（Bank Statement 黄色上面的红色）放在 SALARY 下面；没有就拿掉 */
+    const S2 = parts.partSalBody, ui = S2.findIndex(r => N(r) === "CUSTOMER USE");
+    if (p.cuse) { if (ui >= 0) { if (S2[ui].amt !== p.cuse) S2[ui].amt = p.cuse; S2[ui].auto = true; }
+      else { const at = S2.findIndex(r => N(r) === "SALARY"); S2.splice(at + 1, 0, { name: "CUSTOMER USE", amt: p.cuse, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); } }
+    else if (ui >= 0 && S2[ui].auto) S2.splice(ui, 1);
   }
   const nd = { ...data, parts };
   return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;
@@ -6209,7 +6217,7 @@ function BsPeopleLoader() {
           const dt = bsNormDmy(x.date);
           months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || ""), costedAt: x.costedAt || 0, cid: x.id || ("i" + i) }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
-      let bal = ""; try { const v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name); if (bsTot(bs.credits)) bal = lsFmt(v); } catch (e) {}
+      let bal = "", cuse = ""; try { const cu = bsCustUse(bs), v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - cu; if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); } catch (e) {}
       /* Verify 的 Salary：跟 Bank Statement 最近一个月的 Salary 计算（Basic + Allowance + Commission − EPF − SOCSO − EIS − PCB，员工那边） */
       let salItems = null;
       try { const crs = (bs.credits || []).filter(x => x && x.calc); const c = crs.length ? crs[crs.length - 1].calc : (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
@@ -6226,7 +6234,7 @@ function BsPeopleLoader() {
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ ended: !!bs.ended, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ cuse, ended: !!bs.ended, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -6328,7 +6336,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
   const bdFee = d.backdate ? bsBackdate(d.backdate).fee : 0;
-  const tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = tC - tR;   /* Balance 不算 Backdate（以前的 Fees 也不算） */
+  const cuse = bsCustUse(d), tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = tC - tR - cuse;   /* 黄色 = Balance − 红色 CUSTOMER USE */   /* Balance 不算 Backdate（以前的 Fees 也不算） */
   const trs = [];
   /* 最上面：START SALARY ON 选择（选了之后字还可以手动改） */
   const ST_OPT = BS_START_OPTS, so = ST_OPT.find(o => o.k === d.startType);
@@ -6383,6 +6391,10 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
     h("td", { style: { ...cell, height: 14, padding: "2px 8px", textAlign: "center" } }, h("button", { onClick: () => { const nx = { ...d, extraRows: (parseInt(d.extraRows) || 0) + 1 }; setD(nx); commit(nx); }, title: "加格子下去", style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 6, padding: "1px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ ADD")),
     h("td", { colSpan: 3, style: { ...cell, height: 14, padding: "2px 8px" } }, (parseInt(d.extraRows) || 0) > 0 && h("button", { onClick: () => { const nx = { ...d, extraRows: Math.max(0, (parseInt(d.extraRows) || 0) - 1) }; setD(nx); commit(nx); }, title: "减少一行（最后一行的资料不会删除）", style: { border: "none", background: "none", color: "#94a3b8", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "－"))));
+  if (cuse) trs.push(h("tr", { key: "cu" },
+    h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#b91c1c", fontSize: 11.5 } }, "CUSTOMER USE"),
+    h("td", { style: { ...cell, fontWeight: 900, background: "#fecaca", color: "#b91c1c", textAlign: "center" }, title: "上面空白格子填的数目加起来（CUSTOMER USE）" }, lsFmt(cuse)),
+    h("td", { style: cell })));
   trs.push(h("tr", { key: "t", style: { background: "#f8fafc" } },
     h("td", { colSpan: 6, style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tC)),
