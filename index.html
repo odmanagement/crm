@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110130000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -954,11 +954,14 @@ const APP_BUILD = "20261110130000";   /* 每次上传新版都要换 → 所有�
     try { if (Object.values(DB._queue || {}).some(q => q.running || q.next !== null)) return true; } catch (e) {}
     return false;
   };
+  /* 不再自动刷新（会打断正在打字的人）→ 只在上面显示「有新版本 · 按这里刷新」，自己按才刷新 */
   const doReload = () => {
-    if (reloading) return;
-    if (busy()) { setTimeout(doReload, 3000); return; }
-    reloading = true;
-    location.reload();
+    if (reloading || document.getElementById("crm-newver")) return;
+    const b = document.createElement("div"); b.id = "crm-newver";
+    b.innerHTML = "🔄 CRM 有新版本 · <b style='text-decoration:underline'>打完字后按这里刷新</b>";
+    Object.assign(b.style, { position: "fixed", left: "50%", top: "10px", transform: "translateX(-50%)", zIndex: 99999, background: "#dc2626", color: "#fff", padding: "9px 18px", borderRadius: "999px", fontWeight: 900, fontSize: "13.5px", boxShadow: "0 8px 24px rgba(0,0,0,.25)", cursor: "pointer" });
+    b.onclick = () => { if (busy() && !window.confirm("还有资料在存 / 正在打字，确定现在刷新？")) return; reloading = true; location.reload(); };
+    document.body.appendChild(b);
   };
   const check = async () => {
     try {
@@ -1879,7 +1882,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "358";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "359";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4322,7 +4325,7 @@ const clCachePut = (key, val) => { clearTimeout(_clPut[key]); _clPut[key] = setT
 /* ===== 谁建立，只有那个人可以改（Lucas 全部都可以；备注大家都可以）=====
    旧资料没有记录是谁建立的 → 第一个改的人变成主人（owner） */
 const OWN_KEYS = ["bank_stmt_people", "bank_stmt_people_rencai", "lending_fee", "od_payments", "receipts", "bs_return_salary", "return_salary", "leaves", "phones", "submissions", "doc_tracking"];
-const OWN_FREE = /remark|rmk|note|memo|followups|comments|replies|备注|^(waitTypes|waitDoneAt|waitInfo|aeonGxDone|stage|meta|updatedAt|updatedBy)$/i;   /* 备注 + 系统自己更新的栏位 */
+const OWN_FREE = /remark|rmk|note|memo|followups|comments|replies|备注|^(waitTypes|waitDoneAt|waitInfo|aeonGxDone|stage|meta|updatedAt|updatedBy|checked|checkedBy|checkedAt)$/i;   /* ✓ 打勾：全部人都可以按 */   /* 备注 + 系统自己更新的栏位 */
 const ownBoss = () => { try { return isMissionBoss(window.__crmUser); } catch (e) { return false; } };
 const ownerOf = x => x ? (x.owner || x.createdBy || x.by || x.staff || "") : "";
 let _ownToastT = 0;
