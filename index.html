@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110123000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110124500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "356";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "357";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6076,7 +6076,9 @@ function costSyncData(data, p, L, opt) {
   const isSal = r => /^(?:SALARY|EPF\/SOCSO\/PCB) - /.test(N(r));
   const A = parts.partABody = parts.partABody || [], C = parts.partCBody = parts.partCBody || [];
   const putA = row => { const i = A.findIndex(r => r.pinned); if (i >= 0) A.splice(i, 0, row); else A.push(row); };
-  const months = ((p && p.months) || []).map(m => ({ ...m, name: BS_SAL_PFX + bsNormDmy(m.date) }));
+  /* Bank Statement 选「PAYSLIP BANKSTATEMENT」→ PL Costing 不放每个月的 EPF/SOCSO/PCB 行（已经有的也拿掉） */
+  if (p && p.noSal) [A, C].forEach(arr => { for (let i = arr.length - 1; i >= 0; i--) if (isSal(arr[i])) arr.splice(i, 1); });
+  const months = ((p && !p.noSal && p.months) || []).map(m => ({ ...m, name: BS_SAL_PFX + bsNormDmy(m.date) }));
   const byId = new Map(months.map(m => [m.cid, m]));
   /* 1. 旧的行（没有 cid）→ 用日期对上还没被认领的那一行 */
   const claimed = new Set([...A, ...C].filter(r => isSal(r) && r.cid && byId.has(r.cid)).map(r => r.cid));
@@ -6234,7 +6236,7 @@ function BsPeopleLoader() {
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ cuse, ended: !!bs.ended, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ cuse, noSal: bs.startType === "blue", ended: !!bs.ended, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -6302,6 +6304,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
   const [d, setD] = React.useState(() => norm(r.bs));
   const [nm, setNm] = React.useState(r.c.name || "");
   const [calcAt, setCalcAt] = React.useState(-1);
+  const [edJ, setEdJ] = React.useState(null);   /* 正在打的 CUSTOMER USE 格子（打完才显示 2 个小数点） */
   const focus = React.useRef(false);
   const dRef = React.useRef(d); dRef.current = d;
   const key = JSON.stringify(r.bs || null);
@@ -6385,7 +6388,12 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? fr(k, "h", { textAlign: "right" }) : rcRow ? h("div", { onClick: () => setShowRc(au.k), title: "点一下看全部记录", style: { textAlign: "right", cursor: "pointer", color: au.k === "rt" ? "#7c3aed" : "#0369a1", fontWeight: 900, textDecoration: "underline dotted", fontVariantNumeric: "tabular-nums" } }, lsFmt(au.total)) : ri >= 0 && ri <= recv.length ? mny(rv && rv.amount, v => setRow("received", ri, "amount", v)) : ""),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : rcRow ? h("div", { onClick: () => setShowRc(au.k), style: { textAlign: "right", cursor: "pointer", color: au.k === "rt" ? "#7c3aed" : "#0369a1", fontWeight: 800, fontSize: 11.5, whiteSpace: "nowrap" } }, au.icon + " " + au.label + " × " + au.list.length) : ri >= 0 && ri <= recv.length ? dt(rv && rv.date, v => setRow("received", ri, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, fr(k, "j", { textAlign: "center", fontWeight: 400 })   /* S.C 不要了 */),
+      h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, (() => {
+        /* 黄色上面的格子：填数目 = CUSTOMER USE → 红色字、自动 2 个小数点 */
+        const ck = k + "_j", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
+        return h("input", { ...ro, className: "keep-case", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
+          onBlur: e => { setEdJ(null); focus.current = false; const t = e.target.value.trim(); if (BS_NUM_RE.test(t) && t !== lsFmt(lsNum(t))) setC(lsFmt(lsNum(t))); setTimeout(() => commit(), 0); },
+          style: { ...box, textAlign: "center", fontWeight: isN ? 900 : 400, color: isN ? "#dc2626" : undefined } }); })()   /* S.C 不要了 */),
       h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : fr(k, "k", { fontWeight: 400 }))));
   }
   trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
@@ -6399,7 +6407,7 @@ function BankStmtSheet({ r, onSave, onName, onDel }) {
     h("td", { colSpan: 6, style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tC)),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tR)),
-    h("td", { style: cell }),
+    h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "SALARY"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" } }, lsFmt(bal)),
     h("td", { style: cell })));
   return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },

@@ -440,11 +440,10 @@ function calcSalary(){
   let sum=0;
   rows.forEach(r=>{
     const amt=parseNum(r.querySelector('.amt-input').value);
-    /* CUSTOMER USE = 红色，只是显示（SALARY 已经扣掉了），不算进 TOTAL */
+    /* CUSTOMER USE = 红色，TOTAL = SALARY + CUSTOMER USE */
     const cu=/^CUSTOMER USE$/i.test(String((r.querySelector('.name-input')||{}).value||'').trim());
     [r.querySelector('.name-input'),r.querySelector('.amt-input')].forEach(function(el){ if(el){ el.style.color=cu?'#dc2626':''; el.style.fontWeight=cu?'900':''; } });
     r.querySelector('.lucasCell').style.color=cu?'#dc2626':'';
-    if(cu){ r.querySelector('.lucasCell').textContent=fmt(amt); r.querySelector('.agentCell').textContent=fmt(0); return; }
     sum+=amt;
     r.querySelector('.lucasCell').textContent=fmt(amt);
     r.querySelector('.agentCell').textContent=fmt(0);
@@ -869,8 +868,8 @@ if(saved && saved.parts){
     if(p.agent && ag){ ag.value=p.agent; }
     if(p.cf && cr){ cr.value=p.cf; }
     /* EPF / SOCSO/EIS/PCB / BACKDATE 跟着 Bank Statement 的 Salary Sub-Total；有月份记录就一个月一行 */
-    var mon=(p.months||[]);
-    var MAP=[[/^EPF$/,mon.length?'':p.epf,!!mon.length],[/^SOCSO\/EIS\/PCB$/,mon.length?'':p.soc,!!mon.length],[/^BACKDATE EPF\/SOCSO$/,p.bd,false]];
+    var mon=(p.noSal?[]:(p.months||[])), noE=!!mon.length||!!p.noSal;   /* PAYSLIP BANKSTATEMENT → 不放 EPF / SOCSO */
+    var MAP=[[/^EPF$/,noE?'':p.epf,noE],[/^SOCSO\/EIS\/PCB$/,noE?'':p.soc,noE],[/^BACKDATE EPF\/SOCSO$/,p.bd,false]];
     [].forEach.call(document.querySelectorAll('#partABody tr'), function(tr){ var n=tr.querySelector('.name-input'), a=tr.querySelector('.amt-input'); if(!n||!a) return;
       var k=String(n.value||'').trim().toUpperCase(); MAP.forEach(function(m){ if(m[0].test(k) && (m[1] || m[2])) a.value=m[1]; }); });
     window.__bsSync(true);
@@ -904,8 +903,8 @@ if(saved && saved.parts){
       ['partABody','partCBody','partSalBody'].forEach(function(id){ rowsOf(id).forEach(function(tr){ if((tr.dataset.auto==='1' && !/^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/.test(nameOf(tr))) || (id!=='partSalBody' && /^(?:SALARY|EPF\/SOCSO\/PCB) - /.test(nameOf(tr)))) tr.remove(); }); });
       rowsOf('partABody').forEach(function(tr){ var n=nameOf(tr), a=tr.querySelector('.amt-input'); if(!a) return;
         if(/^BACKDATE EPF\/SOCSO$/.test(n) && p && p.bd) swapNoX(tr,p.bd);
-        else if(!mon.length && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);
-        else if(!mon.length && /^SOCSO\/EIS\/PCB$/.test(n) && p && p.soc) swapNoX(tr,p.soc); });
+        else if(!mon.length && !(p && p.noSal) && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);
+        else if(!mon.length && !(p && p.noSal) && /^SOCSO\/EIS\/PCB$/.test(n) && p && p.soc) swapNoX(tr,p.soc); });
       if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); if(p.cuse){ addAuto('partSalBody','CUSTOMER USE',p.cuse); } }
     }
     /* 每个月 / Lending：跟主系统同一套规则（用 Bank Statement 每一行自己的 id 对，同一个日期也会分开）
