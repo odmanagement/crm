@@ -954,7 +954,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110155000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1892,7 +1892,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "366";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "368";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3933,7 +3933,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     onOpen: cid => { setPage("personal"); setOpenId(cid); },
     onDone: (cid, lid, bi) => persist(clients.map(c => c.id === cid ? { ...c, loans: (c.loans || []).map(l => l.id === lid ? { ...l, banks: (l.banks || []).map((b, j) => j === bi ? { ...b, collected: true, collectedAt: today() } : b) } : l) } : c))
-  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(LendingLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(CostingAutoSync, { currentUser: currentUser })), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
+  })), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, React.createElement(CelebrateWatcher, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(SimExpiryWatcher, { currentUser })), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AgentsLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(BsPeopleLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(LendingLoader, null)), React.createElement(ErrorBoundary, { silent: true }, React.createElement(CostingAutoSync, { currentUser: currentUser })), React.createElement(ErrorBoundary, { silent: true }, React.createElement(AvatarsLoader, null)), /*#__PURE__*/React.createElement(ErrorBoundary, { silent: true }, /*#__PURE__*/React.createElement(MissionPopups, {
     missions: missions,
     notices: notices,
     onClearNotice: clearNotice,
@@ -6180,6 +6180,32 @@ window.__crmCostClosed = window.__crmCostClosed || new Set();
 const costOpen = n => { const k = costNK(n); if (!k) return true; if (window.__crmCostClosed.has(k)) return false;
   return !(window.__crmBsPeople || []).some(p => p.ended && costNK(p.name) === k); };
 window.__crmCostOpen = costOpen;
+/* 表格太宽：下面的左右滑动条一直贴在屏幕最下面（不用先滑到表格最底才拉左右） */
+(function crmFloatScroll() {
+  if (window.__crmFloatScroll) return; window.__crmFloatScroll = 1;
+  let bar, inner, cur = null, lock = false, raf = 0;
+  const mk = () => { bar = document.createElement("div"); bar.id = "crm-float-x"; inner = document.createElement("div"); inner.style.height = "1px"; bar.appendChild(inner);
+    Object.assign(bar.style, { position: "fixed", bottom: "0", height: "16px", overflowX: "auto", overflowY: "hidden", zIndex: 60, display: "none", background: "rgba(255,255,255,.85)", borderTop: "1px solid #e2e8f0", backdropFilter: "blur(4px)" });
+    bar.addEventListener("scroll", () => { if (lock || !cur) { lock = false; return; } lock = true; cur.scrollLeft = bar.scrollLeft; });
+    document.body.appendChild(bar); };
+  const pick = () => {
+    raf = 0; if (!document.body) return; if (!bar) mk();
+    const vh = window.innerHeight; let best = null;
+    document.querySelectorAll("table").forEach(t => { const w = t.parentElement; if (!w || w === best) return; if (w.scrollWidth - w.clientWidth < 8) return;
+      const cs = getComputedStyle(w); if (!/auto|scroll/.test(cs.overflowX)) return;
+      const r = w.getBoundingClientRect(); if (r.top < vh - 60 && r.bottom > vh + 2 && r.width > 200 && !best) best = w; });
+    if (best !== cur) { if (cur) cur.removeEventListener("scroll", sync); cur = best; if (cur) cur.addEventListener("scroll", sync); }
+    if (!cur) { bar.style.display = "none"; return; }
+    const r = cur.getBoundingClientRect();
+    Object.assign(bar.style, { display: "block", left: Math.max(0, r.left) + "px", width: Math.min(r.width, window.innerWidth - Math.max(0, r.left)) + "px" });
+    inner.style.width = cur.scrollWidth + "px";
+    if (Math.abs(bar.scrollLeft - cur.scrollLeft) > 1) { lock = true; bar.scrollLeft = cur.scrollLeft; }
+  };
+  function sync() { if (!bar || lock) { lock = false; return; } lock = true; bar.scrollLeft = cur.scrollLeft; }
+  const req = () => { if (!raf) raf = requestAnimationFrame(pick); };
+  window.addEventListener("scroll", req, true); window.addEventListener("resize", req);
+  setInterval(req, 1000);
+})();
 function CostingAutoSync({ currentUser }) {
   const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
   const [cExt] = useCloudList("costing_extras");
@@ -7219,6 +7245,30 @@ function simMigrate(list) {
     if (!x.s2 && sd.sty) Object.keys(sd.sty).forEach(k => { if (/^s2\./.test(k) && !sty[k]) sty[k] = sd.sty[k]; });
     return { id: x.id, no: x.no, noC: x.noC || "", s1, s2, remarks: x.remarks || "", sty, v2: true, by: x.by, at: x.at }; });
   return ch ? out : null;
+}
+/* SIM 快到期（WARNING）→ 提醒 Chialing：每天第一次开 CRM 响铃 + 大横幅，按一下跳去 PHONE；有新的快到期也会再提醒 */
+const SIM_NOTIFY = ["chialing"];
+function SimExpiryWatcher({ currentUser }) {
+  const on = SIM_NOTIFY.some(u => sameUser(u, currentUser));
+  const [list] = useCloudList("phone_sims");
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => { if (!on) return; const t = setInterval(() => setTick(x => x + 1), 3600000); return () => clearInterval(t); }, [on]);
+  React.useEffect(() => {
+    if (!on || !Array.isArray(list) || !list.length) return;
+    const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+    const warns = [];
+    list.forEach(x => ["s1", "s2"].forEach((k, i) => { const sm = x[k] || (i === 0 ? x : null); if (!sm || sm.strike || !sm.exp) return; const d = new Date(sm.exp + "T00:00:00"); if (isNaN(d)) return;
+      const L = Math.round((d - today0) / 86400000); if (L <= SIM_WARN_DAYS) warns.push({ id: x.id + k, no: x.lbl !== undefined && x.lbl !== "" ? x.lbl : String(x.no || "").padStart(2, "0"), sim: "SIM " + (i + 1), name: sm.name || "", tel: sm.tel || "", L }); }));
+    if (!warns.length) return;
+    const day = today0.toISOString().slice(0, 10), sig = warns.map(w => w.id).sort().join(",");
+    let seen = ""; try { seen = localStorage.getItem("crm_simwarn_" + day) || ""; } catch (e) {}
+    if (seen === sig) return;
+    try { localStorage.setItem("crm_simwarn_" + day, sig); } catch (e) {}
+    warns.sort((a, b) => a.L - b.L);
+    const txt = warns.slice(0, 5).map(w => "#" + w.no + " " + w.sim + " " + (w.name || w.tel) + "（" + (w.L < 0 ? "过期 " + (-w.L) + " 天" : w.L === 0 ? "今天到期" : "剩 " + w.L + " 天") + "）").join(" · ") + (warns.length > 5 ? " …还有 " + (warns.length - 5) + " 支" : "");
+    setTimeout(() => crmLoudAlert({ title: "📱 SIM 快到期（" + warns.length + " 支）", task: txt }, () => { try { localStorage.setItem("crm_phone_tab", "sim"); } catch (e) {} window.__crmGoPage && window.__crmGoPage("phone"); }), 2500);
+  }, [on, list, tick]);
+  return null;
 }
 function SimTable({ currentUser }) {
   const h = React.createElement;
