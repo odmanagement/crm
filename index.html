@@ -944,7 +944,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110123000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1879,7 +1879,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "354";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "356";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -7069,7 +7069,110 @@ function LeavePage({ currentUser }) {
 }
 
 /* ---------- Phone 公司电话（Number / Who Take） ---------- */
+/* ---------- Smart Phone · SIM 1 + SIM 2（号码到期提醒：Day(s) Left / SAFETY / WARNING） ---------- */
+const SIM_SEED = [{"id": "sim01", "no": 1, "noC": "", "s1": {"name": "AMIRUL SHAHFUAN BIN ABDUL", "tel": "011-72581114", "exp": "2027-09-04", "company": ""}, "s2": {"name": "SYAMIL HAFIZI BIN SABARUDIN", "tel": "011-25771740", "exp": "2027-09-02", "company": ""}, "remarks": "", "sty": {"s1.name": {"c": "pink"}, "s1.tel": {"bg": "green"}}}, {"id": "sim02", "no": 2, "noC": "cyan", "s1": {"name": "Lee Wee Chong", "tel": "017-2941 838", "exp": "", "company": "LJSF GROUP TRADING SDN. BHD."}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim03", "no": 3, "noC": "", "s1": {"name": "Thong Kuan Hae", "tel": "017-5446818", "exp": "2027-01-15", "company": "New Fisherman Sdn Bhd"}, "s2": {"name": "Thong Kuan Hae", "tel": "011-12902629", "exp": "2027-08-14", "company": "OCELOT SOLUTION SDN BHD"}, "remarks": "", "sty": {}}, {"id": "sim04", "no": 4, "noC": "", "s1": {"name": "Low Soon Lee", "tel": "017-3862483", "exp": "2026-11-26", "company": "Elite Thrivers Sdn Bhd"}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim05", "no": 5, "noC": "", "s1": {"name": "Thong Kuan Hae", "tel": "011-23720616", "exp": "2027-11-03", "company": "Trakmod Sdn Bhd"}, "s2": {"name": "Chia Kee Cheir", "tel": "017-9518069", "exp": "2026-11-26", "company": "Cartel Kitchen Sdn Bhd"}, "remarks": "", "sty": {}}, {"id": "sim06", "no": 6, "noC": "", "s1": {"name": "Thong Kuan Hae", "tel": "011-12304485", "exp": "2027-11-04", "company": "Inmac Home Security Sdn Bhd"}, "s2": {"name": "Suzanna", "tel": "017-9257351", "exp": "2026-08-11", "company": "017-8059201 expired on July25", "strike": true}, "remarks": "", "sty": {"s2.name": {"bg": "yellow"}, "s2.tel": {"bg": "yellow", "c": "red"}, "s2.company": {"c": "red", "s": 1}}}, {"id": "sim07", "no": 7, "noC": "purple", "s1": {"name": "Ngai Kok Yip", "tel": "011-72578867", "exp": "2027-06-03", "company": "NGAI DYNAMICS SDN BHD"}, "s2": {"name": "Ungku Musa Bin Ungku Mansor", "tel": "011-25606114", "exp": "2027-07-23", "company": "HO CHIN HUWAN - Personal"}, "remarks": "", "sty": {"s2.company": {"b": 1}}}, {"id": "sim08", "no": 8, "noC": "", "s1": {"name": "Pang Chun Man", "tel": "011-25066339", "exp": "2027-07-27", "company": "Solar Infinity Sdn Bhd"}, "s2": {"name": "Khu Teong Lee", "tel": "017-5100627", "exp": "2027-08-14", "company": "Le Xiang Mei / Ganu ALB checker"}, "remarks": "", "sty": {}}, {"id": "sim09", "no": 9, "noC": "", "s1": {"name": "Shamsudin Bin Sulaiman (FULL)", "tel": "014-2981261", "exp": "2027-01-23", "company": "BT Pass/BT Tech/Business Tools"}, "s2": {"name": "Wong Wai Giat", "tel": "017-9342794", "exp": "2027-11-04", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim10", "no": 10, "noC": "green", "s1": {"name": "Low Soon Lee (FULL)", "tel": "017-6016915", "exp": "2026-11-29", "company": "Global Star Metal"}, "s2": {"name": "Chia Kee Cheir", "tel": "017-9525058", "exp": "2026-11-26", "company": "Cartel Venture Sdn Bhd"}, "remarks": "", "sty": {}}, {"id": "sim11", "no": 11, "noC": "", "s1": {"name": "Low Hui Tian - NO NEED RENEW", "tel": "017-7411850", "exp": "2026-11-07", "company": "ThreeXsix Trading Sdn Bhd", "strike": true}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim12", "no": 12, "noC": "", "s1": {"name": "Low Kang Wai (Shamsudin) - NO NEED RENEW", "tel": "017 7064702", "exp": "2026-11-07", "company": "", "strike": true}, "s2": {"name": "Chia Kee Cheir", "tel": "010-4237284", "exp": "2026-12-24", "company": "Cartel Kitchen Sdn Bhd"}, "remarks": "", "sty": {}}, {"id": "sim13", "no": 13, "noC": "", "s1": {"name": "", "tel": "", "exp": "", "company": ""}, "s2": {"name": "Lee Wee Chong", "tel": "017-2942509", "exp": "2027-02-12", "company": "Farma Care Resources Sdn Bhd"}, "remarks": "", "sty": {}}, {"id": "sim14", "no": 14, "noC": "", "s1": {"name": "Chew Wee Kang", "tel": "017-6300948", "exp": "2027-02-13", "company": "MEI YANG RESOURCES SDN BHD"}, "s2": {"name": "Lau Kai Wei", "tel": "011-25543400", "exp": "2027-07-27", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim15", "no": 15, "noC": "", "s1": {"name": "SUZLIANA HSBC 15K HAVENT WITHDRAW", "tel": "", "exp": "", "company": ""}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {"s1.name": {"c": "red", "b": 1}}}, {"id": "sim16", "no": 16, "noC": "", "s1": {"name": "EVON (NewPhone) Money Using", "tel": "017-6100354", "exp": "2026-12-24", "company": ""}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim17", "no": 17, "noC": "", "s1": {"name": "Lee Pak Hoe - NO NEED RENEW", "tel": "017-9198597", "exp": "2026-11-07", "company": "", "strike": true}, "s2": {"name": "Atikah", "tel": "017-8037349", "exp": "2027-05-26", "company": "PABLO KITCHEN DESIGN PLT"}, "remarks": "", "sty": {"s2.tel": {"c": "pink", "b": 1}}}, {"id": "sim18", "no": 18, "noC": "", "s1": {"name": "Chia Kee Cheir", "tel": "017-8354540", "exp": "2027-06-24", "company": "Kraftangan Cinta Mele Sdn Bhd"}, "s2": {"name": "Chin Hai Leong", "tel": "011-72335218", "exp": "2027-08-27", "company": "Multiverse Packaging Industries Sdn Bhd"}, "remarks": "", "sty": {}}, {"id": "sim19", "no": 19, "noC": "purple", "s1": {"name": "Malik Feisal Bin Ayob - EDWIN", "tel": "011-23745914", "exp": "2026-11-15", "company": ""}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim20", "no": 20, "noC": "", "s1": {"name": "", "tel": "", "exp": "", "company": ""}, "s2": {"name": "Chia Ai Chen (FULL)", "tel": "017-7537350", "exp": "2027-05-08", "company": "DCF Car Care Sdn. Bhd"}, "remarks": "", "sty": {}}, {"id": "sim21", "no": 21, "noC": "", "s1": {"name": "Hiew Poh Seng", "tel": "017-2649047", "exp": "2027-02-13", "company": "Ganu Hasil Sdn Bhd"}, "s2": {"name": "Chin Hai Leong", "tel": "011-72329343", "exp": "2027-08-27", "company": "TC FnB SDN BHD"}, "remarks": "", "sty": {}}, {"id": "sim22", "no": 22, "noC": "", "s1": {"name": "MOTORS CONCEPT SDN BHD", "tel": "017-6566474", "exp": "2027-10-15", "company": "AXX EPF/PERKESO"}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {"s1.name": {"c": "red", "b": 1}}}, {"id": "sim23", "no": 23, "noC": "purple", "s1": {"name": "BOSS TAKE - YAP YUAN TIANG", "tel": "", "exp": "", "company": ""}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}, {"id": "sim24", "no": 24, "noC": "", "s1": {"name": "AZWARY RAHIMEE BIN ZAINAL", "tel": "012-2825768", "exp": "2027-04-13", "company": ""}, "s2": {"name": "", "tel": "", "exp": "", "company": ""}, "remarks": "", "sty": {}}];
+const SIM_NO_C = { "": null, cyan: "#22d3ee", purple: "#a855f7", green: "#22c55e" };
+const SIM_TXT_C = { "": null, pink: "#d946ef", red: "#dc2626", blue: "#2563eb" };
+const SIM_BG_C = { "": null, yellow: "#ffff00", green: "#22c55e", pink: "#f8c8c8" };
+const SIM_WARN_DAYS = 7;   /* 剩 7 天或以下 → WARNING */
+/* 旧的（只有 SIM 1，name/tel/exp 放外面）→ 搬进 s1，SIM 2 / Company 从表格补上 */
+function simMigrate(list) {
+  let ch = false; const seed = new Map(SIM_SEED.map(x => [x.no, x]));
+  const out = list.map(x => { if (x.s1 && x.v2) return x; ch = true; const sd = seed.get(x.no) || {};
+    const s1 = x.s1 || { name: x.name || "", tel: x.tel || "", exp: x.exp || "", company: (sd.s1 || {}).company || "", strike: !!x.strike };
+    const sty = { ...(x.sty || {}) };
+    if (!x.s1) { if (x.nc && !sty["s1.name"]) sty["s1.name"] = { c: x.nc, b: x.nc === "red" ? 1 : 0 }; if (x.telHi && !sty["s1.tel"]) sty["s1.tel"] = { bg: "green" }; }
+    const s2 = x.s2 || (sd.s2 ? { ...sd.s2 } : { name: "", tel: "", exp: "", company: "" });
+    if (!x.s2 && sd.sty) Object.keys(sd.sty).forEach(k => { if (/^s2\./.test(k) && !sty[k]) sty[k] = sd.sty[k]; });
+    return { id: x.id, no: x.no, noC: x.noC || "", s1, s2, remarks: x.remarks || "", sty, v2: true, by: x.by, at: x.at }; });
+  return ch ? out : null;
+}
+function SimTable({ currentUser }) {
+  const h = React.createElement;
+  const [list, save] = useCloudList("phone_sims");
+  const [q, setQ] = React.useState("");
+  const [paint, setPaint] = React.useState(false);
+  const [pop, setPop] = React.useState(null);   /* { id, f, x, y } 颜色小视窗 */
+  const done = React.useRef(false);
+  React.useEffect(() => { if (!Array.isArray(list) || done.current) return;
+    if (list.length === 0) { done.current = true; save(SIM_SEED.map(x => ({ ...x, v2: true }))); return; }
+    const m = simMigrate(list); done.current = true; if (m) save(m); }, [list]);
+  const items = (Array.isArray(list) ? list : []).filter(x => x.s1).slice().sort((a, b) => (a.no || 0) - (b.no || 0));
+  const updRow = (id, fn) => save(items.map(x => x.id === id ? { ...fn(x), updBy: currentUser, updAt: Date.now() } : x));
+  const setF = (id, sim, k, v) => updRow(id, x => ({ ...x, [sim]: { ...(x[sim] || {}), [k]: v } }));
+  const setSty = (id, f, patch) => updRow(id, x => { const st = { ...(x.sty || {}) }; const n = { ...(st[f] || {}), ...patch }; Object.keys(n).forEach(k => { if (!n[k]) delete n[k]; }); if (Object.keys(n).length) st[f] = n; else delete st[f]; return { ...x, sty: st }; });
+  const add = () => { const n = items.reduce((m, x) => Math.max(m, x.no || 0), 0) + 1; save([...items, { id: uid(), no: n, noC: "", s1: { name: "", tel: "", exp: "", company: "" }, s2: { name: "", tel: "", exp: "", company: "" }, remarks: "", sty: {}, v2: true, by: currentUser, at: Date.now() }]); };
+  const del = x => { if (window.confirm("删除第 " + String(x.no).padStart(2, "0") + " 行？（SIM 1 + SIM 2 一起删）")) save(items.filter(y => y.id !== x.id)); };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const left = sm => { if (!sm || !sm.exp) return null; const d = new Date(sm.exp + "T00:00:00"); return isNaN(d) ? null : Math.round((d - today) / 86400000); };
+  const cyc = (o, k) => { const ks = Object.keys(o), i = ks.indexOf(k || ""); return ks[(i + 1) % ks.length]; };
+  const txt = x => [x.no, x.remarks, ...["s1", "s2"].flatMap(k => [x[k].name, x[k].tel, x[k].company])].join(" ").toLowerCase();
+  const shown = items.filter(x => !q || txt(x).includes(q.toLowerCase()));
+  const warnN = items.reduce((n, x) => n + ["s1", "s2"].filter(k => !x[k].strike && left(x[k]) != null && left(x[k]) <= SIM_WARN_DAYS).length, 0);
+  const B = "1px solid #94a3b8", FONT = "'Comic Sans MS','Comic Neue',cursive,sans-serif";
+  const td = { border: B, padding: "3px 6px", fontSize: 13.5, fontFamily: FONT, background: "#fff", whiteSpace: "nowrap" };
+  const th = { border: B, padding: "4px 6px", fontWeight: 900, fontSize: 13, textAlign: "center", fontFamily: FONT };
+  const inpS = { border: "none", outline: "none", background: "transparent", font: "inherit", color: "inherit", fontWeight: "inherit", textDecoration: "inherit", width: "100%", padding: 0 };
+  const cellSt = (x, f) => { const st = (x.sty || {})[f] || {}; return { ...(st.c && SIM_TXT_C[st.c] ? { color: SIM_TXT_C[st.c] } : {}), ...(st.b ? { fontWeight: 900 } : {}), ...(st.s ? { textDecoration: "line-through" } : {}), ...(st.bg && SIM_BG_C[st.bg] ? { background: SIM_BG_C[st.bg] } : {}) }; };
+  const paintEv = (x, f) => ({ onContextMenu: e => { e.preventDefault(); setPop({ id: x.id, f, x: e.clientX, y: e.clientY }); },
+    onClickCapture: paint ? e => { e.preventDefault(); e.stopPropagation(); setPop({ id: x.id, f, x: e.clientX, y: e.clientY }); } : undefined });
+  const dateIn = (x, sim) => h(DebouncedInput, { placeholder: "", title: "dd/mm/yyyy", value: x[sim].exp ? x[sim].exp.split("-").reverse().join("/") : "", style: { ...inpS, width: 92, textAlign: "center" },
+    onCommit: v => { const t = String(v || "").trim(); if (!t) return setF(x.id, sim, "exp", ""); const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(t); if (!m) { window.alert("日期请打 dd/mm/yyyy，例如 04/09/2027"); return; }
+      setF(x.id, sim, "exp", (m[3].length === 2 ? "20" + m[3] : m[3]) + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2)); } });
+  /* 每一栏的宽度跟着最长的字（不会被切掉） */
+  const wch = {}; items.forEach(x => ["s1", "s2"].forEach(sm => ["name", "tel", "company"].forEach(k => { const n = String((x[sm] || {})[k] || "").length; if (n > (wch[sm + k] || 0)) wch[sm + k] = n; })));
+  const wRem = Math.max(14, ...items.map(x => String(x.remarks || "").length));
+  const simCells = (x, sim) => {
+    const sm = x[sim] || {}, L = left(sm), warn = L != null && L <= SIM_WARN_DAYS, stk = sm.strike ? { textDecoration: "line-through" } : {};
+    const tIn = (k, w) => h("td", { key: sim + k, ...paintEv(x, sim + "." + k), style: { ...td, minWidth: "calc(" + Math.max(w, (wch[sim + k] || 0) + 2) + "ch + 12px)", ...(k !== "company" ? stk : {}), ...(sm.strike && k === "name" ? { background: "#f8c8c8" } : {}), ...cellSt(x, sim + "." + k) } },
+      h(DebouncedInput, { className: "keep-case", style: inpS, value: sm[k] || "", onCommit: v => setF(x.id, sim, k, v.trim()) }));
+    return [tIn("name", 16), tIn("tel", 12),
+      h("td", { key: sim + "exp", ...paintEv(x, sim + ".exp"), style: { ...td, textAlign: "center", ...stk, ...cellSt(x, sim + ".exp") } }, dateIn(x, sim)),
+      h("td", { key: sim + "d", style: { ...td, textAlign: "right", width: 54, ...stk } }, L == null ? "" : L),
+      h("td", { key: sim + "st", style: { ...td, width: 76, ...(L == null ? {} : warn ? { background: "#fecaca", color: "#b91c1c" } : { background: "#c6efce", color: "#15803d" }), ...stk } }, L == null ? "" : warn ? "WARNING" : "SAFETY"),
+      tIn("company", 14)];
+  };
+  const P = pop && items.find(x => x.id === pop.id), PS = P ? ((P.sty || {})[pop.f] || {}) : {}, psim = pop ? pop.f.split(".")[0] : "";
+  const sw = (on, bg, label, fn, key) => h("button", { key, onClick: fn, title: label, style: { minWidth: 26, height: 24, borderRadius: 6, border: on ? "2px solid #111" : "1px solid #cbd5e1", background: bg || "#fff", cursor: "pointer", fontSize: 11, fontWeight: 900, padding: "0 5px" } }, bg ? "" : label);
+  return h("div", { onClick: () => pop && setPop(null) },
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 12, alignItems: "center", flexWrap: "wrap" } },
+      h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search no / name / tel / company", value: q, onChange: e => setQ(e.target.value) })),
+      warnN > 0 && h("span", { style: { background: "#fecaca", color: "#b91c1c", borderRadius: 999, padding: "6px 14px", fontWeight: 900, fontSize: 13 } }, "⚠ " + warnN + " 支快到期"),
+      h("button", { onClick: e => { e.stopPropagation(); setPaint(v => !v); setPop(null); }, title: "打开后点任何格子就可以换颜色 / 粗体 / 划线", style: { border: paint ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: paint ? "#f3e8ff" : "#fff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, paint ? "🎨 颜色模式（开）" : "🎨 颜色"),
+      h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 加一行")),
+    h("div", { style: { overflowX: "auto", background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,.08)" } },
+      h("table", { className: "sim-tbl", style: { borderCollapse: "collapse", width: "100%" } },
+        h("thead", null,
+          h("tr", null, h("th", { rowSpan: 2, style: { ...th, width: 56, lineHeight: 1.15 } }, "Smart", h("br"), "Phone", h("br"), "No"),
+            h("th", { colSpan: 6, className: "sim-h1", style: th }, "SIM 1"), h("th", { colSpan: 8, className: "sim-h2", style: th }, "SIM 2")),
+          h("tr", null, ["Name", "Tel", "Exp", "Day(s) Left", "Status", "Company", "Name", "Tel", "Exp", "Day(s) Left", "Status", "Company", "Remarks", ""].map((t, i) => h("th", { key: i, style: { ...th, ...(/Day/.test(t) ? { lineHeight: 1.1 } : {}), ...(i === 13 ? { width: 26 } : {}) } }, t)))),
+        h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 15, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, "载入中…")) :
+          shown.map(x => h("tr", { key: x.id },
+            h("td", { title: "点一下换颜色", onClick: () => updRow(x.id, y => ({ ...y, noC: cyc(SIM_NO_C, y.noC) })), style: { ...td, fontWeight: 900, textAlign: "center", cursor: "pointer", background: SIM_NO_C[x.noC || ""] || "#fff" } }, String(x.no || "").padStart(2, "0")),
+            ...simCells(x, "s1"), ...simCells(x, "s2"),
+            h("td", { ...paintEv(x, "remarks"), style: { ...td, minWidth: "calc(" + (wRem + 2) + "ch + 12px)", ...cellSt(x, "remarks") } }, h(DebouncedInput, { className: "keep-case", style: inpS, value: x.remarks || "", onCommit: v => updRow(x.id, y => ({ ...y, remarks: v.trim() })) })),
+            h("td", { style: { ...td, textAlign: "center", padding: 2 } }, h("button", { title: "删除这一行", onClick: () => del(x), style: { border: "none", background: "none", cursor: "pointer", padding: 2 } }, h(Trash2, { size: 13, color: "#cbd5e1" })))))))),
+    pop && P && h("div", { onClick: e => e.stopPropagation(), style: { position: "fixed", left: Math.min(pop.x, window.innerWidth - 250), top: Math.min(pop.y + 8, window.innerHeight - 170), zIndex: 9999, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.2)", padding: 10, width: 236, fontSize: 12, fontWeight: 800, color: "#334155" } },
+      h("div", { style: { marginBottom: 6 } }, "字颜色"),
+      h("div", { style: { display: "flex", gap: 5, marginBottom: 8 } }, Object.keys(SIM_TXT_C).map(k => h("button", { key: k, onClick: () => setSty(P.id, pop.f, { c: k }), style: { minWidth: 30, height: 24, borderRadius: 6, border: (PS.c || "") === k ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", color: SIM_TXT_C[k] || "#111", cursor: "pointer", fontWeight: 900 } }, "A"))),
+      h("div", { style: { marginBottom: 6 } }, "底色"),
+      h("div", { style: { display: "flex", gap: 5, marginBottom: 8 } }, Object.keys(SIM_BG_C).map(k => sw((PS.bg || "") === k, SIM_BG_C[k], "无", () => setSty(P.id, pop.f, { bg: k }), k))),
+      h("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
+        sw(!!PS.b, null, "粗体", () => setSty(P.id, pop.f, { b: PS.b ? 0 : 1 }), "b"),
+        sw(!!PS.s, null, "划线", () => setSty(P.id, pop.f, { s: PS.s ? 0 : 1 }), "s"),
+        psim === "s1" || psim === "s2" ? sw(!!P[psim].strike, null, (P[psim].strike ? "取消" : "") + "整个 " + psim.toUpperCase().replace("S", "SIM ") + " 划线", () => setF(P.id, psim, "strike", !P[psim].strike), "all") : null,
+        sw(false, null, "清除", () => updRow(P.id, y => { const st = { ...(y.sty || {}) }; delete st[pop.f]; return { ...y, sty: st }; }), "clr"))),
+    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 8 } }, "Day(s) Left 每天自动算 · 剩 " + SIM_WARN_DAYS + " 天或以下 = WARNING · 点号码换颜色 · 按「🎨 颜色」再点格子（或电脑右键）换字颜色 / 底色 / 粗体 / 划线"));
+}
 function PhonePage({ currentUser }) {
+  const [tab, setTab] = React.useState(() => { try { return localStorage.getItem("crm_phone_tab") || "sim"; } catch (e) { return "sim"; } });
+  const go = t => { setTab(t); try { localStorage.setItem("crm_phone_tab", t); } catch (e) {} };
+  const h = React.createElement, pill = (k, l) => h("button", { onClick: () => go(k), style: { border: tab === k ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: tab === k ? "#f3e8ff" : "#fff", color: tab === k ? "#6d28d9" : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, l);
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, pill("sim", "📱 SMART PHONE · SIM"), pill("lend", "☎ 电话借出")),
+    tab === "sim" ? h(SimTable, { currentUser }) : h(PhoneLendPage, { currentUser }));
+}
+function PhoneLendPage({ currentUser }) {
   const h = React.createElement;
   const [list, save] = useCloudList("phones");
   const [q, setQ] = React.useState("");
@@ -12888,6 +12991,8 @@ div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
 .cz-table tr.cz-cancel td { background: #fee2e2 !important; border-color: #fecaca !important; }
 .cz-table tr.cz-cancel:hover td { background: #fecaca !important; }
 /* Closing：DONE 整行紫色 */
+#root .sim-tbl th.sim-h1 { background: #ffff00 !important; } #root .sim-tbl th.sim-h2 { background: #ff9900 !important; }
+#root .sim-tbl th.sim-h1, #root .sim-tbl th.sim-h2, #root .sim-tbl th.sim-h1 *, #root .sim-tbl th.sim-h2 * { color: #111 !important; -webkit-text-fill-color: #111 !important; opacity: 1 !important; text-shadow: none !important; }
 .cz-table tr.cz-bad td, .cz-table tr.cz-bad:hover td { background: #fecaca !important; border-color: #fca5a5 !important; }
 .cz-table tr.cz-done td { background: #ede9fe !important; border-color: #ddd6fe !important; }
 .cz-table tr.cz-done:hover td { background: #ddd6fe !important; }
