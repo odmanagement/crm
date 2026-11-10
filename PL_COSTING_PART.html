@@ -233,7 +233,7 @@ function formatAllAmounts(){
   });
 }
 
-const seedA = [["EPF",""],["SOCSO/EIS/PCB",""],["BACKDATE EPF/SOCSO",""]];
+const seedA = [];   /* EPF / SOCSO/EIS/PCB / BACKDATE EPF/SOCSO 不要了 */
 const seedC = [];
 
 const seedB = [];
@@ -297,7 +297,8 @@ function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
          <td class="num resultCell">0.00</td>`
       : `<td></td><td class="num resultCell">0.00</td>`;
   }
-  const del = `<button class="del" onclick="this.closest('tr').remove();calc()">✕</button>`;
+  const del = `<button class="del" onclick="this.closest('tr').remove();calc()">✕</button>`
+    + (isPartA && /^\s*(SALARY|EPF\/SOCSO\/PCB) - /i.test(String(name||'')) ? `<button class="del no-print" title="搬去 Part A.A（+10%）· 存档后 Bank Statement 变蓝色" onclick="window.__moveAA&&window.__moveAA(this)" style="color:#2563eb;font-weight:900">⬇</button>` : '');
   const amtCell = lockAmt
     ? `<td><input class="amt-input num" type="text" inputmode="decimal" value="${amt}" readonly style="background:#eee;color:#555"></td>`
     : `<td><input class="amt-input num" type="text" inputmode="decimal" value="${amt}" oninput="calc()" onblur="fmtInput(this)"></td>`;
@@ -308,6 +309,11 @@ function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
     <td class="num agent-col agentCell">0.00</td>
     <td>${del}</td>`;
 }
+/* Part A 的月份搬去 Part A.A（+10%）：保留连接（cid），存档后 Bank Statement 那个月变蓝色 */
+window.__moveAA=function(btn){ var tr=btn.closest('tr'); if(!tr) return; var n=tr.querySelector('.name-input'), a=tr.querySelector('.amt-input');
+  var cid=tr.dataset.cid||'', nm=n?n.value:'', am=a?a.value:''; tr.remove();
+  var nt=addRow('partCBody',nm,am); var m=nt.querySelector('.mult-input'); if(m) m.value='10'; if(cid) nt.dataset.cid=cid; nt.dataset.auto='0';
+  try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); calc(); if(typeof autoSave==='function') autoSave(); }catch(e){} };
 function addRow(bodyId,name,amt,pinned,lockAmt,noMult){
   // Part A rows get × column, except pinned (LAWYER/M&V) and rows flagged noMult
   const isPartA = bodyId==='partABody';
@@ -536,6 +542,8 @@ function restoreData(d){
   BODIES.forEach(id=>document.getElementById(id).innerHTML='');
   BODIES.forEach(id=>{
     (d.parts[id]||[]).forEach(row=>{
+      /* 旧的空白 EPF / SOCSO/EIS/PCB / BACKDATE EPF/SOCSO 不要了（有数目的才留着） */
+      if(id==='partABody' && /^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/i.test(String(row.name||'').trim()) && !parseNum(row.amt||'')) return;
       // a Part A non-pinned row without a mult column is a plain added row
       const noMult = (id==='partABody' && !row.pinned && (row.hasMult===false || !!row.auto));
       const tr=addRow(id,String(row.name||'').replace(/^\s*SALARY - /i,'EPF/SOCSO/PCB - '),row.amt,row.pinned,row.lock,noMult);   /* 显示 EPF/SOCSO/PCB - 日期 */
