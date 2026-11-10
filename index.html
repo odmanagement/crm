@@ -954,7 +954,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261110132500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261110133000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1892,7 +1892,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "363";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "364";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3763,7 +3763,7 @@ function CRM({ onLogout, currentUser }) {
     return "";
   })()), /*#__PURE__*/React.createElement("div", {
     style: S.headerRight
-  }, dueCount > 0 && /*#__PURE__*/React.createElement("span", {
+  }, React.createElement(PageJump, { setPage: pg => { setOpenId(null); setPage(pg); } }), dueCount > 0 && /*#__PURE__*/React.createElement("span", {
     style: { ...S.dueBadge, cursor: "pointer" },
     onClick: () => setShowDue(true),
     title: "View follow-ups"
@@ -4255,6 +4255,25 @@ function MissionPhotos({ mission, onChange, onClose, onRemark, canManage = true 
 }
 /* ---------- 左边菜单（头像 + 职位 + 文字菜单） ---------- */
 const ROLE_LABELS = { lucas: "Boss", admin: "Admin" };
+/* 上面的搜索：打页面名字（例如 boss take）→ 直接跳去那页 */
+const PAGE_ALIAS = { receipt: "老板 boss 收据", returnsalary: "退薪 return", bankstmt: "银行 bank statement bs", bankstmt2: "人才 rencai", lendingfee: "lending 借", costing_pl: "pl costing 成本", costing_car: "car costing 车", submission: "closing 结案", salarylist: "salary status 薪水", acc_salary: "salary listing 薪水 account", acc_final: "final record", phone: "phone sim 电话", banker: "banker 银行家", mission: "mission 任务", verify: "verify 核对", onleave: "leave 请假", referral: "referral 红包", todo: "todo 待办", dashboard: "dashboard 首页", agreement: "agreement 合约", odpayment: "od payment 付款" };
+function PageJump({ setPage }) {
+  const h = React.createElement;
+  const [q, setQ] = React.useState(""), [open, setOpen] = React.useState(false), [hi, setHi] = React.useState(0);
+  const all = []; (window.__crmNavItems || NAV).forEach(n => { if (n.children) n.children.forEach(c => all.push({ id: c.id, label: c.label, grp: n.label })); else all.push({ id: n.id, label: n.label, grp: "" }); });
+  const k = q.trim().toLowerCase().replace(/\s+/g, " ");
+  const hits = !k ? [] : all.filter(x => (x.label + " " + x.grp + " " + x.id.replace(/_/g, " ") + " " + (PAGE_ALIAS[x.id] || "")).toLowerCase().includes(k)
+    || x.label.toLowerCase().replace(/\s+/g, "").includes(k.replace(/\s/g, ""))).slice(0, 8);
+  const go = x => { if (!x) return; setPage(x.id); setQ(""); setOpen(false); try { window.__crmGoPage && window.__crmGoPage(x.id); } catch (e) {} };
+  return h("div", { style: { position: "relative" } },
+    h("input", { value: q, placeholder: "🔍 搜页面…（例如 boss take）", onChange: e => { setQ(e.target.value); setOpen(true); setHi(0); }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 150),
+      onKeyDown: e => { if (e.key === "ArrowDown") { e.preventDefault(); setHi(i => Math.min(i + 1, hits.length - 1)); } else if (e.key === "ArrowUp") { e.preventDefault(); setHi(i => Math.max(i - 1, 0)); } else if (e.key === "Enter") { e.preventDefault(); go(hits[hi] || hits[0]); } else if (e.key === "Escape") { setQ(""); e.target.blur(); } },
+      style: { width: 210, padding: "7px 12px", borderRadius: 999, border: "1px solid rgba(148,163,184,.5)", background: "rgba(255,255,255,.9)", fontSize: 13, fontWeight: 700, outline: "none", fontFamily: "inherit", color: "#1e1b4b" } }),
+    open && hits.length > 0 && h("div", { style: { position: "absolute", top: "110%", right: 0, minWidth: 240, background: "#fff", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.18)", border: "1px solid #e2e8f0", zIndex: 999, overflow: "hidden" } },
+      hits.map((x, i) => h("div", { key: x.id, onMouseDown: e => { e.preventDefault(); go(x); }, onMouseEnter: () => setHi(i),
+        style: { padding: "9px 14px", cursor: "pointer", background: i === hi ? "#f3e8ff" : "#fff", display: "flex", justifyContent: "space-between", gap: 10, fontWeight: 800, fontSize: 13, color: "#1e1b4b" } },
+        h("span", null, x.label), x.grp && h("span", { style: { color: "#94a3b8", fontSize: 11.5, fontWeight: 700 } }, x.grp)))));
+}
 function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges }) {
   const h = React.createElement;
   const me = canonUser(currentUser);
@@ -4262,6 +4281,7 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const [avaList, saveAva] = useCloudList("user_avatars");
   const vis = n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)) && !((n.id === "bankstmt" || n.id === "bankstmt2" || n.id === "bsreturn") && READONLY_USERS.includes(me));
   const items = NAV.filter(vis).map(n => n.children ? { ...n, children: n.children.filter(vis) } : n).filter(n => !n.children || n.children.length);
+  window.__crmNavItems = items;   /* 给上面的「搜页面」用 */
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
       h("div", { className: "sb-ava", title: "按一下换头像", style: { cursor: "pointer", position: "relative" }, onClick: () => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.onchange = async () => { const fl = i.files && i.files[0]; if (!fl) return; try { const img = await avaResize(fl); saveAva([...(avaList || []).filter(x => x && x.id !== me), { id: me, img, at: Date.now() }]); } catch (e) { alert("这张照片读不到，换一张试试"); } }; i.click(); } },
@@ -6161,6 +6181,32 @@ function CostingAutoSync({ currentUser }) {
   const [drafts, saveDrafts, fresh] = useCloudList("form_drafts");
   const [cExt] = useCloudList("costing_extras");
   const [cMeta] = useCloudList("costing_meta");
+  /* Bank Statement 的颜色（黄 / 蓝）：PL Costing 里面没有那个月 → 自动变回空白 */
+  const clrT = React.useRef(0);
+  React.useEffect(() => {
+    if (!fresh || !Array.isArray(drafts) || !drafts.length) return;
+    clearTimeout(clrT.current);
+    clrT.current = setTimeout(async () => {
+      try {
+        const N2 = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+        const rec = new Map();   /* 名字 → { ids, dates } */
+        drafts.forEach(d => { if (!d || !/COSTING_PART/i.test(d.file || "") || !d.native || !d.native.data || !d.native.data.parts) return;
+          const k = N2(d.native.data.clientName || d.title); if (!k) return; const r = rec.get(k) || { ids: new Set(), dates: new Set() }; rec.set(k, r);
+          ["partABody", "partCBody"].forEach(b => (d.native.data.parts[b] || []).forEach(x => { const m = /^SALARY - (.+)$/.exec(bsSalKey(x.name)); if (!m) return; if (x.cid) r.ids.add(x.cid); else r.dates.add(m[1]); })); });
+        const byStore = {};
+        (window.__crmBsPeople || []).forEach(p => { const r = rec.get(N2(p.name)); if (!r || !p.store) return;
+          (p.months || []).forEach(m => { if (m.costed && !r.ids.has(m.cid) && !r.dates.has(bsNormDmy(m.date))) (byStore[p.store] = byStore[p.store] || new Map()).set(p.pid + "|" + m.cid, 1); }); });
+        for (const st of Object.keys(byStore)) {
+          const want = byStore[st]; const raw = await DB.get(st); let list = []; try { list = raw ? JSON.parse(raw) : []; } catch (e) { continue; }
+          let ch = false;
+          const next = list.map(q => { if (!q || !q.bankStmt) return q; let c2 = false; const cr = (q.bankStmt.credits || []).map((x, ci) => { if (x && x.costed && want.has(q.id + "|" + (x.id || ("i" + ci)))) { c2 = true; return { ...x, costed: "", costedAt: null }; } return x; }); if (!c2) return q; ch = true; return { ...q, bankStmt: { ...q.bankStmt, credits: cr } }; });
+          if (!ch) continue;
+          await DB.set(st, JSON.stringify(next));
+          try { _clMem[st] = next; window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key: st, next } })); } catch (e) {}
+        }
+      } catch (e) {}
+    }, 4000);
+  }, [fresh, drafts]);
   React.useEffect(() => {
     if (!Array.isArray(drafts)) return;
     const mm = new Map((Array.isArray(cMeta) ? cMeta : []).filter(x => x && x.id).map(x => [x.id, x]));
