@@ -541,7 +541,10 @@ function restoreData(d){
   document.getElementById('cMult').value=d.cMult??'20';
   BODIES.forEach(id=>document.getElementById(id).innerHTML='');
   BODIES.forEach(id=>{
+    var seenSal={};
     (d.parts[id]||[]).forEach(row=>{
+      /* Part C：重复的 SALARY / SALARY BALANCE / CUSTOMER USE 只显示一行 */
+      if(id==='partSalBody'){ var nn=String(row.name||'').trim().toUpperCase(), kk=/^SALARY( BALANCE)?$/.test(nn)?'S':nn==='CUSTOMER USE'?'U':''; if(kk){ if(seenSal[kk]) return; seenSal[kk]=1; } }
       /* 旧的空白 EPF / SOCSO/EIS/PCB / BACKDATE EPF/SOCSO 不要了（有数目的才留着） */
       if(id==='partABody' && /^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/i.test(String(row.name||'').trim()) && !parseNum(row.amt||'')) return;
       // a Part A non-pinned row without a mult column is a plain added row

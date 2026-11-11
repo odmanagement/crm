@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111160500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111161000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "385";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "386";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6183,6 +6183,9 @@ function costSyncData(data, p, L, opt) {
   if (p && p.bd) { let has = false; A.forEach(r => { if (/^BACKDATE EPF\/SOCSO$/.test(N(r))) { has = true; if (r.amt !== p.bd) r.amt = p.bd; if (r.hasMult !== false) { r.hasMult = false; r.mult = ""; } r.auto = true; } });
     if (!has) putA({ name: "BACKDATE EPF/SOCSO", amt: p.bd, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); }
   else if (p) for (let i = A.length - 1; i >= 0; i--) if (/^BACKDATE EPF\/SOCSO$/.test(N(A[i])) && A[i].auto) A.splice(i, 1);
+  /* Part C 重复的 SALARY / SALARY BALANCE / CUSTOMER USE：不管有没有连到 Bank Statement，都只留一行 */
+  if (Array.isArray(parts.partSalBody)) { let got = false, gotU = false; parts.partSalBody = parts.partSalBody.filter(r => { const n = N(r);
+    if (/^SALARY( BALANCE)?$/.test(n)) { if (got) return false; got = true; } else if (n === "CUSTOMER USE") { if (gotU) return false; gotU = true; } return true; }); }
   /* Part C · Salary：永远跟着 Bank Statement 最新的 Balance → 只有一行 SALARY（以前多开的 BALANCE 删掉，不会重叠加下去） */
   if (!fresh && p && p.bal) {
     const S = parts.partSalBody = (parts.partSalBody || []).filter(r => N(r) !== "BALANCE");
