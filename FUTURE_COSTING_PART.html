@@ -956,7 +956,7 @@ if(saved && saved.parts){
         if(/^BACKDATE EPF\/SOCSO$/.test(n) && p && p.bd) swapNoX(tr,p.bd);
         else if(!mon.length && !(p && p.noSal) && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);
         else if(!mon.length && !(p && p.noSal) && /^SOCSO\/EIS\/PCB$/.test(n) && p && p.soc) swapNoX(tr,p.soc); });
-      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(nameOf(tr)==='SALARY') tr.remove(); }); addAuto('partSalBody','SALARY',p.bal); if(p.cuse){ addAuto('partSalBody','CUSTOMER USE',p.cuse); } }
+      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(/^SALARY( BALANCE)?$/.test(nameOf(tr))) tr.remove(); }); addAuto('partSalBody',p.cuse?'SALARY BALANCE':'SALARY',p.bal); if(p.cuse){ addAuto('partSalBody','CUSTOMER USE',p.cuse); } }
     }
     /* 每个月 / Lending：跟主系统同一套规则（用 Bank Statement 每一行自己的 id 对，同一个日期也会分开）
        第一次 → Part A（没有 ×）；存档后再加的 → Part A.A Charges（+10%）；Lending (A) → Part A，(A.A) → Part A.A */

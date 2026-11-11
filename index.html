@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111150500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111151000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "378";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "379";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6179,13 +6179,15 @@ function costSyncData(data, p, L, opt) {
   /* Part C · Salary：永远跟着 Bank Statement 最新的 Balance → 只有一行 SALARY（以前多开的 BALANCE 删掉，不会重叠加下去） */
   if (!fresh && p && p.bal) {
     const S = parts.partSalBody = (parts.partSalBody || []).filter(r => N(r) !== "BALANCE");
-    const si = S.findIndex(r => N(r) === "SALARY");
-    if (si >= 0) { if (S[si].amt !== p.bal) S[si].amt = p.bal; S[si].auto = true; }
-    else S.unshift({ name: "SALARY", amt: p.bal, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
+    /* 有 CUSTOMER USE → 「SALARY BALANCE」+「CUSTOMER USE」，TOTAL = Bank Statement 的 TOTAL；没有 → 只有「SALARY」 */
+    const sName = p.cuse ? "SALARY BALANCE" : "SALARY";
+    const si = S.findIndex(r => /^SALARY( BALANCE)?$/.test(N(r)));
+    if (si >= 0) { if (S[si].amt !== p.bal) S[si].amt = p.bal; if (N(S[si]) !== sName) S[si].name = sName; S[si].auto = true; }
+    else S.unshift({ name: sName, amt: p.bal, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
     /* 红色 CUSTOMER USE（Bank Statement 黄色上面的红色）放在 SALARY 下面；没有就拿掉 */
     const S2 = parts.partSalBody, ui = S2.findIndex(r => N(r) === "CUSTOMER USE");
     if (p.cuse) { if (ui >= 0) { if (S2[ui].amt !== p.cuse) S2[ui].amt = p.cuse; S2[ui].auto = true; }
-      else { const at = S2.findIndex(r => N(r) === "SALARY"); S2.splice(at + 1, 0, { name: "CUSTOMER USE", amt: p.cuse, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); } }
+      else { const at = S2.findIndex(r => /^SALARY( BALANCE)?$/.test(N(r))); S2.splice(at + 1, 0, { name: "CUSTOMER USE", amt: p.cuse, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); } }
     else if (ui >= 0 && S2[ui].auto) S2.splice(ui, 1);
   }
   const nd = { ...data, parts };
