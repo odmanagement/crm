@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111145000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111150000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "376";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "377";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6511,12 +6511,17 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
     h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#b91c1c", fontSize: 11.5 } }, "CUSTOMER USE"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fecaca", color: "#b91c1c", textAlign: "center" }, title: "上面空白格子填的数目加起来（CUSTOMER USE）" }, lsFmt(cuse)),
     h("td", { style: cell })));
+  /* BALANCE = TOTAL − CUSTOMER USE（PL Costing 的 SALARY 跟这个） */
+  if (cuse) trs.push(h("tr", { key: "bl" },
+    h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#1d4ed8", fontSize: 11.5 } }, "BALANCE"),
+    h("td", { style: { ...cell, fontWeight: 900, background: "#dbeafe", color: "#1d4ed8", textAlign: "center" }, title: "TOTAL − CUSTOMER USE" }, lsFmt(bal)),
+    h("td", { style: cell })));
   trs.push(h("tr", { key: "t", style: { background: "#f8fafc" } },
     h("td", { colSpan: 6, style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tC)),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tR)),
-    h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "SALARY"),
-    h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" } }, lsFmt(bal)),
+    h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "TOTAL"),
+    h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = BALANCE + CUSTOMER USE" }, lsFmt(bal + cuse)),
     h("td", { style: cell })));
   return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", bottom: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
