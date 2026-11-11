@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111132500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111143500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "374";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "375";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4383,7 +4383,10 @@ function ownToast(who) {
   try { window.dispatchEvent(new Event("crm-own-block")); } catch (e) {}
 }
 /* 一个一个比较：别人的只准改备注；删除别人的 → 放回去；新的 / 没主人的 → 记下主人 */
-function ownGuardList(prev, next, ownerFn, stampKey) {
+/* OD Payment（资料在 Lending Sheet / od_payments 里面）：照片、已付、Return → 全部人都可以改（里面一层层的也算） */
+const OWN_FREE_DEEP = { lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)/i };
+const ownStrip = (v, re) => Array.isArray(v) ? v.map(y => ownStrip(y, re)) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => { if (!re.test(k) && !OWN_FREE.test(k)) o[k] = ownStrip(v[k], re); return o; }, {}) : v;
+function ownGuardList(prev, next, ownerFn, stampKey, key) {
   if (!Array.isArray(prev) || !Array.isArray(next)) return next;
   const me = canonUser(window.__crmUser || ""); if (!me) return next;
   const of = ownerFn || ownerOf, sk = stampKey || "owner";
@@ -4396,6 +4399,7 @@ function ownGuardList(prev, next, ownerFn, stampKey) {
     const ow = of(o);
     if (!ow) return { ...x, [sk]: me };   /* 旧资料：第一个改的人变成主人 */
     if (ownBoss() || sameUser(ow, me)) return x;
+    const dre = key && OWN_FREE_DEEP[key]; if (dre && _J(ownStrip(o, dre)) === _J(ownStrip(x, dre))) return x;   /* 只改了照片 / 已付 / Return */
     const m = { ...o }; let cut = false;
     new Set([...Object.keys(o), ...Object.keys(x)]).forEach(k => { if (_J(o[k]) === _J(x[k])) return; if (OWN_FREE.test(k)) m[k] = x[k]; else cut = true; });
     if (cut) blocked = ow;
@@ -4423,7 +4427,7 @@ function useCloudList(key) {
     if (_clMem[key] === undefined) clCacheGet(key).then(v => { if (!gotCloud && v != null && _clMem[key] === undefined) { _clMem[key] = v; setListRaw(v); } });
     DB.get(key).then(v => { gotCloud = true; const d = v ? JSON.parse(v) : []; setList(d); setFresh(true); clCachePut(key, d); }).catch(() => { gotCloud = true; if (_clMem[key] === undefined) setList([]); setFresh(true); }); }, [key]);
   React.useEffect(() => DB.subscribe((k, v) => { if (k === key && v) { try { const d = JSON.parse(v); setList(d); clCachePut(key, d); } catch (e) {} } }), [key]);
-  const save = next => { if (OWN_KEYS.includes(key) && !isReadOnlyUser()) next = ownGuardList(_clMem[key] !== undefined ? _clMem[key] : list, next);
+  const save = next => { if (OWN_KEYS.includes(key) && !isReadOnlyUser()) next = ownGuardList(_clMem[key] !== undefined ? _clMem[key] : list, next, undefined, undefined, key);
     setList(next); clCachePut(key, next); DB.set(key, JSON.stringify(next)); try { window.dispatchEvent(new CustomEvent("crm-cloudlist", { detail: { key, next } })); } catch (e) {} };
   React.useEffect(() => { const f = e => { if (e.detail && e.detail.key === key) setList(e.detail.next); }; window.addEventListener("crm-cloudlist", f); return () => window.removeEventListener("crm-cloudlist", f); }, [key]);
   return [list, save, fresh];
