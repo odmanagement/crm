@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111181000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111181500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "392";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "393";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6661,7 +6661,10 @@ function AccSalaryPage({ currentUser }) {
   const shift = n => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); goYm(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); };
   const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const ymLabel = v => { const [y, m] = v.split("-"); return MON[(+m || 1) - 1] + " " + y; };
-  const items = Array.isArray(list) ? list : [];
+  /* 同一个 id 出现两次（两个人同时打开时都补了资料）→ 只算一次，并自动清掉 */
+  const items = (() => { const seen = new Set(); return (Array.isArray(list) ? list : []).filter(x => x && !seen.has(x.id) && seen.add(x.id)); })();
+  const dupClean = React.useRef(false);
+  React.useEffect(() => { if (!accFresh || dupClean.current || !Array.isArray(list)) return; if (items.length < list.length) { dupClean.current = true; saveRaw(items); } }, [list, accFresh]);
   const sql = sq.trim().toLowerCase();
   const allRows = items.filter(x => x.ym === ym);
   const rows = allRows.filter(x => !sql || [x.name, x.company, x.agent, x.lbl].join(" ").toLowerCase().includes(sql));
