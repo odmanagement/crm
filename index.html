@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111160000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111160500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -973,17 +973,24 @@ const APP_BUILD = "20261111160000";   /* 每次上传新版都要换 → 所有�
     const a = document.activeElement;
     if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== "checkbox" && a.type !== "radio") return true;
     try { if (Object.values(DB._queue || {}).some(q => q.running || q.next !== null)) return true; } catch (e) {}
+    /* 有打开着的表格（Costing 等）→ 不刷新 */
+    try { if (Array.from(document.querySelectorAll("iframe")).some(f => f.offsetWidth > 80 && f.offsetHeight > 80)) return true; } catch (e) {}
     return false;
   };
+  /* 有新版本：超过 2 分钟没人打字 / 没人点 / 没打开表格 → 自己刷新；正在用的时候只显示提示，不会打断 */
+  let lastAct = Date.now(), idleT = 0;
+  ["keydown", "mousedown", "touchstart", "input", "wheel"].forEach(ev => window.addEventListener(ev, () => { lastAct = Date.now(); }, true));
+  const idleReload = () => { if (idleT) return; idleT = setInterval(() => { if (reloading) return; if (Date.now() - lastAct > 120000 && !busy()) { reloading = true; location.reload(); } }, 10000); };
   /* 不再自动刷新（会打断正在打字的人）→ 只在上面显示「有新版本 · 按这里刷新」，自己按才刷新 */
   const doReload = () => {
     if (reloading || document.getElementById("crm-newver")) return;
     const b = document.createElement("div"); b.id = "crm-newver";
-    b.innerHTML = "🔄 CRM 有新版本 · <b style='text-decoration:underline'>打完字后按这里刷新</b>";
+    b.innerHTML = "🔄 CRM 有新版本 · <b style='text-decoration:underline'>按这里刷新</b>（2 分钟没动会自己刷新）";
     Object.assign(b.style, { position: "fixed", left: "50%", top: "10px", transform: "translateX(-50%)", zIndex: 99999, background: "#dc2626", color: "#fff", padding: "9px 18px", borderRadius: "999px", fontWeight: 900, fontSize: "13.5px", boxShadow: "0 8px 24px rgba(0,0,0,.25)", cursor: "pointer" });
     b.onclick = () => { if (busy() && !window.confirm("还有资料在存 / 正在打字，确定现在刷新？")) return; reloading = true; location.reload(); };
     document.body.appendChild(b);
   };
+  const onNew = () => { doReload(); idleReload(); };
   const check = async () => {
     try {
       const url = location.href.split("#")[0];
@@ -991,7 +998,7 @@ const APP_BUILD = "20261111160000";   /* 每次上传新版都要换 → 所有�
       if (!r.ok) return;
       const t = await r.text();
       const m = t.match(/const APP_BUILD = "(\d+)"/);
-      if (m && m[1] !== APP_BUILD) doReload();
+      if (m && m[1] !== APP_BUILD) onNew();
     } catch (e) {}
   };
   setInterval(check, 60000);
@@ -1903,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "384";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "385";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
