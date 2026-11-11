@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111161000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "386";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "387";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4391,7 +4391,10 @@ function ownToast(who) {
 }
 /* 一个一个比较：别人的只准改备注；删除别人的 → 放回去；新的 / 没主人的 → 记下主人 */
 /* OD Payment（资料在 Lending Sheet / od_payments 里面）：照片、已付、Return → 全部人都可以改（里面一层层的也算） */
-const OWN_FREE_DEEP = { lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)/i };
+const OWN_FREE_DEEP = {
+  /* Bank Statement / Rencai 最右边那一栏（COMPANY / POSITION / USE CARD / 下面的格子）：全部人都可以改 */
+  bank_stmt_people: /^(company|position|useCard|\d+_k)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k)$/,
+  lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)/i };
 const ownStrip = (v, re) => Array.isArray(v) ? v.map(y => ownStrip(y, re)) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => { if (!re.test(k) && !OWN_FREE.test(k)) o[k] = ownStrip(v[k], re); return o; }, {}) : v;
 function ownGuardList(prev, next, ownerFn, stampKey, key) {
   if (!Array.isArray(prev) || !Array.isArray(next)) return next;
