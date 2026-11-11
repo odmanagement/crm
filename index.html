@@ -715,7 +715,7 @@ const DB = {
     } catch (e) { console.warn("migrateFiles", e); }
   },
   /* Bank Statement / Rencai 也是每个人一行：两个人同时改不同的人，不会互相盖掉 */
-  _split: { form_drafts: "fdraft:", bank_stmt_people: "fbsp:", bank_stmt_people_rencai: "fbsr:" },
+  _split: { form_drafts: "fdraft:", bank_stmt_people: "fbsp:", bank_stmt_people_rencai: "fbsr:", lending_fee: "flf:", od_payments: "fodp:" },   /* Lending / OD Payment 也一笔一行：同时上传照片 / 按已付不会互相盖掉 */
   _splitArr: {},
   _known: {},
   _splitQ: {},
@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111171000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1603,11 +1603,11 @@ async function checkRestorePw(pw) {
 }
 /* ===== 全部资料：每天自动备份（每一页都有）+ 下载到电脑 ===== */
 const FULLBK_KEEP = 14;
-const FULLBK_SKIP = /^(fdraft:_meta|fbsp:_meta|fbsr:_meta|backup_|bkdraft_|fullbk_|ffile_|ficimg_|mphoto_|dtfile_|celeb_seen_|filemig_|data_version)/;
+const FULLBK_SKIP = /^(fdraft:_meta|fbsp:_meta|fbsr:_meta|flf:_meta|fodp:_meta|backup_|bkdraft_|fullbk_|ffile_|ficimg_|mphoto_|dtfile_|celeb_seen_|filemig_|data_version)/;
 const DL_SKIP = /^(backup_|bkdraft_|fullbk_|celeb_seen_|filemig_)/;
 const CRM_KEY_LABELS = { clients: "客户 / 贷款（House / Car / Personal）", bank_stmt_people: "Bank Statement", bank_stmt_people_rencai: "Rencai Bank Statement", lending_fee: "Lending Sheet", od_payments: "OD Payment", receipts: "Boss Take", bs_return_salary: "Return Salary", return_salary: "Return Salary · Alice", leaves: "On Leave", missions: "Mission", bankers: "Banker", verifications: "Verify", submissions: "Closing", costing_extras: "Costing（Done / Commission / 照片）", doc_tracking: "Customer Docs", phones: "Phone", referrals: "Referral", form_files: "HTML 文件库", form_drafts: "表格存档（旧）" };
-const crmKeyLabelX = k => /^fdraft:/.test(k) ? "表格存档 · " + k.slice(7) : /^fbsp:/.test(k) ? "Bank Statement · " + k.slice(5) : /^fbsr:/.test(k) ? "Rencai Bank Statement · " + k.slice(5) : null;
-const crmKeyLabel = k => CRM_KEY_LABELS[k] || (/^fdraft:/.test(k) ? "表格存档 " + k.slice(7) : /^fbsp:/.test(k) ? "Bank Statement " + k.slice(5) : /^fbsr:/.test(k) ? "Rencai Bank Statement " + k.slice(5) : k);
+const crmKeyLabelX = k => /^fdraft:/.test(k) ? "表格存档 · " + k.slice(7) : /^fbsp:/.test(k) ? "Bank Statement · " + k.slice(5) : /^fbsr:/.test(k) ? "Rencai Bank Statement · " + k.slice(5) : /^flf:/.test(k) ? "Lending Sheet · " + k.slice(4) : /^fodp:/.test(k) ? "OD Payment · " + k.slice(5) : null;
+const crmKeyLabel = k => CRM_KEY_LABELS[k] || (/^fdraft:/.test(k) ? "表格存档 " + k.slice(7) : /^fbsp:/.test(k) ? "Bank Statement " + k.slice(5) : /^fbsr:/.test(k) ? "Rencai Bank Statement " + k.slice(5) : /^flf:/.test(k) ? "Lending Sheet " + k.slice(4) : /^fodp:/.test(k) ? "OD Payment " + k.slice(5) : k);
 async function crmAllKeys() {
   await DB._pick(); const s = DB._init(); let keys = [], from = 0;
   while (true) { const { data, error } = await s.from("crm_store").select("key").order("key").range(from, from + 499); if (error) throw error; keys = keys.concat((data || []).map(r => r.key)); if (!data || data.length < 500) break; from += 500; }
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "387";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "388";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
