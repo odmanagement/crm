@@ -518,7 +518,7 @@ function collectData(){
     d.parts[id]=[...document.getElementById(id).querySelectorAll('tr')].map(r=>{
       const multEl=r.querySelector('.mult-input');
       return {
-        name:String(r.querySelector('.name-input').value||'').replace(/^\s*EPF\/SOCSO\/PCB - /i,'SALARY - '),   /* 存档用 SALARY - 日期 */
+        name:String(r.querySelector('.name-input').value||'').replace(/^\s*EPF\/SOCSO\/PCB - /i,'SALARY - ').replace(/^\s*SALARY BALANCE\s*$/i,'SALARY'),   /* 存档用 SALARY - 日期 */
         amt:r.querySelector('.amt-input').value,
         mult:multEl?multEl.value:'',
         hasMult:!!multEl,
@@ -546,7 +546,7 @@ function restoreData(d){
       if(id==='partABody' && /^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/i.test(String(row.name||'').trim()) && !parseNum(row.amt||'')) return;
       // a Part A non-pinned row without a mult column is a plain added row
       const noMult = (id==='partABody' && !row.pinned && (row.hasMult===false || !!row.auto));
-      const tr=addRow(id,String(row.name||'').replace(/^\s*SALARY - /i,'EPF/SOCSO/PCB - '),row.amt,row.pinned,row.lock,noMult);   /* 显示 EPF/SOCSO/PCB - 日期 */
+      const tr=addRow(id,(id==='partSalBody' && /^\s*SALARY\s*$/i.test(String(row.name||'')) && (d.parts.partSalBody||[]).some(function(z){ return /^\s*CUSTOMER USE\s*$/i.test(String(z.name||'')); }) ? 'SALARY BALANCE' : String(row.name||'').replace(/^\s*SALARY - /i,'EPF/SOCSO/PCB - ')),row.amt,row.pinned,row.lock,noMult);   /* 显示 EPF/SOCSO/PCB - 日期 */
       const multEl=tr.querySelector('.mult-input');
       if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
       if(row.auto) tr.dataset.auto='1';
