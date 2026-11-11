@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111151500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111152000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "380";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "381";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6444,7 +6444,11 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
   const fr = (k, col, st, ph) => tx((d.cells || {})[k + "_" + col], v => setD(p => ({ ...p, cells: { ...(p.cells || {}), [k + "_" + col]: v } })), st, ph);
   const hdr = t => h("span", { style: { fontWeight: 900, color: "#475569", fontSize: 12, display: "block", textAlign: "right" } }, t);
   const credits = d.credits, recv = d.received;
-  const N = Math.max(rencai ? 9 : 8, credits.length + 2, recv.length + 2 + RO) + (rencai ? 3 : 0) + (parseInt(d.extraRows) || 0);   /* Rencai：下面多 3 行 */
+  /* Rencai：固定到 ECCRIS PW（12 行）；以前多出来的空白格子不要了（有打字的那几行会留着） */
+  const XR = rencai ? "extraRows2" : "extraRows";
+  const lastUsed = Object.keys(d.cells || {}).reduce((m, ck) => { const kk = parseInt(ck); return String((d.cells || {})[ck] || "").trim() && kk > m ? kk : m; }, -1);
+  const N = rencai ? Math.max(12, credits.length + 2, recv.length + 2 + RO, lastUsed + 1) + (parseInt(d[XR]) || 0)
+    : Math.max(8, credits.length + 2, recv.length + 2 + RO) + (parseInt(d.extraRows) || 0);
   const cell = { border: "1px solid #e5e7eb", padding: "4px 8px", fontSize: 13, whiteSpace: "nowrap", height: 20 };
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
@@ -6507,8 +6511,8 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
       h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : fr(k, "k", { fontWeight: 400 }))));
   }
   trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
-    h("td", { style: { ...cell, height: 14, padding: "2px 8px", textAlign: "center" } }, h("button", { onClick: () => { const nx = { ...d, extraRows: (parseInt(d.extraRows) || 0) + 1 }; setD(nx); commit(nx); }, title: "加格子下去", style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 6, padding: "1px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ ADD")),
-    h("td", { colSpan: 3, style: { ...cell, height: 14, padding: "2px 8px" } }, (parseInt(d.extraRows) || 0) > 0 && h("button", { onClick: () => { const nx = { ...d, extraRows: Math.max(0, (parseInt(d.extraRows) || 0) - 1) }; setD(nx); commit(nx); }, title: "减少一行（最后一行的资料不会删除）", style: { border: "none", background: "none", color: "#94a3b8", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "－"))));
+    h("td", { style: { ...cell, height: 14, padding: "2px 8px", textAlign: "center" } }, h("button", { onClick: () => { const nx = { ...d, [XR]: (parseInt(d[XR]) || 0) + 1 }; setD(nx); commit(nx); }, title: "加格子下去", style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 6, padding: "1px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ ADD")),
+    h("td", { colSpan: 3, style: { ...cell, height: 14, padding: "2px 8px" } }, (parseInt(d[XR]) || 0) > 0 && h("button", { onClick: () => { const nx = { ...d, [XR]: Math.max(0, (parseInt(d[XR]) || 0) - 1) }; setD(nx); commit(nx); }, title: "减少一行（最后一行的资料不会删除）", style: { border: "none", background: "none", color: "#94a3b8", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "－"))));
   if (cuse) trs.push(h("tr", { key: "cu" },
     h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#b91c1c", fontSize: 11.5 } }, "CUSTOMER USE"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fecaca", color: "#b91c1c", textAlign: "center" }, title: "上面空白格子填的数目加起来（CUSTOMER USE）" }, lsFmt(cuse)),
