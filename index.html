@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111151000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111151500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "379";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "380";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6444,7 +6444,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
   const fr = (k, col, st, ph) => tx((d.cells || {})[k + "_" + col], v => setD(p => ({ ...p, cells: { ...(p.cells || {}), [k + "_" + col]: v } })), st, ph);
   const hdr = t => h("span", { style: { fontWeight: 900, color: "#475569", fontSize: 12, display: "block", textAlign: "right" } }, t);
   const credits = d.credits, recv = d.received;
-  const N = Math.max(8, credits.length + 2, recv.length + 2 + RO) + (rencai ? 3 : 0) + (parseInt(d.extraRows) || 0);   /* Rencai：下面多 3 行 */
+  const N = Math.max(rencai ? 9 : 8, credits.length + 2, recv.length + 2 + RO) + (rencai ? 3 : 0) + (parseInt(d.extraRows) || 0);   /* Rencai：下面多 3 行 */
   const cell = { border: "1px solid #e5e7eb", padding: "4px 8px", fontSize: 13, whiteSpace: "nowrap", height: 20 };
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
@@ -6472,7 +6472,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
     const cyan = k === 7 ? { background: "#22d3ee" } : {};
     trs.push(h("tr", { key: k },
       h("td", { style: { ...cell, width: 110, fontWeight: 600, ...cyan, ...(k === 7 ? { fontWeight: 900 } : {}), ...(k === 2 ? { cursor: "pointer" } : {}), ...(k === 2 && d.pinHi ? { background: "#fef08a" } : {}) },
-        ...(k === 2 ? { title: "点一下 = 浅黄色（再点取消）", onClick: () => { const nx = { ...d, pinHi: !d.pinHi }; setD(nx); commit(nx); } } : {}) }, k >= 1 && k <= 7 ? labels[k] : fr(k, "a", { fontWeight: 600 })),
+        ...(k === 2 ? { title: "点一下 = 浅黄色（再点取消）", onClick: () => { const nx = { ...d, pinHi: !d.pinHi }; setD(nx); commit(nx); } } : {}) }, k >= 1 && k <= 7 ? labels[k] : rencai && k === 10 ? "ECCRIS ID" : rencai && k === 11 ? "ECCRIS PW" : fr(k, "a", { fontWeight: 600 })),   /* Rencai：第 9 行电话（自己填）、ECCRIS ID、ECCRIS PW */
       h("td", { style: { ...cell, minWidth: 170, fontWeight: k === 0 ? 900 : 800, ...cyan, ...(k === 2 && d.pinHi ? { background: "#fef9c3" } : {}) } },
         k === 0 ? (onName ? h("input", { ...ro, value: nm, placeholder: "名字", list: "bs-lendnames", autoComplete: "off", onChange: e => setNm(e.target.value.toUpperCase()), onFocus: ev.onFocus,
           onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) {
