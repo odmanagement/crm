@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111143500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111145000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "375";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "376";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -7296,20 +7296,25 @@ function SimExpiryWatcher({ currentUser }) {
 }
 function SimTable({ currentUser }) {
   const h = React.createElement;
-  const [list, save] = useCloudList("phone_sims");
+  const [list, save, simFresh] = useCloudList("phone_sims");
   const [q, setQ] = React.useState("");
   const [paint, setPaint] = React.useState(false);
   const [pop, setPop] = React.useState(null);   /* { id, f, x, y } 颜色小视窗 */
   const done = React.useRef(false);
-  React.useEffect(() => { if (!Array.isArray(list) || done.current) return;
+  React.useEffect(() => { if (!simFresh || !Array.isArray(list) || done.current) return;   /* 等云端读好才判断「是不是空的」 */
     if (list.length === 0) { done.current = true; save(SIM_SEED.map(x => ({ ...x, v2: true })).concat(SIM_SEED2.map(x => ({ ...x })))); return; }
     const mg = simMigrate(list); let m = mg || list.slice(), ch = !!mg; if (!m.some(x => x.v3) && !m.some(x => x.id === "sim25")) { m = m.concat(SIM_SEED2.map(x => ({ ...x }))); ch = true; }   /* 接着下去：第 25 行以后 */
-    done.current = true; if (ch) save(m); }, [list]);
-  const items = (Array.isArray(list) ? list : []).filter(x => x.s1).slice().sort((a, b) => (a.no || 0) - (b.no || 0));
+    done.current = true; if (ch) save(m); }, [list, simFresh]);
+  const ordOf = x => x.ord != null ? x.ord : (x.no || 0);
+  const items = (Array.isArray(list) ? list : []).filter(x => x.s1).slice().sort((a, b) => ordOf(a) - ordOf(b) || (a.no || 0) - (b.no || 0));
+  /* 上下移动：整行（号码跟着一起走）换位置 */
+  const [drag, setDrag] = React.useState(null);
+  const moveTo = (id, toIdx) => { const arr = items.slice(), i = arr.findIndex(x => x.id === id); if (i < 0) return; const [x] = arr.splice(i, 1); arr.splice(Math.max(0, Math.min(arr.length, toIdx)), 0, x); save(arr.map((y, k) => ({ ...y, ord: k }))); };
+  const move = (id, d) => { const i = items.findIndex(x => x.id === id); if (i + d < 0 || i + d >= items.length) return; moveTo(id, i + d); };
   const updRow = (id, fn) => save(items.map(x => x.id === id ? { ...fn(x), updBy: currentUser, updAt: Date.now() } : x));
   const setF = (id, sim, k, v) => updRow(id, x => ({ ...x, [sim]: { ...(x[sim] || {}), [k]: v } }));
   const setSty = (id, f, patch) => updRow(id, x => { const st = { ...(x.sty || {}) }; const n = { ...(st[f] || {}), ...patch }; Object.keys(n).forEach(k => { if (!n[k]) delete n[k]; }); if (Object.keys(n).length) st[f] = n; else delete st[f]; return { ...x, sty: st }; });
-  const add = () => { const n = items.reduce((m, x) => Math.max(m, x.no || 0), 0) + 1; save([...items, { id: uid(), no: n, noC: "", s1: { name: "", tel: "", exp: "", company: "" }, s2: { name: "", tel: "", exp: "", company: "" }, remarks: "", sty: {}, v2: true, by: currentUser, at: Date.now() }]); };
+  const add = () => { const n = items.reduce((m, x) => Math.max(m, x.no || 0), 0) + 1; save([...items, { id: uid(), no: n, ord: items.length ? Math.max(...items.map(ordOf)) + 1 : 0, noC: "", s1: { name: "", tel: "", exp: "", company: "" }, s2: { name: "", tel: "", exp: "", company: "" }, remarks: "", sty: {}, v2: true, by: currentUser, at: Date.now() }]); };
   const del = x => { if (window.confirm("删除第 " + String(x.no).padStart(2, "0") + " 行？（SIM 1 + SIM 2 一起删）")) save(items.filter(y => y.id !== x.id)); };
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const left = sm => { if (!sm || !sm.exp) return null; const d = new Date(sm.exp + "T00:00:00"); return isNaN(d) ? null : Math.round((d - today) / 86400000); };
@@ -7353,13 +7358,19 @@ function SimTable({ currentUser }) {
         h("thead", null,
           h("tr", null, h("th", { rowSpan: 2, style: { ...th, width: 56, lineHeight: 1.15 } }, "Smart", h("br"), "Phone", h("br"), "No"),
             h("th", { colSpan: 6, className: "sim-h1", style: th }, "SIM 1"), h("th", { colSpan: 8, className: "sim-h2", style: th }, "SIM 2")),
-          h("tr", null, ["Name", "Tel", "Exp", "Day(s) Left", "Status", "Company", "Name", "Tel", "Exp", "Day(s) Left", "Status", "Company", "Remarks", ""].map((t, i) => h("th", { key: i, style: { ...th, ...(/Day/.test(t) ? { lineHeight: 1.1 } : {}), ...(i === 13 ? { width: 26 } : {}) } }, t)))),
+          h("tr", null, ["Name", "Tel", "Exp", "Day(s) Left", "Status", "Company", "Name", "Tel", "Exp", "Day(s) Left", "Status", "Company", "Remarks", ""].map((t, i) => h("th", { key: i, style: { ...th, ...(/Day/.test(t) ? { lineHeight: 1.1 } : {}), ...(i === 13 ? { width: 96 } : {}) } }, t)))),
         h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 15, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, "载入中…")) :
-          shown.map(x => h("tr", { key: x.id, className: x.rowBg ? "sim-rowbg" : undefined },
+          shown.map(x => h("tr", { key: x.id, className: x.rowBg ? "sim-rowbg" : undefined,
+            onDragOver: drag ? e => e.preventDefault() : undefined, onDrop: drag ? e => { e.preventDefault(); if (drag !== x.id) moveTo(drag, items.findIndex(y => y.id === x.id)); setDrag(null); } : undefined,
+            style: drag === x.id ? { opacity: .4 } : drag ? { outline: "1px dashed #a78bfa" } : undefined },
             h("td", { title: "点一下换颜色", onClick: () => updRow(x.id, y => ({ ...y, noC: cyc(SIM_NO_C, y.noC) })), style: { ...td, fontWeight: 900, textAlign: "center", cursor: "pointer", background: SIM_NO_C[x.noC || ""] || "#fff" } }, x.lbl !== undefined ? x.lbl : String(x.no || "").padStart(2, "0")),
             ...simCells(x, "s1"), ...simCells(x, "s2"),
             h("td", { ...paintEv(x, "remarks"), style: { ...td, minWidth: "calc(" + (wRem + 2) + "ch + 12px)", ...cellSt(x, "remarks") } }, h(DebouncedInput, { className: "keep-case", style: inpS, value: x.remarks || "", onCommit: v => updRow(x.id, y => ({ ...y, remarks: v.trim() })) })),
-            h("td", { style: { ...td, textAlign: "center", padding: 2 } }, h("button", { title: "删除这一行", onClick: () => del(x), style: { border: "none", background: "none", cursor: "pointer", padding: 2 } }, h(Trash2, { size: 13, color: "#cbd5e1" })))))))),
+            h("td", { style: { ...td, textAlign: "center", padding: "2px 4px", whiteSpace: "nowrap" } },
+              h("span", { draggable: !q, onDragStart: e => { setDrag(x.id); try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", x.id); } catch (er) {} }, onDragEnd: () => setDrag(null), title: q ? "清空搜索才可以拖" : "按住拖上拖下", style: { cursor: q ? "default" : "grab", color: "#94a3b8", fontWeight: 900, padding: "0 4px", userSelect: "none" } }, "⋮⋮"),
+              h("button", { title: "往上", disabled: !!q, onClick: () => move(x.id, -1), style: { border: "none", background: "none", cursor: "pointer", padding: "0 2px", color: "#64748b", fontSize: 12 } }, "▲"),
+              h("button", { title: "往下", disabled: !!q, onClick: () => move(x.id, 1), style: { border: "none", background: "none", cursor: "pointer", padding: "0 2px", color: "#64748b", fontSize: 12 } }, "▼"),
+              h("button", { title: "删除这一行", onClick: () => del(x), style: { border: "none", background: "none", cursor: "pointer", padding: 2 } }, h(Trash2, { size: 13, color: "#cbd5e1" })))))))),
     pop && P && h("div", { onClick: e => e.stopPropagation(), style: { position: "fixed", left: Math.min(pop.x, window.innerWidth - 250), top: Math.min(pop.y + 8, window.innerHeight - 170), zIndex: 9999, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.2)", padding: 10, width: 236, fontSize: 12, fontWeight: 800, color: "#334155" } },
       h("div", { style: { marginBottom: 6 } }, "字颜色"),
       h("div", { style: { display: "flex", gap: 5, marginBottom: 8 } }, Object.keys(SIM_TXT_C).map(k => h("button", { key: k, onClick: () => setSty(P.id, pop.f, { c: k }), style: { minWidth: 30, height: 24, borderRadius: 6, border: (PS.c || "") === k ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", color: SIM_TXT_C[k] || "#111", cursor: "pointer", fontWeight: 900 } }, "A"))),
