@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261111152000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261111152500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1903,7 +1903,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "381";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "382";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5851,7 +5851,7 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
 }
 /* ---------- Bank Statement 页面（只给公司员工，admin 外人看不到）---------- */
 /* Bank Statement 外面的表格样子（像 Excel）：不显示 PIN / 网银 ID / 密码 */
-const BS_ADMIN_COLORS = { vv: "#f9a8d4", money: "#fde047", alice: "#67e8f9", joey: "#fca5a5" };
+const BS_ADMIN_COLORS = { vv: "#f9a8d4", money: "#fde047", alice: "#d8b4fe", joey: "#fca5a5" };   /* 谁填的：VV 粉色 · Money 黄色 · Alice 浅紫色 */
 const bsAdminColor = who => BS_ADMIN_COLORS[canonUser(who || "")] || "#f97316";
 const BS_START_OPTS = [
   { k: "red", t: "START SALARY ON", c: "#dc2626", bg: "#fef2f2" },
@@ -6484,7 +6484,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
             const L = (window.__crmLending || []).find(x => slNameKey(x.name) === slNameKey(nm)), ag = L && L.agent && !String(d.agent || "").trim() ? L.agent : "";
             if (ag) setD(p => ({ ...p, agent: ag })); onName(nm.trim(), ag); } }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : fr(k, "b")),
-      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && d.agent ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? (() => {
+      h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && (d.agent || r.owner) ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? (() => {
           /* Agent + C.F %（以前打成「CANDY - 16%」的自动分开显示） */
           const mm = !d.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(d.agent || "")), ag = mm ? mm[1] : (d.agent || ""), cf = mm ? mm[2] : (d.cf || "");
           return h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" } },
@@ -6574,7 +6574,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     (c.loans || []).filter(l => l.type === "personal").forEach(l => (l.banks || []).forEach(b => { const k = bankKey(b.bank); if (SALARY_BANKS.includes(k)) banks.add(k); }));
     if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null, owner: c.staff || c.createdBy || (c.bankStmt && c.bankStmt.updatedBy) || "" });
   });
-  people.forEach(p => rows.push({ c: { id: "p:" + p.id, name: p.name, bankStmt: p.bankStmt || null }, banks: [], bs: p.bankStmt || null, manual: p, owner: p.by || "" }));
+  people.forEach(p => rows.push({ c: { id: "p:" + p.id, name: p.name, bankStmt: p.bankStmt || null }, banks: [], bs: p.bankStmt || null, manual: p, owner: p.by || p.owner || p.createdBy || "" }));
   rows.forEach(r => { r.rc = rcBy[rcKey(r.c.name)] || []; r.rt = rtBy[rcKey(r.c.name)] || []; });
   const rcSum = r => [...r.rc, ...r.rt].reduce((a, x) => a + lsNum(x.amount), 0);
   const ql = q.trim().toLowerCase();
