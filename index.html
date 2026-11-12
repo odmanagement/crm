@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261112114000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261112120500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "395";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "396";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -10971,11 +10971,11 @@ function verifyCopyText(v) {
   const val = (f) => f === "icNumber" || f === "spouseIc" ? fmtIC(v[f]) : f === "email" ? String(v[f] || "").trim() : U(v[f]);
   const block = (title, rows, dash) => { L.push(title, ""); rows.forEach(([lab, f, raw]) => { const x = raw !== undefined ? raw : val(f); L.push(lab + " : " + (x || (dash ? "-" : ""))); }); L.push(LINE, ""); };
   block("⭐ *APPLICANT'S DETAILS* ⭐", [["NAME", "customerName"], ["IC ", "icNumber"], ["CONTACT", "phone"], ["EMAIL", "email"], ["ADDRESS", "resAddress"], ["YEARS OF STAY", "yearsOfStay"], ["MOTHER FULL NAME", "motherName"]]);
-  block("⭐ COMPANY'S DETAILS ⭐", [["COMPANY", "companyName"], ["POSITION", "position"], ["YEAR OF SERVICE", "lengthOfService"], ["OFFICE ADDRESS", "officeAddress"], ["OFFICE NO", "officeNumber"], ["NOB", "natureOfBusiness"]]);
+  block("⭐ *COMPANY'S DETAILS* ⭐", [["COMPANY", "companyName"], ["POSITION", "position"], ["YEAR OF SERVICE", "lengthOfService"], ["OFFICE ADDRESS", "officeAddress"], ["OFFICE NO", "officeNumber"], ["NOB", "natureOfBusiness"]]);
   const st = v.marital === "married" ? "MARRIED" : v.marital === "single" ? "SINGLE" : "";
   block("⭐ *SPOUSE'S DETAILS* ⭐", [["STATUS", null, st ? "*" + st + "*" : ""], ["FULL NAME AS IC", "spouseName"], ["IC NUMBER", "spouseIc"], ["CONTACT NO", "spousePhone"]]);
   block("⭐ *EMERGENCY CONTACT* ⭐", [["NAME", "emName"], ["RELATIONSHIP", "emRelation"], ["CONTACT", "emPhone"], ["ADDRESS", "emAddress"]]);
-  L.push("⭐SALARY⭐", "");
+  L.push("⭐ *SALARY* ⭐", "");
   const items = vSalaryItems(v);
   const salSets = [{ label: v.salaryLabel, items }].concat((v.extraSalaries || []).map(x => ({ label: x.label, items: x.items || [] })));
   salSets.forEach((ss, si) => {
