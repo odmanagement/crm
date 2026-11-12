@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261112120500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261112124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "396";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "397";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6644,6 +6644,8 @@ function AccSalaryPage({ currentUser }) {
   const save = next => { if (!canEdit && seededDone.current) return; saveRaw(next); };
   const seededDone = React.useRef(false);
   const [sq, setSq] = React.useState("");
+  /* 字颜色 / Highlight（像 Google Sheet）：按「🎨 颜色」再点格子，或直接右键点格子 */
+  const [paint, setPaint] = React.useState(false), [pop, setPop] = React.useState(null);
   const seeded = React.useRef(false);
   const [, , accFresh] = useCloudList("acc_salary");
   React.useEffect(() => { if (!accFresh || !Array.isArray(list) || seeded.current) return; seeded.current = true;
@@ -6685,7 +6687,18 @@ function AccSalaryPage({ currentUser }) {
   const money = (x, k) => !canEdit ? h("div", { style: { textAlign: "right", fontVariantNumeric: "tabular-nums" } }, x[k] || "") : h(DebouncedInput, { style: { ...inp, textAlign: "right", fontVariantNumeric: "tabular-nums" }, value: x[k] || "",
     onCommit: v => { const t = String(v || "").trim(); upd(x.id, k, t && /^-?[\d,]*\.?\d*$/.test(t) ? lsFmt(lsNum(t)) : t); } });
   const text = (x, k, w) => !canEdit ? h("div", { style: { minWidth: w, whiteSpace: "nowrap" } }, x[k] || "") : h(DebouncedInput, { style: { ...inp, minWidth: w }, value: x[k] || "", onCommit: v => upd(x.id, k, v.trim().toUpperCase()) });
-  return h("div", { className: "cz-page" },
+  const FLDS = ["company", "name", "agent", ...ACC_SAL_COLS.map(c => c[0]), "total"];
+  const cs = (x, f) => { const t = (x.sty || {})[f]; if (!t) return {}; return { ...(t.c ? { color: t.c } : {}), ...(t.bg ? { background: t.bg } : {}), ...(t.b ? { fontWeight: 900 } : {}), ...(t.s ? { textDecoration: "line-through" } : {}) }; };
+  const pe = (x, f) => !canEdit ? {} : { onContextMenu: e => { e.preventDefault(); setPop({ id: x.id, f, x: e.clientX, y: e.clientY }); },
+    onClickCapture: paint ? e => { e.preventDefault(); e.stopPropagation(); setPop({ id: x.id, f, x: e.clientX, y: e.clientY }); } : undefined };
+  const setSty = (id, f, patch, whole) => save(items.map(x => { if (x.id !== id) return x; const st = { ...(x.sty || {}) };
+    (whole ? FLDS : [f]).forEach(ff => { const n = { ...(st[ff] || {}), ...patch }; Object.keys(n).forEach(k => { if (!n[k]) delete n[k]; }); if (Object.keys(n).length) st[ff] = n; else delete st[ff]; });
+    return { ...x, sty: st, updBy: currentUser, updAt: Date.now() }; }));
+  const P = pop && items.find(x => x.id === pop.id), PS = P ? ((P.sty || {})[pop.f] || {}) : {};
+  const TXT = ["#000000", "#dc2626", "#2563eb", "#16a34a", "#9333ea", "#ea580c", "#d61fd6", "#64748b"];
+  const HL = ["#ffff00", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#fed7aa", "#e9d5ff", "#fecaca", "#e5e7eb"];
+  const [whole, setWhole] = React.useState(false);
+  return h("div", { className: "cz-page", onClick: () => pop && setPop(null) },
     h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" } },
       h("button", { onClick: () => shift(-1), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, width: 32, height: 32, cursor: "pointer", fontWeight: 900 } }, "◀"),
       h("div", { style: { fontWeight: 900, fontSize: 20, color: "#1e1b4b", minWidth: 190, textAlign: "center" } }, ymLabel(ym) + " Salary"),
@@ -6693,6 +6706,7 @@ function AccSalaryPage({ currentUser }) {
       ym !== defYm && h("button", { onClick: () => goYm(defYm), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 999, padding: "6px 12px", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "这个月"),
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0, minWidth: 200 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / company / agent", value: sq, onChange: e => setSq(e.target.value) })),
       !canEdit && h("span", { style: { background: "#f1f5f9", color: "#64748b", borderRadius: 999, padding: "6px 12px", fontWeight: 800, fontSize: 12 } }, "👁 只能看 · 只有 CHIALING 可以改"),
+      canEdit && h("button", { onClick: e => { e.stopPropagation(); setPaint(v => !v); setPop(null); }, title: "打开后点格子 = 换字颜色 / Highlight（也可以直接右键点格子）", style: { border: paint ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: paint ? "#f3e8ff" : "#fff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, paint ? "🎨 颜色模式（开）" : "🎨 颜色"),
       canEdit && h("button", { onClick: copyPrev, style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", cursor: "pointer", fontWeight: 900, fontSize: 13 } }, "⧉ 复制上个月名单"),
       canEdit && h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 加一个人")),
     h("div", { style: { overflowX: "auto", background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,.08)" } },
@@ -6702,18 +6716,33 @@ function AccSalaryPage({ currentUser }) {
           rows.length === 0 ? h("tr", null, h("td", { colSpan: 16, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, ymLabel(ym) + " 还没有资料 — 按「加一个人」或「复制上个月名单」")) :
           rows.map((x, i) => h("tr", { key: x.id, style: x.color ? { color: x.color } : x.blue ? { color: "#1d4ed8" } : undefined },
             h("td", { style: { ...td, textAlign: "center", fontWeight: 800, whiteSpace: "nowrap" } }, x.lbl || i + 1),
-            h("td", { style: { ...td, minWidth: "calc(" + (Math.max(8, ...rows.map(y => String(y.company || "").length)) + 1) + "ch + 12px)" } }, text(x, "company", 90)),
-            h("td", { style: { ...td, minWidth: "calc(" + (Math.max(12, ...rows.map(y => String(y.name || "").length)) + 1) + "ch + 12px)", ...(x.nameBg ? { background: x.nameBg } : {}) } }, text(x, "name", 200)),
-            h("td", { style: { ...td, textAlign: "right", minWidth: "calc(" + (Math.max(5, ...rows.map(y => String(y.agent || "").length)) + 1) + "ch + 12px)" } }, text(x, "agent", 60)),
-            ...ACC_SAL_COLS.map(([k]) => h("td", { key: k, style: { ...td, minWidth: 80, ...(k === "net" ? { background: "#fde9d9" } : {}), ...((x.strikeCols || []).includes(k) ? { textDecoration: "line-through" } : {}) } }, money(x, k))),
-            h("td", { style: { ...td, textAlign: "right", fontWeight: 900, minWidth: 90, fontVariantNumeric: "tabular-nums" } }, total(x) ? lsFmt(total(x)) : ""),
+            h("td", { ...pe(x, "company"), style: { ...td, minWidth: "calc(" + (Math.max(8, ...rows.map(y => String(y.company || "").length)) + 1) + "ch + 12px)", ...cs(x, "company") } }, text(x, "company", 90)),
+            h("td", { style: { ...td, minWidth: "calc(" + (Math.max(12, ...rows.map(y => String(y.name || "").length)) + 1) + "ch + 12px)", ...(x.nameBg ? { background: x.nameBg } : {}), ...cs(x, "name") }, ...pe(x, "name") }, text(x, "name", 200)),
+            h("td", { ...pe(x, "agent"), style: { ...td, textAlign: "right", minWidth: "calc(" + (Math.max(5, ...rows.map(y => String(y.agent || "").length)) + 1) + "ch + 12px)", ...cs(x, "agent") } }, text(x, "agent", 60)),
+            ...ACC_SAL_COLS.map(([k]) => h("td", { key: k, style: { ...td, minWidth: 80, ...(k === "net" ? { background: "#fde9d9" } : {}), ...((x.strikeCols || []).includes(k) ? { textDecoration: "line-through" } : {}), ...cs(x, k) }, ...pe(x, k) }, money(x, k))),
+            h("td", { ...pe(x, "total"), style: { ...td, textAlign: "right", fontWeight: 900, minWidth: 90, fontVariantNumeric: "tabular-nums", ...cs(x, "total") } }, total(x) ? lsFmt(total(x)) : ""),
             h("td", { style: { ...td, textAlign: "center", padding: 2 } }, canEdit && h("button", { title: "删除", onClick: () => del(x), style: { border: "none", background: "none", cursor: "pointer", padding: 2 } }, h(Trash2, { size: 13, color: "#cbd5e1" })))))),
         rows.length > 0 && h("tfoot", null, h("tr", null,
           h("td", { colSpan: 4, style: { ...td, fontWeight: 900, textAlign: "right", background: "#f8fafc" } }, "TOTAL（" + rows.length + " 人" + (sql ? " · 搜索中" : "") + "）"),
           ...ACC_SAL_COLS.map(([k]) => h("td", { key: k, style: { ...td, textAlign: "right", fontWeight: 900, background: "#f8fafc", fontVariantNumeric: "tabular-nums" } }, sum(k) ? lsFmt(sum(k)) : "")),
           h("td", { style: { ...td, textAlign: "right", fontWeight: 900, background: "#fde047", fontVariantNumeric: "tabular-nums" } }, lsFmt(sum("total"))),
           h("td", { style: { ...td, background: "#f8fafc" } }))))),
-    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 8 } }, "TOTAL = NET + 后面的 COMM · 数目打完自动加 2 个小数点 · ◀ ▶ 换月份"));
+    pop && P && h("div", { onClick: e => e.stopPropagation(), style: { position: "fixed", left: Math.min(pop.x, window.innerWidth - 290), top: Math.min(pop.y + 8, window.innerHeight - 250), zIndex: 9999, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.2)", padding: 12, width: 270, fontSize: 12, fontWeight: 800, color: "#334155" } },
+      h("div", { style: { marginBottom: 6 } }, "字颜色"),
+      h("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
+        TXT.map(c => h("button", { key: c, onClick: () => setSty(P.id, pop.f, { c: c === "#000000" ? "" : c }, whole), style: { width: 24, height: 24, borderRadius: 6, border: (PS.c || "#000000") === c ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", color: c, fontWeight: 900, cursor: "pointer", padding: 0 } }, "A")),
+        h("label", { title: "其他颜色", style: { display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer" } }, "🎨", h("input", { type: "color", value: PS.c || "#000000", onChange: e => setSty(P.id, pop.f, { c: e.target.value }, whole), style: { width: 28, height: 24, border: "none", padding: 0, background: "none", cursor: "pointer" } }))),
+      h("div", { style: { marginBottom: 6 } }, "Highlight（底色）"),
+      h("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
+        h("button", { onClick: () => setSty(P.id, pop.f, { bg: "" }, whole), style: { height: 24, borderRadius: 6, border: !PS.bg ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 900, padding: "0 6px" } }, "无"),
+        HL.map(c => h("button", { key: c, onClick: () => setSty(P.id, pop.f, { bg: c }, whole), style: { width: 24, height: 24, borderRadius: 6, border: PS.bg === c ? "2px solid #111" : "1px solid #cbd5e1", background: c, cursor: "pointer", padding: 0 } })),
+        h("label", { title: "其他颜色", style: { display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer" } }, "🎨", h("input", { type: "color", value: PS.bg || "#ffff00", onChange: e => setSty(P.id, pop.f, { bg: e.target.value }, whole), style: { width: 28, height: 24, border: "none", padding: 0, background: "none", cursor: "pointer" } }))),
+      h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" } },
+        h("button", { onClick: () => setSty(P.id, pop.f, { b: PS.b ? 0 : 1 }, whole), style: { borderRadius: 6, border: PS.b ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", cursor: "pointer", fontWeight: 900, padding: "3px 8px" } }, "B 粗体"),
+        h("button", { onClick: () => setSty(P.id, pop.f, { s: PS.s ? 0 : 1 }, whole), style: { borderRadius: 6, border: PS.s ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", cursor: "pointer", fontWeight: 900, padding: "3px 8px", textDecoration: "line-through" } }, "划线"),
+        h("button", { onClick: () => setSty(P.id, pop.f, { c: "", bg: "", b: 0, s: 0 }, whole), style: { borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", cursor: "pointer", fontWeight: 800, padding: "3px 8px" } }, "清除"),
+        h("label", { style: { display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", marginLeft: "auto" } }, h("input", { type: "checkbox", checked: whole, onChange: e => setWhole(e.target.checked) }), "整行一起"))),
+    h("div", { style: { fontSize: 12.5, color: "#94a3b8", marginTop: 8 } }, (canEdit ? "🎨 颜色：按上面「🎨 颜色」再点格子（电脑也可以直接右键点格子）· " : "") + "TOTAL = NET + 后面的 COMM · 数目打完自动加 2 个小数点 · ◀ ▶ 换月份"));
 }
 /* ACCOUNT 的新页面（内容还没定） */
 function AccountBlankPage({ title }) {
