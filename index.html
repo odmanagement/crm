@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261112101500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261112114000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "394";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "395";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -10963,41 +10963,36 @@ function VField({
   }, value || "—");
 }
 function verifyCopyText(v) {
+  /* COPY 格式（照 Lucas 给的样子）：⭐ 标题 ⭐ · 每段后面一条线 · 空的写 - （配偶空的留空） */
   const U = x => String(x || "").toUpperCase().trim();
-  const items = vSalaryItems(v);
-  const money = (n, dec) => "RM " + Number(n).toLocaleString("en-US", dec ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 2 });
-  const plus = items.filter(it => it.sign !== "-"), minus = items.filter(it => it.sign === "-");
-  const basic = vNum((plus[0] || {}).amount);
-  const lbl = it => { const n = U(it.name); if (n === "EPF" && basic && vNum(it.amount)) return "EPF(" + Math.round(vNum(it.amount) / basic * 100) + "%)"; return n; };
+  const money = n => "RM " + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const LINE = "_".repeat(96);
   const L = [];
-  /* COPY：1 / 2 / 3 / 4 全部栏位 + 全部 Salary + 6（不包括 5 Disbursement） */
-  const sec = (key, title) => { const sc = V_SECTIONS.find(x => x.key === key); if (!sc) return; L.push("⭐" + title + "⭐");
-    if (key === "spouse") L.push("STATUS : " + (v.marital === "married" ? "MARRIED" : v.marital === "single" ? "SINGLE" : ""));
-    sc.fields.forEach(([f, lab]) => { const val = f === "icNumber" || f === "spouseIc" ? fmtIC(v[f]) : v[f]; L.push(U(lab) + " : " + (f === "email" ? String(val || "").trim() : U(val))); });
-    L.push(""); };
-  sec("applicant", "1. APPLICANT'S DETAILS");
-  sec("company", "2. COMPANY'S DETAILS");
-  sec("spouse", "3. SPOUSE'S DETAILS");
-  sec("emergency", "4. EMERGENCY CONTACT");
-  L.push("⭐SALARY⭐");
+  const val = (f) => f === "icNumber" || f === "spouseIc" ? fmtIC(v[f]) : f === "email" ? String(v[f] || "").trim() : U(v[f]);
+  const block = (title, rows, dash) => { L.push(title, ""); rows.forEach(([lab, f, raw]) => { const x = raw !== undefined ? raw : val(f); L.push(lab + " : " + (x || (dash ? "-" : ""))); }); L.push(LINE, ""); };
+  block("⭐ *APPLICANT'S DETAILS* ⭐", [["NAME", "customerName"], ["IC ", "icNumber"], ["CONTACT", "phone"], ["EMAIL", "email"], ["ADDRESS", "resAddress"], ["YEARS OF STAY", "yearsOfStay"], ["MOTHER FULL NAME", "motherName"]]);
+  block("⭐ COMPANY'S DETAILS ⭐", [["COMPANY", "companyName"], ["POSITION", "position"], ["YEAR OF SERVICE", "lengthOfService"], ["OFFICE ADDRESS", "officeAddress"], ["OFFICE NO", "officeNumber"], ["NOB", "natureOfBusiness"]]);
+  const st = v.marital === "married" ? "MARRIED" : v.marital === "single" ? "SINGLE" : "";
+  block("⭐ *SPOUSE'S DETAILS* ⭐", [["STATUS", null, st ? "*" + st + "*" : ""], ["FULL NAME AS IC", "spouseName"], ["IC NUMBER", "spouseIc"], ["CONTACT NO", "spousePhone"]]);
+  block("⭐ *EMERGENCY CONTACT* ⭐", [["NAME", "emName"], ["RELATIONSHIP", "emRelation"], ["CONTACT", "emPhone"], ["ADDRESS", "emAddress"]]);
+  L.push("⭐SALARY⭐", "");
+  const items = vSalaryItems(v);
   const salSets = [{ label: v.salaryLabel, items }].concat((v.extraSalaries || []).map(x => ({ label: x.label, items: x.items || [] })));
-  salSets.forEach((st, si) => {
-    const p2 = st.items.filter(it => it.sign !== "-"), m2 = st.items.filter(it => it.sign === "-");
+  salSets.forEach((ss, si) => {
+    const p2 = ss.items.filter(it => it.sign !== "-"), m2 = ss.items.filter(it => it.sign === "-");
     const b2 = vNum((p2[0] || {}).amount);
     const lbl2 = it => { const n = U(it.name); if (n === "EPF" && b2 && vNum(it.amount)) return "EPF(" + Math.round(vNum(it.amount) / b2 * 100) + "%)"; return n; };
-    const nt = st.items.reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
-    L.push(salSets.length > 1 ? "SALARY " + (si + 1) + (st.label ? " (" + U(st.label) + ")" : "") : "SALARY");
+    const nt = ss.items.reduce((t, it) => t + (it.sign === "-" ? -1 : 1) * vNum(it.amount), 0);
+    L.push(("SALARY " + U(ss.label || (salSets.length > 1 ? String(si + 1) : ""))).trim(), "");
+    p2.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount))));
     L.push("");
-    p2.forEach(it => L.push(U(it.name) + " : " + money(vNum(it.amount), true)));
-    L.push("");
-    m2.forEach(it => L.push(lbl2(it) + " : " + money(vNum(it.amount), true)));
-    L.push("");
-    L.push("NETT SALARY : " + money(nt, true));
-    L.push("");
+    m2.forEach(it => L.push(lbl2(it) + " : " + money(vNum(it.amount))));
+    L.push("", "NETT SALARY : " + money(nt), "");
   });
-  L.push("SALARY TRANSFER TO " + U(v.salaryTransfer));
-  L.push("");
-  sec("previous", "6. PREVIOUS COMPANY'S DETAILS");
+  L.push("SALARY TRANSFER TO " + U(v.salaryTransfer), LINE, "");
+  const pv = (V_SECTIONS.find(x => x.key === "previous") || { fields: [] }).fields.map(x => x[0]);
+  block("⭐ *PREVIOUS COMPANY'S DETAILS* ⭐", [["PREVIOUS COMPANY", pv[0]], ["POSITION", pv[1]], ["WORK HOW LONG", pv[2]]].filter(r => r[1]), true);
+  while (L.length && (L[L.length - 1] === "" || L[L.length - 1] === LINE)) L.pop();
   return L.join("\n");
 }
 function VCaseInfo({ v, onSave, onToLoan, onDropLoan }) {
