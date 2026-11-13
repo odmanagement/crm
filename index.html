@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261113120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261113120500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "401";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "402";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6454,8 +6454,10 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
       else if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); t.blur(); } },
     onBlurCapture: e => { e.target.readOnly = true; } };
   const box = { width: "100%", boxSizing: "border-box", border: "none", background: "transparent", outline: "none", font: "inherit", color: "inherit", padding: 0, margin: 0, minWidth: 0 };
-  const tx = (v, on, st, ph, up) => h("input", { ...ro, className: up ? undefined : "keep-case", value: v || "", placeholder: ph || "", onChange: e => on(e.target.value), ...ev, style: { ...box, ...(st || {}) } });
-  const mny = (v, on) => h("input", { ...ro, value: v || "", inputMode: "decimal", placeholder: "", onChange: e => on(e.target.value.replace(/[^\d.,-]/g, "")), onFocus: ev.onFocus, onBlur: e => { focus.current = false; on(fmtMoney(e.target.value)); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
+  /* 格子跟着内容变宽 → 全部内容都看得到 */
+  const aw = v => ({ width: "calc(" + (String(v || "").length * 1.3).toFixed(1) + "ch + 8px)", minWidth: "100%" });
+  const tx = (v, on, st, ph, up) => h("input", { ...ro, className: up ? undefined : "keep-case", value: v || "", placeholder: ph || "", onChange: e => on(e.target.value), ...ev, style: { ...box, ...aw(v || ph), ...(st || {}) } });
+  const mny = (v, on) => h("input", { ...ro, value: v || "", inputMode: "decimal", placeholder: "", onChange: e => on(e.target.value.replace(/[^\d.,-]/g, "")), onFocus: ev.onFocus, onBlur: e => { focus.current = false; on(fmtMoney(e.target.value)); setTimeout(() => commit(), 0); }, style: { ...box, ...aw(v), textAlign: "right", fontVariantNumeric: "tabular-nums" } });
   const dt = (v, on) => h("input", { ...ro, value: v || "", inputMode: "numeric", maxLength: 10, onChange: e => on(bsDateMask(e.target.value)), ...ev, style: { ...box, textAlign: "right", fontVariantNumeric: "tabular-nums" } });
   /* 空格子：每个都可以自己填 */
   const fr = (k, col, st, ph) => tx((d.cells || {})[k + "_" + col], v => setD(p => ({ ...p, cells: { ...(p.cells || {}), [k + "_" + col]: v } })), st, ph);
@@ -6499,7 +6501,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
           onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) {
             /* 名字连接 Lending Sheet：选了 Lending 的名字、Agent 还空 → 自动带 Agent（跟名字一起存） */
             const L = (window.__crmLending || []).find(x => slNameKey(x.name) === slNameKey(nm)), ag = L && L.agent && !String(d.agent || "").trim() ? L.agent : "";
-            if (ag) setD(p => ({ ...p, agent: ag })); onName(nm.trim(), ag); } }, style: { ...box, fontWeight: 900, width: "calc(" + (Math.max(8, String(nm || "").length) * 1.2).toFixed(1) + "ch + 6px)", minWidth: "100%" } })   /* 名字要完整看到 */ : String(r.c.name || "").toUpperCase())
+            if (ag) setD(p => ({ ...p, agent: ag })); onName(nm.trim(), ag); } }, style: { ...box, fontWeight: 900, ...aw(nm || "名字") } })   /* 名字要完整看到 */ : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : fr(k, "b")),
       h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && (d.agent || r.owner) ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? (() => {
           /* Agent + C.F %（以前打成「CANDY - 16%」的自动分开显示） */
@@ -6509,7 +6511,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "C.F"),
             h("div", { style: { width: "calc(" + Math.max(2, String(cf || "").length) + "ch + 8px)", minWidth: 24, flex: "0 0 auto" } }, tx(cf, v => setD(p => ({ ...p, cf: v.replace(/[^\d.]/g, ""), agent: ag })), { textAlign: "center", fontWeight: 900 }, "")),
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
-      h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
+      h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, ...aw(d.salary || "SALARY"), textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
       h("td", { style: { ...cell, minWidth: 90 } }, fr(k, "e")),
       h("td", { style: { ...cell, minWidth: 100, ...(c && c.costed && c.date ? { background: c.costed === "aa" ? "#bfdbfe" : "#fef9c3" } : {}) }, title: c && c.costed ? (c.costed === "aa" ? "已经放进 PL Costing Part 的 Part A.A（+10%）· 双击换颜色" : "已经放进 PL Costing Part · 双击换颜色") : (c ? "双击换颜色（黄色 / 蓝色）" : undefined),
         onDoubleClick: c && ci <= credits.length ? () => { const cur = c.costed === true ? "a" : (c.costed || ""), nx2 = cur === "" ? "a" : cur === "a" ? "aa" : ""; setRow("credits", ci, "costed", nx2); setTimeout(() => commit(), 300); } : undefined }, k === 0 ? hdr("DATE") : slStop && ci === credits.length ? h("span", { title: "Salary Listing 已经按 STOP SALARY，不可以再加", style: { display: "block", textAlign: "right", color: "#dc2626", fontWeight: 900, fontSize: 12.5 } }, "⛔ STOP") : ci <= credits.length ? dt(c && c.date, v => setD(p => { const arr = p.credits.slice(); while (arr.length <= ci) arr.push({ id: uid() }); const o = arr[ci] || {}; arr[ci] = { ...o, date: v, ...(v !== o.date ? { costed: "", costedAt: 0 } : {}) }; return { ...p, credits: arr }; }))   /* 改日期 → 颜色清掉，要等 PL Costing 存档才变 */ : ""),
@@ -6524,7 +6526,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
         const ck = k + "_j", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
         return h("input", { ...ro, className: "keep-case", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
           onBlur: e => { setEdJ(null); focus.current = false; const t = e.target.value.trim(); if (BS_NUM_RE.test(t) && t !== lsFmt(lsNum(t))) setC(lsFmt(lsNum(t))); setTimeout(() => commit(), 0); },
-          style: { ...box, textAlign: "center", fontWeight: isN ? 900 : 400, color: isN ? "#dc2626" : undefined } }); })()   /* S.C 不要了 */),
+          style: { ...box, ...aw(v), textAlign: "center", fontWeight: isN ? 900 : 400, color: isN ? "#dc2626" : undefined } }); })()   /* S.C 不要了 */),
       h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : fr(k, "k", { fontWeight: 400 }))));
   }
   trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
