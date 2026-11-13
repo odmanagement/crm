@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261112175000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261113120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "399";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "401";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5678,7 +5678,7 @@ function LendingFeePage({ currentUser }) {
         const canAdd = lfCanEdit(null, me);
         const tbIds = pays.flatMap(p => p.photos || []);
         /* OD Payment 的 Return（打勾 / 照片 / 备注）也 show 在这里最后面 */
-        const retSrc = [...pays.map((p, k) => ({ label: "第 " + (k + 1) + " 笔", done: p.retDone, ph: p.retPhotos || [], note: p.note || "" })), { label: pays.length ? "差额" : "", done: form.toBankRetDone, ph: form.toBankRetPhotos || [], note: form.toBankNote || "" }].filter(x => x.done || x.ph.length || x.note);
+        const retSrc = [...pays.map((p, k) => ({ label: "第 " + (k + 1) + " 笔", done: p.retDone, ph: p.retPhotos || [], note: p.note || "" })), ...(pays.length ? [] : [{ label: "", done: form.toBankRetDone, ph: form.toBankRetPhotos || [], note: form.toBankNote || "" }])].filter(x => x.done || x.ph.length || x.note);   /* 差额不 show 在这边 */
         const retBlock = retSrc.length > 0 && h("div", { style: { flexBasis: "100%", marginTop: 6, border: "1px dashed #86efac", background: "#f0fdf4", borderRadius: 10, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 4 } },
           h("div", { style: { fontSize: 11, fontWeight: 900, color: "#15803d", letterSpacing: .5 } }, "↩ RETURN（OD Payment）"),
           retSrc.map((x, k) => h("div", { key: k, style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: "#1e293b", fontWeight: 600 } },
@@ -6499,13 +6499,13 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
           onBlur: () => { focus.current = false; if (nm.trim() !== (r.c.name || "")) {
             /* 名字连接 Lending Sheet：选了 Lending 的名字、Agent 还空 → 自动带 Agent（跟名字一起存） */
             const L = (window.__crmLending || []).find(x => slNameKey(x.name) === slNameKey(nm)), ag = L && L.agent && !String(d.agent || "").trim() ? L.agent : "";
-            if (ag) setD(p => ({ ...p, agent: ag })); onName(nm.trim(), ag); } }, style: { ...box, fontWeight: 900 } }) : String(r.c.name || "").toUpperCase())
+            if (ag) setD(p => ({ ...p, agent: ag })); onName(nm.trim(), ag); } }, style: { ...box, fontWeight: 900, width: "calc(" + (Math.max(8, String(nm || "").length) * 1.2).toFixed(1) + "ch + 6px)", minWidth: "100%" } })   /* 名字要完整看到 */ : String(r.c.name || "").toUpperCase())
         : FK[k] ? tx(d[FK[k]], v => set(FK[k], v)) : fr(k, "b")),
       h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && (d.agent || r.owner) ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? (() => {
           /* Agent + C.F %（以前打成「CANDY - 16%」的自动分开显示） */
           const mm = !d.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(d.agent || "")), ag = mm ? mm[1] : (d.agent || ""), cf = mm ? mm[2] : (d.cf || "");
           return h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" } },
-            h("div", { style: { flex: "1 1 auto", minWidth: 60 } }, tx(ag, v => setD(p => ({ ...p, agent: v.toUpperCase(), cf: p.cf || cf })), { textAlign: "center", fontWeight: 900 }, "AGENT")),
+            h("div", { style: { flex: "1 0 auto", width: "calc(" + (Math.max(5, String(ag || "").length) * 1.25).toFixed(2) + "ch + 14px)", minWidth: 60 } }, tx(ag, v => setD(p => ({ ...p, agent: v.toUpperCase(), cf: p.cf || cf })), { textAlign: "center", fontWeight: 900 }, "AGENT")),
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "C.F"),
             h("div", { style: { width: "calc(" + Math.max(2, String(cf || "").length) + "ch + 8px)", minWidth: 24, flex: "0 0 auto" } }, tx(cf, v => setD(p => ({ ...p, cf: v.replace(/[^\d.]/g, ""), agent: ag })), { textAlign: "center", fontWeight: 900 }, "")),
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
