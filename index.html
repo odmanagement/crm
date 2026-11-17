@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117172500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117173500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "419";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "420";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6749,8 +6749,37 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
     h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "TOTAL"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = BALANCE + CUSTOMER USE" }, lsFmt(bal + cuse)),
     h("td", { style: cell })));
-  return h("div", { className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
+  /* ===== 像 Google Sheets：右键格子 → 换字颜色 / 底色 / 粗体 / 划线（跟着格子的位置，存在 bankStmt.sty） ===== */
+  const sheetRef = React.useRef(null);
+  const [bsPop, setBsPop] = React.useState(null);
+  React.useEffect(() => { if (!bsPop) return; const f = () => setBsPop(null), k = e => { if (e.key === "Escape") setBsPop(null); }; window.addEventListener("click", f); window.addEventListener("keydown", k); return () => { window.removeEventListener("click", f); window.removeEventListener("keydown", k); }; }, [bsPop]);
+  React.useLayoutEffect(() => { const el = sheetRef.current; if (!el) return;
+    [...el.querySelectorAll("table")].forEach((tb, ti) => [...tb.rows].forEach((tr, ri) => [...tr.cells].forEach((c, ci) => { const k = "t" + ti + "r" + ri + "c" + ci; if (c.dataset.bk !== k) c.dataset.bk = k; }))); });
+  const bsSty = d.sty || {}, sid = "bs" + String(r.c.id || "").replace(/[^\w-]/g, "");
+  const bsCss = Object.keys(bsSty).map(k => { const s = bsSty[k] || {}, sel = "[data-sid=\"" + sid + "\"] td[data-bk=\"" + k + "\"]"; const out = [];
+    if (s.bg) out.push(sel + "{background:" + s.bg + " !important}");
+    const tx = [s.c ? "color:" + s.c + " !important;-webkit-text-fill-color:" + s.c + " !important" : "", s.b ? "font-weight:900 !important" : "", s.s ? "text-decoration:line-through !important" : ""].filter(Boolean).join(";");
+    if (tx) out.push(sel + "," + sel + " input," + sel + " span," + sel + " div{" + tx + "}");
+    return out.join(""); }).join("");
+  const setBsSty = (k, patch) => { const st = { ...(dRef.current.sty || {}) }; const n = { ...(st[k] || {}), ...patch }; Object.keys(n).forEach(q => { if (!n[q]) delete n[q]; });
+    if (Object.keys(n).length) st[k] = n; else delete st[k]; const nx = { ...dRef.current, sty: st }; setD(nx); commit(nx); };
+  const onCtx = e => { const td = e.target.closest && e.target.closest("td"); if (!td || !td.dataset.bk || !sheetRef.current || !sheetRef.current.contains(td)) return; e.preventDefault(); setBsPop({ k: td.dataset.bk, x: e.clientX, y: e.clientY }); };
+  const BS_TXT = ["#000000", "#dc2626", "#2563eb", "#16a34a", "#9333ea", "#ea580c", "#d61fd6", "#64748b"];
+  const BS_HL = ["#ffff00", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#fed7aa", "#e9d5ff", "#fecaca", "#e5e7eb"];
+  const PS = bsPop ? (bsSty[bsPop.k] || {}) : {};
+  const sw = (on, bg, label, fn, key) => h("button", { key, onClick: fn, style: { minWidth: bg ? 24 : undefined, height: 24, padding: bg ? 0 : "0 8px", borderRadius: 6, border: on ? "2px solid #111" : "1px solid #cbd5e1", background: bg || "#fff", cursor: "pointer", fontWeight: 900, fontSize: 11.5, color: "#334155" } }, bg ? "" : label);
+  const bsPopEl = bsPop && h("div", { onClick: e => e.stopPropagation(), onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: Math.min(bsPop.x, window.innerWidth - 270), top: Math.min(bsPop.y + 8, window.innerHeight - 190), zIndex: 9999, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.2)", padding: 10, width: 256, fontSize: 12, fontWeight: 800, color: "#334155" } },
+    h("div", { style: { marginBottom: 6 } }, "字颜色"),
+    h("div", { style: { display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" } }, BS_TXT.map(c => h("button", { key: c, onClick: () => setBsSty(bsPop.k, { c: c === "#000000" ? "" : c }), style: { minWidth: 26, height: 24, borderRadius: 6, border: (PS.c || "#000000") === c ? "2px solid #111" : "1px solid #cbd5e1", background: "#fff", color: c, cursor: "pointer", fontWeight: 900 } }, "A"))),
+    h("div", { style: { marginBottom: 6 } }, "Highlight 底色"),
+    h("div", { style: { display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" } }, sw(!PS.bg, null, "无", () => setBsSty(bsPop.k, { bg: "" }), "none"), BS_HL.map(c => sw(PS.bg === c, c, "", () => setBsSty(bsPop.k, { bg: c }), c))),
+    h("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
+      sw(!!PS.b, null, "粗体", () => setBsSty(bsPop.k, { b: PS.b ? 0 : 1 }), "b"),
+      sw(!!PS.s, null, "划线", () => setBsSty(bsPop.k, { s: PS.s ? 0 : 1 }), "s"),
+      sw(false, null, "清除", () => { setBsSty(bsPop.k, { c: "", bg: "", b: 0, s: 0 }); setBsPop(null); }, "clr")));
+  return h("div", { ref: sheetRef, "data-sid": sid, onContextMenu: onCtx, className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", bottom: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
+    bsCss && h("style", null, bsCss), bsPopEl,
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
     bdOpen && h(BsBackdate, { name: r.c.name, init: d.backdate || bsBackdateFromCalc(d), wage: bsBackdateWage(d), onClose: () => setBdOpen(false), onSave: v => { const nx = { ...d, backdate: v }; setD(nx); commit(nx); } }),
     showRc && (() => { const au = autos.find(a => a.k === showRc); if (!au) return null; const rc = au.list, rcT = au.total; return h("div", { onClick: () => setShowRc(false), style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 12px", overflowY: "auto" } },
