@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117165500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117170500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "416";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "418";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5456,7 +5456,10 @@ const LS_BANKS = ["MAYBANK", "CIMB BANK", "PUBLIC BANK", "RHB BANK", "HONG LEONG
 const LF_SOCSO = [[30,0.40,0.10],[50,0.70,0.20],[70,1.10,0.30],[100,1.50,0.40],[140,2.10,0.60],[200,2.95,0.85],[300,4.35,1.25],[400,6.15,1.75],[500,7.85,2.25],[600,9.65,2.75],[700,11.35,3.25],[800,13.15,3.75],[900,14.85,4.25],[1000,16.65,4.75],[1100,18.35,5.25],[1200,20.15,5.75],[1300,21.85,6.25],[1400,23.65,6.75],[1500,25.35,7.25],[1600,27.15,7.75],[1700,28.85,8.25],[1800,30.65,8.75],[1900,32.35,9.25],[2000,34.15,9.75],[2100,35.85,10.25],[2200,37.65,10.75],[2300,39.35,11.25],[2400,41.15,11.75],[2500,42.85,12.25],[2600,44.65,12.75],[2700,46.35,13.25],[2800,48.15,13.75],[2900,49.85,14.25],[3000,51.65,14.75],[3100,53.35,15.25],[3200,55.15,15.75],[3300,56.85,16.25],[3400,58.65,16.75],[3500,60.35,17.25],[3600,62.15,17.75],[3700,63.85,18.25],[3800,65.65,18.75],[3900,67.35,19.25],[4000,69.15,19.75],[4100,70.85,20.25],[4200,72.65,20.75],[4300,74.35,21.25],[4400,76.15,21.75],[4500,77.85,22.25],[4600,79.65,22.75],[4700,81.35,23.25],[4800,83.15,23.75],[4900,84.85,24.25],[5000,86.65,24.75],[5100,88.35,25.25],[5200,90.15,25.75],[5300,91.85,26.25],[5400,93.65,26.75],[5500,95.35,27.25],[5600,97.15,27.75],[5700,98.85,28.25],[5800,100.65,28.75],[5900,102.35,29.25],[6000,104.15,74.40]];
 const LF_EIS = [[30,0.05],[50,0.10],[100,0.20],[200,0.30],[300,0.50],[400,0.70],[500,0.90],[600,1.10],[700,1.30],[800,1.50],[900,1.70],[1000,1.90],[1100,2.10],[1200,2.30],[1300,2.50],[1400,2.70],[1500,2.90],[1600,3.10],[1700,3.30],[1800,3.50],[1900,3.70],[2000,3.90],[2100,4.10],[2200,4.30],[2300,4.50],[2400,4.70],[2500,4.90],[2600,5.10],[2700,5.30],[2800,5.50],[2900,5.70],[3000,5.90],[3100,6.10],[3200,6.30],[3300,6.50],[3400,6.70],[3500,6.90],[3600,7.10],[3700,7.30],[3800,7.50],[3900,7.70],[4000,7.90],[4100,8.10],[4200,8.30],[4300,8.50],[4400,8.70],[4500,8.90],[4600,9.10],[4700,9.30],[4800,9.50],[4900,9.70],[5000,9.90],[5200,10.30],[5400,10.70],[5600,11.10],[5800,11.50],[6000,11.90]];
 const lfSocso = w => { if (w <= 0) return [0, 0]; for (const r of LF_SOCSO) if (w <= r[0]) return [r[1], r[2]]; return [104.15, 74.40]; };
-const lfEis = w => { if (w <= 0) return [0, 0]; for (const r of LF_EIS) if (w <= r[0]) return [r[1], r[1]]; return [11.90, 11.90]; };
+const lfEis = w => { if (w <= 0) return [0, 0];
+  /* 5,000 以上：每 RM100 一级（跟 payroll.my / PERKESO 表，例 5,400.01–5,500 → 10.90），上限 6,000 → 11.90 */
+  if (w > 5000) { if (w > 6000) return [11.90, 11.90]; const up = Math.ceil(w / 100) * 100, v = Math.round((up - 50) * 0.002 * 100) / 100; return [v, v]; }
+  for (const r of LF_EIS) if (w <= r[0]) return [r[1], r[1]]; return [11.90, 11.90]; };
 const lfPCB = w => { if (w <= 0) return 0; const epfEe = Math.min(w * 0.11 * 12, 4000); const ch = w * 12 - 9000 - epfEe; if (ch <= 5000) return 0;
   const bands = [[5000, 20000, 0.01, 0], [20000, 35000, 0.03, 150], [35000, 50000, 0.06, 600], [50000, 70000, 0.11, 1500], [70000, 100000, 0.19, 3700], [100000, 400000, 0.25, 9400], [400000, 600000, 0.26, 84400], [600000, 2000000, 0.28, 136400], [2000000, Infinity, 0.30, 528400]];
   let tax = 0; for (const [lo, hi, rate, base] of bands) if (ch > lo && ch <= hi) { tax = base + (ch - lo) * rate; break; } return Math.max(tax / 12, 0); };
@@ -6030,13 +6033,15 @@ const bsSalKey = n => { const u = String(n || "").trim().toUpperCase(), m = /^(?
 const bsDmy2Iso = v => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v || ""); return m ? m[3] + "-" + m[2] + "-" + m[1] : (v || ""); };
 const bsDateMask = v => { const t = String(v || "").replace(/\D/g, "").slice(0, 8); return t.length > 4 ? t.slice(0, 2) + "/" + t.slice(2, 4) + "/" + t.slice(4) : t.length > 2 ? t.slice(0, 2) + "/" + t.slice(2) : t; };
 /* ---------- 薪水计算（Bank Statement 的 Credited 格子点进去）---------- */
-const bsPCB = (w, epfEe, sw, ew) => { if (!(w > 0)) return 0; const ch = w * 12 - 9000 - Math.min(epfEe * 12, 4000); if (ch <= 5000) return 0;
+const bsPCB = (w, epfEe, sw, ew) => { if (!(w > 0)) return 0; const ch = w * 12 - 9000 - Math.min(epfEe * 12, 4000); if (ch <= 5000) return 0;   /* 跟 payroll.my：EPF 减免最多 4,000（SOCSO / EIS 不减） */
   const bands = [[5000, 20000, 0.01, 0], [20000, 35000, 0.03, 150], [35000, 50000, 0.06, 600], [50000, 70000, 0.11, 1500], [70000, 100000, 0.19, 3700], [100000, 400000, 0.25, 9400], [400000, 600000, 0.26, 84400], [600000, 2000000, 0.28, 136400], [2000000, Infinity, 0.30, 528400]];
   let tax = 0; for (const [lo, hi, rate, base] of bands) if (ch > lo && ch <= hi) { tax = base + (ch - lo) * rate; break; }
   if (ch <= 35000) tax -= 400; const m = tax / 12; return m < 10 ? 0 : Math.ceil(m * 20 - 1e-9) / 20; };
 /* SOCSO：Employment Injury & Invalidity & Lindung 24（跟 payroll.my 一样）— 员工 1.25%、雇主 1.75%，按工资级别中间数，薪水上限 6,000 */
 const bsSocso = w => { if (!(w > 0)) return [0, 0]; let prev = 0, up = null; for (const r of LF_SOCSO) { if (w <= r[0]) { up = r[0]; break; } prev = r[0]; } if (up == null) { up = 6000; prev = 5900; }
-  const mid = (prev + up) / 2, r5 = x => Math.round(x * 20 + 1e-9) / 20; return [r5(mid * 0.0175), r5(mid * 0.0125)]; };
+  /* 跟 payroll.my / PERKESO 表：雇主 = 1.25%（工伤）+ 0.5%（残疾）分开算；员工 = 1.25%；每一部分算到 5 仙（刚好一半 → 双数那边，例 68.125 → 68.10） */
+  const mid = (prev + up) / 2, r5 = x => { const y = x * 20, f = Math.floor(y + 1e-9), d = y - f; const n = d > 0.5 + 1e-7 ? f + 1 : d < 0.5 - 1e-7 ? f : (f % 2 === 0 ? f : f + 1); return Math.round(n * 5) / 100; };
+  const inj = r5(mid * 0.0125); return [Math.round((inj + r5(mid * 0.005)) * 100) / 100, inj]; };
 const bsEpf = (w, rate) => { if (!(w > 0)) return 0; const band = w <= 5000 ? Math.ceil(w / 20) * 20 : Math.ceil(w / 100) * 100; return Math.ceil(band * rate / 100); };
 function bsCalcOut(c) {
   const sal = lsNum(c.salary), bon = lsNum(c.bonus) + lsNum(c.commission), w = sal + bon, o = c.ov || {};   /* bonus = Allowance；Allowance / Commission 不算 EPF */
