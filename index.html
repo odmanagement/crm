@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117130500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "412";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "413";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -13451,6 +13451,13 @@ button:active, a:active { transform: scale(.97); }
   .dash-cols { grid-template-columns: 1fr !important; display: grid !important; gap: 12px !important; }
   .dash-cols > * { min-width: 0; }
   input, select, textarea { font-size: 16px; }   /* iPhone 打字不会自动放大 */
+  /* 客户列表：固定在左边的名字栏不要太阔（长名字换行），其他栏才看得到 */
+  .app-content td[style*="sticky"], .app-content th[style*="sticky"] { max-width: 118px !important; min-width: 90px !important; white-space: normal !important; word-break: break-word; font-size: 12px !important; line-height: 1.25; padding: 6px 8px !important; }
+  /* 客户资料里面的银行：一行放不下 → 换行（状态、数目、日期跑到第二行） */
+  .bank-row-p { flex-wrap: wrap !important; row-gap: 6px !important; }
+  .bank-row-p > :nth-child(1) { flex: 1 1 110px !important; }
+  .bank-row-p > :nth-child(3) { flex: 1 1 100px !important; }
+  .bank-row-p > :nth-child(4), .bank-row-p > :nth-child(5) { flex: 1 1 110px !important; width: auto !important; }
   .pfx { left: 0 !important; }
 }
 @media (min-width: 701px) and (max-width: 900px) {
