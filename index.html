@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117123000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "411";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "412";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -5478,7 +5478,7 @@ if (typeof document !== "undefined" && !window.__lfPasteHook) {
   window.__lfPasteHook = true;
   document.addEventListener("paste", e => {
     const t = _lfPasteTarget; if (!t) return;
-    const a = document.activeElement; if (a && a !== t.el && (a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && a.type !== "file") || a.isContentEditable)) return;
+    const a = document.activeElement; if (!t.hover && a && a !== t.el && (a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && a.type !== "file") || a.isContentEditable)) return;
     const its = Array.from((e.clipboardData && e.clipboardData.items) || []).filter(it => it.kind === "file" && (it.type.startsWith("image/") || it.type === "application/pdf"));
     if (!its.length) return; e.preventDefault(); e.stopImmediatePropagation(); t.add(its.map(it => it.getAsFile()));
   }, true);
@@ -5568,17 +5568,24 @@ function LfPhotos({ ids, onChange, ro, noDel, pre, post, tail, compact, lockAdd,
     if (nid.length) onChange([...list, ...nid]); setBusy(false);
   };
   const tgt = React.useRef({}); tgt.current.add = add; tgt.current.el = elRef.current;
-  const on = () => { tgt.current.el = elRef.current; _lfPasteTarget = tgt.current; setHot(true); };
-  const off = () => { if (_lfPasteTarget === tgt.current && document.activeElement !== elRef.current) _lfPasteTarget = null; setHot(false); };
+  const on = () => { tgt.current.el = elRef.current; tgt.current.hover = true; _lfPasteTarget = tgt.current; setHot(true); };
+  const off = () => { tgt.current.hover = false; if (_lfPasteTarget === tgt.current && document.activeElement !== elRef.current) _lfPasteTarget = null; setHot(false); };
+  /* 📋 按一下：直接贴上刚 Copy 的照片（不用 Ctrl+V） */
+  const pasteBtn = async e => { e.stopPropagation(); try { if (!navigator.clipboard || !navigator.clipboard.read) throw 0; const its = await navigator.clipboard.read(); const fs = [];
+      for (const it of its) { const ty = it.types.find(x => x.startsWith("image/") || x === "application/pdf"); if (ty) { const b = await it.getType(ty); fs.push(new File([b], "paste." + (ty.split("/")[1] || "png"), { type: ty })); } }
+      if (fs.length) add(fs); else alert("剪贴板里没有照片 — 先 Copy 一张照片 / 截图"); }
+    catch (er) { alert("这个浏览器不给直接读剪贴板 — 请把鼠标放在 📷 上面按 Ctrl+V（手机：长按 📷 格子 → 贴上）"); } };
   React.useEffect(() => () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; }, []);
-  return h("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", ...(compact ? {} : { minWidth: 72, justifyContent: "flex-end" }) } },
+  return h("div", { onMouseEnter: !ro && !lockAdd ? on : undefined, onMouseLeave: !ro && !lockAdd ? off : undefined,   /* 鼠标在这一格任何地方 → Ctrl+V 贴上去 */
+    style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", ...(compact ? {} : { minWidth: 72, justifyContent: "flex-end" }) } },
     (pre || []).map(id => h(LfThumb, { key: "pre" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } })),
     !ownAfter && list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), canDel(id) && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
     !ro && !lockAdd && h("div", { ref: elRef, tabIndex: 0, role: "button", title: "点一下 = 上传照片 / PDF\n鼠标放在这里按 Ctrl+V = 贴上截图",
       onMouseEnter: on, onMouseLeave: off, onFocus: on, onBlur: () => { if (_lfPasteTarget === tgt.current) _lfPasteTarget = null; setHot(false); },
       onClick: () => { if (!busy && fileRef.current) fileRef.current.click(); },
-      style: { width: 34, height: 34, boxSizing: "border-box", borderRadius: 8, border: "1px dashed " + (hot ? "#7c3aed" : "#c4b5fd"), background: hot ? "#ede9fe" : "#faf5ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "wait" : "pointer", outline: "none", flex: "0 0 34px" } },
+      style: { position: "relative", width: 34, height: 34, boxSizing: "border-box", borderRadius: 8, border: "1px dashed " + (hot ? "#7c3aed" : "#c4b5fd"), background: hot ? "#ede9fe" : "#faf5ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "wait" : "pointer", outline: "none", flex: "0 0 34px" } },
       busy ? h("span", { style: { fontSize: 13 } }, "⏳") : LF_CAM(h),
+      hot && !busy && h("span", { title: "贴上刚 Copy 的照片", onClick: pasteBtn, style: { position: "absolute", top: -8, right: -10, background: "#7c3aed", color: "#fff", borderRadius: 999, fontSize: 10, fontWeight: 900, padding: "1px 4px", cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,.2)", lineHeight: 1.3 } }, "📋"),
       h("input", { ref: fileRef, type: "file", accept: "image/*,application/pdf", multiple: true, style: { display: "none" }, onClick: e => e.stopPropagation(), onChange: e => { add(e.target.files); e.target.value = ""; } })),
     ownAfter && list.map(id => h("span", { key: id, style: { position: "relative", display: "inline-flex" } }, h(LfThumb, { id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #e2e8f0" } }), canDel(id) && lfIsPdf(_photoCache[id]) && h("button", { title: "删除 PDF", onClick: e => { e.stopPropagation(); if (window.confirm("删除这个 PDF？")) { onChange(list.filter(x => x !== id)); try { Promise.resolve(DB.del("mphoto_" + id)).catch(() => {}); } catch (er) {} delete _photoCache[id]; } }, style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", border: "none", background: "#334155", color: "#fff", fontSize: 10, lineHeight: "16px", padding: 0, cursor: "pointer" } }, "×"))),
     (post || []).map(id => h(LfThumb, { key: "post" + id, id, onImg: () => setBig(id), style: { width: 34, height: 34, objectFit: "cover", borderRadius: 7, cursor: "zoom-in", border: "1px solid #c7d2fe" } })),
