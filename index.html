@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117121800";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117123000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "410";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "411";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3295,6 +3295,7 @@ function CRM({ onLogout, currentUser }) {
   /* 多分页：网址跟着页面走（#页面），刷新 / 新分页都打开同一页 */
   const [page, setPage] = useState(() => crmHashPage() || "dashboard");
   const [openGroups, setOpenGroups] = useState(() => { const p = crmHashPage(), g = p && NAV.find(n => n.children && n.children.some(c => c.id === p)); return g ? { [g.id]: true } : { loan: true, html: false }; });
+  useEffect(() => { try { document.documentElement.classList.remove("crm-nav-open"); } catch (e) {} }, [page]);
   useEffect(() => { try { if (("#" + page) !== location.hash) history.replaceState(null, "", location.pathname + location.search + "#" + page); } catch (e) {}
     /* 这个账号看不到的页面 → 回首页 */
     const t = setTimeout(() => { const it = window.__crmNavItems; if (page !== "dashboard" && Array.isArray(it) && it.length && !crmNavIds(it).includes(page) && crmNavIds(NAV).includes(page)) setPage("dashboard"); }, 1500);
@@ -3771,12 +3772,14 @@ function CRM({ onLogout, currentUser }) {
     openGroups: openGroups,
     setOpenGroups: setOpenGroups,
     currentUser: currentUser
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", { className: "mob-ov", onClick: () => document.documentElement.classList.remove("crm-nav-open") }), /*#__PURE__*/React.createElement("div", {
+    className: "app-main",
     style: S.main
   }, /*#__PURE__*/React.createElement("header", {
     className: "app-header",
     style: S.header
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("button", { className: "mob-menu", title: "菜单", onClick: () => document.documentElement.classList.toggle("crm-nav-open") }, "☰"), /*#__PURE__*/React.createElement("div", {
+    className: "app-title",
     style: S.pageTitle
   }, (() => {
     for (const n of NAV) {
@@ -3788,6 +3791,7 @@ function CRM({ onLogout, currentUser }) {
     }
     return "";
   })()), /*#__PURE__*/React.createElement("div", {
+    className: "app-hdr-r",
     style: S.headerRight
   }, React.createElement(NightToggle, null), React.createElement(PageJump, { setPage: pg => { setOpenId(null); setPage(pg); }, openClient: (pg, cid) => { setPage(pg); setOpenId(cid); }, clients, verifications }), dueCount > 0 && /*#__PURE__*/React.createElement("span", {
     style: { ...S.dueBadge, cursor: "pointer" },
@@ -3796,11 +3800,14 @@ function CRM({ onLogout, currentUser }) {
   }, /*#__PURE__*/React.createElement(AlertCircle, {
     size: 14
   }), " ", dueCount, " to follow up"), /*#__PURE__*/React.createElement("span", {
+    className: "hdr-sync",
     style: S.saveState
   }, saving ? "Saving…" : "Synced"), currentUser && /*#__PURE__*/React.createElement("span", {
+    className: "hdr-user",
     title: "登录邮箱：" + (window.__crmLogin || ""),
     style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px 3px 3px", borderRadius: 999, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "#e0e7ff", fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }
   }, czAvatar(currentUser, 22), String(currentUser).toUpperCase(), isMissionBoss(currentUser) ? /*#__PURE__*/React.createElement("span", { style: { background: "linear-gradient(120deg,#f59e0b,#ef4444)", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5 } }, "BOSS") : isReadOnlyUser() ? /*#__PURE__*/React.createElement("span", { style: { background: "#64748b", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5 } }, "👁 只读") : null), canSeeLucas() && /*#__PURE__*/React.createElement("button", {
+    className: "hdr-backup",
     style: S.logoutBtn,
     onClick: () => setShowBackup(true),
     title: "备份 / Backups"
@@ -3824,7 +3831,7 @@ function CRM({ onLogout, currentUser }) {
     page: page
   })), /*#__PURE__*/React.createElement("div", {
     key: page,
-    className: "pg-anim pg-" + page,
+    className: "pg-anim app-content pg-" + page,
     style: { ...S.content, position: "relative" }
   }, loading ? /*#__PURE__*/React.createElement(Empty, {
     text: "Loading…"
@@ -9864,6 +9871,7 @@ function Dashboard({
     style: S.importBtn,
     onClick: onImport
   }, "Import Now")) : null, /*#__PURE__*/React.createElement("div", {
+    className: "stat-grid",
     style: S.statGrid
   }, /*#__PURE__*/React.createElement(Stat, {
     label: "Total Clients",
@@ -9882,6 +9890,7 @@ function Dashboard({
     color: "#4f46e5",
     small: true
   })), /*#__PURE__*/React.createElement("div", {
+    className: "dash-cols",
     style: S.dashCols
   }, /*#__PURE__*/React.createElement("div", {
     className: "tilt3d dash3d", "data-tilt": 4, "data-lift": 6, style: DK.card
@@ -13409,7 +13418,35 @@ button:active, a:active { transform: scale(.97); }
 .sb-badge { position: absolute; top: -7px; right: -9px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-sizing: content-box; animation: mhPop .3s; }
 .sb-ver { margin-top: auto; padding-top: 12px; text-align: center; font-size: 10px; color: rgba(255,255,255,.3); }
 .pfx { left: var(--sbw) !important; }
-@media (max-width: 900px) {
+/* ===== 手机：侧边栏变成 ☰ 菜单（从左边滑出来），上面一排变紧凑，表格左右滑 ===== */
+.mob-menu, .mob-ov { display: none; }
+@media (max-width: 700px) {
+  :root { --sbw: 0px !important; }
+  html, body { overflow-x: hidden; }
+  .sb { position: fixed !important; left: 0; top: 0; bottom: 0; height: 100% !important; width: 248px !important; padding: 14px 10px !important; transform: translateX(-105%); transition: transform .22s ease; z-index: 1000 !important; box-shadow: 8px 0 30px rgba(0,0,0,.25); }
+  html.crm-nav-open .sb { transform: none; }
+  .sb .sb-role, .sb .sb-name, .sb .sb-caret, .sb .sb-sec { display: revert !important; }
+  .sb .sb-txt { display: block !important; }
+  .sb .sb-item { justify-content: flex-start !important; padding: 10px 12px !important; }
+  .sb .sb-sub { margin: 2px 0 4px 18px !important; padding-left: 8px !important; }
+  html.crm-nav-open .mob-ov { display: block; position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 999; }
+  .mob-menu { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(148,163,184,.45); background: rgba(255,255,255,.85); color: #1e1b4b; font-size: 20px; font-weight: 900; cursor: pointer; margin-right: 8px; }
+  .app-main { width: 100%; }
+  .app-header { flex-wrap: wrap; gap: 8px; padding: 10px 12px !important; }
+  .app-title { flex: 1; min-width: 0; font-size: 17px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-hdr-r { width: 100%; flex-wrap: wrap; gap: 6px !important; justify-content: flex-start; }
+  .app-hdr-r [data-pj] { flex: 1 1 140px; }
+  .app-hdr-r [data-pj] input { width: 100% !important; box-sizing: border-box; }
+  .app-hdr-r .hdr-sync, .app-hdr-r .hdr-user, .app-hdr-r .hdr-backup { display: none !important; }
+  .app-hdr-r button { padding: 7px 10px !important; font-size: 12px !important; }
+  .app-content { padding: 12px !important; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .dash-cols { grid-template-columns: 1fr !important; display: grid !important; gap: 12px !important; }
+  .dash-cols > * { min-width: 0; }
+  input, select, textarea { font-size: 16px; }   /* iPhone 打字不会自动放大 */
+  .pfx { left: 0 !important; }
+}
+@media (min-width: 701px) and (max-width: 900px) {
   :root { --sbw: 72px; }
   .sb { padding: 12px 6px; }
   .sb-role, .sb-name, .sb-txt, .sb-caret, .sb-sec { display: none; }
