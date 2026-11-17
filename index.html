@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117163000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117164500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1875,9 +1875,19 @@ const NAV = [{
   label: "Phone",
   icon: Smartphone
 }, {
-  id: "banker",
+  /* BANKER：Banker 名单 + SOP（每家银行怎么做） */
+  id: "bankergrp",
   label: "Banker",
-  icon: Phone
+  icon: Phone,
+  children: [{
+    id: "banker",
+    label: "Banker List",
+    icon: Phone
+  }, {
+    id: "banksop",
+    label: "SOP",
+    icon: ListTodo
+  }]
 }, {
   id: "leave",
   label: "On Leave",
@@ -1910,7 +1920,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "414";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "415";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3882,7 +3892,7 @@ function CRM({ onLogout, currentUser }) {
   }) : page === "html_company" || page === "html_payslip" || page === "html_offer" ? /*#__PURE__*/React.createElement(CompanyFilesPage, null) : page === "banker" ? /*#__PURE__*/React.createElement(BankerPage, {
     bankers: bankers,
     onSave: persistBankers
-  }) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
+  }) : page === "banksop" ? /*#__PURE__*/React.createElement(BankSopPage, null) : page === "leave" ? /*#__PURE__*/React.createElement(LeavePage, {
     currentUser: currentUser
   }) : page === "doctrack" && DT_USERS.includes(canonUser(currentUser)) ? /*#__PURE__*/React.createElement(CustomerDocsPage, {
     currentUser: currentUser
@@ -4308,7 +4318,7 @@ function MissionPhotos({ mission, onChange, onClose, onRemark, canManage = true 
 /* ---------- 左边菜单（头像 + 职位 + 文字菜单） ---------- */
 const ROLE_LABELS = { lucas: "Boss", admin: "Admin" };
 /* 上面的搜索：打页面名字（例如 boss take）→ 直接跳去那页 */
-const PAGE_ALIAS = { receipt: "老板 boss 收据", returnsalary: "退薪 return", bankstmt: "银行 bank statement bs", bankstmt2: "人才 rencai", lendingfee: "lending 借", costing_pl: "pl costing 成本", costing_car: "car costing 车", submission: "closing 结案", salarylist: "salary status 薪水", acc_salary: "salary listing 薪水 account", acc_final: "final record", phone: "phone sim 电话", banker: "banker 银行家", mission: "mission 任务", verify: "verify 核对", onleave: "leave 请假", referral: "referral 红包", todo: "todo 待办", dashboard: "dashboard 首页", agreement: "agreement 合约", odpayment: "od payment 付款" };
+const PAGE_ALIAS = { banksop: "sop 银行 步骤 alliance muamalat 表格 form", receipt: "老板 boss 收据", returnsalary: "退薪 return", bankstmt: "银行 bank statement bs", bankstmt2: "人才 rencai", lendingfee: "lending 借", costing_pl: "pl costing 成本", costing_car: "car costing 车", submission: "closing 结案", salarylist: "salary status 薪水", acc_salary: "salary listing 薪水 account", acc_final: "final record", phone: "phone sim 电话", banker: "banker 银行家", mission: "mission 任务", verify: "verify 核对", onleave: "leave 请假", referral: "referral 红包", todo: "todo 待办", dashboard: "dashboard 首页", agreement: "agreement 合约", odpayment: "od payment 付款" };
 function NightToggle() {
   const [on, setOn] = React.useState(() => document.documentElement.classList.contains("crm-night"));
   const flip = () => { const v = !on; setOn(v); document.documentElement.classList.toggle("crm-night", v); try { localStorage.setItem("crm_night", v ? "1" : "0"); } catch (e) {} };
@@ -8604,6 +8614,55 @@ function MissionPage({
     canManage: canEditAssign(missions.find(x => x.id === photoId)),
     onClose: () => setPhotoId(null)
   }));
+}
+/* ===== SOP：每家银行的步骤 / 不能做的事 / 申请表格（表格 PDF 放在 GitHub 同一个文件夹） ===== */
+const BANK_SOP = [
+  { id: "alliance", bank: "ALLIANCE BANK", color: "#0f4c81", bg: "#eff6ff",
+    title: "Alliance CashFirst Personal Loan / CashVantage Financing-i",
+    steps: [], dont: [],
+    forms: [{ name: "Alliance CashFirst / CashVantage · Application Form", file: "SOP_ALLIANCE_PL_FORM.pdf", sign: "" }] },
+  { id: "muamalat", bank: "BANK MUAMALAT", color: "#7c2d92", bg: "#faf5ff",
+    title: "STEP to guide customer apply through Bank Muamalat",
+    banker: "JOE or Encik Chen", phone: "018-2359398",
+    steps: ["Direct apply with banker, HP number of banker (018-2359398)", "Customer MUST mention saw it from FB page want to try apply PL", "Our banker will request customer documents and will guide customer step by step.", "All doc send by WhatsApp", "Branch name : Taman Melawati", "Apply loan size 99k / 10.99% rate / 7 years"],
+    dont: ["Cant mention got any 3rd party or agency involved ⚠️", "Cant mention got fee involved ⚠️"],
+    forms: [{ name: "Bank Muamalat · Application Form For Financing", file: "SOP_MUAMALAT_PL_FORM.pdf", sign: "签名：第 7、8 页" }] }];
+const sopCopyText = s => [s.title, s.banker ? "\nBank " + s.bank.replace(/^BANK /, "") + " Banker - " + s.banker : "", s.steps.length ? "\n" + s.steps.map((x, i) => (i + 1) + ". " + x).join("\n") : "", s.dont.length ? "\nTHING ❌ DO\n" + s.dont.map((x, i) => (i + 1) + ". " + x).join("\n") : ""].filter(Boolean).join("\n");
+function BankSopPage() {
+  const h = React.createElement;
+  const [q, setQ] = React.useState(""), [done, setDone] = React.useState("");
+  const k = q.trim().toLowerCase();
+  const list = BANK_SOP.filter(s => !k || (s.bank + " " + s.title + " " + (s.banker || "")).toLowerCase().includes(k));
+  const copy = s => { const tx = sopCopyText(s); const ok = () => { setDone(s.id); setTimeout(() => setDone(""), 1500); };
+    try { navigator.clipboard.writeText(tx).then(ok, () => { const a = document.createElement("textarea"); a.value = tx; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); ok(); }); } catch (e) {} };
+  const sec = (t, c) => h("div", { style: { fontSize: 11.5, fontWeight: 900, letterSpacing: ".06em", color: c || "#64748b", margin: "14px 0 6px" } }, t);
+  return h("div", { className: "cz-page", style: { maxWidth: 980 } },
+    h("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
+      h("div", { style: { fontSize: 20, fontWeight: 900, color: "#1e1b4b" } }, "📘 BANK SOP"),
+      h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "🔍 搜索银行", style: { flex: "1 1 200px", maxWidth: 320, padding: "9px 14px", borderRadius: 999, border: "1px solid #e2e8f0", fontSize: 13, fontWeight: 700, outline: "none", fontFamily: "inherit" } })),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 440px), 1fr))", gap: 16 } },
+      list.map(s => h("div", { key: s.id, style: { background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 6px 20px rgba(15,23,42,.06)", overflow: "hidden" } },
+        h("div", { style: { background: s.color, color: "#fff", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } },
+          h("div", null, h("div", { style: { fontSize: 18, fontWeight: 900, letterSpacing: ".03em" } }, s.bank), h("div", { style: { fontSize: 12, opacity: .85, fontWeight: 700, marginTop: 2 } }, s.title)),
+          (s.steps.length > 0 || s.dont.length > 0) && h("button", { onClick: () => copy(s), title: "Copy 全部步骤（可以贴去 WhatsApp）", style: { flex: "none", border: "1px solid rgba(255,255,255,.6)", background: "rgba(255,255,255,.15)", color: "#fff", borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer" } }, done === s.id ? "✓ COPIED" : "📋 COPY")),
+        h("div", { style: { padding: "6px 18px 18px", background: s.bg } },
+          s.banker && h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 12 } },
+            h("span", { style: { fontWeight: 900, color: "#1e1b4b", fontSize: 14 } }, "👤 Banker：" + s.banker),
+            s.phone && h("a", { href: "tel:" + s.phone.replace(/\D/g, ""), style: { textDecoration: "none", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 999, padding: "4px 10px", fontWeight: 900, fontSize: 12.5, color: "#0f172a" } }, "📞 " + s.phone),
+            s.phone && h("a", { href: "https://wa.me/6" + s.phone.replace(/\D/g, ""), target: "_blank", rel: "noopener", style: { textDecoration: "none", background: "#22c55e", borderRadius: 999, padding: "4px 10px", fontWeight: 900, fontSize: 12.5, color: "#fff" } }, "WhatsApp")),
+          s.steps.length > 0 && sec("STEP"),
+          s.steps.length > 0 && h("ol", { style: { margin: 0, paddingLeft: 22, display: "grid", gap: 6 } }, s.steps.map((x, i) => h("li", { key: i, style: { fontSize: 13.5, fontWeight: 700, color: "#1e293b", lineHeight: 1.45 } }, x))),
+          s.dont.length > 0 && sec("THING ❌ DO", "#dc2626"),
+          s.dont.length > 0 && h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "10px 14px" } },
+            h("ol", { style: { margin: 0, paddingLeft: 20, display: "grid", gap: 4 } }, s.dont.map((x, i) => h("li", { key: i, style: { fontSize: 13.5, fontWeight: 800, color: "#b91c1c" } }, x)))),
+          sec("FORM 表格"),
+          s.forms.map((f, i) => h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 12px", flexWrap: "wrap" } },
+            h("span", { style: { flex: "none", width: 36, height: 42, borderRadius: 6, background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, "PDF"),
+            h("div", { style: { flex: "1 1 180px", minWidth: 0 } }, h("div", { style: { fontWeight: 900, fontSize: 13, color: "#0f172a" } }, f.name),
+              f.sign && h("div", { style: { marginTop: 3, display: "inline-block", background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d", borderRadius: 999, padding: "2px 8px", fontSize: 11.5, fontWeight: 900 } }, "✍️ " + f.sign)),
+            h("a", { href: f.file + "?v=" + FORM_FILE_VER, target: "_blank", rel: "noopener", style: { textDecoration: "none", background: s.color, color: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 900, fontSize: 12 } }, "打开"),
+            h("a", { href: f.file, download: f.file, style: { textDecoration: "none", background: "#fff", color: s.color, border: "1px solid " + s.color, borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12 } }, "⬇ 下载"))))))),
+    !list.length && h("div", { style: { padding: 30, textAlign: "center", color: "#94a3b8", fontWeight: 700 } }, "找不到"));
 }
 function BankerPage({
   bankers,
