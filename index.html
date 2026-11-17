@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261116174000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117105000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "404";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "405";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3291,8 +3291,15 @@ function CRM({ onLogout, currentUser }) {
   const [missions, setMissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState("dashboard");
-  const [openGroups, setOpenGroups] = useState({ loan: true, html: false });
+  /* 多分页：网址跟着页面走（#页面），刷新 / 新分页都打开同一页 */
+  const [page, setPage] = useState(() => crmHashPage() || "dashboard");
+  const [openGroups, setOpenGroups] = useState(() => { const p = crmHashPage(), g = p && NAV.find(n => n.children && n.children.some(c => c.id === p)); return g ? { [g.id]: true } : { loan: true, html: false }; });
+  useEffect(() => { try { if (("#" + page) !== location.hash) history.replaceState(null, "", location.pathname + location.search + "#" + page); } catch (e) {}
+    /* 这个账号看不到的页面 → 回首页 */
+    const t = setTimeout(() => { const it = window.__crmNavItems; if (page !== "dashboard" && Array.isArray(it) && it.length && !crmNavIds(it).includes(page) && crmNavIds(NAV).includes(page)) setPage("dashboard"); }, 1500);
+    return () => clearTimeout(t); }, [page]);
+  useEffect(() => { const f = () => { const p = crmHashPage(); if (p) { setPage(p); const g = NAV.find(n => n.children && n.children.some(c => c.id === p)); if (g) setOpenGroups({ [g.id]: true }); } };
+    window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f); }, []);
   const [openId, setOpenId] = useState(null);
   const [showDue, setShowDue] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -4297,6 +4304,12 @@ function PageJump({ setPage }) {
         style: { padding: "9px 14px", cursor: "pointer", background: i === hi ? "#f3e8ff" : "#fff", display: "flex", justifyContent: "space-between", gap: 10, fontWeight: 800, fontSize: 13, color: "#1e1b4b" } },
         h("span", null, x.label), x.grp && h("span", { style: { color: "#94a3b8", fontSize: 11.5, fontWeight: 700 } }, x.grp)))));
 }
+/* 侧边栏：Ctrl / ⌘ / Shift + 点、或按鼠标中键 → 新分页打开那一页；普通点 → 这一页换过去 */
+const crmNavIds = list => (list || []).flatMap(n => n.children ? [n.id, ...n.children.map(c => c.id)] : [n.id]);
+function crmHashPage() { try { const p = decodeURIComponent(String(location.hash || "").replace(/^#\/?/, "")); return p && crmNavIds(NAV).concat(["dashboard"]).includes(p) ? p : ""; } catch (e) { return ""; } }
+const sbNewTab = id => { try { window.open(location.pathname + location.search + "#" + id, "_blank"); } catch (e) {} };
+const sbGo = (setPage, id) => ({ onClick: e => { if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); sbNewTab(id); return; } setPage(id); },
+  onMouseDown: e => { if (e.button === 1) e.preventDefault(); }, onAuxClick: e => { if (e.button === 1) { e.preventDefault(); sbNewTab(id); } } });
 function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges }) {
   const h = React.createElement;
   const me = canonUser(currentUser);
@@ -4324,11 +4337,11 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
               h("span", { className: "sb-caret" + (isOpen ? " open" : "") }, "▸"), (() => { const bs = badges ? n.children.reduce((t, c) => t + (badges[c.id] || 0), 0) : 0; return h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), !isOpen && bs ? h("b", { className: "sb-badge" }, bs > 99 ? "99+" : bs) : null); })(), h("span", { className: "sb-txt" }, n.label)),
             isOpen && h("div", { className: "sb-sub" }, n.children.map(c => {
               const CIcon = c.icon;
-              return h(React.Fragment, { key: c.id }, h("button", { key: c.id, className: "sb-item sb-child" + (page === c.id ? " on" : ""), title: c.label, onClick: () => setPage(c.id) },
+              return h(React.Fragment, { key: c.id }, h("button", { key: c.id, className: "sb-item sb-child" + (page === c.id ? " on" : ""), title: c.label + "（Ctrl + 点 / 中键 → 新分页）", ...sbGo(setPage, c.id) },
                 h("span", { style: { position: "relative", display: "inline-flex" } }, h(CIcon, { size: 16 }), badges && badges[c.id] ? h("b", { className: "sb-badge" }, badges[c.id] > 99 ? "99+" : badges[c.id]) : null), h("span", { className: "sb-txt" }, c.label)));
             })));
         }
-        return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label, onClick: () => setPage(n.id) },
+        return h("button", { key: n.id, className: "sb-item" + (page === n.id ? " on" : ""), title: n.label + "（Ctrl + 点 / 中键 → 新分页）", ...sbGo(setPage, n.id) },
           h("span", { className: "sb-caret" }), h("span", { style: { position: "relative", display: "inline-flex" } }, h(Icon, { size: 18 }), badges && badges[n.id] ? h("b", { className: "sb-badge" }, badges[n.id] > 99 ? "99+" : badges[n.id]) : null), h("span", { className: "sb-txt" }, n.label));
       })),
     h("div", { className: "sb-ver" }, "v249"));
