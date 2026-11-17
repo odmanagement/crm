@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117105500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117113000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1910,7 +1910,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "406";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "407";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -3273,6 +3273,7 @@ function App() {
   });
   window.__crmLogin = session && session.user && session.user.email ? session.user.email : "";
   window.__crmUser = canonUser(window.__crmLogin.split("@")[0]);
+  crmApplyMute(window.__crmUser);
   return /*#__PURE__*/React.createElement(CRM, {
     onLogout: logout,
     currentUser: window.__crmUser
@@ -3788,7 +3789,7 @@ function CRM({ onLogout, currentUser }) {
     return "";
   })()), /*#__PURE__*/React.createElement("div", {
     style: S.headerRight
-  }, React.createElement(NightToggle, null), React.createElement(PageJump, { setPage: pg => { setOpenId(null); setPage(pg); } }), dueCount > 0 && /*#__PURE__*/React.createElement("span", {
+  }, React.createElement(NightToggle, null), React.createElement(PageJump, { setPage: pg => { setOpenId(null); setPage(pg); }, openClient: (pg, cid) => { setPage(pg); setOpenId(cid); }, clients, verifications }), dueCount > 0 && /*#__PURE__*/React.createElement("span", {
     style: { ...S.dueBadge, cursor: "pointer" },
     onClick: () => setShowDue(true),
     title: "View follow-ups"
@@ -4287,22 +4288,108 @@ function NightToggle() {
   const flip = () => { const v = !on; setOn(v); document.documentElement.classList.toggle("crm-night", v); try { localStorage.setItem("crm_night", v ? "1" : "0"); } catch (e) {} };
   return React.createElement("button", { onClick: flip, title: on ? "换回白天模式" : "夜间模式", style: { border: "1px solid rgba(148,163,184,.5)", background: "rgba(255,255,255,.9)", borderRadius: 999, width: 34, height: 34, cursor: "pointer", fontSize: 16, lineHeight: "30px", padding: 0 } }, on ? "☀️" : "🌙");
 }
-function PageJump({ setPage }) {
+/* ===== 上面的 🔍：打页面名 → 跳页面；打人名 → 列出这个人在每一页的全部资料 ===== */
+const PJ_SRC = [   /* [云端 key, 页面] —— form_drafts 看 file 决定页面 */
+  ["bank_stmt_people", "bankstmt"], ["bank_stmt_people_rencai", "bankstmt2"], ["lending_fee", "lendingfee"], ["od_payments", "odpayment"],
+  ["submissions", "submission"], ["form_drafts", null], ["bs_return_salary", "bsreturn"], ["return_salary", "returnsalary"], ["receipts", "receipt"],
+  ["acc_salary", "acc_salary"], ["doc_tracking", "doctrack"], ["phone_sims", "phone"], ["salary_status", "salarylist"]];
+const PJ_NAME_KEY = /^(name|customerName|clientName|client|customer|custName|title|payto|payTo)$/i;
+const PJ_INFO = ["agent", "company", "companyName", "bank", "position", "status", "stage", "month", "ym", "date", "amount", "total"];
+const _pjCache = {};
+async function pjLoad(key) {
+  if (_clMem[key] !== undefined && _clMem[key] !== null) return _clMem[key];
+  const c = _pjCache[key]; if (c && Date.now() - c.t < 120000) return c.v;
+  let v = await clCacheGet(key);
+  if (v == null) { try { const r = await DB.get(key); v = r ? JSON.parse(r) : []; } catch (e) { v = []; } }
+  _pjCache[key] = { t: Date.now(), v }; return v;
+}
+const pjNorm = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+function pjNames(x) {
+  const out = []; if (!x || typeof x !== "object") return out;
+  Object.keys(x).forEach(k => { const v = x[k]; if (typeof v === "string" && PJ_NAME_KEY.test(k) && v.trim()) out.push(v.trim()); });
+  ["s1", "s2", "native"].forEach(k => { const v = x[k]; if (v && typeof v === "object") { if (typeof v.name === "string" && v.name.trim()) out.push(v.name.trim()); if (v.data && typeof v.data.clientName === "string" && v.data.clientName.trim()) out.push(v.data.clientName.trim()); } });
+  if (x.meta && typeof x.meta.client === "string" && x.meta.client.trim()) out.push(x.meta.client.trim());
+  return out;
+}
+function pjInfo(x) {
+  const out = []; PJ_INFO.forEach(k => { const v = x && x[k]; if ((typeof v === "string" || typeof v === "number") && String(v).trim() && String(v).length < 40 && out.length < 3) out.push(String(v).trim().toUpperCase()); });
+  if (x && x.meta && x.meta.agent && out.length < 3) out.push(String(x.meta.agent).toUpperCase());
+  return out.join(" · ");
+}
+/* 跳过去之后：把名字放进那一页的搜索格 */
+function pjFillSearch(name) {
+  let n = 0; const t = setInterval(() => { n++;
+    const ins = [...document.querySelectorAll(".app-main input, main input, input")].filter(i => i.offsetParent && !i.closest("[data-pj]") && /search|搜|🔍|名字|name/i.test((i.placeholder || "") + " " + (i.title || "")) && i.type !== "file");
+    if (ins.length) { clearInterval(t); const i = ins[0]; try { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, name); i.dispatchEvent(new Event("input", { bubbles: true })); } catch (e) {} }
+    else if (n > 20) clearInterval(t); }, 150);
+}
+/* 这些人：CRM 全部声音关掉（提示音、通知声、念字…） */
+const MUTE_USERS = ["chialing"];
+function crmApplyMute(me) {
+  if (!MUTE_USERS.includes(canonUser(me || "")) || window.__crmMuted) return; window.__crmMuted = true;
+  try { localStorage.setItem("crm_sound", "off"); } catch (e) {}
+  try { ["AudioContext", "webkitAudioContext"].forEach(n => { const AC = window[n]; if (!AC) return;
+    const M = function () { const c = new AC(); try { c.suspend(); } catch (e) {} c.resume = () => Promise.resolve(); return c; }; M.prototype = AC.prototype; window[n] = M; }); } catch (e) {}
+  try { HTMLMediaElement.prototype.play = function () { try { this.muted = true; } catch (e) {} return Promise.resolve(); }; } catch (e) {}
+  try { if (window.speechSynthesis) window.speechSynthesis.speak = () => {}; } catch (e) {}
+}
+function PageJump({ setPage, openClient, clients, verifications }) {
   const h = React.createElement;
-  const [q, setQ] = React.useState(""), [open, setOpen] = React.useState(false), [hi, setHi] = React.useState(0);
+  const [q, setQ] = React.useState(""), [open, setOpen] = React.useState(false), [hi, setHi] = React.useState(0), [ppl, setPpl] = React.useState([]), [busy, setBusy] = React.useState(false);
   const all = []; (window.__crmNavItems || NAV).forEach(n => { if (n.children) n.children.forEach(c => all.push({ id: c.id, label: c.label, grp: n.label })); else all.push({ id: n.id, label: n.label, grp: "" }); });
+  const lbl = {}; all.forEach(x => { lbl[x.id] = x.label; });
   const k = q.trim().toLowerCase().replace(/\s+/g, " ");
-  const hits = !k ? [] : all.filter(x => (x.label + " " + x.grp + " " + x.id.replace(/_/g, " ") + " " + (PAGE_ALIAS[x.id] || "")).toLowerCase().includes(k)
-    || x.label.toLowerCase().replace(/\s+/g, "").includes(k.replace(/\s/g, ""))).slice(0, 8);
-  const go = x => { if (!x) return; setPage(x.id); setQ(""); setOpen(false); try { window.__crmGoPage && window.__crmGoPage(x.id); } catch (e) {} };
-  return h("div", { style: { position: "relative" } },
-    h("input", { value: q, placeholder: "🔍", onChange: e => { setQ(e.target.value); setOpen(true); setHi(0); }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 150),
+  const pages = !k ? [] : all.filter(x => (x.label + " " + x.grp + " " + x.id.replace(/_/g, " ") + " " + (PAGE_ALIAS[x.id] || "")).toLowerCase().includes(k)
+    || x.label.toLowerCase().replace(/\s+/g, "").includes(k.replace(/\s/g, ""))).slice(0, 6).map(x => ({ ...x, kind: "page" }));
+  /* 找人：打 2 个字以上，等一下才开始找 */
+  React.useEffect(() => {
+    if (k.length < 2) { setPpl([]); return; }
+    let dead = false; setBusy(true);
+    const t = setTimeout(async () => {
+      const vis = new Set(Object.keys(lbl)), res = [], seen = new Set();
+      const add = (page, name, info, extra) => { if (!vis.has(page)) return; const key = page + "|" + pjNorm(name) + "|" + (extra && extra.cid || "") + "|" + info; if (seen.has(key)) return; seen.add(key); res.push({ kind: "ppl", page, name, info, ...(extra || {}) }); };
+      const hit = s => pjNorm(s).includes(k);
+      (clients || []).forEach(c => { if (!c || !hit(c.name)) return; const ls = (c.loans || []).filter(l => l && ["house", "car", "personal"].includes(l.type));
+        if (!ls.length) add("personal", c.name, "客户（还没有 Loan）", { cid: c.id });
+        ls.forEach(l => add(l.type, c.name, [String(l.stage || "").toUpperCase(), l.bank, l.amount, l.agent].filter(Boolean).join(" · "), { cid: c.id })); });
+      (verifications || []).forEach(v => { if (v && hit(v.customerName)) add("verify", v.customerName, [String(v.status || "").toUpperCase(), v.companyName, v.staff && "STAFF " + String(v.staff).toUpperCase()].filter(Boolean).join(" · ")); });
+      for (const [key, page] of PJ_SRC) {
+        if (dead) return;
+        if (page && !vis.has(page)) continue;
+        let list; try { list = await pjLoad(key); } catch (e) { list = []; }
+        (Array.isArray(list) ? list : []).forEach(x => {
+          const nm = pjNames(x).find(hit); if (!nm) return;
+          let pg = page;
+          if (!pg) { const f = x.file || ""; const ct = COSTING_TOOLS.find(t => t.file === f); pg = ct ? ct.grp : AGREE_TOOLS.some(t => t.file === f) ? "agreement" : "html_forms";
+            add(pg, nm, [(ct || AGREE_TOOLS.find(t => t.file === f) || {}).name || String(f).replace(/\.html$/i, "").replace(/_/g, " "), pjInfo(x)].filter(Boolean).join(" · ")); return; }
+          add(pg, nm, pjInfo(x));
+        });
+      }
+      if (!dead) { setPpl(res.slice(0, 60)); setBusy(false); }
+    }, 300);
+    return () => { dead = true; clearTimeout(t); };
+  }, [k, clients, verifications]);
+  const hits = [...pages, ...ppl];
+  const go = x => { if (!x) return; setQ(""); setOpen(false);
+    if (x.kind === "page") { setPage(x.id); try { window.__crmGoPage && window.__crmGoPage(x.id); } catch (e) {} return; }
+    if (x.cid && openClient) { openClient(x.page, x.cid); return; }
+    setPage(x.page); pjFillSearch(x.name); };
+  const row = (x, i, kids) => h("div", { key: i, onMouseDown: e => { e.preventDefault(); go(x); }, onMouseEnter: () => setHi(i),
+    style: { padding: "8px 14px", cursor: "pointer", background: i === hi ? "#f3e8ff" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 13, color: "#1e1b4b", borderTop: "1px solid #f1f5f9" } }, kids);
+  const head = t => h("div", { key: "h" + t, style: { padding: "6px 14px", background: "#f8fafc", color: "#64748b", fontSize: 11, fontWeight: 900, letterSpacing: ".05em" } }, t);
+  return h("div", { style: { position: "relative" }, "data-pj": 1 },
+    h("input", { value: q, placeholder: "🔍", title: "打页面名字跳页面 · 打客户名字找他的全部资料", onChange: e => { setQ(e.target.value); setOpen(true); setHi(0); }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 150),
       onKeyDown: e => { if (e.key === "ArrowDown") { e.preventDefault(); setHi(i => Math.min(i + 1, hits.length - 1)); } else if (e.key === "ArrowUp") { e.preventDefault(); setHi(i => Math.max(i - 1, 0)); } else if (e.key === "Enter") { e.preventDefault(); go(hits[hi] || hits[0]); } else if (e.key === "Escape") { setQ(""); e.target.blur(); } },
       style: { width: 210, padding: "7px 12px", borderRadius: 999, border: "1px solid rgba(148,163,184,.5)", background: "rgba(255,255,255,.9)", fontSize: 13, fontWeight: 700, outline: "none", fontFamily: "inherit", color: "#1e1b4b" } }),
-    open && hits.length > 0 && h("div", { style: { position: "absolute", top: "110%", right: 0, minWidth: 240, background: "#fff", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.18)", border: "1px solid #e2e8f0", zIndex: 999, overflow: "hidden" } },
-      hits.map((x, i) => h("div", { key: x.id, onMouseDown: e => { e.preventDefault(); go(x); }, onMouseEnter: () => setHi(i),
-        style: { padding: "9px 14px", cursor: "pointer", background: i === hi ? "#f3e8ff" : "#fff", display: "flex", justifyContent: "space-between", gap: 10, fontWeight: 800, fontSize: 13, color: "#1e1b4b" } },
-        h("span", null, x.label), x.grp && h("span", { style: { color: "#94a3b8", fontSize: 11.5, fontWeight: 700 } }, x.grp)))));
+    open && k && h("div", { style: { position: "absolute", top: "110%", right: 0, width: 440, maxWidth: "92vw", maxHeight: "70vh", overflowY: "auto", background: "#fff", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.18)", border: "1px solid #e2e8f0", zIndex: 999 } },
+      pages.length > 0 && head("页面"),
+      pages.map((x, i) => row(x, i, [h("b", { key: 1 }, x.label), x.grp && h("span", { key: 2, style: { color: "#94a3b8", fontSize: 11.5, fontWeight: 700 } }, x.grp)])),
+      k.length >= 2 && head(busy ? "资料 · 找着…" : "资料（" + ppl.length + "）"),
+      ppl.map((x, j) => { const i = pages.length + j; return row(x, i, [
+        h("div", { key: 1, style: { minWidth: 0 } }, h("div", { style: { fontWeight: 900 } }, String(x.name).toUpperCase()), x.info && h("div", { style: { color: "#64748b", fontSize: 11.5, fontWeight: 700, marginTop: 2 } }, x.info)),
+        h("span", { key: 2, style: { flex: "none", background: "#ede9fe", color: "#6d28d9", fontSize: 11, fontWeight: 900, padding: "3px 8px", borderRadius: 999 } }, lbl[x.page] || x.page)]); }),
+      k.length >= 2 && !busy && !ppl.length && h("div", { style: { padding: "10px 14px", color: "#94a3b8", fontSize: 12.5, fontWeight: 700 } }, "找不到这个名字"),
+      k.length < 2 && !pages.length && h("div", { style: { padding: "10px 14px", color: "#94a3b8", fontSize: 12.5, fontWeight: 700 } }, "多打一个字…")));
 }
 /* 侧边栏：Ctrl / ⌘ / Shift + 点、或按鼠标中键 → 新分页打开那一页；普通点 → 这一页换过去 */
 const NAV_ALL_OPEN_USERS = ["chialing"];   /* 这些人的侧边栏：每个 group 都展开，全部页面一起看到 */
