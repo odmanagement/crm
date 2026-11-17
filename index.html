@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117170500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261117172500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1771,10 +1771,6 @@ const NAV = [{
     label: "Car",
     icon: Car
   }, {
-    id: "carappt",
-    label: "Car Appointment",
-    icon: CalendarDays
-  }, {
     id: "house",
     label: "House",
     icon: Home
@@ -1824,6 +1820,10 @@ const NAV = [{
     id: "costing_car",
     label: "Car Costing",
     icon: Car
+  }, {
+    id: "carappt",
+    label: "Car Appointment",
+    icon: CalendarDays
   }, {
     id: "submission",
     label: "Closing",
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "418";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "419";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -8667,7 +8667,15 @@ function CarApptPage({ clients, currentUser }) {
   const copy = x => { const tx = carApptText(x); const ok = () => { setDone(x.id); setTimeout(() => setDone(""), 1500); };
     try { navigator.clipboard.writeText(tx).then(ok, () => { const a = document.createElement("textarea"); a.value = tx; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); ok(); }); } catch (e) {} };
   const k = q.trim().toLowerCase();
-  const shown = items.filter(x => !k || String(x.name || "").toLowerCase().includes(k));
+  /* 顺序：最近的约会排上面（还没填日期的新单放最上面，已经过了的放最下面） */
+  const caWhen = x => { const now = new Date(), t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(); let best = null, past = null;
+    Object.values(x.stops || {}).forEach(v => { if (!v || v.x) return; const m = /^\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})(?:\s*[\/\-.]\s*(\d{2,4}))?/.exec(v.date || ""); if (!m) return;
+      let y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : now.getFullYear(); const mo = +m[2] - 1, d = +m[1];
+      if (!m[3] && mo < now.getMonth() - 6) y++;
+      const tm = /(\d{1,2})[.:](\d{2})/.exec(v.time || "") || /^(\d{1,2})$/.exec(String(v.time || "").trim()); let hh = tm ? +tm[1] : 23, mi = tm && tm[2] ? +tm[2] : 59; if (tm && hh < 8) hh += 12;   /* 2.30 → 下午 2:30 */
+      const ts = new Date(y, mo, d, hh, mi).getTime(); if (new Date(y, mo, d).getTime() >= t0) { if (best == null || ts < best) best = ts; } else if (past == null || ts > past) past = ts; });
+    return best != null ? [1, best] : past != null ? [2, -past] : [0, -(x.at || 0)]; };
+  const shown = items.filter(x => !k || String(x.name || "").toLowerCase().includes(k)).map(x => [x, caWhen(x)]).sort((a, b) => a[1][0] - b[1][0] || a[1][1] - b[1][1]).map(a => a[0]);
   const inp = { padding: "7px 10px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontWeight: 700, fontFamily: "inherit", outline: "none", background: "#fff", boxSizing: "border-box", minWidth: 0 };
   const btn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 10, padding: "8px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" });
   return h("div", { className: "cz-page", style: { maxWidth: 1100 } },
