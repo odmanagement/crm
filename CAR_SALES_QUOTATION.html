@@ -484,6 +484,8 @@
     <select id="qAgent" onchange="if(this.value==='__other__'){ const n=(prompt('Agent 名字：')||'').trim().toUpperCase(); if(n){ addAgentOpt(n); this.value=n; } else this.value=''; }"></select>
   </label>
   <button class="btn-primary" onclick="addSheet()">+ Add Page</button>
+  <button class="btn-primary" onclick="document.getElementById('ciFile').click()" title="选 Excel 文件（.xlsx / .xls / .csv）→ 每部车自动开一页、自动输入。也可以把文件拖进来，或者在 Excel copy 几行按 Ctrl+V" style="background:#16a34a;border-color:#16a34a">📥 Import Excel</button>
+  <input type="file" id="ciFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none" onchange="ciImportFile(this.files[0]); this.value=''">
   <button class="btn-primary" onclick="copyInfo(this)">Agent Copy</button>
   <button class="btn-primary" onclick="agentFinalCopy(this)">Agent Final Copy</button>
   <button class="btn-primary" onclick="finalCopy(this)">Final Copy</button>
@@ -1463,6 +1465,113 @@
   (function initAgents(){ const sel = document.getElementById('qAgent'); if(!sel) return;
     let list = AGENT_FALLBACK; try{ if(window.parent && window.parent !== window && Array.isArray(window.parent.CLOSING_AGENTS)) list = window.parent.CLOSING_AGENTS; }catch(e){}
     sel.innerHTML = '<option value="">— 选择 —</option>' + list.map(a=>'<option value="'+String(a).toUpperCase()+'">'+String(a).toUpperCase()+'</option>').join('') + '<option value="__other__">＋ 其他…</option>'; })();
+  /* ===== 从 Excel / Google Sheet 自动输入：📥 Import Excel、把 .xlsx 拖进来、或者 copy 几行按 Ctrl+V ===== */
+  const CI_BRANDS = ['MERCEDES-BENZ','MERCEDES BENZ','MERCEDES','LAND ROVER','RANGE ROVER','ALFA ROMEO','ASTON MARTIN','ROLLS-ROYCE','ROLLS ROYCE','TOYOTA','HONDA','PROTON','PERODUA','NISSAN','MAZDA','MITSUBISHI','BMW','AUDI','VOLKSWAGEN','VW','LEXUS','SUBARU','PEUGEOT','KIA','HYUNDAI','FORD','ISUZU','VOLVO','PORSCHE','MINI','TESLA','BYD','CHERY','HAVAL','GWM','ORA','JAGUAR','SUZUKI','DAIHATSU','CHEVROLET','RENAULT','CITROEN','INFINITI','FERRARI','LAMBORGHINI','BENTLEY','MASERATI','JAECOO','OMODA','ZEEKR','SMART','DENZA','MG','GEELY','PROTON EV','NAZA','INOKOM'];
+  const CI_FIN = [['CHAILEASE',/^CHAIL/],['CARSOME',/^CARSO[MN]E/],['AMB',/^(AMB|AMBANK|AM BANK)$/],['X STAR',/^X\s*-?\s*STAR/],['AEON',/^AEON/],['CIMB',/^CIMB/],['PBB',/^(PBB|PUBLIC)/]];
+  const CI_COLORS = /^(WHITE|BLACK|SILVER|GREY|GRAY|RED|BLUE|GREEN|YELLOW|ORANGE|BROWN|GOLD|BEIGE|PURPLE|MAROON|BRONZE|PEARL WHITE|CHAMPAGNE|DARK GREY|DARK BLUE|PINK)$/i;
+  const ciNum = v => { if(typeof v === 'number') return v; const s = String(v==null?'':v).replace(/[,\sRM]/gi,''); return /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : null; };
+  const ciPlate = s => /^[A-Z]{1,4}\s?\d{1,4}\s?[A-Z]{0,2}(\s*\/\s*[A-Z]{1,4}\s?\d{1,4}\s?[A-Z]{0,2})*$/i.test(String(s).trim()) && /\d/.test(s);
+  function ciParseRows(rows){
+    const cars = []; let custName = '';
+    rows.forEach(r => {
+      const cells = (r||[]).map(v => v==null ? '' : (typeof v === 'number' ? v : String(v).trim())).filter(v => v !== '');
+      if(!cells.length) return;
+      let i = cells.findIndex(v => typeof v === 'string' && ciPlate(v));
+      if(i < 0){ if(cells.length === 1 && typeof cells[0] === 'string' && /[A-Z]/i.test(cells[0]) && !custName) custName = cells[0]; return; }
+      if(i > 0 && typeof cells[i-1] === 'string' && !custName) custName = cells[i-1];
+      const car = { plate: String(cells[i]).toUpperCase().replace(/\s*\/\s*/g,'/') }; i++;
+      const rest = cells.slice(i);
+      /* brand + model */
+      let k = 0; const first = typeof rest[0] === 'string' ? rest[0].toUpperCase() : '';
+      const br = CI_BRANDS.find(b => first === b || first.startsWith(b + ' '));
+      if(br){ car.brand = br === 'MERCEDES BENZ' || br === 'MERCEDES' ? 'MERCEDES-BENZ' : br === 'VW' ? 'VOLKSWAGEN' : br; const m = first.slice(br.length).trim(); k = 1;
+        if(m) car.model = m; else if(typeof rest[1] === 'string' && ciNum(rest[1]) == null){ car.model = rest[1].toUpperCase(); k = 2; } }
+      else if(first && ciNum(first) == null){ car.brand = first; k = 1; if(typeof rest[1] === 'string' && ciNum(rest[1]) == null){ car.model = rest[1].toUpperCase(); k = 2; } }
+      /* year → cc → A/M → 颜色 → 「名字 - Financing」→ 4 个数目 */
+      const nums = []; let finTxt = '';
+      for(let j = k; j < rest.length; j++){
+        const v = rest[j], n = ciNum(v);
+        if(n != null){
+          if(!car.year && Number.isInteger(n) && n >= 1980 && n <= 2040 && !finTxt) { car.year = String(n); continue; }
+          if(!finTxt && n > 0 && n < 10) { car.cc = n; continue; }
+          if(finTxt || nums.length || n >= 100) nums.push(n);
+          continue;
+        }
+        const s = String(v).toUpperCase();
+        if(!finTxt && /^(A|M|AT|MT|AUTO|MANUAL)$/.test(s)) { car.trans = s; continue; }
+        if(!finTxt && CI_COLORS.test(s)) { car.color = s; continue; }
+        if(!finTxt) finTxt = s;
+      }
+      car.finTxt = finTxt;
+      [car.loan, car.cb, car.mthly, car.tenure] = [nums[0], nums[1], nums[2], nums[3]];
+      cars.push(car);
+    });
+    /* 客户名字：没有的话用「名字 - Financing」前面一样的字 */
+    const fins = cars.map(c => c.finTxt).filter(Boolean);
+    if(!custName && fins.length){
+      if(fins.length > 1){ const w = fins.map(f => f.replace(/\s*-\s*/g,' ').split(/\s+/)); let n = 0; while(w.every(x => x[n] && x[n] === w[0][n]) && n < w[0].length - 1) n++; custName = w[0].slice(0,n).join(' '); }
+      else if(/\s-\s/.test(fins[0])) custName = fins[0].split(/\s-\s/)[0];
+    }
+    custName = String(custName||'').toUpperCase().trim();
+    cars.forEach(c => { let f = c.finTxt || '';
+      if(custName && f.startsWith(custName)) f = f.slice(custName.length);
+      else if(/\s-\s/.test(f)) f = f.split(/\s-\s/).slice(1).join(' - ');
+      f = f.replace(/^[\s\-–:]+/,'').trim();
+      const hit = CI_FIN.find(([, re]) => re.test(f)); c.fin = hit ? hit[0] : f; });
+    return { name: custName, cars };
+  }
+  function ciSetPick(sheet, cls, val){
+    const txt = sheet.querySelector('.'+cls); if(!txt) return; const sel = txt.parentElement.querySelector('.q-sel');
+    val = String(val||'').toUpperCase();
+    if(sel && val && [...sel.options].some(o => o.value === val)){ sel.value = val; sel.style.display = ''; txt.style.display = 'none'; txt.value = val; }
+    else if(sel && val){ sel.style.display = 'none'; txt.style.display = ''; txt.value = val; }
+  }
+  function ciRowInput(sheet, label){ const row = [...sheet.querySelectorAll('.row')].find(r => { const l = r.querySelector('.label'); return l && l.textContent.trim().toLowerCase().startsWith(label); }); return row && row.querySelector('.val input:not([type=hidden])'); }
+  const ciMoney = n => n == null ? '' : Number(n).toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2});
+  function ciFill(data){
+    if(!data.cars.length){ alert('找不到车的资料 — 要有车牌（例如 JRC8088）那一行'); return; }
+    let sheets = [...container.querySelectorAll('.sheet:not(.fixed-page)')];
+    const isEmpty = s => !s.querySelector('.q-plate').value.trim() && !(s.querySelector('input.money') || {}).value;
+    let free = sheets.filter(isEmpty);
+    data.cars.forEach(c => {
+      let s = free.shift();
+      if(!s){ addSheet(); const all = container.querySelectorAll('.sheet:not(.fixed-page)'); s = all[all.length-1]; }
+      const set = (el, v) => { if(el && v != null && v !== ''){ el.value = v; el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); } };
+      if(data.name) set(s.querySelector('.q-name'), data.name);
+      set(s.querySelector('.q-plate'), c.plate);
+      ciSetPick(s, 'q-brand', c.brand);
+      set(s.querySelector('.q-model'), c.model);
+      set(s.querySelector('.q-year'), c.year);
+      set(ciRowInput(s, 'loan amount'), ciMoney(c.loan));
+      set(s.querySelector('.mth-inst'), ciMoney(c.mthly));
+      set(ciRowInput(s, 'tenure'), c.tenure != null ? String(c.tenure) : '');
+      ciSetPick(s, 'q-financing', c.fin);
+      const cb = s.querySelector('.cb-total'); set(cb, ciMoney(c.cb)); if(cb) calcCashback(cb);
+    });
+    try{ syncMonthly(); }catch(e){}
+    renumber();
+    const msg = document.createElement('div');
+    msg.textContent = '✓ 已自动输入 ' + data.cars.length + ' 部车' + (data.name ? '（' + data.name + '）' : '') + ' — 请检查一下数目';
+    msg.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,.2);font-family:inherit';
+    document.body.appendChild(msg); setTimeout(() => msg.remove(), 4000);
+  }
+  function ciLoadXlsx(){ return window.XLSX ? Promise.resolve(window.XLSX) : new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = () => ok(window.XLSX); sc.onerror = () => bad(new Error('load')); document.head.appendChild(sc); }); }
+  async function ciImportFile(f){
+    if(!f) return;
+    try{
+      if(/\.csv$/i.test(f.name) || f.type === 'text/csv'){ const tx = await f.text(); ciFill(ciParseRows(tx.split(/\r?\n/).map(l => l.split(/,|\t/)))); return; }
+      const X = await ciLoadXlsx(); const wb = X.read(await f.arrayBuffer(), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]]; ciFill(ciParseRows(X.utils.sheet_to_json(ws, {header:1, raw:true, defval:''})));
+    }catch(e){ alert('读不到这个文件：' + f.name + '\n请用 .xlsx / .xls / .csv'); }
+  }
+  document.addEventListener('paste', e => {
+    const tx = e.clipboardData && e.clipboardData.getData('text/plain'); if(!tx || (tx.match(/\t/g) || []).length < 3) return;
+    const rows = tx.replace(/\r/g,'').split('\n').map(l => l.split('\t'));
+    const data = ciParseRows(rows); if(!data.cars.length) return;
+    e.preventDefault(); e.stopImmediatePropagation(); ciFill(data);
+  }, true);
+  document.addEventListener('dragover', e => { const f = e.dataTransfer && [...(e.dataTransfer.items||[])].some(i => /sheet|excel|csv/i.test(i.type)); if(f && !e.target.closest('.photo-drop')) e.preventDefault(); });
+  document.addEventListener('drop', e => { if(e.target.closest('.photo-drop')) return; const f = e.dataTransfer && [...(e.dataTransfer.files||[])].find(x => /\.(xlsx|xls|csv)$/i.test(x.name)); if(f){ e.preventDefault(); ciImportFile(f); } });
   addSheet();      // first quotation page
   addFixedPage();  // cashback breakdown, fixed at the bottom
   window.__ready = true;
