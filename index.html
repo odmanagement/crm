@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261118110000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261118110500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "423";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "424";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -8655,14 +8655,15 @@ function MissionPage({
 }
 /* ===== CAR APPOINTMENT：带客户去每家银行 / 公司的时间表，一按 COPY 变成 WhatsApp 讯息 ===== */
 const CAR_APPT_STOPS = [
-  /* 顺序 = 跟着路线近到远：CIMB → Batu Caves → PBB → HLB → AMbank → Credit Company → Shah Alam */
+  /* 顺序 = 跟着路线近到远：CIMB → Batu Caves → PBB → HLB → AMbank → Credit Company → Shah Alam → Jaecoo Ampang */
   { k: "cimb", name: "CIMB", link: "https://share.google/izxaCURRzMstvLqTX" },
   { k: "batucaves", name: "Batu Caves", addr: "LG Basement Carpark, Batu Caves Centre Point, Jalan 1, Taman Industri Bolton, 68100 Batu Caves, Selangor.", link: "https://www.google.com/maps/search/?api=1&query=E2+Auto+Batu+Caves+Centre+Point", linkLabel: "📍 Google Maps" },
   { k: "pbb", name: "PBB", link: "https://share.google/NsWqAXJpglfcaD1TZ" },
   { k: "hlb", name: "HLB", link: "https://share.google/NDAZAsGaTtF4EbQTy" },
   { k: "ambank", name: "AMbank", link: "https://share.google/jBhy5cQVobW0J6ZdG" },
   { k: "credit", name: "CREDIT COMPANY", after: "📌 How to find us:\n1️⃣ Park in front of Klinik Aurora.\n2️⃣ Walk to Block 12, Unit 12-2.\n3️⃣ Enter through the grey gate.\n4️⃣ Go up to Level 2.\n🗺️ Waze:\nhttps://waze.com/ul/hw2831c2qu\n🚗💨 See you soon! Please let us know when you’re on the way. 😊" },
-  { k: "muamalat", name: "MUAMALAT (SHAH ALAM)", link: "https://share.google/ExL8HSCiEtNdGMh8V" }];
+  { k: "muamalat", name: "MUAMALAT (SHAH ALAM)", link: "https://share.google/ExL8HSCiEtNdGMh8V" },
+  { k: "jaecoo", name: "JAECOO AMPANG", addr: "Jaecoo Ampang - Siang Hin (KL) Sdn Bhd, 70, Jln Ulu Klang, Kuala Ampang, 68000 Ampang, Selangor. Tel: 03-4266 3030", link: "https://www.google.com/maps/search/?api=1&query=Jaecoo+Ampang+Siang+Hin+(KL)+Sdn+Bhd+70+Jalan+Ulu+Klang", linkLabel: "📍 Google Maps" }];
 const carApptText = r => {
   const st = r.stops || {};
   const out = ["CUSTOMER NAME : " + (r.name || "")];
