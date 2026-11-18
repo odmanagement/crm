@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261118131000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261118160000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "426";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "427";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4534,7 +4534,7 @@ function ownToast(who) {
 /* OD Payment（资料在 Lending Sheet / od_payments 里面）：照片、已付、Return → 全部人都可以改（里面一层层的也算） */
 const OWN_FREE_DEEP = {
   /* Bank Statement / Rencai 最右边那一栏（COMPANY / POSITION / USE CARD / 下面的格子）：全部人都可以改 */
-  bank_stmt_people: /^(company|position|useCard|\d+_k)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k)$/,
+  bank_stmt_people: /^(company|position|useCard|\d+_k|ord)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k|ord)$/,   /* ord = 移上移下，谁都可以 */
   lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i,
   /* Verify：Mark Verified / Failed / Reopen 全部人都可以按（资料本身还是只有建立的人可以改） */
   verifications: /^(status|verifiedBy|verifiedAt|clientId)$/, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)/i };
@@ -6618,7 +6618,7 @@ function crmLoudAlert(n, onGo) {
   } catch (e) {}
 }
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
-function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
+function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDown }) {
   const [, setSlTick] = React.useState(0);
   React.useEffect(() => { const f = () => setSlTick(x => x + 1); window.addEventListener("crm-salstop", f); return () => window.removeEventListener("crm-salstop", f); }, []);
   React.useEffect(() => { const f = () => { if (!focus.current) setD(norm(r.bs)); }; window.addEventListener("crm-own-block", f); return () => window.removeEventListener("crm-own-block", f); });
@@ -6678,7 +6678,10 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai }) {
   /* 最上面：START SALARY ON 选择（选了之后字还可以手动改） */
   const ST_OPT = BS_START_OPTS, so = ST_OPT.find(o => o.k === d.startType);
   const stOn = !!d.started;
-  trs.push(h("tr", { key: "st" }, h("td", { colSpan: 2, style: { ...cell, background: stOn ? "#dcfce7" : (so ? so.bg : "#fafafa"), textAlign: "center" } },
+  const mvB = (dir, on) => h("button", { key: dir, title: dir < 0 ? "移上去" : "移下来", disabled: !on, onClick: e => { e.stopPropagation(); onMove && onMove(dir); },
+    style: { width: 22, height: 18, lineHeight: "14px", padding: 0, border: "1px solid #cbd5e1", borderRadius: 5, background: on ? "#fff" : "#f1f5f9", color: on ? "#334155" : "#cbd5e1", fontSize: 10, fontWeight: 900, cursor: on ? "pointer" : "default" } }, dir < 0 ? "▲" : "▼");
+  trs.push(h("tr", { key: "st" }, h("td", { colSpan: 2, style: { ...cell, background: stOn ? "#dcfce7" : (so ? so.bg : "#fafafa"), textAlign: "center", position: "relative" } },
+      onMove && h("div", { style: { position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 2 } }, mvB(-1, canUp), mvB(1, canDown)),
       h("label", { title: "打勾 = 已经 START，自动排到最上面", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: stOn ? "#15803d" : "#64748b" } },
         h("input", { type: "checkbox", checked: stOn, onChange: e => { const nx = { ...d, started: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx); }, style: { width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" } }), "START")),
     h("td", { colSpan: 8, style: { ...cell, height: 40, padding: "6px 10px", textAlign: "center", background: so ? so.bg : "#fafafa" } },
@@ -6833,6 +6836,18 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const [ey, setEy] = React.useState("");
   /* 进行中 = 打勾 START 的；还没 START 的（包括新增人头）= PENDING */
   const tabOf = r => endY(r) || (r.bs && r.bs.started ? "" : "pending");
+  /* 顺序：有手动移过（ord）就照 ord；还没移过的照原本（旧到新） */
+  const bsCmp0 = (a, b) => ((a.bs && a.bs.started ? 1 : 0) - (b.bs && b.bs.started ? 1 : 0)) || (!(a.bs && a.bs.started) && !(b.bs && b.bs.started) ? ((b.manual && b.manual.at) || 0) - ((a.manual && a.manual.at) || 0) : 0) || (a.bs && a.bs.started && b.bs && b.bs.started ? (a.bs.started.at || 0) - (b.bs.started.at || 0) : 0) || (a.manual && !a.c.name ? 0 : 1) - (b.manual && !b.c.name ? 0 : 1) || (b.manual && !b.c.name ? (b.manual.at || 0) - (a.manual.at || 0) : 0) || String(a.c.name).localeCompare(String(b.c.name));
+  const ordOf = r => r.manual && typeof r.manual.ord === "number" ? r.manual.ord : null;
+  const bsCmp = (a, b) => { const oa = ordOf(a), ob = ordOf(b); if (oa != null && ob != null) return oa - ob || bsCmp0(a, b); if (oa != null) return -1; if (ob != null) return 1; return bsCmp0(a, b); };
+  /* ▲ ▼ 移上移下：整个分页重新编号再对调 */
+  const moveRow = (r, dir) => {
+    const list = rows.filter(x => tabOf(x) === tabOf(r) && x.manual).sort(bsCmp), vis = shown.filter(x => x.manual);
+    const vi = vis.findIndex(x => x.c.id === r.c.id), other = vis[vi + dir]; if (vi < 0 || !other) return;
+    const ids = list.map(x => x.manual.id), i = ids.indexOf(r.manual.id), j = ids.indexOf(other.manual.id); if (i < 0 || j < 0) return;
+    ids.splice(i, 1); ids.splice(j, 0, r.manual.id);
+    const ordMap = {}; ids.forEach((id, k) => { ordMap[id] = (k + 1) * 10; });
+    savePpl(people.map(p => ordMap[p.id] != null && p.ord !== ordMap[p.id] ? { ...p, ord: ordMap[p.id] } : p)); };
   const shown = rows.filter(r => {
     if (tabOf(r) !== ey) return false;
     const bal = bsBalance(r.bs);
@@ -6840,7 +6855,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
     if (only === "none" && r.bs) return false;
     return !ql || [r.c.name, r.bs && r.bs.bankAcc, r.bs && r.bs.company, r.bs && r.bs.agent].join(" ").toLowerCase().includes(ql);
-  }).sort((a, b) => ((a.bs && a.bs.started ? 1 : 0) - (b.bs && b.bs.started ? 1 : 0)) || (!(a.bs && a.bs.started) && !(b.bs && b.bs.started) ? ((b.manual && b.manual.at) || 0) - ((a.manual && a.manual.at) || 0) : 0) || (a.bs && a.bs.started && b.bs && b.bs.started ? (a.bs.started.at || 0) - (b.bs.started.at || 0) : 0) || (a.manual && !a.c.name ? 0 : 1) - (b.manual && !b.c.name ? 0 : 1) || (b.manual && !b.c.name ? (b.manual.at || 0) - (a.manual.at || 0) : 0) || String(a.c.name).localeCompare(String(b.c.name)));
+  }).sort(bsCmp);
   const sum = k => shown.reduce((a, r) => a + (r.bs ? (k === "bal" ? bsBalance(r.bs) - rcSum(r) : bsTot(r.bs[k]) + (k === "received" ? rcSum(r) : 0)) : (k === "bal" ? -rcSum(r) : k === "received" ? rcSum(r) : 0)), 0);
   const chip = (k, l) => h("button", { key: k, onClick: () => setOnly(k), style: { border: only === k ? "2px solid #ca8a04" : "1px solid #e2e8f0", background: only === k ? "#fef9c3" : "#fff", color: only === k ? "#713f12" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l);
   const num = { ...S.td, ...S.tdNum };
@@ -6857,7 +6872,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 START 搬去进行中 · 打勾 END 搬去那一年")),
     shown.length === 0 ? h("div", { style: { background: "#fff", borderRadius: 14, padding: 30, textAlign: "center", color: "#94a3b8", border: "1px solid #eef0f6" } }, rows.length ? "找不到" : "还没有 — 按「新增人头」，或 Personal Loan 填 CIMB / AEON CREDIT 的客户会自动出现") :
     h("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
-      shown.map(r => h(BankStmtSheet, { key: r.c.id, r, rencai: store === "bank_stmt_people_rencai", onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual && canDel(r.manual) ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
+      shown.map((r, ri) => h(BankStmtSheet, { key: r.c.id, r, rencai: store === "bank_stmt_people_rencai", onMove: r.manual ? dir => moveRow(r, dir) : null, canUp: ri > 0, canDown: ri < shown.length - 1, onSave: bs => r.manual ? savePpl(people.map(p => p.id === r.manual.id ? { ...p, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") } } : p)) : onSaveStmt(r.c.id, { ...bs, updatedAt: Date.now(), updatedBy: canonUser(window.__crmUser || "") }), onName: r.manual ? (n, ag) => savePpl(people.map(p => p.id === r.manual.id ? { ...p, name: n.toUpperCase(), ...(ag ? { bankStmt: { ...(p.bankStmt || {}), agent: ag } } : {}) } : p)) : null, onDel: r.manual && canDel(r.manual) ? e => delPerson(e, r.manual.id, r.c.name || "(没名字)") : null })),
       h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, flexWrap: "wrap", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "10px 16px", fontWeight: 900, fontSize: 13.5 } },
         h("span", null, "TOTAL"), h("span", { style: { color: "#15803d" } }, "Credited " + lsFmt(sum("credits"))), h("span", { style: { color: "#0369a1" } }, "Received " + lsFmt(sum("received"))), h("span", { style: { color: "#b91c1c" } }, "Balance " + lsFmt(sum("bal"))))))
 }
