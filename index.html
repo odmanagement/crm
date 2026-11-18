@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261117181500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261118110000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "422";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "423";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9408,7 +9408,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   /* Done / Commission / 照片 另外存在一个小的云端 key（costing_extras），不跟很大的表格存档挤在一起，存得快、刷新不会不见 */
   const [ext, saveExt] = useCloudList("costing_extras");
   const extRef = React.useRef(ext); extRef.current = ext;
-  const EXT_KEYS = ["photos", "commPhotos", "comm", "done", "chk", "bad"];
+  const EXT_KEYS = ["photos", "commPhotos", "comm", "done", "chk", "bad", "date"];
   const withExt = d => { const e = (ext || []).find(x => x.id === d.id); if (!e) return d; const o = { ...d }; EXT_KEYS.forEach(k => { if (k in e) o[k] = e[k]; }); return o; };
   const patchD = (d, p) => { if (!lfCanEdit(d.by, me)) return;
     const cur = Array.isArray(extRef.current) ? extRef.current : [], old = cur.find(x => x.id === d.id) || { id: d.id };
@@ -9451,8 +9451,8 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent / admin", value: q, onChange: e => setQ(e.target.value) })),
       tools.filter(t => !t.noAdd).map(t => h("button", { key: t.file, style: S.addBtn, onClick: () => onOpen(t, null) }, h(Plus, { size: 16 }), tools.length > 1 ? " 新增 " + t.name.replace(/ Costing Part$/i, "") : " 新增 " + (t.file === "CAR_SALES_QUOTATION.html" ? "Quotation" : "Costing")))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"], hasCar ? [] : ["跑了"]).map((x, i) => h("th", { key: i, style: i === 3 || i === 4 || (hasCar && i === 5) ? { ...th, ...S.thNum } : th }, x)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 9 : 8, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
+      h("thead", null, h("tr", null, ["PDF", "Agent", "Name", "Date", "Subtotal", "Balance"].concat(hasCar ? ["Customer Balance", "Done"] : [], ["Commission", "Admin"], hasCar ? [] : ["跑了"]).map((x, i) => h("th", { key: i, style: i === 4 || i === 5 || (hasCar && i === 6) ? { ...th, ...S.thNum } : th }, x)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: hasCar ? 10 : 9, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, allRows.length ? "找不到" : "还没有 — 按「新增 Costing」，填好按 💾 存档")) :
         rows.map(d0 => { const d = withExt(d0), m = d.meta || {}, t = tools.find(x => x.file === d.file) || {}, can = lfCanEdit(d.by, me), ld = !d.meta || d.meta.subtotal == null && d.meta.at !== d.at, stale = !!d.meta && d.meta.at !== d.at;   /* 重新算的时候先显示旧的数目（淡一点） */
           const closed = !ld && costPaid(m);   /* Balance 没欠（0 或 负数）= 付清了 → 变色 */
           const isDone = hasCar && !!d.done;   /* Car Costing：按了 Done → 整行紫色 */
@@ -9462,6 +9462,11 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
             h("td", { style: { ...td, ...bg, ...bg } }, h("button", { onClick: () => onOpen(t, d), style: { border: "none", background: "linear-gradient(135deg,#ef4444,#b91c1c)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" } }, "📄 PDF")),
             h("td", { style: { ...td, ...bg, fontWeight: 700 } }, m.agent || "—"),
             h("td", { style: { ...td, ...bg, fontWeight: 900, cursor: "pointer" }, onClick: () => onOpen(t, d) }, m.client || d.title || "—", tools.length > 1 && (() => { const k = /FUTURE/i.test(d.file) ? ["FUTURE", "#ea580c"] : /FINPRO/i.test(d.file) ? ["FINPRO", "#2563eb"] : /^PL_/i.test(d.file) ? ["PL", "#7c3aed"] : [t.name, "#64748b"]; return h("div", null, h("span", { style: { display: "inline-block", marginTop: 3, borderRadius: 999, padding: "1px 9px", fontSize: 10.5, fontWeight: 900, color: "#fff", background: k[1], letterSpacing: .3 } }, k[0])); })()),
+            /* DATE：默认 = 开这份 Costing 的日期（旧的用最后存档日期）；Admin 可以点一下改 */
+            (() => { const ymd = d.date || (() => { const x = new Date(d.c0 || d.at || 0); return isNaN(x) || !(d.c0 || d.at) ? "" : x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); })();
+              const show = ymd ? ymd.split("-").reverse().join("/") : "—";
+              return h("td", { style: { ...td, ...bg, whiteSpace: "nowrap", fontWeight: 800, color: d.date ? "#0f172a" : "#64748b" } }, can ? h("input", { type: "date", value: ymd, title: d.date ? "日期（手动改过）" : "日期（自动）— 点一下可以改", onChange: e => patchD(d, { date: e.target.value || null }),
+                style: { border: "1px solid transparent", background: "transparent", fontWeight: 800, fontFamily: "inherit", fontSize: 12.5, color: "inherit", cursor: "pointer", padding: "2px 4px", borderRadius: 6 } }) : show); })(),
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 800, opacity: stale ? .55 : 1 }, title: stale ? "重新计算中…" : undefined }, ld ? "…" : m.subtotal != null ? "RM " + lsFmt(m.subtotal) : "—"),
             h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, opacity: stale ? .55 : 1, color: (m.balance || 0) > 0.004 ? "#b91c1c" : "#15803d" }, title: stale ? "重新计算中…" : undefined }, ld ? "…" : m.balance != null ? "RM " + lsFmt(m.balance) : "—"),
             hasCar && h("td", { style: { ...td, ...bg, ...S.tdNum, fontWeight: 900, color: "#0369a1" } }, ld ? "…" : m.custBal != null ? "RM " + lsFmt(m.custBal) : "—"),
@@ -9671,7 +9676,7 @@ function FormsPage({ currentUser, tools, noLib }) {
           if (!c && list.some(d => d.native && d.file === t.file && d.title === label && !sameUser(d.by, me))) { if (!foreign.includes(label)) foreign.push(label); return; }
           if (!c && foreign.includes(label)) { try { nativeDelete(t.file, label); } catch (e) {} return; }   /* 别人的存档已经被删了 → 这台电脑的那份也删掉 */
           if (!c && /COSTING_PART/i.test(t.file) && list.some(d => d.native && d.file === t.file && costKeyName(d) === costKeyName({ native: entry, title: label }))) return;   /* Costing：同名已经有了 → 不再多开一份 */
-          if (!c) { list.unshift({ id: uid(), file: t.file, form: t.name, title: label, native: entry, cat: formCatId(t.name, { cats: (lib.cats || []).concat(newCats) }, newCats), by: me, at: ts || Date.now() }); changed = true; }
+          if (!c) { list.unshift({ id: uid(), file: t.file, form: t.name, title: label, native: entry, cat: formCatId(t.name, { cats: (lib.cats || []).concat(newCats) }, newCats), by: me, at: ts || Date.now(), c0: ts || Date.now() }); changed = true; }
           else if (JSON.stringify(c.native) !== JSON.stringify(entry) && (ts || 0) >= (c.at || 0)) { list = list.map(d => d.id === c.id ? { ...d, native: entry, at: ts || Date.now() } : d); changed = true; }
         });
         cloud.forEach(c => {
@@ -9738,7 +9743,7 @@ function FormsPage({ currentUser, tools, noLib }) {
   const confirmSave = (title, cat, closeAfter) => {
     if (FORM_NATIVE[open.tool.file] && nativeSave(title, cat, closeAfter)) return;
     const vals = currentVals();
-    const nd = agreeClosing({ id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now() });
+    const nd = agreeClosing({ id: uid(), file: open.tool.file, form: open.tool.name, title: title || guessTitle(vals), cat, values: vals, by: canonUser(currentUser), at: Date.now(), c0: Date.now() });
     try { window.__libJumpCat = cat || "__none"; window.dispatchEvent(new Event("lib-jump")); } catch (e) {}
     saveDrafts([nd, ...(drafts || [])]);
     baseRef.current = JSON.stringify(vals);
@@ -9800,7 +9805,7 @@ function FormsPage({ currentUser, tools, noLib }) {
       saveDrafts(list.map(x => x.id === nd.id ? nd : x));
       setOpen({ ...open, draft: nd });
     } else {
-      const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: guessTitle(vals), values: vals, by: canonUser(currentUser), at: now };
+      const nd = { id: uid(), file: open.tool.file, form: open.tool.name, title: guessTitle(vals), values: vals, by: canonUser(currentUser), at: now, c0: now };
       saveDrafts([nd, ...list]);
       setOpen({ ...open, draft: nd });
     }
