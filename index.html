@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261118110500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261118131000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "424";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "426";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6564,7 +6564,7 @@ function BsPeopleLoader() {
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ cuse, noSal: bs.startType === "blue", ended: !!bs.ended, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ cuse, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -6906,12 +6906,18 @@ function AccSalaryPage({ currentUser }) {
   const dupClean = React.useRef(false);
   React.useEffect(() => { if (!accFresh || dupClean.current || !Array.isArray(list)) return; if (items.length < list.length) { dupClean.current = true; saveRaw(items); } }, [list, accFresh]);
   const sql = sq.trim().toLowerCase();
-  const allRows = items.filter(x => x.ym === ym);
+  /* Bank Statement / Rencai 打勾 END 的人 → END 那个月开始，Salary Listing 不再显示（以前的月份照样在；取消 END 就回来） */
+  const [, setBsTick] = React.useState(0);
+  React.useEffect(() => { const f = () => setBsTick(n => n + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
+  const endYm = {}; (window.__crmBsPeople || []).forEach(p => { if (!p || !p.ended || !p.name) return; const d = new Date(p.endAt > 1 ? p.endAt : Date.now()), y = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"), k = slNameKey(p.name); if (k && (!endYm[k] || y < endYm[k])) endYm[k] = y; });
+  const isEnded = x => { const e = x && x.name && endYm[slNameKey(x.name)]; return !!e && String(x.ym || "") >= e; };
+  const endedRows = items.filter(x => x.ym === ym && isEnded(x));
+  const allRows = items.filter(x => x.ym === ym && !isEnded(x));
   const rows = allRows.filter(x => !sql || [x.name, x.company, x.agent, x.lbl, x.acc].join(" ").toLowerCase().includes(sql));
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
   const add = () => save([...items, { id: uid(), ym, company: "", name: "", agent: "", by: currentUser, at: Date.now() }]);
   const copyPrev = () => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 2, 1), pv = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-    const src = items.filter(x => x.ym === pv); if (!src.length) { window.alert(ymLabel(pv) + " 没有资料"); return; }
+    const src = items.filter(x => x.ym === pv && !(x.name && endYm[slNameKey(x.name)])); if (!src.length) { window.alert(ymLabel(pv) + " 没有资料"); return; }   /* END 了的人不复制 */
     if (!window.confirm("把 " + ymLabel(pv) + " 的 " + src.length + " 个人复制到 " + ymLabel(ym) + "？（数目也一起复制，之后可以改）")) return;
     save([...items, ...src.map(x => ({ ...x, id: uid(), ym, by: currentUser, at: Date.now(), updBy: null, updAt: null }))]); };
   const del = x => { if (window.confirm("删除 " + (x.name || "(空)") + "？")) save(items.filter(y => y.id !== x.id)); };
@@ -6957,6 +6963,7 @@ function AccSalaryPage({ currentUser }) {
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0, minWidth: 200 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / company / agent", value: sq, onChange: e => setSq(e.target.value) })),
       !canEdit && h("span", { style: { background: "#f1f5f9", color: "#64748b", borderRadius: 999, padding: "6px 12px", fontWeight: 800, fontSize: 12 } }, "👁 只能看 · 只有 CHIALING 可以改"),
       canEdit && h("button", { onClick: e => { e.stopPropagation(); setPaint(v => !v); setPop(null); }, title: "打开后点格子 = 换字颜色 / Highlight（也可以直接右键点格子）", style: { border: paint ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: paint ? "#f3e8ff" : "#fff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, paint ? "🎨 颜色模式（开）" : "🎨 颜色"),
+      endedRows.length > 0 && h("span", { title: "Bank Statement 已经 END：" + endedRows.map(x => x.name).join("、") + "（取消 END 就会回来）", style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "help" } }, "🟣 已 END 不显示 " + endedRows.length + " 人"),
       canEdit && hid.length > 0 && h("button", { onClick: () => saveHid([]), title: "隐藏了：" + hid.map(k => ACC_COLT[k] || k).join("、"), style: { border: "1px solid #94a3b8", background: "#f8fafc", color: "#334155", borderRadius: 999, padding: "7px 14px", cursor: "pointer", fontWeight: 900, fontSize: 13 } }, "👁 显示隐藏的 " + hid.length + " 栏"),
       canEdit && h("button", { onClick: copyPrev, style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", cursor: "pointer", fontWeight: 900, fontSize: 13 } }, "⧉ 复制上个月名单"),
       canEdit && h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 加一个人")),
@@ -8655,15 +8662,15 @@ function MissionPage({
 }
 /* ===== CAR APPOINTMENT：带客户去每家银行 / 公司的时间表，一按 COPY 变成 WhatsApp 讯息 ===== */
 const CAR_APPT_STOPS = [
-  /* 顺序 = 跟着路线近到远：CIMB → Batu Caves → PBB → HLB → AMbank → Credit Company → Shah Alam → Jaecoo Ampang */
+  /* 顺序 = 一条路过去、不兜来兜去：CIMB → Batu Caves（北）→ PBB → HLB → AMbank → OE Credit（Ampang，东）→ Credit Company（Seri Kembangan，南）→ Shah Alam（西） */
   { k: "cimb", name: "CIMB", link: "https://share.google/izxaCURRzMstvLqTX" },
   { k: "batucaves", name: "Batu Caves", addr: "LG Basement Carpark, Batu Caves Centre Point, Jalan 1, Taman Industri Bolton, 68100 Batu Caves, Selangor.", link: "https://www.google.com/maps/search/?api=1&query=E2+Auto+Batu+Caves+Centre+Point", linkLabel: "📍 Google Maps" },
   { k: "pbb", name: "PBB", link: "https://share.google/NsWqAXJpglfcaD1TZ" },
   { k: "hlb", name: "HLB", link: "https://share.google/NDAZAsGaTtF4EbQTy" },
   { k: "ambank", name: "AMbank", link: "https://share.google/jBhy5cQVobW0J6ZdG" },
+  { k: "jaecoo", name: "OE CREDIT", addr: "70, Jln Ulu Klang, Kuala Ampang, 68000 Ampang, Selangor. Tel: 03-4266 3030", link: "https://www.google.com/maps/search/?api=1&query=Jaecoo+Ampang+Siang+Hin+(KL)+Sdn+Bhd+70+Jalan+Ulu+Klang", linkLabel: "📍 Google Maps" },
   { k: "credit", name: "CREDIT COMPANY", after: "📌 How to find us:\n1️⃣ Park in front of Klinik Aurora.\n2️⃣ Walk to Block 12, Unit 12-2.\n3️⃣ Enter through the grey gate.\n4️⃣ Go up to Level 2.\n🗺️ Waze:\nhttps://waze.com/ul/hw2831c2qu\n🚗💨 See you soon! Please let us know when you’re on the way. 😊" },
-  { k: "muamalat", name: "MUAMALAT (SHAH ALAM)", link: "https://share.google/ExL8HSCiEtNdGMh8V" },
-  { k: "jaecoo", name: "JAECOO AMPANG", addr: "Jaecoo Ampang - Siang Hin (KL) Sdn Bhd, 70, Jln Ulu Klang, Kuala Ampang, 68000 Ampang, Selangor. Tel: 03-4266 3030", link: "https://www.google.com/maps/search/?api=1&query=Jaecoo+Ampang+Siang+Hin+(KL)+Sdn+Bhd+70+Jalan+Ulu+Klang", linkLabel: "📍 Google Maps" }];
+  { k: "muamalat", name: "MUAMALAT (SHAH ALAM)", link: "https://share.google/ExL8HSCiEtNdGMh8V" }];
 const carApptText = r => {
   const st = r.stops || {};
   const out = ["CUSTOMER NAME : " + (r.name || "")];
