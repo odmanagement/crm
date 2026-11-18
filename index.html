@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261118164000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261118165000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "431";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "432";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6287,8 +6287,8 @@ function LendingLoader() {
    只改自动加的行，自己手动加的不动 */
 /* Bank Statement 黄色那一栏上面的空白格子（j 栏）填的数目 = CUSTOMER USE（红色）；黄色 = Balance − 红色 */
 const BS_NUM_RE = /^\s*-?[\d,]+(\.\d+)?\s*$/;
-/* AGENT USE：最右边公司那一栏（Company / Position / Use Card 下面）的空格子填数目 → 加起来 */
-function bsAgentUse(bs) { let t = 0; const c = (bs && bs.cells) || {}; Object.keys(c).forEach(k => { const m = /^(\d+)_k$/.exec(k); if (m && +m[1] >= 4 && BS_NUM_RE.test(String(c[k] || ""))) t += lsNum(c[k]); }); return t; }
+/* AGENT USE：最右边新加的「AGENT USE」那一栏填的数目加起来 */
+function bsAgentUse(bs) { let t = 0; const c = (bs && bs.cells) || {}; Object.keys(c).forEach(k => { if (/^\d+_ag$/.test(k) && BS_NUM_RE.test(String(c[k] || ""))) t += lsNum(c[k]); }); return t; }
 function bsCustUse(bs) { let t = 0; const c = (bs && bs.cells) || {}; Object.keys(c).forEach(k => { if (/_j$/.test(k) && BS_NUM_RE.test(String(c[k] || ""))) t += lsNum(c[k]); }); return t; }
 function costSyncData(data, p, L, opt) {
   /* 每个月（Bank Statement 的每一行）用那一行自己的 id 对上 Costing 的行（cid）→ 同一个日期填几行都会分开 */
@@ -6693,7 +6693,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
         h("option", { value: "" }, "— 选择 START SALARY —"), ST_OPT.map(o => h("option", { key: o.k, value: o.k, style: { color: o.c } }, o.t))),
       so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 20, color: so.c, letterSpacing: .5, WebkitTextStroke: ".4px " + so.c }, "", true)))),
     /* 最后面：END 打勾 → 整个变紫色 */
-    h("td", { style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
+    h("td", { colSpan: 2, style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
       h("label", { title: d.ended ? "已经 END · " + String(d.ended.by || "").toUpperCase() + " · " + new Date(d.ended.at || 0).toLocaleDateString("en-GB") : "打勾 = END（整个变紫色）", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: d.ended ? "#6d28d9" : "#64748b" } },
         h("input", { type: "checkbox", checked: !!d.ended, onChange: e => { const nx = { ...d, ended: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx); }, style: { width: 18, height: 18, accentColor: "#7c3aed", cursor: "pointer" } }), "END"))));
   for (let k = 0; k < N; k++) {
@@ -6733,36 +6733,37 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
         return h("input", { ...ro, className: "keep-case", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
           onBlur: e => { setEdJ(null); focus.current = false; const t = e.target.value.trim(); if (BS_NUM_RE.test(t) && t !== lsFmt(lsNum(t))) setC(lsFmt(lsNum(t))); setTimeout(() => commit(), 0); },
           style: { ...box, ...aw(v), textAlign: "center", fontWeight: isN ? 900 : 400, color: isN ? "#dc2626" : undefined } }); })()   /* S.C 不要了 */),
-      h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : k >= 4 ? (() => {
-        /* 公司那一栏下面：填数目 = AGENT USE（橙色、自动 2 个小数点）；写字照样可以当备注 */
-        const ck = k + "_k", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
-        return h("input", { ...ro, title: "填数目 = AGENT USE", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value.toUpperCase()), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
+      h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : fr(k, "k", { fontWeight: 400 })),
+      /* 最右边新加一栏：AGENT USE（填数目 → 橙色、加起来） */
+      h("td", { style: { ...cell, minWidth: 100, textAlign: "right", fontWeight: 800, background: k === 0 ? "#ffedd5" : undefined } }, k === 0 ? h("span", { style: { fontWeight: 900, fontSize: 11, color: "#c2410c", letterSpacing: ".03em" } }, "AGENT USE") : (() => {
+        const ck = k + "_ag", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
+        return h("input", { ...ro, title: "AGENT USE", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value.toUpperCase()), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
           onBlur: e => { setEdJ(null); focus.current = false; const t2 = e.target.value.trim(); if (BS_NUM_RE.test(t2) && t2 !== lsFmt(lsNum(t2))) setC(lsFmt(lsNum(t2))); setTimeout(() => commit(), 0); },
-          style: { ...box, ...aw(v), fontWeight: isN ? 900 : 400, color: isN ? "#c2410c" : undefined } }); })() : fr(k, "k", { fontWeight: 400 }))));
+          style: { ...box, ...aw(v), textAlign: "right", fontWeight: isN ? 900 : 400, color: isN ? "#c2410c" : undefined } }); })())));
   }
   trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
     h("td", { style: { ...cell, height: 14, padding: "2px 8px", textAlign: "center" } }, h("button", { onClick: () => { const nx = { ...d, [XR]: (parseInt(d[XR]) || 0) + 1 }; setD(nx); commit(nx); }, title: "加格子下去", style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 6, padding: "1px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ ADD")),
-    h("td", { colSpan: 3, style: { ...cell, height: 14, padding: "2px 8px" } }, (parseInt(d[XR]) || 0) > 0 && h("button", { onClick: () => { const nx = { ...d, [XR]: Math.max(0, (parseInt(d[XR]) || 0) - 1) }; setD(nx); commit(nx); }, title: "减少一行（最后一行的资料不会删除）", style: { border: "none", background: "none", color: "#94a3b8", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "－"))));
+    h("td", { colSpan: 4, style: { ...cell, height: 14, padding: "2px 8px" } }, (parseInt(d[XR]) || 0) > 0 && h("button", { onClick: () => { const nx = { ...d, [XR]: Math.max(0, (parseInt(d[XR]) || 0) - 1) }; setD(nx); commit(nx); }, title: "减少一行（最后一行的资料不会删除）", style: { border: "none", background: "none", color: "#94a3b8", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "－"))));
   if (ause) trs.push(h("tr", { key: "au" },
     h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#c2410c", fontSize: 11.5 } }, "AGENT USE"),
-    h("td", { style: { ...cell, fontWeight: 900, background: "#fed7aa", color: "#c2410c", textAlign: "center" }, title: "最右边公司那一栏（Use Card 下面）填的数目加起来（AGENT USE）" }, lsFmt(ause)),
-    h("td", { style: cell })));
+    h("td", { style: { ...cell, fontWeight: 900, background: "#fed7aa", color: "#c2410c", textAlign: "center" }, title: "最右边 AGENT USE 那一栏填的数目加起来" }, lsFmt(ause)),
+    h("td", { style: cell }), h("td", { style: cell })));
   if (cuse) trs.push(h("tr", { key: "cu" },
     h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#b91c1c", fontSize: 11.5 } }, "CUSTOMER USE"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fecaca", color: "#b91c1c", textAlign: "center" }, title: "公司名字左边那一栏填的数目加起来（CUSTOMER USE）" }, lsFmt(cuse)),
-    h("td", { style: cell })));
+    h("td", { style: cell }), h("td", { style: cell })));
   /* BALANCE = TOTAL − CUSTOMER USE（PL Costing 的 SALARY 跟这个） */
   if (cuse || ause) trs.push(h("tr", { key: "bl" },
     h("td", { colSpan: 9, style: { ...cell, textAlign: "right", fontWeight: 900, color: "#1d4ed8", fontSize: 11.5 } }, "BALANCE"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#dbeafe", color: "#1d4ed8", textAlign: "center" }, title: "TOTAL − CUSTOMER USE − AGENT USE" }, lsFmt(bal)),
-    h("td", { style: cell })));
+    h("td", { style: cell }), h("td", { style: cell })));
   trs.push(h("tr", { key: "t", style: { background: "#f8fafc" } },
     h("td", { colSpan: 6, style: cell }),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tC)),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tR)),
     h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "TOTAL"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = BALANCE + CUSTOMER USE + AGENT USE" }, lsFmt(bal + cuse + ause)),
-    h("td", { style: cell })));
+    h("td", { style: cell }), h("td", { style: { ...cell, fontWeight: 900, textAlign: "right", color: "#c2410c" } }, ause ? lsFmt(ause) : "")));
   /* ===== 像 Google Sheets：右键格子 → 换字颜色 / 底色 / 粗体 / 划线（跟着格子的位置，存在 bankStmt.sty） ===== */
   const sheetRef = React.useRef(null);
   const [bsPop, setBsPop] = React.useState(null);
