@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119130500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119131000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "445";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "446";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4533,6 +4533,7 @@ function ownToast(who) {
 /* 一个一个比较：别人的只准改备注；删除别人的 → 放回去；新的 / 没主人的 → 记下主人 */
 /* OD Payment（资料在 Lending Sheet / od_payments 里面）：照片、已付、Return → 全部人都可以改（里面一层层的也算） */
 const OWN_FREE_DEEP = {
+  bs_return_salary: /^name$/,   /* Return Salary 的名字谁都可以改（UNKNOWN → 真名字） */
   /* Bank Statement / Rencai 最右边那一栏（COMPANY / POSITION / USE CARD / 下面的格子）：全部人都可以改 */
   bank_stmt_people: /^(company|position|useCard|\d+_k|ord)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k|ord)$/,   /* ord = 移上移下，谁都可以 */
   lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i,
@@ -7359,7 +7360,12 @@ function BsReturnPage({ clients, currentUser }) {
           const bg = x.done ? { background: "#f0fdf4" } : bsIsUnknownName(x.name) ? { background: "#fffbeb" } : {}; return h("tr", { key: x.id },
           h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, x.__n),
           h("td", { style: { ...S.td, ...bg } }, x.done ? h("span", { title: "已 Done，日期锁住", style: { fontWeight: 800, color: "#15803d" } }, "🔒 " + bsIso2Dmy(x.date)) : h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
-          h("td", { style: { ...S.td, ...bg, fontWeight: 900 } }, x.name),
+          /* 名字可以改（例如 UNKNOWN → 知道是谁了）：点进去打字 / 选 Bank Statement 的名字，离开格子就存 */
+          h("td", { style: { ...S.td, ...bg, fontWeight: 900 } }, h("input", { key: x.id + ":" + x.name, defaultValue: x.name, list: "bsr-names", title: "可以改名字",
+            onBlur: e => { const v = e.target.value.trim().toUpperCase(); if (!v) { e.target.value = x.name; return; } if (v !== x.name) upd(x.id, "name", v); },
+            onKeyDown: e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = x.name; e.target.blur(); } },
+            style: { width: "100%", minWidth: 140, boxSizing: "border-box", border: "1px solid transparent", borderRadius: 8, padding: "6px 8px", background: "transparent", fontWeight: 900, fontSize: "inherit", fontFamily: "inherit", textAlign: "center", color: bsIsUnknownName(x.name) ? "#c2410c" : "inherit", textTransform: "uppercase", outline: "none" },
+            onFocus: e => { e.target.style.borderColor = "#a5b4fc"; e.target.style.background = "#fff"; }, onBlurCapture: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } })),
           h("td", { style: { ...S.td, ...bg, ...S.tdNum, fontWeight: 900 } }, "RM " + lsFmt(lsNum(x.amount))),
           h("td", { style: { ...S.td, ...bg, minWidth: 120 } }, h(LfPhotos, { ids: x.photos || [], compact: true, onChange: ids => upd(x.id, "photos", ids) })),
           h("td", { style: { ...S.td, ...bg } }, h("button", { onClick: () => upd(x.id, "done", x.done ? null : { by: me, at: Date.now() }), title: x.done ? "DONE · " + String(x.done.by || "").toUpperCase() : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: x.done ? "#16a34a" : "#fee2e2", color: x.done ? "#fff" : "#b91c1c" } }, x.done ? "✓ DONE" : "✕ NOT YET")),
