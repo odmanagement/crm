@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119131500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119151500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "447";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "448";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -4533,6 +4533,7 @@ function ownToast(who) {
 /* 一个一个比较：别人的只准改备注；删除别人的 → 放回去；新的 / 没主人的 → 记下主人 */
 /* OD Payment（资料在 Lending Sheet / od_payments 里面）：照片、已付、Return → 全部人都可以改（里面一层层的也算） */
 const OWN_FREE_DEEP = {
+  receipts: /^rcpt$/,   /* Boss Take 的 Receipt 照片：谁都可以放 */
   bs_return_salary: /^name$/,   /* Return Salary 的名字谁都可以改（UNKNOWN → 真名字） */
   /* Bank Statement / Rencai 最右边那一栏（COMPANY / POSITION / USE CARD / 下面的格子）：全部人都可以改 */
   bank_stmt_people: /^(company|position|useCard|\d+_k|ord)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k|ord)$/,   /* ord = 移上移下，谁都可以 */
@@ -7439,7 +7440,7 @@ function ReceiptPage({ currentUser, clients }) {
       const gi = 0;
       const g = groups[0];
       const navBtn = (dis) => ({ width: 36, height: 36, borderRadius: 10, border: "1px solid #c7d2fe", background: dis ? "#f1f5f9" : "#fff", color: dis ? "#cbd5e1" : "#4f46e5", fontSize: 16, fontWeight: 900, cursor: dis ? "default" : "pointer" });
-      const tdEmpty = t => h("tr", null, h("td", { colSpan: 5, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, t));
+      const tdEmpty = t => h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, t));
       return [
         g && h("div", { key: "bar", style: { ...card, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px" } },
           h("div", { style: { minWidth: 110, textAlign: "center" } },
@@ -7456,7 +7457,7 @@ function ReceiptPage({ currentUser, clients }) {
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
-          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "已付 / 未付", "Remark", "By", "✓"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "已付 / 未付", "Receipt", "Remark", "By", "✓"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
           h("tbody", null, list === null ? tdEmpty("载入中…") : !g ? tdEmpty(items.length ? "找不到" : "还没有 Boss Take") :
             g.rows.map(r => h("tr", { key: r.id },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
@@ -7471,6 +7472,8 @@ function ReceiptPage({ currentUser, clients }) {
               h("td", { style: S.td }, h("select", { value: r.paid ? "paid" : "unpaid", onChange: e => save(items.map(x => x.id === r.id ? { ...x, paid: e.target.value === "paid", paidAt: e.target.value === "paid" ? today() : null, paidBy: e.target.value === "paid" ? canonUser(currentUser) : null } : x)),
                 style: { border: "1px solid " + (r.paid ? "#86efac" : "#fecaca"), background: r.paid ? "#dcfce7" : "#fef2f2", color: r.paid ? "#15803d" : "#b91c1c", borderRadius: 999, padding: "5px 12px", fontWeight: 900, fontSize: 12.5, fontFamily: "inherit", cursor: "pointer" } },
                 h("option", { value: "unpaid" }, "未付"), h("option", { value: "paid" }, "✓ 已付"))),
+              /* RECEIPT：照片 / PDF，可以 Ctrl+V 贴，或按 📋；谁都可以放 */
+              h("td", { style: { ...S.td, minWidth: 110 } }, h(LfPhotos, { ids: r.rcpt || [], compact: true, onChange: ids => save(items.map(x => x.id === r.id ? { ...x, rcpt: ids } : x)) })),
               h("td", { style: { ...S.td, minWidth: 160, maxWidth: 260 } }, h(AutoTextarea, { value: r.remark || "", readOnly: READONLY_USERS.includes(me), placeholder: READONLY_USERS.includes(me) ? "" : "备注…", onCommit: v => { save(items.map(x => x.id === r.id ? { ...x, remark: v } : x)); if (String(v || "").trim() && String(v).trim() !== String(r.remark || "").trim()) btNotify(String(me || "").toUpperCase() + " 在 Boss Take 写了备注 ✍️", String(r.from || "").toUpperCase() + " · RM " + lsFmt(lsNum(r.amount)) + " · " + String(v).trim()); }, style: { textAlign: "center", fontSize: 13 } })),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
