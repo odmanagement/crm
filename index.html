@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119151500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119175500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "448";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "449";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6736,7 +6736,12 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
     /* 最后面：END 打勾 → 整个变紫色 */
     h("td", { colSpan: 2, style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
       h("label", { title: d.ended ? "已经 END · " + String(d.ended.by || "").toUpperCase() + " · " + new Date(d.ended.at || 0).toLocaleDateString("en-GB") : "打勾 = END（整个变紫色）", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: d.ended ? "#6d28d9" : "#64748b" } },
-        h("input", { type: "checkbox", checked: !!d.ended, onChange: e => { const nx = { ...d, ended: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx); }, style: { width: 18, height: 18, accentColor: "#7c3aed", cursor: "pointer" } }), "END"))));
+        h("input", { type: "checkbox", checked: !!d.ended, onChange: e => { const nx = { ...d, ended: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx);
+            /* 按 END → 提醒建立的人去收钱（收 TOTAL 的数目） */
+            if (e.target.checked && r.owner) { const me = canonUser(window.__crmUser || ""), tot = bal + cuse + ause;
+              try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: rencai ? "bankstmt2" : "bankstmt", to: canonUser(r.owner), from: me, loud: true,
+                title: "💰 " + String(r.c.name || "").toUpperCase() + " 已经 END — 请收钱 RM " + lsFmt(tot), task: (rencai ? "Rencai Bank Statement" : "Bank Statement") + " · TOTAL RM " + lsFmt(tot) + " · END by " + me.toUpperCase(), at: Date.now() }); } catch (er) {}
+              if (sameUser(r.owner, me)) window.alert("💰 记得收钱：TOTAL RM " + lsFmt(tot)); } }, style: { width: 18, height: 18, accentColor: "#7c3aed", cursor: "pointer" } }), "END"))));
   for (let k = 0; k < N; k++) {
     const ci = k - 1, c = ci >= 0 ? credits[ci] : null, ri = k - 1 - RO, rv = ri >= 0 ? recv[ri] : null, au = k >= 1 && k <= RO ? autos[k - 1] : null, rcRow = !!au;
     const cyan = k === 7 ? { background: "#22d3ee" } : {};
@@ -6936,7 +6941,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     const ordMap = {}; ids.forEach((id, k) => { ordMap[id] = (k + 1) * 10; });
     savePpl(people.map(p => ordMap[p.id] != null && p.ord !== ordMap[p.id] ? { ...p, ord: ordMap[p.id] } : p)); };
   const shown = rows.filter(r => {
-    if (tabOf(r) !== ey) return false;
+    if (ey === "endall" ? !endY(r) : tabOf(r) !== ey) return false;   /* 🟣 END 分页 = 全部 END 了的 */
     const bal = bsBalance(r.bs);
     if (only === "owe" && !(bal > 0.004)) return false;
     if (only === "clear" && !(r.bs && Math.abs(bal) <= 0.004)) return false;
@@ -6952,8 +6957,8 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
       h("button", { style: S.addBtn, onClick: addPerson }, h(Plus, { size: 16 }), " 新增人头"),
       h("datalist", { id: "bs-lendnames" }, (window.__crmLending || []).filter(x => costOpen(x.name)).map(x => h("option", { key: x.name, value: x.name }, "Lending Sheet" + (x.agent ? " · " + x.agent : ""))))),
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
-      [["pending", "PENDING", rows.filter(r => tabOf(r) === "pending").length], ["", "进行中", rows.filter(r => tabOf(r) === "").length]].map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
-        style: { border: ey === k ? "2px solid " + (k === "pending" ? "#ea580c" : k ? "#7c3aed" : "#16a34a") : "1px solid #e2e8f0", background: ey === k ? (k === "pending" ? "#ffedd5" : k ? "#f3e8ff" : "#dcfce7") : "#fff", color: ey === k ? (k === "pending" ? "#c2410c" : k ? "#6d28d9" : "#15803d") : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, (k === "pending" ? "⏳ " : k ? "📅 " : "▶ ") + l + " (" + n + ")")),
+      [["pending", "PENDING", rows.filter(r => tabOf(r) === "pending").length], ["", "进行中", rows.filter(r => tabOf(r) === "").length], ["endall", "END", rows.filter(r => !!endY(r)).length]].map(([k, l, n]) => h("button", { key: "ey" + k, onClick: () => setEy(k),
+        style: { border: ey === k ? "2px solid " + (k === "pending" ? "#ea580c" : k ? "#7c3aed" : "#16a34a") : "1px solid #e2e8f0", background: ey === k ? (k === "pending" ? "#ffedd5" : k ? "#f3e8ff" : "#dcfce7") : "#fff", color: ey === k ? (k === "pending" ? "#c2410c" : k ? "#6d28d9" : "#15803d") : "#475569", borderRadius: 999, padding: "6px 16px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, (k === "pending" ? "⏳ " : k === "endall" ? "🟣 " : k ? "📅 " : "▶ ") + l + " (" + n + ")")),
       endYears.length > 0 && h("select", { value: endYears.includes(ey) ? ey : "", onChange: e => setEy(e.target.value || ""), style: yrSelStyle(endYears.includes(ey)) },
         h("option", { value: "" }, "📅 END 年份 ▾"), endYears.map(y => h("option", { key: y, value: y }, "📅 END " + y + " (" + rows.filter(r => endY(r) === y).length + ")"))),
       endYears.length === 0 && h("span", { style: { fontSize: 12, color: "#94a3b8" } }, "打勾 START 搬去进行中 · 打勾 END 搬去那一年")),
