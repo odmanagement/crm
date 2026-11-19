@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119131000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119131500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "446";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "447";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6722,7 +6722,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
   const mvB = (dir, on) => h("button", { key: dir, title: dir < 0 ? "移上去" : "移下来", disabled: !on, onClick: e => { e.stopPropagation(); onMove && onMove(dir); },
     style: { width: 22, height: 18, lineHeight: "14px", padding: 0, border: "1px solid #cbd5e1", borderRadius: 5, background: on ? "#fff" : "#f1f5f9", color: on ? "#334155" : "#cbd5e1", fontSize: 10, fontWeight: 900, cursor: on ? "pointer" : "default" } }, dir < 0 ? "▲" : "▼");
   trs.push(h("tr", { key: "st" }, h("td", { colSpan: 2, style: { ...cell, background: stOn ? "#dcfce7" : (so ? so.bg : "#fafafa"), textAlign: "center", position: "relative" } },
-      r.owner && h("span", { title: "谁建立的", style: { position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: bsAdminColor(r.owner), color: "#1f2937", borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900, letterSpacing: ".03em", whiteSpace: "nowrap" } }, "建立 · " + String(r.owner).toUpperCase()),
+      r.owner && h("span", { title: "谁建立的", style: { position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: bsAdminColor(r.owner), color: "#1f2937", borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900, letterSpacing: ".03em", whiteSpace: "nowrap" } }, String(r.owner).toUpperCase()),
       onMove && h("div", { style: { position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 2 } }, mvB(-1, canUp), mvB(1, canDown)),
       h("label", { title: "打勾 = 已经 START，自动排到最上面", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: stOn ? "#15803d" : "#64748b" } },
         h("input", { type: "checkbox", checked: stOn, onChange: e => { const nx = { ...d, started: e.target.checked ? { by: canonUser(window.__crmUser || ""), at: Date.now() } : null }; setD(nx); commit(nx); }, style: { width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" } }), "START")),
