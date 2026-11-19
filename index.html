@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119131500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119130000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "443";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "444";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -6570,7 +6570,7 @@ function BsPeopleLoader() {
   const [rcL] = useCloudList("receipts"), [rtL] = useCloudList("bs_return_salary");
   React.useEffect(() => {
     const out = [], key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
-    const rcSum = n => [...(rcL || []).filter(x => x.checked && key(x.from) === key(n)), ...(rtL || []).filter(x => x.done && key(x.name) === key(n))].reduce((t, x) => t + lsNum(x.amount), 0);
+    const rcSum = n => [...(rcL || []).filter(x => x.checked && key(x.from) === key(n)), ...(rtL || []).filter(x => x.done && !bsIsUnknownName(x.name) && key(x.name) === key(n))].reduce((t, x) => t + lsNum(x.amount), 0);
     [...(a || []).map(p => [p, "bank_stmt_people"]), ...(b || []).map(p => [p, "bank_stmt_people_rencai"])].forEach(([p, store]) => { if (!p || !String(p.name || "").trim()) return; const bs = p.bankStmt || {};
       const mm = !bs.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(bs.agent || ""));
       /* Salary 里面的 Sub-Total（Employer + Employee）：EPF / SOCSO+EIS+Tax；Backdate 用 Backdate 的费用 */
@@ -6892,7 +6892,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const rcKey = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
   const [rtList] = useCloudList("bs_return_salary");
   const rcBy = {}; (rcList || []).filter(x => x.checked).forEach(x => { const k = rcKey(x.from); if (k) (rcBy[k] = rcBy[k] || []).push(x); });
-  const rtBy = {}; (rtList || []).filter(x => x.done).forEach(x => { const k = rcKey(x.name); if (k) (rtBy[k] = rtBy[k] || []).push(x); });
+  const rtBy = {}; (rtList || []).filter(x => x.done && !bsIsUnknownName(x.name)).forEach(x => { const k = rcKey(x.name); if (k) (rtBy[k] = rtBy[k] || []).push(x); });
   const people = ppl || [];
   const addPerson = () => { setEy("pending"); savePpl([{ id: uid(), name: "", by: canonUser(window.__crmUser || ""), at: Date.now() }, ...people]); };
   /* 只有开这个人头的 Admin（或老板）可以删除 */
@@ -7291,6 +7291,8 @@ async function rcExcel(g) {
 }
 
 /* ---------- Return Salary（简单版）：Name（选 Bank Statement 的名字）· Amount · Date · Done ---------- */
+/* Return Salary 名字写 UNKNOWN（不知道是谁）→ 分在一起；不会连去 Bank Statement / Rencai */
+const bsIsUnknownName = n => /^\s*(UNKNOWN?|UNKNOW|UNKOWN|UNKNWON|NO NAME|不知道|未知|\?+|-+|N\/?A)\s*$/i.test(String(n || ""));
 function BsReturnPage({ clients, currentUser }) {
   const h = React.createElement;
   const me = canonUser(currentUser || "");
@@ -7349,8 +7351,13 @@ function BsReturnPage({ clients, currentUser }) {
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
       h("thead", null, h("tr", null, ["#", "Date", "Name", "Amount", "PDF / 照片", "Done", ""].map((t, i) => h("th", { key: i, style: S.th }, t)))),
       h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
-        rows.map((x, i) => { const bg = x.done ? { background: "#f0fdf4" } : {}; return h("tr", { key: x.id },
-          h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, i + 1),
+        (() => { const unk = rows.filter(x => bsIsUnknownName(x.name)), kn = rows.filter(x => !bsIsUnknownName(x.name));
+          /* 名字写 UNKNOWN 的：放在一起（最上面），方便看 */
+          return unk.length ? [{ __hdr: "unk", n: unk.length, t: tot(unk) }, ...unk.map((x, i) => ({ ...x, __n: i + 1 })), ...(kn.length ? [{ __hdr: "kn", n: kn.length, t: tot(kn) }] : []), ...kn.map((x, i) => ({ ...x, __n: i + 1 }))] : rows.map((x, i) => ({ ...x, __n: i + 1 })); })().map(x => {
+          if (x.__hdr) return h("tr", { key: "hdr-" + x.__hdr }, h("td", { colSpan: 7, style: { ...S.td, textAlign: "left", fontWeight: 900, fontSize: 12.5, letterSpacing: ".04em", padding: "8px 14px", background: x.__hdr === "unk" ? "#fff7ed" : "#f8fafc", color: x.__hdr === "unk" ? "#c2410c" : "#475569", borderTop: "2px solid " + (x.__hdr === "unk" ? "#fdba74" : "#e2e8f0") } },
+            (x.__hdr === "unk" ? "❓ UNKNOWN（还不知道是谁）" : "👤 有名字") + " · " + x.n + " 笔 · " + rcRM(x.t)));
+          const bg = x.done ? { background: "#f0fdf4" } : bsIsUnknownName(x.name) ? { background: "#fffbeb" } : {}; return h("tr", { key: x.id },
+          h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, x.__n),
           h("td", { style: { ...S.td, ...bg } }, x.done ? h("span", { title: "已 Done，日期锁住", style: { fontWeight: 800, color: "#15803d" } }, "🔒 " + bsIso2Dmy(x.date)) : h("input", { type: "date", value: x.date || "", onChange: e => upd(x.id, "date", e.target.value), style: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" } })),
           h("td", { style: { ...S.td, ...bg, fontWeight: 900 } }, x.name),
           h("td", { style: { ...S.td, ...bg, ...S.tdNum, fontWeight: 900 } }, "RM " + lsFmt(lsNum(x.amount))),
