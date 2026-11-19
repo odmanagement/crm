@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119175500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119182500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "449";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "450";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -8916,17 +8916,21 @@ function BankSopPage() {
             h("a", { href: f.file, download: f.file, style: { textDecoration: "none", background: "#fff", color: s.color, border: "1px solid " + s.color, borderRadius: 10, padding: "7px 12px", fontWeight: 900, fontSize: 12 } }, "⬇ 下载"))))))),
     !list.length && h("div", { style: { padding: 30, textAlign: "center", color: "#94a3b8", fontWeight: 700 } }, "找不到"));
 }
+const BANKER_TABS = [["personal", "Personal Loan", "💼"], ["car", "Car Loan", "🚗"], ["house", "House Loan", "🏠"], ["companyacc", "Company Acc", "🏢"]];
 function BankerPage({
   bankers,
   onSave
 }) {
   const [q, setQ] = React.useState("");
+  /* 分页：Personal Loan / Car Loan / House Loan / Company Acc，一页一种 */
+  const [tab, setTab] = React.useState(() => { try { return localStorage.getItem("crm_banker_tab") || "personal"; } catch (e) { return "personal"; } });
+  const goTab = k => { setTab(k); try { localStorage.setItem("crm_banker_tab", k); } catch (e) {} };
   const add = () => onSave([...bankers, {
     id: uid(),
     name: "",
     bank: "",
     phone: "",
-    ltype: "house"
+    ltype: tab
   }]);
   const upd = (id, k, v) => onSave(bankers.map(b => b.id === id ? {
     ...b,
@@ -8934,6 +8938,7 @@ function BankerPage({
   } : b));
   const del = id => onSave(bankers.filter(b => b.id !== id));
   const list = bankers.filter(b => {
+    if ((b.ltype || "house") !== tab) return false;
     if (!q) return true;
     const s = q.toLowerCase();
     return [b.name, b.bank, b.phone].filter(Boolean).join(" ").toLowerCase().includes(s);
@@ -8964,7 +8969,10 @@ function BankerPage({
     onClick: add
   }, /*#__PURE__*/React.createElement(Plus, {
     size: 16
-  }), " Add Banker")), /*#__PURE__*/React.createElement("div", {
+  }), " Add Banker")), React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 } },
+    BANKER_TABS.map(([k, l, ic]) => { const on = tab === k, n = bankers.filter(b => (b.ltype || "house") === k).length;
+      return React.createElement("button", { key: k, onClick: () => goTab(k), style: { display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 12, border: on ? "2px solid #4f46e5" : "1px solid #e2e8f0", background: on ? "#eef2ff" : "#fff", color: on ? "#3730a3" : "#475569", fontWeight: 900, fontSize: 14, cursor: "pointer", fontFamily: "inherit", boxShadow: on ? "0 6px 16px -10px rgba(79,70,229,.6)" : "none" } },
+        ic + " " + l, React.createElement("span", { style: { background: on ? "#4f46e5" : "#f1f5f9", color: on ? "#fff" : "#64748b", borderRadius: 999, padding: "1px 9px", fontSize: 12 } }, n)); })), /*#__PURE__*/React.createElement("div", {
     style: S.tableWrap
   }, /*#__PURE__*/React.createElement("table", {
     className: "cz-table",
