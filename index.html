@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119131500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "437";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "443";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9036,7 +9036,8 @@ function BankerPage({
 }
 /* ---------- Company：Payslip + CL 合并 ---------- */
 /* Company Files → 「New Company」分页：每家公司的 Payslip 生成器（一按就打开，可以填、可以印 PDF） */
-const NEW_COMPANY_FILES = [{ name: "ARTELIA MARKETING", file: "Artelia_Payslip_Generator.html" }, { name: "CY DELI SDN BHD", file: "CYDeli_Payslip_Generator.html" }, { name: "HENG QI CONSTRUCTION SDN BHD", file: "HengQi_Payslip_Generator.html" }, { name: "JU YING SDN. BHD.", file: "JuYing_Payslip_Generator.html" }, { name: "KAHO RESOURCES SDN BHD", file: "KAHO_Payslip_Generator.html" }, { name: "LKL", file: "LKL_Payslip_Generator.html" }, { name: "LTC INTERNATIONALS SDN BHD", file: "LTC_Payslip_Generator.html" }, { name: "MEI YANG RESOURCES SDN BHD", file: "MeiYang_Payslip_Generator.html" }, { name: "MILLION AI RESOURCES SDN. BHD.", file: "MillionAI_Payslip_Generator.html" }, { name: "NEXGEN FOUNDRY SDN. BHD.", file: "NexGen_Payslip_Generator.html" }, { name: "NGAI DYANAMICS SDN BHD", file: "NgaiDyanamics_Payslip_Generator.html" }, { name: "WISDOMIND SECRETARIAL SDN. BHD.", file: "Wisdomind_Payslip_Generator.html" }, { name: "WYNN MUSIC GROUP SDN. BHD.", file: "Wynn_Payslip_Generator.html" }, { name: "IWIFI GROUP SDN BHD", file: "iWifi_Payslip_Generator.html" }];
+const NEW_COMPANY_FILES = [{ name: "ARTELIA MARKETING", file: "Artelia_Payslip_Generator.html", logo: "co-logo-Artelia.png" }, { name: "CY DELI SDN BHD", file: "CYDeli_Payslip_Generator.html" }, { name: "HENG QI CONSTRUCTION SDN BHD", file: "HengQi_Payslip_Generator.html" }, { name: "JU YING SDN. BHD.", file: "JuYing_Payslip_Generator.html", lk: "co1442306_logo" }, { name: "KAHO RESOURCES SDN BHD", file: "KAHO_Payslip_Generator.html", logo: "co-logo-KAHO.png" }, { name: "LKL", file: "LKL_Payslip_Generator.html" }, { name: "LTC INTERNATIONALS SDN BHD", file: "LTC_Payslip_Generator.html", logo: "co-logo-LTC.png" }, { name: "MEI YANG RESOURCES SDN BHD", file: "MeiYang_Payslip_Generator.html", logo: "co-logo-MeiYang.png" }, { name: "MILLION AI RESOURCES SDN. BHD.", file: "MillionAI_Payslip_Generator.html", lk: "millionai_logo" }, { name: "NEXGEN FOUNDRY SDN. BHD.", file: "NexGen_Payslip_Generator.html", lk: "nexgen_logo" }, { name: "NGAI DYANAMICS SDN BHD", file: "NgaiDyanamics_Payslip_Generator.html", lk: "ngai_logo" }, { name: "WISDOMIND SECRETARIAL SDN. BHD.", file: "Wisdomind_Payslip_Generator.html", lk: "wisdomind_logo" }, { name: "WYNN MUSIC GROUP SDN. BHD.", file: "Wynn_Payslip_Generator.html", lk: "wynn_logo" }, { name: "IWIFI GROUP SDN BHD", file: "iWifi_Payslip_Generator.html", logo: "co-logo-iWifi.png" }];
+const CP_ICO = {all: () => React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { key: 0, d: "M3 3h7v7H3z" }), React.createElement("path", { key: 1, d: "M14 3h7v7h-7z" }), React.createElement("path", { key: 2, d: "M14 14h7v7h-7z" }), React.createElement("path", { key: 3, d: "M3 14h7v7H3z" })), n: () => React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { key: 0, d: "M12 2 2 7l10 5 10-5-10-5z" }), React.createElement("path", { key: 1, d: "M2 17l10 5 10-5" }), React.createElement("path", { key: 2, d: "M2 12l10 5 10-5" })), p: () => React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { key: 0, d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }), React.createElement("path", { key: 1, d: "M14 2v6h6" }), React.createElement("path", { key: 2, d: "M16 13H8" }), React.createElement("path", { key: 3, d: "M16 17H8" })), c: () => React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { key: 0, d: "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" }), React.createElement("path", { key: 1, d: "M9 2h6v4H9z" })), o: () => React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { key: 0, d: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" })), a: () => React.createElement("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { key: 0, d: "M3 21h18" }), React.createElement("path", { key: 1, d: "M3 10h18" }), React.createElement("path", { key: 2, d: "M5 6l7-3 7 3" }), React.createElement("path", { key: 3, d: "M4 10v11" }), React.createElement("path", { key: 4, d: "M20 10v11" }), React.createElement("path", { key: 5, d: "M8 14v3" }), React.createElement("path", { key: 6, d: "M12 14v3" }), React.createElement("path", { key: 7, d: "M16 14v3" }))};
 function CompanyFilesPage() {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
@@ -9054,15 +9055,16 @@ function CompanyFilesPage() {
     const base = COMPANY_FILES.map(c => ({ name: c.name, pUrl: urlOf(PAYSLIP_TOOLS, c.payslip), cUrl: urlOf(OFFER_TOOLS, c.cl), builtin: true }));
     /* NEW COMPANY：Payslip 生成器（HTML 放在 GitHub 同一个文件夹） */
     NEW_COMPANY_FILES.forEach(n => { const b = base.find(c => keyOf(c.name) === keyOf(n.name)); const u = n.file + "?v=" + FORM_FILE_VER;
-      if (b) { b.pUrl = b.pUrl || u; b.isNew = true; } else base.push({ name: n.name, pUrl: u, builtin: true, isNew: true }); });
+      let lg = n.logo ? n.logo + "?v=" + FORM_FILE_VER : ""; if (!lg && n.lk) { try { lg = localStorage.getItem(n.lk) || ""; } catch (e) {} }
+      if (b) { b.pUrl = b.pUrl || u; b.isNew = true; b.logo = b.logo || lg; } else base.push({ name: n.name, pUrl: u, builtin: true, isNew: true, logo: lg }); });
     custom.forEach(x => {
       const b = base.find(c => keyOf(c.name) === keyOf(x.name));
-      if (b) { if (x.payslip) b.pUrl = x.payslip; if (x.cl) b.cUrl = x.cl; if (x.of) b.oUrl = x.of; if (x.bao) b.aUrl = x.bao; if (x.full) b.full = x.full; b.customId = x.id; }
-      else base.push({ name: x.name, pUrl: x.payslip || null, cUrl: x.cl || null, oUrl: x.of || null, aUrl: x.bao || null, full: x.full || "", customId: x.id, by: x.by });
+      if (b) { if (x.payslip) b.pUrl = x.payslip; if (x.cl) b.cUrl = x.cl; if (x.of) b.oUrl = x.of; if (x.bao) b.aUrl = x.bao; if (x.full) b.full = x.full; if (x.logo) b.logo = x.logo; b.customId = x.id; }
+      else base.push({ name: x.name, pUrl: x.payslip || null, cUrl: x.cl || null, oUrl: x.of || null, aUrl: x.bao || null, full: x.full || "", logo: x.logo || "", customId: x.id, by: x.by });
     });
     return base.sort((a, b) => a.name.localeCompare(b.name));
   })();
-  const openEdit = c => setEdit(c ? { name: c.name, full: c.full || "", payslip: c.pUrl || "", cl: c.cUrl || "", of: c.oUrl || "", bao: c.aUrl || "", locked: true } : { name: "", full: "", payslip: "", cl: "", of: "", bao: "", locked: false });
+  const openEdit = c => setEdit(c ? { name: c.name, full: c.full || "", payslip: c.isNew && c.pUrl && !/^https?:/i.test(c.pUrl) ? "" : (c.pUrl || ""), cl: c.cUrl || "", of: c.oUrl || "", bao: c.aUrl || "", logo: (custom.find(x => keyOf(x.name) === keyOf(c.name)) || {}).logo || "", logoShow: c.logo || "", locked: true } : { name: "", full: "", payslip: "", cl: "", of: "", bao: "", logo: "", locked: false });
   const fixUrl = u => { u = String(u || "").trim(); if (!u) return ""; return /^https?:\/\//i.test(u) ? u : "https://" + u; };
   const submitEdit = async () => {
     const full = String(edit.full || "").trim();
@@ -9070,10 +9072,10 @@ function CompanyFilesPage() {
     const name = edit.locked ? edit.name.trim() : hit ? hit.name : full;
     const payslip = fixUrl(edit.payslip), cl = fixUrl(edit.cl), of = fixUrl(edit.of), bao = fixUrl(edit.bao);
     if (!name) { alert("请填公司全名"); return; }
-    if (!payslip && !cl && !of && !bao && !full) { alert("至少要填一个链接"); return; }
+    if (!payslip && !cl && !of && !bao && !full && !edit.logo) { alert("至少要填一个链接"); return; }
     setSaving(true);
     const ex = custom.find(x => keyOf(x.name) === keyOf(name));
-    const item = { id: ex ? ex.id : uid(), name, full, payslip, cl, of, bao, by: window.__crmUser || "", at: Date.now() };
+    const item = { id: ex ? ex.id : uid(), name, full, payslip, cl, of, bao, logo: edit.logo || "", by: window.__crmUser || "", at: Date.now() };
     await saveCustom(ex ? custom.map(x => x.id === ex.id ? item : x) : [...custom, item]);
     setSaving(false); setEdit(null); setOpenName(name);
   };
@@ -9106,6 +9108,156 @@ function CompanyFilesPage() {
   .co-tab.on{background:var(--a1);border-color:var(--a1);color:#fff}
   .co-tab.on b{background:rgba(255,255,255,.25);color:#fff}
   .co-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+  /* ===== Companies（参考图） ===== */
+  .co-wrap.cpw{background:#f5f7fb;--navy:#1e3a5f}
+  .cp-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .cp-ttl{display:flex;align-items:center;gap:14px}
+  .cp-bico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--navy)}
+  .cp-bico svg{width:34px;height:34px;stroke-width:1.6}
+  .cp-ttl h1{margin:0;font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-.01em;text-transform:none}
+  .cp-desc{font-size:13.5px;color:#475569;margin-top:2px;text-transform:none}
+  .cp-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .cp-search{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;height:40px;width:260px;max-width:100%}
+  .cp-search input{border:none;outline:none;flex:1;font-size:14px;font-family:inherit;background:transparent;text-transform:none}
+  .cp-add{display:flex;align-items:center;gap:6px;height:40px;padding:0 18px;border-radius:10px;border:none;background:var(--navy);color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 6px 14px -6px rgba(30,58,95,.6);text-transform:none}
+  .cp-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .cp-tab{display:flex;align-items:center;gap:8px;height:42px;padding:0 16px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:0 2px 6px -4px rgba(0,0,0,.15);text-transform:none}
+  .cp-tab b{background:#eef2f7;color:#334155;border-radius:999px;padding:1px 9px;font-size:12.5px}
+  .cp-tab.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .cp-tab.on b{background:rgba(255,255,255,.2);color:#fff}
+  .cp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+  .cp-card{background:#fff;border:1px solid #e8edf3;border-radius:14px;padding:16px;box-shadow:0 4px 14px -8px rgba(15,23,42,.18);transition:box-shadow .15s,transform .15s}
+  .cp-card:hover{box-shadow:0 12px 26px -12px rgba(15,23,42,.28);transform:translateY(-2px)}
+  .cp-head{display:flex;align-items:flex-start;gap:12px}
+  .cp-mono{width:46px;height:46px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+  .cp-logo{width:46px;height:46px;border-radius:10px;flex:none;border:1px solid #e8edf3;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:3px;box-sizing:border-box}
+  .cp-logo img{max-width:100%;max-height:100%;object-fit:contain}
+  .cp-name{font-weight:800;font-size:14px;color:#0f172a;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .cp-sub{font-size:11.5px;color:#64748b;font-weight:600;margin-top:4px}
+  .cp-more{border:none;background:transparent;color:#475569;font-size:16px;font-weight:900;cursor:pointer;width:26px;height:26px;border-radius:6px;flex:none;line-height:1}
+  .cp-more:hover{background:#f1f5f9}
+  .cp-prog{display:flex;justify-content:space-between;margin-top:14px;font-size:12px;font-weight:700;color:#334155}
+  .cp-bar{height:7px;border-radius:999px;background:#e5e9f0;margin-top:6px;overflow:hidden}
+  .cp-bar i{display:block;height:100%;border-radius:999px;background:#16a34a}
+  .cp-docs{display:grid;grid-template-columns:1.25fr .8fr .8fr 1.35fr;gap:5px;margin-top:14px}
+  .cp-chip{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 4px;min-width:0;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:10.5px;font-weight:800;font-family:inherit;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .cp-chip .cp-ck{width:14px;height:14px;border-radius:50%;border:1.5px solid #94a3b8;display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex:none;box-sizing:border-box}
+  .cp-chip.on{background:#ecfdf3;border-color:#bbf7d0;color:#166534}
+  .cp-chip.on .cp-ck{background:#16a34a;border-color:#16a34a;color:#fff}
+  .cp-chip:hover{border-color:#94a3b8}
+  .cp-chip.on:hover{background:#dcfce7}
+  @media (max-width:700px){.cp-search{width:100%}.cp-tools{width:100%}}
+  /* ===== 简单风格 ===== */
+  .sm .co-top{box-shadow:none;border:1px solid #e5e7eb;background:#fff}
+  .sm .co-title i{background:var(--a1);box-shadow:none}
+  .sm .co-addbtn{background:var(--a1);box-shadow:none}
+  .sm .co-tab{background:#fff;border-color:#e5e7eb;color:#4b5563}
+  .sm .co-tab b{background:#f3f4f6;color:#6b7280}
+  .sm .co-tab.on{background:color-mix(in srgb,var(--a1) 12%,#fff);border-color:color-mix(in srgb,var(--a1) 40%,#fff);color:var(--a1)}
+  .sm .co-tab.on b{background:color-mix(in srgb,var(--a1) 18%,#fff);color:var(--a1)}
+  .sm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .sm-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 14px 8px;transition:border-color .15s,box-shadow .15s}
+  .sm-card:hover{border-color:#d1d5db;box-shadow:0 6px 16px -10px rgba(0,0,0,.18)}
+  .sm-head{display:flex;align-items:flex-start;gap:6px;padding-bottom:10px;border-bottom:1px solid #f3f4f6}
+  .sm-name{color:#374151;font-weight:800;font-size:14px;line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .sm-new{font-size:9.5px;font-weight:800;color:#6b7280;border:1px solid #d1d5db;border-radius:4px;padding:0 5px;letter-spacing:.05em}
+  .sm-sub{color:#9ca3af;font-size:11.5px;font-weight:600;margin-top:2px}
+  .sm-more{border:none;background:transparent;width:26px;height:26px;border-radius:6px;color:#9ca3af;font-size:15px;font-weight:900;cursor:pointer;flex:none}
+  .sm-more:hover{background:#f3f4f6;color:var(--a1)}
+  .sm-rows{display:flex;flex-direction:column;padding-top:4px}
+  .sm-row{display:flex;align-items:center;gap:10px;padding:8px 6px;border:none;background:transparent;border-radius:6px;text-decoration:none;font-family:inherit;cursor:pointer;text-align:left;width:100%}
+  .sm-row:hover{background:#f9fafb}
+  .sm-dot{width:7px;height:7px;border-radius:50%;background:#e5e7eb;flex:none}
+  .sm-row.on .sm-dot{background:var(--a1)}
+  .sm-lb{flex:1;font-size:12.5px;font-weight:700;color:#9ca3af;letter-spacing:.02em}
+  .sm-row.on .sm-lb{color:#374151}
+  .sm-act{font-size:11.5px;font-weight:700;color:#d1d5db}
+  .sm-row.on .sm-act{color:var(--a1);opacity:.75}
+  .sm-row.on:hover .sm-act{color:var(--a1);opacity:1}
+  /* ===== 文件夹风格 ===== */
+  .fd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:34px 22px;padding-top:18px}
+  .fd-item{position:relative;height:232px}
+  .fd-tab{position:absolute;left:14px;top:-16px;height:30px;min-width:92px;padding:0 14px;border-radius:12px 12px 0 0;background:color-mix(in srgb,var(--c) 78%,#000 0%);display:flex;align-items:center;gap:6px;color:#fff;font-weight:900;font-size:12px;letter-spacing:.06em;z-index:4;box-shadow:inset 0 -6px 10px -6px rgba(0,0,0,.25)}
+  .fd-new{font-size:9px;background:#fff;color:var(--c);border-radius:999px;padding:1px 6px;letter-spacing:.06em}
+  .fd-back{position:absolute;inset:0 0 0 0;border-radius:4px 16px 16px 16px;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 85%,#fff),color-mix(in srgb,var(--c) 95%,#000));box-shadow:0 14px 26px -14px color-mix(in srgb,var(--c) 70%,transparent)}
+  .fd-papers{position:absolute;left:12px;right:12px;top:16px;height:118px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:1}
+  .fd-paper{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:12px 4px 8px;min-width:0;border-radius:8px;background:#fff;border:none;box-shadow:0 4px 10px -4px rgba(0,0,0,.25);transform:rotate(var(--r));transition:transform .2s,box-shadow .2s;text-decoration:none;font-family:inherit;cursor:pointer;text-align:left;color:#1e293b}
+  .fd-paper:not(.on){background:rgba(255,255,255,.35);box-shadow:none;border:1.5px dashed rgba(255,255,255,.75);color:#fff}
+  .fd-paper:hover{transform:rotate(0) translateY(-10px);box-shadow:0 14px 24px -8px rgba(0,0,0,.35);z-index:2}
+  .fd-paper .fd-ic{font-size:18px;line-height:1}
+  .fd-paper .fd-lb{font-size:10px;font-weight:900;letter-spacing:.02em;text-align:center;line-height:1.15}
+  .fd-paper.on .fd-lb{color:var(--c)}
+  .fd-lines{display:grid;gap:3px;width:100%;margin-top:2px}
+  .fd-lines i{display:block;height:3px;border-radius:2px;background:#e2e8f0}
+  .fd-lines i:nth-child(2){width:80%}.fd-lines i:nth-child(3){width:55%}
+  .fd-front{position:absolute;left:0;right:0;bottom:0;height:98px;border-radius:14px 14px 16px 16px;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c));display:flex;align-items:flex-end;gap:8px;padding:14px 14px 14px 16px;z-index:3;box-shadow:0 -6px 14px -8px rgba(0,0,0,.25);clip-path:polygon(0 16%,5% 0,95% 0,100% 16%,100% 100%,0 100%)}
+  .fd-name{color:#fff;font-weight:900;font-size:15px;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,.2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .fd-sub{color:rgba(255,255,255,.85);font-size:11.5px;font-weight:700;margin-top:4px}
+  .fd-more{border:none;background:rgba(255,255,255,.25);width:30px;height:30px;border-radius:9px;color:#fff;font-size:15px;font-weight:900;flex:none;cursor:pointer}
+  .fd-more:hover{background:#fff;color:var(--c)}
+  /* ===== 深色高级感 ===== */
+  .co-wrap.cx{background:radial-gradient(1200px 500px at 10% -10%,#1e293b 0%,transparent 60%),radial-gradient(900px 500px at 110% 10%,#2a1f0e 0%,transparent 55%),#0b0f17;--gold:#d4af37;--gold2:#f5d77a;--ink:#f8fafc}
+  .cx .co-top{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(212,175,55,.25);box-shadow:0 20px 40px -20px rgba(0,0,0,.6)}
+  .cx .co-title{color:#fff;letter-spacing:.02em}
+  .cx .co-title i{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#1a1407;box-shadow:0 6px 18px -4px rgba(212,175,55,.6)}
+  .cx .co-desc{color:#94a3b8}
+  .cx .co-search input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#f1f5f9}
+  .cx .co-search input::placeholder{color:#64748b}
+  .cx .co-addbtn{background:linear-gradient(120deg,var(--gold2),var(--gold));color:#1a1407;box-shadow:0 8px 20px -8px rgba(212,175,55,.7)}
+  .cx .co-tab{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:#cbd5e1}
+  .cx .co-tab b{background:rgba(212,175,55,.15);color:var(--gold2)}
+  .cx .co-tab.on{background:linear-gradient(120deg,var(--gold2),var(--gold));border-color:transparent;color:#1a1407}
+  .cx .co-tab.on b{background:rgba(0,0,0,.15);color:#1a1407}
+  .cx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .cx-card{position:relative;background:linear-gradient(160deg,#151b27 0%,#0f141d 100%);border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:18px;box-shadow:0 16px 30px -18px rgba(0,0,0,.8);transition:transform .2s,border-color .2s,box-shadow .2s;overflow:hidden}
+  .cx-card:after{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(212,175,55,.5),transparent);opacity:.6}
+  .cx-card:hover{transform:translateY(-3px);border-color:rgba(212,175,55,.35);box-shadow:0 22px 40px -18px rgba(0,0,0,.9),0 0 0 1px rgba(212,175,55,.12)}
+  .cx-card.full{border-color:rgba(212,175,55,.3)}
+  .cx-head{display:flex;align-items:center;gap:12px}
+  .cx-mono{width:44px;height:44px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#1a1407;background:linear-gradient(135deg,var(--gold2),var(--gold));box-shadow:0 8px 18px -8px rgba(212,175,55,.7)}
+  .cx-name{color:#f8fafc;font-weight:800;font-size:14.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+  .cx-sub{display:flex;align-items:center;gap:6px;color:#64748b;font-size:11.5px;font-weight:700;margin-top:3px}
+  .cx-new{font-size:9.5px;font-weight:900;letter-spacing:.08em;color:#1a1407;background:linear-gradient(120deg,var(--gold2),var(--gold));border-radius:999px;padding:1px 7px}
+  .cx-more{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);width:30px;height:30px;border-radius:9px;color:#94a3b8;font-size:15px;font-weight:900;flex:none;cursor:pointer}
+  .cx-more:hover{color:var(--gold2);border-color:rgba(212,175,55,.4)}
+  .cx-bar{height:3px;border-radius:3px;background:rgba(255,255,255,.06);margin:14px 0 12px;overflow:hidden}
+  .cx-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:3px}
+  .cx-docs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cx-doc{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1px dashed rgba(255,255,255,.1);background:transparent;color:#475569;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.04em;text-decoration:none;cursor:pointer;transition:all .15s;text-align:left}
+  .cx-doc:hover{color:#94a3b8;border-color:rgba(255,255,255,.25)}
+  .cx-doc .cx-ic{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;background:rgba(255,255,255,.04);flex:none}
+  .cx-doc .cx-lb{flex:1}
+  .cx-doc.on{border:1px solid rgba(212,175,55,.35);background:linear-gradient(135deg,rgba(212,175,55,.14),rgba(212,175,55,.04));color:var(--gold2)}
+  .cx-doc.on .cx-ic{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#1a1407}
+  .cx-doc.on .cx-go{opacity:.6}
+  .cx-doc.on:hover{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#1a1407;box-shadow:0 8px 20px -8px rgba(212,175,55,.7);transform:translateY(-1px)}
+  .cx-doc.on:hover .cx-ic{background:#1a1407;color:var(--gold2)}
+  .co-list{background:rgba(255,255,255,.94);border:1px solid rgba(0,0,0,.06);border-radius:18px;overflow:hidden;box-shadow:0 10px 30px -16px rgba(15,23,42,.25)}
+  .co-lh,.co-row{display:grid;grid-template-columns:minmax(240px,1.6fr) repeat(4,minmax(110px,1fr)) 72px;gap:10px;align-items:center;padding:10px 18px}
+  .co-lh{background:color-mix(in srgb,var(--a1) 7%,#fff);border-bottom:1px solid #eef0f4;font-size:11px;font-weight:900;letter-spacing:.08em;color:#64748b;position:sticky;top:0;z-index:1}
+  .co-lh span:not(:first-child){text-align:center}
+  .co-row{border-bottom:1px solid #f1f5f9;transition:background .15s;position:relative}
+  .co-row:last-child{border-bottom:none}
+  .co-row:hover{background:color-mix(in srgb,var(--c) 5%,#fff)}
+  .co-row:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--c);opacity:.7}
+  .co-who{display:flex;align-items:center;gap:12px;min-width:0}
+  .co-row .co-mono{width:38px;height:38px;border-radius:11px;font-size:13px}
+  .co-row .co-name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+  .co-new{flex:none;font-size:9.5px;font-weight:900;letter-spacing:.06em;color:#fff;background:linear-gradient(120deg,var(--a1),var(--a2));border-radius:999px;padding:1px 7px}
+  .co-sub{display:flex;align-items:center;gap:6px}
+  .co-meter{display:inline-flex;gap:2px}
+  .co-meter i{width:10px;height:4px;border-radius:2px;background:#e2e8f0}
+  .co-meter i.on{background:var(--c)}
+  .co-row .co-doc{padding:8px 6px;font-size:12px;width:100%;box-sizing:border-box}
+  .co-row .co-doc.no{background:transparent;border:1px dashed #e2e8f0;color:#cbd5e1}
+  .co-row .co-doc.no:hover{background:#fff}
+  .co-acts{display:flex;gap:6px;justify-content:flex-end}
+  @media (max-width:900px){
+    .co-lh{display:none}
+    .co-row{grid-template-columns:1fr 1fr;padding:14px}
+    .co-who{grid-column:1 / -1}
+    .co-acts{position:absolute;top:12px;right:12px}
+  }
   .co-card{position:relative;background:#fff;border-radius:16px;border:1px solid color-mix(in srgb,var(--c) 18%,#eef0f4);padding:16px;box-shadow:0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);transition:transform .2s,box-shadow .2s;overflow:hidden}
   .co-card:before{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:color-mix(in srgb,var(--c) 9%,transparent)}
   .co-card:hover{transform:translateY(-3px);box-shadow:0 16px 30px -14px rgba(15,23,42,.3)}
@@ -9139,30 +9291,33 @@ function CompanyFilesPage() {
   const doc = (label, url, c) => url
     ? h("a", { className: "co-doc yes" + (label !== "PAYSLIP" ? " cl" : ""), href: String(url).replace(/\/copy(\?.*)?$/i, "/edit"), target: "_blank", rel: "noopener" }, label === "CL" ? "✉️ " : label === "OF" ? "📝 " : label.startsWith("BANK") ? "🏦 " : "📄 ", label, h("span", { style: { opacity: .7 } }, "↗"))
     : h("button", { className: "co-doc no", onClick: () => openEdit(c), title: "加链接" }, "+ ", label);
-  return h("div", { className: "co-wrap" },
+  return h("div", { className: "co-wrap cpw" },
     h("style", null, css),
-    h("div", { className: "co-top" },
-      h("div", null,
-        h("h1", { className: "co-title" }, h("i", null, "🗂"), "Company Files"),
-        h("div", { className: "co-desc" }, "每家公司的 Payslip、CL、OF、Bank Acc Opening Letter，一按就打开")),
-      h("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" } },
-        h("div", { className: "co-search" },
-          h(Search, { size: 15, color: "#94a3b8", style: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" } }),
-          h("input", { placeholder: "搜索公司 / Search company", value: q, onChange: e => setQ(e.target.value) })),
-        h("button", { className: "co-addbtn", onClick: () => openEdit(null) }, h(Plus, { size: 15 }), "添加公司 / 文件"))),
-    h("div", { className: "co-tabs" },
-      [["all", "全部"], ["n", "New Company"], ["p", "Payslip"], ["c", "CL"], ["o", "OF"], ["a", "Bank Acc Opening"]].map(([k, t]) => h("button", { key: k, className: "co-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t, h("b", null, cnt[k])))),
-    h("div", { className: "co-grid" },
-      rows.map((c, i) => h("div", { key: c.name, className: "co-card", style: { "--c": colorOf(c, all.findIndex(x => x.name === c.name)) } },
-        h("div", { className: "co-head" },
-          h("div", { className: "co-mono" }, initials(c.name)),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { className: "co-name", title: c.full || c.name }, c.full || c.name),
-            h("div", { className: "co-sub" }, [c.pUrl && "Payslip", c.cUrl && "CL", c.oUrl && "OF", c.aUrl && "Bank Acc"].filter(Boolean).join(" · ") || "还没有文件", c.by ? " · 由 " + String(c.by).toUpperCase() + " 添加" : "")),
-          h("button", { className: "co-more", title: "改链接", onClick: () => openEdit(c) }, "⋯"),
-          c.customId && !c.builtin && h("button", { className: "co-more", title: "删除", onClick: () => setDelItem(c), style: { color: "#ef4444" } }, "×")),
-        h("div", { className: "co-btns", style: { position: "relative" } }, doc("PAYSLIP", c.pUrl, c), doc("CL", c.cUrl, c), doc("OF", c.oUrl, c), doc("BANK ACC", c.aUrl, c)))),
-      rows.length === 0 && h("div", { style: { color: "#94a3b8", padding: 20 } }, "找不到公司")),
+    /* ===== 跟参考图：上面标题 + 搜索 + Add Company；分页有图标；卡片 = Logo / 名字 + 进度条 + 4 个打勾的文件 ===== */
+    h("div", { className: "cp-top" },
+      h("div", { className: "cp-ttl" }, h("span", { className: "cp-bico" }, h("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { key: 0, d: "M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18z" }), h("path", { key: 1, d: "M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" }), h("path", { key: 2, d: "M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" }), h("path", { key: 3, d: "M10 6h4" }), h("path", { key: 4, d: "M10 10h4" }), h("path", { key: 5, d: "M10 14h4" }), h("path", { key: 6, d: "M10 18h4" }))),
+        h("div", null, h("h1", null, "Companies"), h("div", { className: "cp-desc" }, "每家公司的 Payslip、CL、OF、Bank Acc Opening Letter，一按就打开"))),
+      h("div", { className: "cp-tools" },
+        h("div", { className: "cp-search" }, h(Search, { size: 16, color: "#64748b" }), h("input", { placeholder: "Search company...", value: q, onChange: e => setQ(e.target.value) })),
+        h("button", { className: "cp-add", onClick: () => openEdit(null) }, h(Plus, { size: 16 }), "Add Company"))),
+    h("div", { className: "cp-tabs" },
+      [["all", "All"], ["n", "New Company"], ["p", "Payslip"], ["c", "CL"], ["o", "OF"], ["a", "Bank Acc Opening"]].map(([k, tt]) => h("button", { key: k, className: "cp-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, CP_ICO[k](), tt, h("b", null, cnt[k])))),
+    h("div", { className: "cp-grid" },
+      rows.map(c => { const col = colorOf(c, all.findIndex(x => x.name === c.name)), docs = [["PAYSLIP", c.pUrl], ["CL", c.cUrl], ["OF", c.oUrl], ["BANK ACC", c.aUrl]], n = docs.filter(d => d[1]).length;
+        return h("div", { key: c.name, className: "cp-card" },
+          h("div", { className: "cp-head" },
+            c.logo ? h("div", { className: "cp-logo" }, h("img", { src: c.logo, alt: "" })) : h("div", { className: "cp-mono", style: { background: col } }, initials(c.name)),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { className: "cp-name", title: c.full || c.name }, c.full || c.name),
+              h("div", { className: "cp-sub" }, docs.filter(d => d[1]).map(d => d[0]).join(" · ") || "还没有文件", c.isNew ? " · NEW" : "")),
+            h("button", { className: "cp-more", title: "改链接 / Logo", onClick: () => openEdit(c) }, "⋯"),
+            c.customId && !c.builtin && h("button", { className: "cp-more", title: "删除", onClick: () => setDelItem(c), style: { color: "#ef4444" } }, "×")),
+          h("div", { className: "cp-prog" }, h("span", null), h("span", { className: "cp-pn" }, n + " / 4 (" + (n * 25) + "%)")),
+          h("div", { className: "cp-bar" }, h("i", { style: { width: (n * 25) + "%" } })),
+          h("div", { className: "cp-docs" }, docs.map(([lb, url]) => url
+            ? h("a", { key: lb, className: "cp-chip on", href: String(url).replace(/\/copy(\?.*)?$/i, "/edit"), target: "_blank", rel: "noopener", title: "打开 " + lb }, h("span", { className: "cp-ck" }, "✓"), lb)
+            : h("button", { key: lb, className: "cp-chip", onClick: () => openEdit(c), title: "加 " + lb + " 链接" }, h("span", { className: "cp-ck" }), lb)))); }),
+      rows.length === 0 && h("div", { style: { color: "#94a3b8", padding: 24 } }, "找不到公司")),
     edit && h("div", { onClick: () => setEdit(null), style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.5)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
         h("div", { style: { padding: "16px 20px", background: "linear-gradient(120deg,#7c3aed,#4f46e5 55%,#0ea5e9)", color: "#fff", display: "flex", alignItems: "center" } },
@@ -9174,6 +9329,14 @@ function CompanyFilesPage() {
             h("input", { value: edit[k], disabled: dis, placeholder: ph, list: k === "full" && !edit.locked ? "co-names" : undefined, onChange: e => setEdit({ ...edit, [k]: e.target.value }),
               style: { width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 10, border: "1px solid #e0e7ff", background: dis ? "#f8fafc" : "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" } }))),
           h("datalist", { id: "co-names" }, all.map(c => h("option", { key: c.name, value: c.full || c.name }))),
+          /* Logo：上传就压缩成小图，大家都看得到 */
+          h("div", null, h("div", { style: { fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 6 } }, "Logo（可空白）"),
+            h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+              (edit.logo || edit.logoShow) ? h("img", { src: edit.logo || edit.logoShow, style: { width: 56, height: 56, objectFit: "contain", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff" } }) : h("div", { style: { width: 56, height: 56, borderRadius: 10, border: "1px dashed #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: 11 } }, "没有"),
+              h("label", { style: { padding: "8px 14px", borderRadius: 10, border: "1px solid #e0e7ff", cursor: "pointer", fontWeight: 700, fontSize: 13, color: "#4f46e5" } }, "📷 上传 logo",
+                h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; const rd = new FileReader();
+                  rd.onload = () => { const im = new Image(); im.onload = () => { const s = Math.min(1, 200 / Math.max(im.width, im.height)), cv = document.createElement("canvas"); cv.width = Math.round(im.width * s); cv.height = Math.round(im.height * s); cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height); setEdit(ed => ({ ...ed, logo: cv.toDataURL("image/png") })); }; im.src = rd.result; }; rd.readAsDataURL(f); } })),
+              edit.logo && h("button", { onClick: () => setEdit(ed => ({ ...ed, logo: "" })), style: { border: "none", background: "none", color: "#ef4444", fontWeight: 700, cursor: "pointer", fontSize: 12.5 } }, "拿掉"))),
           h("div", { style: { fontSize: 12, color: "#94a3b8", lineHeight: 1.5 } }, "公司名字跟现有的一样，就会加进那家公司。只填一个链接也可以。"),
           h("button", { onClick: submitEdit, disabled: saving, style: { padding: 12, borderRadius: 12, border: "none", background: "linear-gradient(120deg,#7c3aed,#4f46e5)", color: "#fff", fontWeight: 800, fontSize: 14.5, boxShadow: "0 8px 20px rgba(79,70,229,.35)" } }, saving ? "保存中…" : "保存")))),
     delItem && h(PwDialog, { title: "删除公司", desc: "删除「" + delItem.name + "」和它的链接，不能复原。", confirmText: "删除", onCancel: () => setDelItem(null),
