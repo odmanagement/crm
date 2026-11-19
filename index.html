@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261119120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261119124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "436";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "437";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
@@ -9035,6 +9035,8 @@ function BankerPage({
   })))))))));
 }
 /* ---------- Company：Payslip + CL 合并 ---------- */
+/* Company Files → 「New Company」分页：每家公司的 Payslip 生成器（一按就打开，可以填、可以印 PDF） */
+const NEW_COMPANY_FILES = [{ name: "ARTELIA MARKETING", file: "Artelia_Payslip_Generator.html" }, { name: "CY DELI SDN BHD", file: "CYDeli_Payslip_Generator.html" }, { name: "HENG QI CONSTRUCTION SDN BHD", file: "HengQi_Payslip_Generator.html" }, { name: "JU YING SDN. BHD.", file: "JuYing_Payslip_Generator.html" }, { name: "KAHO RESOURCES SDN BHD", file: "KAHO_Payslip_Generator.html" }, { name: "LKL", file: "LKL_Payslip_Generator.html" }, { name: "LTC INTERNATIONALS SDN BHD", file: "LTC_Payslip_Generator.html" }, { name: "MEI YANG RESOURCES SDN BHD", file: "MeiYang_Payslip_Generator.html" }, { name: "MILLION AI RESOURCES SDN. BHD.", file: "MillionAI_Payslip_Generator.html" }, { name: "NEXGEN FOUNDRY SDN. BHD.", file: "NexGen_Payslip_Generator.html" }, { name: "NGAI DYANAMICS SDN BHD", file: "NgaiDyanamics_Payslip_Generator.html" }, { name: "WISDOMIND SECRETARIAL SDN. BHD.", file: "Wisdomind_Payslip_Generator.html" }, { name: "WYNN MUSIC GROUP SDN. BHD.", file: "Wynn_Payslip_Generator.html" }, { name: "IWIFI GROUP SDN BHD", file: "iWifi_Payslip_Generator.html" }];
 function CompanyFilesPage() {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
@@ -9050,6 +9052,9 @@ function CompanyFilesPage() {
   const keyOf = n => String(n || "").trim().toLowerCase();
   const all = (() => {
     const base = COMPANY_FILES.map(c => ({ name: c.name, pUrl: urlOf(PAYSLIP_TOOLS, c.payslip), cUrl: urlOf(OFFER_TOOLS, c.cl), builtin: true }));
+    /* NEW COMPANY：Payslip 生成器（HTML 放在 GitHub 同一个文件夹） */
+    NEW_COMPANY_FILES.forEach(n => { const b = base.find(c => keyOf(c.name) === keyOf(n.name)); const u = n.file + "?v=" + FORM_FILE_VER;
+      if (b) { b.pUrl = b.pUrl || u; b.isNew = true; } else base.push({ name: n.name, pUrl: u, builtin: true, isNew: true }); });
     custom.forEach(x => {
       const b = base.find(c => keyOf(c.name) === keyOf(x.name));
       if (b) { if (x.payslip) b.pUrl = x.payslip; if (x.cl) b.cUrl = x.cl; if (x.of) b.oUrl = x.of; if (x.bao) b.aUrl = x.bao; if (x.full) b.full = x.full; b.customId = x.id; }
@@ -9073,11 +9078,11 @@ function CompanyFilesPage() {
     setSaving(false); setEdit(null); setOpenName(name);
   };
   const rows = all.filter(c => (c.name + " " + (c.full || "")).toLowerCase().includes(q.trim().toLowerCase()))
-    .filter(c => filter === "all" || (filter === "p" && c.pUrl) || (filter === "c" && c.cUrl) || (filter === "o" && c.oUrl) || (filter === "a" && c.aUrl));
+    .filter(c => filter === "all" || (filter === "n" && c.isNew) || (filter === "p" && c.pUrl) || (filter === "c" && c.cUrl) || (filter === "o" && c.oUrl) || (filter === "a" && c.aUrl));
   const hues = [262, 199, 330, 152, 24, 222, 285, 174, 350, 45];
   const hueOf = n => hues[n.split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % hues.length];
   const initials = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
-  const cnt = { all: all.length, p: all.filter(c => c.pUrl).length, c: all.filter(c => c.cUrl).length, o: all.filter(c => c.oUrl).length, a: all.filter(c => c.aUrl).length };
+  const cnt = { all: all.length, n: all.filter(c => c.isNew).length, p: all.filter(c => c.pUrl).length, c: all.filter(c => c.cUrl).length, o: all.filter(c => c.oUrl).length, a: all.filter(c => c.aUrl).length };
   const css = `
   .co-wrap{margin:-28px;padding:30px 28px;min-height:calc(100vh - 67px);background:transparent;--a1:#6366f1;--a2:#8b5cf6;--ink:#1e1b4b;--soft:#eef2ff}
   .theme-pink .co-wrap{--a1:#ec4899;--a2:#f472b6;--ink:#831843;--soft:#fdf2f8}
@@ -9146,7 +9151,7 @@ function CompanyFilesPage() {
           h("input", { placeholder: "搜索公司 / Search company", value: q, onChange: e => setQ(e.target.value) })),
         h("button", { className: "co-addbtn", onClick: () => openEdit(null) }, h(Plus, { size: 15 }), "添加公司 / 文件"))),
     h("div", { className: "co-tabs" },
-      [["all", "全部"], ["p", "Payslip"], ["c", "CL"], ["o", "OF"], ["a", "Bank Acc Opening"]].map(([k, t]) => h("button", { key: k, className: "co-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t, h("b", null, cnt[k])))),
+      [["all", "全部"], ["n", "New Company"], ["p", "Payslip"], ["c", "CL"], ["o", "OF"], ["a", "Bank Acc Opening"]].map(([k, t]) => h("button", { key: k, className: "co-tab" + (filter === k ? " on" : ""), onClick: () => setFilter(k) }, t, h("b", null, cnt[k])))),
     h("div", { className: "co-grid" },
       rows.map((c, i) => h("div", { key: c.name, className: "co-card", style: { "--c": colorOf(c, all.findIndex(x => x.name === c.name)) } },
         h("div", { className: "co-head" },

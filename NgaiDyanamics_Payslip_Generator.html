@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Payslip 生成器 · NGAI DYANAMICS SDN BHD</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef0f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; }
+  .app { max-width: 1080px; margin: 0 auto; padding: 18px 20px 60px; }
+  h1 { margin: 0; color: #1f3b63; font-size: 24px; }
+  .sub { color: #6b7280; font-size: 13px; margin: 6px 0 20px; }
+  .card { background: #fff; border-radius: 14px; border: 1px solid #dde0ee; padding: 16px 24px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; color: #1f3b63; margin: 4px 0 14px; padding-bottom: 10px; border-bottom: 1px solid #e8eaf3; display: flex; align-items: center; gap: 10px; }
+  .card h2 small { font-weight: 400; color: #9ca3af; font-size: 12px; }
+  .grid { display: grid; gap: 12px 16px; margin-bottom: 12px; }
+  .g4 { grid-template-columns: repeat(4, 1fr); } .g3 { grid-template-columns: repeat(3, 1fr); } .g2 { grid-template-columns: 1fr 1fr; }
+  label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 5px; }
+  input, select { width: 100%; padding: 9px 11px; font-size: 14px; border: 1px solid #d8dbe8; border-radius: 6px; background: #fbfbfd; font-family: inherit; color: #111; outline: none; }
+  input:focus, select:focus { border-color: #1f3b63; background: #fff; }
+  input.ov { color: #b45309; font-weight: 700; border-color: #f5c88a; background: #fffbeb; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .mini { border: 1px solid #ccd0e6; background: #fff; color: #1f3b63; border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .items .it { display: grid; grid-template-columns: 1fr 160px 110px 34px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .items.ded .it { grid-template-columns: 1fr 160px 34px; }
+  .chk { font-size: 12px; color: #4b5563; display: flex; align-items: center; gap: 5px; margin: 0; white-space: nowrap; }
+  .chk input { width: auto; }
+  .x { border: none; background: #f3f4f6; border-radius: 6px; height: 34px; cursor: pointer; color: #9ca3af; font-size: 16px; }
+  .x:hover { color: #ef4444; }
+  .hint { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+  .btns { display: flex; gap: 12px; margin: 18px 0; flex-wrap: wrap; }
+  .btn { border: none; border-radius: 6px; padding: 12px 22px; font-size: 14px; color: #fff; cursor: pointer; font-family: inherit; }
+  .btn.n { background: #1f3b63; } .btn.s { background: #8d91a8; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ---------- 工资单（照 CBH 1978 格式） ---------- */
+  .slipwrap { overflow-x: auto; }
+  .slip { width: 210mm; min-height: 140mm; margin: 0 auto; background: #fff; border: 1px solid #d6d6d6; padding: 9mm 9mm 8mm; font-family: Tahoma, Verdana, "Segoe UI", Arial, sans-serif; color: #000; font-size: 10.5px; }
+  .top { display: grid; grid-template-columns: 1fr 230px 150px; align-items: start; row-gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { height: 52px; max-width: 150px; object-fit: contain; }
+  .co { font-size: 14.5px; line-height: 1.2; white-space: nowrap; }
+  .reg { font-size: 9.5px; margin-bottom: 2px; }
+  .ad { font-size: 9px; line-height: 1.35; color: #222; white-space: nowrap; }
+  .empg { grid-column: 1 / 4; display: grid; grid-template-columns: 78px 10px minmax(0,1fr) 78px 10px 215px; line-height: 1.45; white-space: nowrap; }
+  .empg > span { overflow: hidden; text-overflow: ellipsis; }
+  .for { text-align: right; font-size: 15px; line-height: 1.35; font-family: Arial, Helvetica, sans-serif; }
+  table.m { width: 100%; border-collapse: collapse; margin-top: 16px; border: 1px solid #000; }
+  .m td { padding: 3px 5px; vertical-align: top; }
+  .m .c1 { border-right: 1px solid #000; }
+  .m .c2 { width: 98px; text-align: right; border-right: 1px solid #000; }
+  .m .c3 { border-right: 1px solid #000; }
+  .m .c4 { width: 98px; text-align: right; }
+  .m tr.hd td { border-bottom: 1px solid #000; padding-top: 4px; padding-bottom: 4px; }
+  .m tr.body td { height: 152px; line-height: 1.4; padding-top: 4px; }
+  .m tr.tot td { border-top: 1px solid #000; border-bottom: 1px solid #000; padding-top: 4px; padding-bottom: 4px; }
+  .m .np { font-size: 16px; vertical-align: middle; padding-left: 5px; }
+  .m .npv { font-size: 16px; vertical-align: middle; }
+  .m .erh { border-bottom: 1px solid #000; }
+  .m .lines div { line-height: 1.35; }
+  @media (max-width: 860px) { .g4, .g3, .twocol { grid-template-columns: 1fr 1fr; } }
+  @media print {
+    body { background: #fff; }
+    .app > *:not(#out) { display: none !important; }
+    .app { padding: 0; max-width: none; }
+    .slipwrap { overflow: visible; }
+    .slip { border: none; margin: 0; min-height: 0; padding: 8mm 9mm 7mm; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Payslip 生成器 · NGAI DYANAMICS SDN BHD</h1>
+  <div class="sub">填写员工资料 → EPF / SOCSO / EIS / PCB 自动算 → 保存 PDF</div>
+
+  <div class="card">
+    <h2>员工资料</h2>
+    <div class="grid g2" style="grid-template-columns:2fr 1fr">
+      <div><label>快速载入员工资料</label>
+        <div class="row"><select id="preset"><option value="">— 手动填写 / 选择员工 —</option></select>
+          <button class="mini" id="savePreset">💾 存这个员工</button><button class="mini" id="delPreset" style="color:#b91c1c">🗑</button></div></div>
+      <div><label>Payslip For</label>
+        <div class="row"><select id="mon"></select><input id="year" inputmode="numeric" style="width:90px"></div></div>
+    </div>
+    <div class="grid g3">
+      <div><label>NAME</label><input data-f="name" autocomplete="off"></div>
+      <div><label>I/C NO <small>（空白 = 不显示）</small></label><input data-f="ic" autocomplete="off"></div>
+      <div><label>DESIGNATION</label><input data-f="desig" autocomplete="off" placeholder="例 Senior Accountant Executive"></div>
+    </div>
+    <div class="grid g3">
+      <div><label>DATE JOINED</label><input data-f="joined" autocomplete="off" placeholder="例 01/04/2026"></div>
+      <div><label>BANK A/C</label><input data-f="bank" autocomplete="off"></div>
+      <div><label>BANK 名</label><input data-f="bankName" autocomplete="off" placeholder="例 CIMB BANK"></div>
+    </div>
+    <div class="grid g3">
+      <div><label>Logo（可空白）</label><div class="row"><label class="mini" style="margin:0;cursor:pointer">📷 上传 logo<input type="file" id="logoFile" accept="image/*" style="display:none"></label><button class="mini" id="logoClr" style="color:#b91c1c">拿掉</button></div></div>
+    </div>
+  </div>
+
+  <div class="twocol">
+    <div class="card">
+      <h2>GROSS EARNING <small>收入</small></h2>
+      <div class="items" id="earn"></div>
+      <button class="mini" id="addEarn">＋ 加一项</button>
+      <div class="hint">勾「扣 EPF/PCB」= 这一项也算 EPF / SOCSO / EIS / PCB（Basic Salary 一定算）</div>
+    </div>
+    <div class="card">
+      <h2>DEDUCTIONS <small>其他扣款（EPF / SOCSO / EIS / PCB 在下面自动算）</small></h2>
+      <div class="items ded" id="ded"></div>
+      <button class="mini" id="addDed">＋ 加一项（Advance / Unpaid Leave …）</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>EPF / SOCSO / EIS / PCB <small>自动算（灰色）· 自己打数字会变橙色 · 删掉回到自动 · 不扣填 0</small></h2>
+    <div class="grid g4" id="statEe"></div>
+    <div class="grid g4" id="statEr"></div>
+  </div>
+
+  <div class="btns">
+    <button class="btn n" id="gen">生成工资单</button>
+    <button class="btn s" id="print">打印 / 保存 PDF</button>
+    <button class="btn s" id="reset" style="background:#d9dbe6;color:#334155">清空</button>
+  </div>
+
+  <div id="out" class="slipwrap"><div class="slip">
+    <div class="top">
+      <div class="brand" style="grid-column:1 / 3">
+        <img id="logoImg" alt="logo">
+        <div>
+          <div class="co">NGAI DYANAMICS SDN BHD</div>
+          <div class="reg">Company No.: 202501025911 (1627324-M)</div>
+          
+        </div>
+      </div>
+      <div class="for">Payslip For <span id="s_mon"></span><br><span id="s_year"></span></div>
+      <div class="empg">
+        <span>NAME</span><span>:</span><span><span id="s_name"></span><span id="s_icW"> (I/C NO : <span id="s_ic"></span>)</span></span>
+        <span>DATE JOINED</span><span>:</span><span id="s_joined"></span>
+        <span>DESIGNATION</span><span>:</span><span id="s_desig"></span>
+        <span>BANK A/C</span><span>:</span><span id="s_bank"></span>
+      </div>
+    </div>
+    <table class="m">
+      <tr class="hd"><td class="c1">GROSS EARNING</td><td class="c2">Amount (RM)</td><td class="c3">DEDUCTIONS</td><td class="c4">Amount (RM)</td></tr>
+      <tr class="body"><td class="c1 lines" id="s_eN"></td><td class="c2 lines" id="s_eA"></td><td class="c3 lines" id="s_dN"></td><td class="c4 lines" id="s_dA"></td></tr>
+      <tr class="tot"><td class="c1">TOTAL EARNING / INCOME</td><td class="c2" id="s_te"></td><td class="c3">TOTAL DEDUCTIONS</td><td class="c4" id="s_td"></td></tr>
+      <tr><td class="c1 np" rowspan="2">NETT PAY</td><td class="c2 npv" rowspan="2" id="s_net"></td><td class="c3 erh" colspan="2" style="padding-top:4px;padding-bottom:4px">EMPLOYER CONTRIBUTIONS</td></tr>
+      <tr><td class="c3 lines" style="padding-top:4px;padding-bottom:6px"><div>EPF</div><div>SOCSO</div><div>EIS</div></td><td class="c4 lines" id="s_er" style="padding-top:4px;padding-bottom:6px"></td></tr>
+    </table>
+  </div></div>
+</div>
+
+<script>
+const N = v => Number(String(v == null ? "" : v).replace(/,/g, "")) || 0;
+const F = n => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const r2 = x => Math.round(x * 100) / 100;
+const esc = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+/* ---------- 法定扣款（跟 payroll.my；同 CRM 算法） ---------- */
+const SOC_UP = [30,50,70,100,140,200,300,400,500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,2500,2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,3800,3900,4000,4100,4200,4300,4400,4500,4600,4700,4800,4900,5000,5100,5200,5300,5400,5500,5600,5700,5800,5900,6000];
+const LF_EIS = [[30,0.05],[50,0.10],[100,0.20],[200,0.30],[300,0.50],[400,0.70],[500,0.90],[600,1.10],[700,1.30],[800,1.50],[900,1.70],[1000,1.90],[1100,2.10],[1200,2.30],[1300,2.50],[1400,2.70],[1500,2.90],[1600,3.10],[1700,3.30],[1800,3.50],[1900,3.70],[2000,3.90],[2100,4.10],[2200,4.30],[2300,4.50],[2400,4.70],[2500,4.90],[2600,5.10],[2700,5.30],[2800,5.50],[2900,5.70],[3000,5.90],[3100,6.10],[3200,6.30],[3300,6.50],[3400,6.70],[3500,6.90],[3600,7.10],[3700,7.30],[3800,7.50],[3900,7.70],[4000,7.90],[4100,8.10],[4200,8.30],[4300,8.50],[4400,8.70],[4500,8.90],[4600,9.10],[4700,9.30],[4800,9.50],[4900,9.70],[5000,9.90],[5200,10.30],[5400,10.70],[5600,11.10],[5800,11.50],[6000,11.90]];
+const socso = w => { if (!(w > 0)) return [0, 0]; let prev = 0, up = null; for (const u of SOC_UP) { if (w <= u) { up = u; break; } prev = u; } if (up == null) { up = 6000; prev = 5900; }
+  const mid = (prev + up) / 2, r5 = x => { const y = x * 20, f = Math.floor(y + 1e-9), d = y - f; const n = d > 0.5 + 1e-7 ? f + 1 : d < 0.5 - 1e-7 ? f : (f % 2 === 0 ? f : f + 1); return Math.round(n * 5) / 100; };
+  const inj = r5(mid * 0.0125); return [r2(inj + r5(mid * 0.005)), inj]; };
+const eis = w => { if (w <= 0) return [0, 0]; if (w > 5000) { if (w > 6000) return [11.90, 11.90]; const up = Math.ceil(w / 100) * 100, v = r2((up - 50) * 0.002); return [v, v]; }
+  for (const r of LF_EIS) if (w <= r[0]) return [r[1], r[1]]; return [11.90, 11.90]; };
+const epf = (w, rate) => { if (!(w > 0)) return 0; const band = w <= 5000 ? Math.ceil(w / 20) * 20 : Math.ceil(w / 100) * 100; return Math.ceil(band * rate / 100); };
+const pcb = (w, epfEe) => { if (!(w > 0)) return 0; const ch = w * 12 - 9000 - Math.min(epfEe * 12, 4000); if (ch <= 5000) return 0;
+  const bands = [[5000, 20000, 0.01, 0], [20000, 35000, 0.03, 150], [35000, 50000, 0.06, 600], [50000, 70000, 0.11, 1500], [70000, 100000, 0.19, 3700], [100000, 400000, 0.25, 9400], [400000, 600000, 0.26, 84400], [600000, 2000000, 0.28, 136400], [2000000, Infinity, 0.30, 528400]];
+  let tax = 0; for (const [lo, hi, rate, base] of bands) if (ch > lo && ch <= hi) { tax = base + (ch - lo) * rate; break; }
+  if (ch <= 35000) tax -= 400; const m = tax / 12; return m < 10 ? 0 : Math.ceil(m * 20 - 1e-9) / 20; };
+
+
+/* ---------- 资料 ---------- */
+const MON = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+const EE = [["epfEe","EPF (EMPLOYEE)"],["socEe","SOCSO (EMPLOYEE)"],["eisEe","EIS (EMPLOYEE)"],["pcb","INCOME TAX PCB"]];
+const ER = [["epfEr","EPF (EMPLOYER)"],["socEr","SOCSO (EMPLOYER)"],["eisEr","EIS (EMPLOYER)"]];
+const KEY = "ngai_payslip_form", PKEY = "ngai_payslip_presets";
+const blank = () => { const d = new Date(); return { name: "", ic: "", desig: "", joined: "", bank: "", bankName: "",
+  mon: d.getMonth(), year: String(d.getFullYear()), earn: [{ n: "BASIC SALARY", a: "", s: true, fixed: true }], ded: [], ov: {} }; };
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let D = Object.assign(blank(), load(KEY, {}));
+const $ = id => document.getElementById(id);
+
+function calc() {
+  const wage = D.earn.filter(x => x.s || x.fixed).reduce((t, x) => t + N(x.a), 0);
+  const rate = wage > 5000 ? 12 : 13, [se, sw] = socso(wage), [ee, ew] = eis(wage);
+  const auto = { epfEe: epf(wage, 11), epfEr: epf(wage, rate), socEe: sw, socEr: se, eisEe: ew, eisEr: ee };
+  const v = k => D.ov[k] !== undefined && D.ov[k] !== "" ? N(D.ov[k]) : auto[k];
+  auto.pcb = pcb(wage, v("epfEe"));
+  const cur = {}; [...EE, ...ER].forEach(([k]) => cur[k] = v(k));
+  const te = r2(D.earn.reduce((t, x) => t + N(x.a), 0));
+  const td = r2(cur.epfEe + cur.socEe + cur.eisEe + cur.pcb + D.ded.reduce((t, x) => t + N(x.a), 0));
+  return { auto, cur, te, td, net: r2(te - td) };
+}
+
+/* ---------- 表单 ---------- */
+function buildForm() {
+  $("mon").innerHTML = MON.map((m, i) => `<option value="${i}">${m}</option>`).join(""); $("mon").value = D.mon; $("year").value = D.year;
+  document.querySelectorAll("[data-f]").forEach(el => el.value = D[el.dataset.f] || "");
+  $("earn").innerHTML = D.earn.map((x, i) => `<div class="it"><input data-l="earn" data-i="${i}" data-p="n" value="${esc(x.n)}" ${x.fixed ? "readonly" : ""} placeholder="项目名称（例 SHIFT ALLOWANCE）"><input data-l="earn" data-i="${i}" data-p="a" class="money" value="${esc(x.a)}" inputmode="decimal" placeholder="RM"><label class="chk">${x.fixed ? "" : `<input type="checkbox" data-l="earn" data-i="${i}" data-p="s" ${x.s ? "checked" : ""}>扣 EPF/PCB`}</label>${x.fixed ? "<span></span>" : `<button class="x" data-rm="earn" data-i="${i}">×</button>`}</div>`).join("");
+  $("ded").innerHTML = D.ded.map((x, i) => `<div class="it"><input data-l="ded" data-i="${i}" data-p="n" value="${esc(x.n)}" placeholder="项目名称"><input data-l="ded" data-i="${i}" data-p="a" class="money" value="${esc(x.a)}" inputmode="decimal" placeholder="RM"><button class="x" data-rm="ded" data-i="${i}">×</button></div>`).join("") || '<div class="hint" style="margin-bottom:8px">没有其他扣款</div>';
+  $("statEe").innerHTML = EE.map(([k, t]) => `<div><label>${t}</label><input data-ov="${k}" class="money" inputmode="decimal"></div>`).join("");
+  $("statEr").innerHTML = ER.map(([k, t]) => `<div><label>${t}</label><input data-ov="${k}" class="money" inputmode="decimal"></div>`).join("");
+  refreshStat();
+}
+function refreshStat() {
+  const c = calc();
+  document.querySelectorAll("[data-ov]").forEach(el => { const k = el.dataset.ov, has = D.ov[k] !== undefined && D.ov[k] !== "";
+    if (el !== document.activeElement) el.value = has ? D.ov[k] : F(c.auto[k]); el.classList.toggle("ov", has); el.dataset.dirty = ""; });
+}
+
+/* ---------- 工资单 ---------- */
+function render() {
+  const c = calc(), up = s => esc(String(s || "").toUpperCase());
+  $("s_name").textContent = String(D.name || "").toUpperCase();
+  $("s_ic").textContent = D.ic || ""; $("s_icW").style.display = String(D.ic || "").trim() ? "" : "none";
+  $("s_desig").textContent = D.desig || "";
+  $("s_joined").textContent = D.joined || "";
+  $("s_bank").textContent = (D.bank || "") + (D.bankName ? "(" + String(D.bankName).toUpperCase() + ")" : "");
+  $("s_mon").textContent = MON[D.mon]; $("s_year").textContent = D.year;
+  const E = D.earn.filter(x => x.fixed || x.n || N(x.a));
+  $("s_eN").innerHTML = E.map(x => `<div>${up(x.n)}</div>`).join("");
+  $("s_eA").innerHTML = E.map(x => `<div>${F(N(x.a))}</div>`).join("");
+  const Dd = [...EE.map(([k, t]) => [t, c.cur[k]]), ...D.ded.filter(x => x.n || N(x.a)).map(x => [x.n, N(x.a)])];
+  $("s_dN").innerHTML = Dd.map(x => `<div>${up(x[0])}</div>`).join("");
+  $("s_dA").innerHTML = Dd.map(x => `<div>${F(x[1])}</div>`).join("");
+  $("s_te").textContent = F(c.te); $("s_td").textContent = F(c.td); $("s_net").textContent = F(c.net);
+  $("s_er").innerHTML = ER.map(([k]) => `<div>${(c.cur[k] || 0).toFixed(2)}</div>`).join("");
+  store(KEY, D);
+}
+const update = () => { refreshStat(); render(); };
+
+/* ---------- 打字 ---------- */
+document.addEventListener("input", e => {
+  const el = e.target, d = el.dataset;
+  if (d.f) D[d.f] = el.value;
+  else if (d.l) { const it = D[d.l][+d.i]; if (d.p === "s") it.s = el.checked; else it[d.p] = el.value; }
+  else if (d.ov) { d.dirty = "1"; if (el.value.trim() === "") delete D.ov[d.ov]; else D.ov[d.ov] = el.value; el.classList.toggle("ov", !!el.value.trim()); render(); return; }
+  else if (el.id === "year") D.year = el.value;
+  else return;
+  update();
+});
+document.addEventListener("change", e => { if (e.target.id === "mon") { D.mon = +e.target.value; render(); } if (e.target.dataset.p === "s") update(); });
+document.addEventListener("focusout", e => {
+  const el = e.target, d = el.dataset;
+  if (el.classList.contains("money")) { const t = el.value.trim(); const f = t && /^-?[\d,]*\.?\d*$/.test(t) ? F(N(t)) : t;
+    if (d.ov) { if (!d.dirty) return; if (t) D.ov[d.ov] = f; else delete D.ov[d.ov]; }
+    else if (d.l) D[d.l][+d.i].a = f;
+    el.value = f; update(); }
+  if (["name", "bankName"].includes(d.f) || d.p === "n") { el.value = el.value.toUpperCase(); if (d.f) D[d.f] = el.value; else D[d.l][+d.i].n = el.value; render(); }
+});
+document.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (!b) return; D[b.dataset.rm].splice(+b.dataset.i, 1); buildForm(); render(); });
+$("addEarn").onclick = () => { D.earn.push({ n: "", a: "", s: false }); buildForm(); render(); };
+$("addDed").onclick = () => { D.ded.push({ n: "", a: "" }); buildForm(); render(); };
+
+/* ---------- 员工存档 ---------- */
+const PF = ["name", "ic", "desig", "joined", "bank", "bankName", "earn", "ded"];
+let presets = load(PKEY, []);
+const fillPresets = sel => { $("preset").innerHTML = '<option value="">— 手动填写 / 选择员工 —</option>' + presets.map((p, i) => `<option value="${i}">${esc(p.name)}${p.desig ? " · " + esc(p.desig) : ""}</option>`).join(""); if (sel != null) $("preset").value = sel; };
+$("preset").onchange = () => { const p = presets[$("preset").value]; if (!p) return; PF.forEach(k => { if (p[k] !== undefined) D[k] = JSON.parse(JSON.stringify(p[k])); }); D.ov = {}; buildForm(); render(); };
+$("savePreset").onclick = () => { if (!D.name.trim()) { alert("请先填 NAME"); return; } const p = {}; PF.forEach(k => p[k] = JSON.parse(JSON.stringify(D[k])));
+  const i = presets.findIndex(x => x.name.toUpperCase() === p.name.toUpperCase()); if (i >= 0) presets[i] = p; else presets.push(p);
+  presets.sort((a, b) => a.name.localeCompare(b.name)); store(PKEY, presets); fillPresets(presets.findIndex(x => x.name === p.name)); alert("已存：" + p.name); };
+$("delPreset").onclick = () => { const i = $("preset").value; if (i === "") { alert("先选一个员工"); return; } if (!confirm("删除「" + presets[i].name + "」？")) return; presets.splice(i, 1); store(PKEY, presets); fillPresets(); };
+
+$("gen").onclick = () => { render(); $("out").scrollIntoView({ behavior: "smooth" }); };
+$("print").onclick = () => { render(); fitPage(); const old = document.title; document.title = "Payslip-" + (D.name || "").toUpperCase() + "-" + MON[D.mon] + " " + D.year; window.print(); document.title = old; };
+$("reset").onclick = () => { if (!confirm("清空全部资料？（存起来的员工不会删）")) return; D = blank(); buildForm(); render(); };
+let LOGO = ""; try { LOGO = localStorage.getItem("ngai_logo") || ""; } catch (e) {}
+const fitPage = () => { const sl = document.querySelector(".slip"); const mm = Math.ceil(sl.offsetHeight * 25.4 / 96) + 1;
+  let st = document.getElementById("pageSize"); if (!st) { st = document.createElement("style"); st.id = "pageSize"; document.head.appendChild(st); }
+  st.textContent = "@page { size: 210mm " + mm + "mm; margin: 0; }"; };
+const showLogo = () => { $("logoImg").src = LOGO; $("logoImg").style.display = LOGO ? "" : "none"; setTimeout(fitPage, 50); };
+$("logoFile").onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { LOGO = r.result; try { localStorage.setItem("ngai_logo", LOGO); } catch (er) { alert("图片太大存不了，请用小一点的图"); } showLogo(); }; r.readAsDataURL(f); };
+$("logoClr").onclick = () => { LOGO = ""; try { localStorage.removeItem("ngai_logo"); } catch (e) {} showLogo(); };
+window.addEventListener("beforeprint", fitPage);
+showLogo(); fillPresets(); buildForm(); render(); fitPage();
+</script>
+</body>
+</html>
