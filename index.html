@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261120153500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261120161600";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,8 +1924,39 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "462";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "464";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
+/* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
+const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
+const costPrefillFrom = d => {
+  const w = d.defaultView, num = v => { const n = parseFloat(String(v || "").replace(/[^\d.\-]/g, "")); return isNaN(n) ? 0 : n; };
+  const name = String((d.getElementById("cname") || {}).value || "").trim().toUpperCase();
+  let ct = "PL"; try { ct = String(w.getCtype ? w.getCtype() : "PL"); } catch (e) {}
+  const LF = { PL: "PERSONAL", CL: "CAR LOAN", HL: "HOUSE LOAN" };
+  const ID_LBL = { epf: "EPF", pcb: "PCB", bdepf: "BACKDATE EPF / SOCSO / EIS", pcb2: "PCB BACKDATE (2 MONTHS)" };
+  const fees = []; let legal = 0;
+  d.querySelectorAll(".row").forEach(r => { const inp = r.querySelector("input.ded"); if (!inp) return; const v = num(inp.value); if (!v) return;
+    let lbl = ID_LBL[inp.id] || "";
+    if (!lbl) { const nm = r.querySelector(".iname"); if (nm) lbl = String(nm.value || "").trim().toUpperCase(); else { const lb = r.querySelector("label"); lbl = lb && lb.childNodes[0] ? String(lb.childNodes[0].textContent || "").trim().toUpperCase() : ""; } }
+    if (!lbl) lbl = "OTHERS";
+    if (lbl === "LEGAL") legal += v; else fees.push([lbl, v]); });
+  const est = num((d.getElementById("estimate") || {}).value);
+  return { name, loanFor: ct.split("+").map(x => LF[x] || x).join(" + "), loanAmt: est ? lsFmt(est * 1000) : "", fees, legal };
+};
+const agreeApplyPrefill = (d, pf) => {
+  if (!d || !pf) return;
+  const fire = e => { e.dispatchEvent(new Event("input", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })); };
+  const set = (id, v) => { const e = d.getElementById(id); if (e && v != null && v !== "") { e.value = v; fire(e); } };
+  set("fName", pf.name); set("fLoanAmt", pf.loanAmt); if (!(d.getElementById("fDate") || {}).value) set("fDate", today());
+  set("fLoanMulti", pf.loanFor);
+  const rows = () => Array.from(d.querySelectorAll("#feeRows .feerow")), lblOf = r => String((r.querySelector("input.lbl") || {}).value || "").trim().toUpperCase();
+  const used = new Set();
+  (pf.fees || []).forEach(([lbl, v]) => {
+    let r = rows().find(x => !used.has(x) && lblOf(x) === lbl);
+    if (!r) { const b = d.getElementById("btnAddFee"); if (!b) return; b.click(); const all = rows(); r = all[all.length - 1]; const li = r && r.querySelector("input.lbl"); if (li) { li.value = lbl; fire(li); } }
+    if (!r) return; used.add(r); const a = r.querySelector("input[data-fee]"); if (a) { a.value = lsFmt(v); fire(a); } });
+  if (pf.legal) { const e = d.querySelector('input[data-src="legal"]'); if (e) { e.value = lsFmt(pf.legal); fire(e); } }
+};
 /* COSTING 页面：PL Costing + Car Costing Part */
 const COSTING_TOOLS = [{
   name: "PL Costing Part",
@@ -9940,6 +9971,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     } else if (open && open.draft) {
       let vals = (open.draft.values || []).map(([k, v]) => String(k).split("#")[0] === "fDocType" && v === "NO NEED" ? [k, "PDF ONLY"] : [k, v]);
       formWriteValues(d, vals);
+      if (open.draft.prefill && !vals.length) setTimeout(() => { try { agreeApplyPrefill(doc(), open.draft.prefill); } catch (e) { console.error(e); } }, 300);   /* PL Costing 自动开的 Future Agreement：第一次打开先填好 */
     }
     /* Alice 打开旧的 Agreement → 马上连到 Customer Docs */
     if (open && open.draft && /AGREEMENT/i.test(open.tool.file || "") && DT_USERS.includes(canonUser(currentUser || "")) && DT_USERS.includes(canonUser(open.draft.by || ""))) setTimeout(() => { try {
@@ -10060,7 +10092,14 @@ function FormsPage({ currentUser, tools, noLib }) {
     const ex = (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null) || list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me))
       || (/COSTING_PART/i.test(open.tool.file || "") ? list.filter(x => x.native && x.file === open.tool.file && costKeyName(x) === costKeyName({ native: hit.entry, title: hit.label })).sort((a, b) => (b.at || 0) - (a.at || 0))[0] : null);   /* Costing：同一个名字只有一份 */   /* 打开的那一份优先，不会另外多开一份 */
     const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: me, at: Date.now(), values: undefined };
-    saveDrafts(ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list]);
+    let nl = ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list];
+    if (open.tool.file === "PL_COSTING.html" && COST_TO_FUTURE_USERS.includes(me)) try {   /* Money / Alice → 自动开 / 更新 Future Agreement */
+      const pf = costPrefillFrom(d);
+      if (pf.name) { const ag = nl.find(x => x.fromCosting === nd.id && x.file === "FUTURE_AGREEMENT.html");
+        if (!ag) { nl = [{ id: uid(), file: "FUTURE_AGREEMENT.html", form: "Future Agreement", title: pf.name, values: [], prefill: pf, cat: "", by: me, at: Date.now(), c0: Date.now(), fromCosting: nd.id }, ...nl]; setTimeout(() => setMsg("✓ 已存档 · 已自动开 Future Agreement"), 60); }
+        else if (!(ag.values && ag.values.length)) nl = nl.map(x => x.id === ag.id ? { ...x, title: pf.name, prefill: pf, at: Date.now() } : x); }   /* 还没打开改过的 → 跟着 Costing 更新；改过的不动 */
+    } catch (e) {}
+    saveDrafts(nl);
     if (/COSTING_PART/i.test(open.tool.file || "")) try { const dd = (hit.entry || {}).data || {}; bsMarkCosted(dd.clientName || hit.label, dd); } catch (e) {}
     try { const sk = "crm_nseen_" + me + "_" + open.tool.file; localStorage.setItem(sk, JSON.stringify(after.map(x => x.label))); } catch (e) {}
     baseRef.current = JSON.stringify(currentVals());
