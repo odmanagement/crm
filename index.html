@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261120163000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261120170000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "466";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "467";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -3853,7 +3853,7 @@ function CRM({ onLogout, currentUser }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "app-shell" + (USER_THEMES[canonUser(currentUser)] ? " theme-" + USER_THEMES[canonUser(currentUser)] : ""),
     style: S.shell
-  }, /*#__PURE__*/React.createElement("style", null, CSS), OD_PAY_NOTIFY.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(OdPayWatch, { me: currentUser }) : null, /*#__PURE__*/React.createElement(SideNav, {
+  }, /*#__PURE__*/React.createElement("style", null, CSS), OD_PAY_NOTIFY.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(OdPayWatch, { me: currentUser }) : null, SL_REMIND_USERS.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(SalStatusRemind, { me: currentUser }) : null, /*#__PURE__*/React.createElement(SideNav, {
     page: page,
     setPage: setPage,
     openGroups: openGroups,
@@ -6007,7 +6007,25 @@ function LendingFeePage({ currentUser }) {
 /* ---------- Salary Listing：Personal Loan 有填 CIMB / AEON CREDIT 的客户，自动列出来 ---------- */
 const SALARY_BANKS = ["CIMB", "AEON CREDIT"];
 const SL_ST = { notyet: ["⏳ HAVEN'T START", "#f1f5f9", "#475569", "#cbd5e1", "⏳"], build: ["▶ CONTINUE SALARY", "#dcfce7", "#15803d", "#86efac", "✅"], stop: ["⛔ STOP SALARY", "#fee2e2", "#b91c1c", "#fca5a5", "⛔"], new: ["🆕 NEW SALARY", "#dbeafe", "#1d4ed8", "#93c5fd", "🆕"], net: ["💰 NETT SALARY", "#f3e8ff", "#7e22ce", "#d8b4fe", "💰"] };
-const SL_KEYS = ["notyet", "new", "build", "net", "stop"];   /* 顺序：HAVEN'T START → NEW → CONTINUE → NETT → STOP（列表也照这个顺序排） */
+const SL_KEYS = ["notyet", "new", "build", "net", "stop"];
+const SL_FRESH_FROM = "2026-12";   /* 这个月开始 Salary Status 每个月 1 号重新开始 */
+const SL_CARRY = ["new", "build", "net"];   /* 这几个 → 自动放进下个月的 Salary Listing；STOP 不放 */
+const SL_REMIND_USERS = ["vv", "alice", "money"];   /* 每个月差不多 20 号提醒来填 Salary Status */
+const slNextYm = ym => { const [y, m] = String(ym).split("-").map(Number), d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+/* 提醒日：20 号；20 号是星期六 / 日 → 提早到星期五 */
+const slRemindDay = (y, m) => { const d = new Date(y, m, 20), w = d.getDay(); return w === 6 ? 19 : w === 0 ? 18 : 20; };
+function SalStatusRemind({ me }) {
+  React.useEffect(() => {
+    const run = () => { const now = new Date(), ym = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+      if (now.getDate() < slRemindDay(now.getFullYear(), now.getMonth())) return;
+      const k = "crm_slremind_" + canonUser(me || "") + "_" + ym; try { if (localStorage.getItem(k)) return; localStorage.setItem(k, "1"); } catch (e) { return; }
+      const MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      try { window.__crmAddNotice && window.__crmAddNotice({ id: "slrem_" + canonUser(me || "") + "_" + ym, kind: "ref", page: "salarylist", to: canonUser(me || ""), from: "system", loud: true, title: "📋 要填 Salary Status 了（" + MN[now.getMonth()] + " " + now.getFullYear() + "）", task: "去 Salary Status 按 NEW / CONTINUE / NETT / STOP，然后按「✓ 确认更改」", at: Date.now() }); } catch (e) {} };
+    const t0 = setTimeout(run, 8000), t = setInterval(run, 30 * 60 * 1000);
+    return () => { clearTimeout(t0); clearInterval(t); };
+  }, [me]);
+  return null;
+}   /* 顺序：HAVEN'T START → NEW → CONTINUE → NETT → STOP（列表也照这个顺序排） */
 /* ---------- Bank Statement（每个 Salary 客户一份）：Charges & Fees / CHQ Date + Credited / 收回的钱 ---------- */
 const BS_FEES = ["EPF =3m", "SOCSO =3m", "EIS =3m", "TAX =3m", "CHQ FEES"];
 const bsTot = (rows, k) => (rows || []).reduce((a, x) => a + lsNum(x[k || "amount"]), 0);
@@ -7217,7 +7235,20 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     const bs = ids.filter(id => id.startsWith("bs:")); if (bs.length) { let L = (slSt || []).slice();
       bs.forEach(id => { const key = id.slice(3), o = L.find(x => x && x.id === key) || { id: key, name: (rows.find(r => r.c.id === id) || { c: {} }).c.name }; L = L.filter(x => x && x.id !== key).concat([{ ...o, m: { ...(o.m || {}), [stM]: pend[id] }, by: me, at: Date.now() }]); });
       saveSlSt(L); }
-    setPend({}); };
+    setPend({});
+    try { carryNext(); } catch (e) { console.error(e); } };
+  /* 按「确认更改」→ NEW / CONTINUE / NETT 的人自动放进下个月的 Salary Listing；STOP（或搬去 STOP SALARY）→ 不放（之前自动放的拿掉） */
+  const [accL, saveAcc] = useCloudList("acc_salary");
+  const carryNext = () => {
+    if (!Array.isArray(accL)) return;
+    const nx = slNextYm(stM), me = canonUser(window.__crmUser || ""); let list = accL.slice(), ch = false;
+    rows.forEach(r => { const k = slNameKey(r.c.name); if (!k) return; const bp = bpOf(r.c.name); if (bp && bp.ended) return;
+      const st = r.stopped ? "stop" : r.st, i = list.findIndex(x => x && x.ym === nx && slNameKey(x.name) === k);
+      if (SL_CARRY.includes(st)) { if (i >= 0) return;
+        const basic = ((bp && bp.salItems) || []).find(x => x.id === "basic_bs"), salStr = basic && lsNum(basic.amount) > 0 ? lsFmt(lsNum(basic.amount)) : "";
+        list.push({ id: uid(), ym: nx, name: String(r.c.name).toUpperCase(), company: String((bp && bp.company) || "").toUpperCase(), agent: String((bp && bp.agent) || "").toUpperCase(), salary: salStr, bsSal: salStr, ...(bp && bp.pid ? { bsId: bp.pid } : {}), ...(r.src === "rencai" ? { lbl: "RC" } : {}), autoSl: stM, by: me, at: Date.now() }); ch = true; }
+      else if (st === "stop" && i >= 0 && list[i].autoSl) { list.splice(i, 1); ch = true; } });
+    if (ch) saveAcc(list); };
   const setSt = (r, k) => { if (r.bsOnly) { const me = canonUser(window.__crmUser || ""); const o = (slSt || []).find(x => x && x.id === r.bsOnly) || {}; const L = (slSt || []).filter(x => x && x.id !== r.bsOnly); saveSlSt([...L, { id: r.bsOnly, name: r.c.name, m: { ...(o.m || {}), [stM]: k }, by: me, at: Date.now() }]); } else onSetStatus(r.c.id, k, stM); };
   /* 点 # 号码 → 搬去 STOP SALARY（浅红色）；在 STOP SALARY 那边再点一次 → 搬回来 */
   const setStopped = (r, on) => { const me = canonUser(window.__crmUser || ""), val = on ? { by: me, at: Date.now() } : null;
@@ -7226,7 +7257,8 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   /* 那个月还没按：Bank Statement 0 个月 → 自动 NEW SALARY */
   const stOf = (map, name) => { const v = (map || {})[stM]; if (SL_KEYS.includes(v)) return [v, false];
     /* 这个月还没按 → 跟回上次（之前最近一个月）的记录 */
-    const prev = Object.keys(map || {}).filter(k => k < stM && SL_KEYS.includes(map[k])).sort().pop(); if (prev) return [map[prev], false]; const bp = bpOf(name); return bp && bp.nMon === 0 ? ["new", true] : ["", false]; };
+    /* 2026-12 开始：每个月 1 号重新开始（空的，给人重新按）；以前月份的记录照样保存，选月份就看得到 */
+    const prev = stM >= SL_FRESH_FROM ? null : Object.keys(map || {}).filter(k => k < stM && SL_KEYS.includes(map[k])).sort().pop(); if (prev) return [map[prev], false]; const bp = bpOf(name); return bp && bp.nMon === 0 ? ["new", true] : ["", false]; };
   const rows = [];
   (clients || []).forEach(c => {
     const banks = new Set(); let date = "";
