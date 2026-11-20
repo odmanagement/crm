@@ -806,7 +806,9 @@
       tax = autoTax;
       fTax.value = fmtThousands(autoTax);
     }
-    const epf = round2(salary * 0.24 * m);
+    /* EPF 跟 KWSP 表：雇主 13%（≤5000）/ 12%（>5000）+ 雇员 11% */
+    const epfBand = salary <= 5000 ? Math.ceil(salary / 20) * 20 : Math.ceil(salary / 100) * 100;
+    const epf = round2((Math.ceil(epfBand * (salary > 5000 ? 12 : 13) / 100) + Math.ceil(epfBand * 11 / 100)) * m);
     const pcbMonthly = round2(s.socsoEr + s.socsoEe + s.eisEr + s.eisEe + tax);
     const pcb = round2(pcbMonthly * m);
     if(epfInp){ epfInp.value = fmtThousands(epf); epfInp.dataset.auto = '1'; }
@@ -1143,6 +1145,66 @@
   var clr = document.getElementById('btnClearAll'); if (clr) clr.addEventListener('click', function(){ setTimeout(function(){ hid.value = ''; fromHidden(); }, 50); });
   var css = document.createElement('style'); css.textContent = '.lf-multi{display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 10px;border:1px solid #d6d3cc;border-radius:6px;background:#fff;min-height:38px;box-sizing:border-box;align-items:center}.lf-multi label{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;color:#222;margin:0}';
   document.head.appendChild(css);
+})();
+</script>
+<style id="pfitCss">
+  /* 量页面高度用（跟打印一样的大小） */
+  body.pm .controls{display:none;}
+  body.pm .doc-wrap{margin:0;max-width:none;padding:0;}
+  body.pm .page{box-shadow:none;margin:0;width:210mm;min-height:0;padding:18mm 18mm;page-break-after:always;}
+  body.pm .page.compact{padding:13mm 18mm;}
+  body.pm .page:last-child{page-break-after:auto;}
+  body.pm .v{background:none;border-bottom:none;}
+  body.pm .amt{background:none;border-bottom:none;}
+  body.pm .addrow,body.pm .feerow .del{display:none;}
+  body.pm .noprint{display:none !important;}
+  body.pm .salary-calc{display:none !important;}
+  body.pm .feerow .lbl{border:none;background:none;padding:0;width:auto;}
+  body.pm .feerow{margin:4px 0 4px 18px;}
+  body.pm .stamp-space{border:none;border-bottom:1px solid #000 !important;}
+  body.pm .pct-inline{background:none;border:none;}
+  body.pm .borrow-pct-wrap{display:none;}
+  body.pm .ic-drop{border:none;background:none;min-height:0;}
+  body.pm .ic-drop.empty{display:none;}
+  body.pm .ic-slot.empty{display:none;}
+  body.pm .ic-drop .ic-remove{display:none;}
+  body.pm .ic-drop .ic-rotate{display:none;}
+  body.pm .ic-drop .ic-hint{display:none;}
+  body.pm .page{box-sizing:border-box;}
+  /* 太长的页：先挤一挤 */
+  .page.tight p{margin-top:3px !important;margin-bottom:3px !important;}
+  .page.tight br{display:none;}
+  .page.tight .stamp-space{height:40px !important;}
+  .page.tight .feerow{margin:2px 0 2px 18px !important;}
+  @media print{ .feerow .lbl{min-width:0;} }
+</style>
+<script>
+/* 打印前：费用名字整个显示出来；内容超过一页 A4 的 → 自动挤小，不会跑到下一页（移位） */
+(function(){
+  function sizeLbls(){ var ls = [].slice.call(document.querySelectorAll('.feerow input.lbl')), n = 6; ls.forEach(function(i){ n = Math.max(n, String(i.value||'').length + 1); }); ls.forEach(function(i){ i.size = n; }); }   /* 全部一样宽 → RM 对齐 */
+  document.addEventListener('input', function(e){ if (e.target && e.target.matches && e.target.matches('.feerow input.lbl')) sizeLbls(); }, true);
+  function fit(){
+    sizeLbls();
+    var pages = [].slice.call(document.querySelectorAll('.page'));
+    pages.forEach(function(p){ p.classList.remove('tight'); var w = p.querySelector(':scope > .pfit'); if (w) { while (w.firstChild) p.insertBefore(w.firstChild, w); w.remove(); } });
+    document.body.classList.add('pm');
+    var mm = 96 / 25.4, H = 297 * mm - 4;
+    pages.forEach(function(p){
+      if (!p.offsetHeight || p.scrollHeight <= H) return;
+      p.classList.add('tight');
+      if (p.scrollHeight <= H) return;
+      var cs = getComputedStyle(p), pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      var r = (H - pad) / (p.scrollHeight - pad) * 0.98;
+      if (r < 0.8) return;   /* 本来就是两页长的（例如 Credit Card 那份）→ 不动 */
+      var w = document.createElement('div'); w.className = 'pfit'; while (p.firstChild) w.appendChild(p.firstChild); p.appendChild(w);
+      w.style.zoom = r; w.style.width = (100 / r) + '%';
+    });
+    document.body.classList.remove('pm');
+  }
+  window.addEventListener('beforeprint', fit);
+  window.addEventListener('afterprint', function(){ [].slice.call(document.querySelectorAll('.page')).forEach(function(p){ p.classList.remove('tight'); var w = p.querySelector(':scope > .pfit'); if (w) { while (w.firstChild) p.insertBefore(w.firstChild, w); w.remove(); } }); });
+  window.__agFit = fit;
+  setTimeout(sizeLbls, 500);
 })();
 </script>
 </body>
