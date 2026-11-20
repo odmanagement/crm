@@ -241,16 +241,24 @@
         <div class="amt"><span class="cur">RM</span><input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" id="dsrleft" inputmode="decimal" placeholder="自动" readonly><span class="spacer"></span></div>
       </div>
       <div class="row fixed">
-        <label>EPF <span class="sub">雇主+雇员 · × 3个月</span></label>
+        <label>EPF <span class="sub">雇主+雇员 · × <b class="mthN">3</b>个月</span></label>
         <div class="amt"><span class="cur">RM</span><input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="ded" id="epf" inputmode="decimal" readonly><button type="button" class="del" title="删除" onclick="delRow(this)">×</button></div>
       </div>
       <div class="row fixed">
-        <label>PCB <span class="sub">SOCSO+EIS+Tax · × 3个月</span></label>
+        <label>PCB <span class="sub">SOCSO+EIS+Tax · × <b class="mthN">3</b>个月</span></label>
         <div class="amt"><span class="cur">RM</span><input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="ded" id="pcb" inputmode="decimal" readonly><button type="button" class="del" title="删除" onclick="delRow(this)">×</button></div>
       </div>
       <div class="row subrow" id="taxrow">
         <label class="sublbl">↳ Tax <a class="calc-link" href="https://payroll.my/" target="_blank" rel="noopener">PCB 计算器 ↗</a></label>
         <div class="amt"><span class="cur">RM</span><input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" id="taxin" inputmode="decimal" placeholder="自动"><span class="spacer"></span></div>
+      </div>
+      <div class="row fixed">
+        <label style="flex:1 1 0;min-width:0;margin-right:10px">BACKDATE EPF / SOCSO / EIS<span class="sub" id="bdinfo" style="display:block;margin-left:0;text-transform:none;white-space:normal;line-height:1.35">(EPF+SOCSO+EIS) × 2个月 + 7.5%</span></label>
+        <div class="amt"><span class="cur">RM</span><input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="ded" id="bdepf" inputmode="decimal" readonly><button type="button" class="del" title="删除" onclick="delRow(this)">×</button></div>
+      </div>
+      <div class="row fixed">
+        <label>PCB <span class="sub">只算 Tax · × 2个月</span></label>
+        <div class="amt"><span class="cur">RM</span><input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="ded" id="pcb2" inputmode="decimal" readonly><button type="button" class="del" title="删除" onclick="delRow(this)">×</button></div>
       </div>
       <div id="items"></div>
       <div class="additem">
@@ -320,9 +328,9 @@
   const money = n => 'RM ' + fmt(n);
 
   // ---- Monthly statutory (Category 1, under 60) ----
-  // EPF: employee 11%, employer 13% (fixed)
-  function epfER(s){ return s*0.13; }
-  function epfEE(s){ return s*0.11; }
+  // EPF（跟 KWSP 表 / payroll）：雇主 13%（≤5000）/ 12%（>5000），雇员 11%
+  function epfER(s){ return bdEpf(s, s>5000 ? 12 : 13); }
+  function epfEE(s){ return bdEpf(s, 11); }
 
   // SOCSO Cat 1 — official banded table (Third Schedule, Act 4). Ceiling RM6000.
   // Midpoint × rate; SKBBK / Lindung 24 Jam (0.75%, employee-only, from Jun 2026) added to employee share.
@@ -342,6 +350,21 @@
   function eisEE(s){ if(s<=0) return 0; if(s>=6000) return 11.90; return +(socsoMid(s)*0.002).toFixed(2); }
 
   // (EIS defined above with SOCSO midpoint method)
+
+  // ---- BACKDATE（跟 CRM Bank Statement 的 BACKDATE 一样算）----
+  // EPF：雇主 12%（>5000）/ 13% + 雇员 11%（跟 KWSP 表 band）；SOCSO：雇主 1.75% + 雇员 1.25%（含 SKBBK，跟最新 payroll）；EIS：0.2% + 0.2%
+  // BACKDATE = 每月合计 × 2 个月 + 7.5%
+  function bdR5(x){ const y=x*20, f=Math.floor(y+1e-9), d=y-f; const n = d>0.5+1e-7 ? f+1 : d<0.5-1e-7 ? f : (f%2===0 ? f : f+1); return Math.round(n*5)/100; }
+  function bdEpf(w,rate){ if(!(w>0)) return 0; const band = w<=5000 ? Math.ceil(w/20)*20 : Math.ceil(w/100)*100; return Math.ceil(band*rate/100); }
+  function bdCalc(s){
+    if(!(s>0)) return {epf:0,soc:0,eis:0,m:0,tot:0,pct:0,fee:0};
+    const mid = s>=6000 ? 5950 : socsoMid(s);
+    const epf = bdEpf(s, s>5000?12:13) + bdEpf(s,11);
+    const soc = Math.round((bdR5(mid*0.0125) + bdR5(mid*0.005) + bdR5(mid*0.0125))*100)/100;   // 雇主 1.75% + 雇员 1.25%（含 SKBBK，跟 payroll）
+    const eis = Math.round((eisER(s)+eisEE(s))*100)/100;
+    const m = Math.round((epf+soc+eis)*100)/100, tot = Math.round(m*2*100)/100, pct = Math.round(tot*7.5)/100;
+    return {epf,soc,eis,m,tot,pct,fee:Math.round((tot+pct)*100)/100};
+  }
 
   // PCB / income tax (MTD) monthly estimate — single, no dependents
   function taxEE(s){
@@ -369,8 +392,8 @@
   function ctBoxes(){ return [...document.querySelectorAll('#ctypes input')]; }
   function getCtype(){ const v = ctBoxes().filter(c=>c.checked).map(c=>c.value); return v.length ? v.join('+') : 'PL'; }
   function ctPrint(){ const p = $('ctype-print'); if(p) p.textContent = getCtype(); }
-  function setCtype(str){ const want = String(str||'PL').toUpperCase().split(/\s*[+,\/ ]\s*/).filter(x=>CT_ALL.includes(x)); const w = want.length ? want : ['PL']; ctBoxes().forEach(c=>{ c.checked = w.includes(c.value); }); ctPrint(); }
-  ctBoxes().forEach(c=>c.addEventListener('change', ()=>{ if(!ctBoxes().some(x=>x.checked)) c.checked = true; ctPrint(); }));
+  function setCtype(str){ setTimeout(()=>{ try{ calc(); }catch(e){} },0); const want = String(str||'PL').toUpperCase().split(/\s*[+,\/ ]\s*/).filter(x=>CT_ALL.includes(x)); const w = want.length ? want : ['PL']; ctBoxes().forEach(c=>{ c.checked = w.includes(c.value); }); ctPrint(); }
+  ctBoxes().forEach(c=>c.addEventListener('change', ()=>{ if(!ctBoxes().some(x=>x.checked)) c.checked = true; ctPrint(); calc(); }));
 
   function calc(){
     const s = num($('basic').value);
@@ -383,8 +406,13 @@
     // use manual tax if user typed one, else the estimate
     const manual = $('taxin') ? $('taxin').value.trim() : '';
     const tax = manual!=='' ? num(manual) : taxEst;
-    if($('epf')) $('epf').value = fmt(epf*3);
-    if($('pcb')) $('pcb').value = fmt((soc+eis+tax)*3);
+    const M = getCtype() === 'HL' ? 5 : 3;   // 只有 House Loan = 5 个月；HL+其他 / CL / PL = 3 个月
+    document.querySelectorAll('.mthN').forEach(b=>b.textContent = M);
+    if($('epf')) $('epf').value = fmt(epf*M);
+    if($('bdepf')){ const b = bdCalc(s); $('bdepf').value = fmt(b.fee);
+      if($('bdinfo')) $('bdinfo').textContent = s>0 ? 'EPF '+fmt(b.epf)+' + SOCSO '+fmt(b.soc)+' + EIS '+fmt(b.eis)+' = '+fmt(b.m)+' × 2个月 = '+fmt(b.tot)+' + 7.5% ('+fmt(b.pct)+')' : '(EPF+SOCSO+EIS) × 2个月 + 7.5%'; }
+    if($('pcb')) $('pcb').value = fmt((soc+eis+tax)*M);
+    if($('pcb2')) $('pcb2').value = fmt(tax*2);   // PCB backdate 2 个月：只算 Tax（PCB），不算 SOCSO / EIS
     let t=0;
     document.querySelectorAll('.ded').forEach(i=>t+=num(i.value));
     $('total').textContent = money(t);
