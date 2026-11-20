@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261120171000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261120172000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "468";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "469";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -4486,6 +4486,7 @@ function PageJump({ setPage, openClient, clients, verifications }) {
       k.length < 2 && !pages.length && h("div", { style: { padding: "10px 14px", color: "#94a3b8", fontSize: 12.5, fontWeight: 700 } }, "多打一个字…")));
 }
 /* 侧边栏：Ctrl / ⌘ / Shift + 点、或按鼠标中键 → 新分页打开那一页；普通点 → 这一页换过去 */
+const NAV_AZ_USERS = ["chialing"];   /* 这些人的侧边栏照 A → Z 排（group 里面的页面也是） */
 const NAV_ALL_OPEN_USERS = ["chialing"];   /* 这些人的侧边栏：每个 group 都展开，全部页面一起看到 */
 const crmNavIds = list => (list || []).flatMap(n => n.children ? [n.id, ...n.children.map(c => c.id)] : [n.id]);
 function crmHashPage() { try { const p = decodeURIComponent(String(location.hash || "").replace(/^#\/?/, "")); return p && crmNavIds(NAV).concat(["dashboard"]).includes(p) ? p : ""; } catch (e) { return ""; } }
@@ -4498,7 +4499,9 @@ function SideNav({ page, setPage, openGroups, setOpenGroups, currentUser, badges
   const role = ROLE_LABELS[me] || "Staff";
   const [avaList, saveAva] = useCloudList("user_avatars");
   const vis = n => !(n.id === "todo" && me === "admin") && !(n.id === "returnsalary" && !RETURN_SALARY_USERS.includes(me)) && !(n.id === "doctrack" && !DT_USERS.includes(me)) && !((n.id === "bankstmt" || n.id === "bankstmt2" || n.id === "bsreturn") && READONLY_USERS.includes(me));
-  const items = NAV.filter(vis).map(n => n.children ? { ...n, children: n.children.filter(vis) } : n).filter(n => !n.children || n.children.length);
+  let items = NAV.filter(vis).map(n => n.children ? { ...n, children: n.children.filter(vis) } : n).filter(n => !n.children || n.children.length);
+  if (NAV_AZ_USERS.includes(me)) { const az = (x, y) => String(x.label || "").localeCompare(String(y.label || ""), "en", { sensitivity: "base" });   /* Chialing：侧边栏 A → Z */
+    items = items.map(n => n.children ? { ...n, children: n.children.slice().sort(az) } : n).sort(az); }
   window.__crmNavItems = items;   /* 给上面的「搜页面」用 */
   return h("nav", { className: "app-sidebar sb" },
     h("div", { className: "sb-prof" },
