@@ -406,7 +406,7 @@
     // use manual tax if user typed one, else the estimate
     const manual = $('taxin') ? $('taxin').value.trim() : '';
     const tax = manual!=='' ? num(manual) : taxEst;
-    const M = getCtype() === 'HL' ? 5 : 3;   // 只有 House Loan = 5 个月；HL+其他 / CL / PL = 3 个月
+    const M = 3;   // EPF / PCB 全部 × 3 个月（HL 也是）
     document.querySelectorAll('.mthN').forEach(b=>b.textContent = M);
     if($('epf')) $('epf').value = fmt(epf*M);
     if($('bdepf')){ const b = bdCalc(s); $('bdepf').value = fmt(b.fee);
