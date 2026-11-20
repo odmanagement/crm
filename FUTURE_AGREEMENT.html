@@ -806,9 +806,9 @@
       tax = autoTax;
       fTax.value = fmtThousands(autoTax);
     }
-    /* EPF 跟 KWSP 表：雇主 13%（≤5000）/ 12%（>5000）+ 雇员 11% */
+    /* EPF 跟 KWSP 表 band：雇主 13% + 雇员 11% */
     const epfBand = salary <= 5000 ? Math.ceil(salary / 20) * 20 : Math.ceil(salary / 100) * 100;
-    const epf = round2((Math.ceil(epfBand * (salary > 5000 ? 12 : 13) / 100) + Math.ceil(epfBand * 11 / 100)) * m);
+    const epf = round2((Math.ceil(epfBand * 13 / 100) + Math.ceil(epfBand * 11 / 100)) * m);
     const pcbMonthly = round2(s.socsoEr + s.socsoEe + s.eisEr + s.eisEe + tax);
     const pcb = round2(pcbMonthly * m);
     if(epfInp){ epfInp.value = fmtThousands(epf); epfInp.dataset.auto = '1'; }

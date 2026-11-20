@@ -791,9 +791,9 @@
       return;
     }
     const m = getMonths();
-    /* EPF 跟 KWSP 表：雇主 13%（≤5000）/ 12%（>5000）+ 雇员 11% */
+    /* EPF 跟 KWSP 表 band：雇主 13% + 雇员 11% */
     const epfBand = salary <= 5000 ? Math.ceil(salary / 20) * 20 : Math.ceil(salary / 100) * 100;
-    const epf = round2((Math.ceil(epfBand * (salary > 5000 ? 12 : 13) / 100) + Math.ceil(epfBand * 11 / 100)) * m);
+    const epf = round2((Math.ceil(epfBand * 13 / 100) + Math.ceil(epfBand * 11 / 100)) * m);
     const s = socsoEis(salary);
     const autoTax = monthlyTax(salary);
     // monthly Tax: manual override if user typed one, else auto estimate

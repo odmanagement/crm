@@ -328,8 +328,8 @@
   const money = n => 'RM ' + fmt(n);
 
   // ---- Monthly statutory (Category 1, under 60) ----
-  // EPF（跟 KWSP 表 / payroll）：雇主 13%（≤5000）/ 12%（>5000），雇员 11%
-  function epfER(s){ return bdEpf(s, s>5000 ? 12 : 13); }
+  // EPF（跟 KWSP 表 band）：雇主 13% + 雇员 11%（不管薪水多少）
+  function epfER(s){ return bdEpf(s, 13); }   // 雇主固定 13%
   function epfEE(s){ return bdEpf(s, 11); }
 
   // SOCSO Cat 1 — official banded table (Third Schedule, Act 4). Ceiling RM6000.
@@ -352,14 +352,14 @@
   // (EIS defined above with SOCSO midpoint method)
 
   // ---- BACKDATE（跟 CRM Bank Statement 的 BACKDATE 一样算）----
-  // EPF：雇主 12%（>5000）/ 13% + 雇员 11%（跟 KWSP 表 band）；SOCSO：雇主 1.75% + 雇员 1.25%（含 SKBBK，跟最新 payroll）；EIS：0.2% + 0.2%
+  // EPF：雇主 13% + 雇员 11%（跟 KWSP 表 band）；SOCSO：雇主 1.75% + 雇员 1.25%（含 SKBBK，跟最新 payroll）；EIS：0.2% + 0.2%
   // BACKDATE = 每月合计 × 2 个月 + 7.5%
   function bdR5(x){ const y=x*20, f=Math.floor(y+1e-9), d=y-f; const n = d>0.5+1e-7 ? f+1 : d<0.5-1e-7 ? f : (f%2===0 ? f : f+1); return Math.round(n*5)/100; }
   function bdEpf(w,rate){ if(!(w>0)) return 0; const band = w<=5000 ? Math.ceil(w/20)*20 : Math.ceil(w/100)*100; return Math.ceil(band*rate/100); }
   function bdCalc(s){
     if(!(s>0)) return {epf:0,soc:0,eis:0,m:0,tot:0,pct:0,fee:0};
     const mid = s>=6000 ? 5950 : socsoMid(s);
-    const epf = bdEpf(s, s>5000?12:13) + bdEpf(s,11);
+    const epf = bdEpf(s, 13) + bdEpf(s,11);   // 雇主 13% + 雇员 11%
     const soc = Math.round((bdR5(mid*0.0125) + bdR5(mid*0.005) + bdR5(mid*0.0125))*100)/100;   // 雇主 1.75% + 雇员 1.25%（含 SKBBK，跟 payroll）
     const eis = Math.round((eisER(s)+eisEE(s))*100)/100;
     const m = Math.round((epf+soc+eis)*100)/100, tot = Math.round(m*2*100)/100, pct = Math.round(tot*7.5)/100;
