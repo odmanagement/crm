@@ -290,5 +290,45 @@ $("print").onclick = () => { render(); const old = document.title; document.titl
 $("reset").onclick = () => { if (!confirm("清空全部资料？（存起来的员工不会删）")) return; D = blank(); buildForm(); render(); };
 fillPresets(); buildForm(); render();
 </script>
+<style id="msStyle">
+  #out .slip.xtra { margin-top: 14px; }
+  @media print { #out .slip.xtra { page-break-before: always; break-before: page; margin-top: 0; } }
+</style>
+<script>
+/* ---------- 份数（几个月）+ 时间方向：一次出几个月的工资单 ---------- */
+(function () {
+  const MN = typeof MONS !== "undefined" ? MONS : MON;
+  const out = document.getElementById("out"), first = out.querySelector(".slip");
+  const yr = document.getElementById("year"), host = yr.closest(".grid");
+  const box = document.createElement("div"); box.className = "grid g2"; box.id = "msBox";
+  box.innerHTML = '<div><label>份数（几个月）</label><input id="msCnt" type="number" min="1" max="24" inputmode="numeric"></div>' +
+    '<div><label>时间方向</label><select id="msDir"><option value="fwd">往后（起始月起递增）</option><option value="back">往前（起始月起递减）</option></select></div>';
+  host.parentNode.insertBefore(box, host.nextSibling);
+  const cnt = () => Math.max(1, Math.min(24, parseInt(D.cnt, 10) || 1));
+  const months = () => { const n = cnt(), s = D.dir === "back" ? -1 : 1, y0 = parseInt(D.year, 10) || new Date().getFullYear(), r = [];
+    for (let i = 0; i < n; i++) { const t = +D.mon + s * i; r.push([((t % 12) + 12) % 12, y0 + Math.floor(t / 12)]); }
+    return r.sort((a, b) => a[1] * 12 + a[0] - (b[1] * 12 + b[0])); };
+  const base = render;
+  render = function () {
+    out.querySelectorAll(".slip.xtra").forEach(x => x.remove());
+    const n = cnt(); if (n <= 1) return base.apply(this, arguments);
+    const m0 = D.mon, y0 = D.year, htm = [];
+    for (const [m, y] of months()) { D.mon = m; D.year = String(y); base(); htm.push(first.innerHTML); }
+    D.mon = m0; D.year = y0; try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {}
+    first.innerHTML = htm[0];
+    let last = first; for (let i = 1; i < htm.length; i++) { const c = first.cloneNode(false); c.classList.add("xtra"); c.innerHTML = htm[i].replace(/\sid="[^"]*"/g, ""); last.after(c); last = c; }
+  };
+  const sync = () => { document.getElementById("msCnt").value = D.cnt || 1; document.getElementById("msDir").value = D.dir === "back" ? "back" : "fwd"; };
+  document.getElementById("msCnt").addEventListener("input", e => { D.cnt = e.target.value; render(); });
+  document.getElementById("msDir").addEventListener("change", e => { D.dir = e.target.value; render(); });
+  const pb = document.getElementById("print");
+  pb.onclick = () => { render(); if (typeof fitPage === "function") fitPage(); const old = document.title, ms = months(), nm = (D.name || "").toUpperCase();
+    const lab = ([m, y]) => MN[m] + " " + y;
+    document.title = "Payslip-" + nm + "-" + (ms.length > 1 ? lab(ms[0]) + " to " + lab(ms[ms.length - 1]) : lab([D.mon, D.year]));
+    window.print(); document.title = old; };
+  const rs = document.getElementById("reset"); if (rs) rs.addEventListener("click", () => setTimeout(() => { sync(); render(); }, 0));
+  sync(); render();
+})();
+</script>
 </body>
 </html>
