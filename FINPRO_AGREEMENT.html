@@ -1195,12 +1195,23 @@
   body.pm .ic-drop .ic-rotate{display:none;}
   body.pm .ic-drop .ic-hint{display:none;}
   body.pm .page{box-sizing:border-box;}
+  body.pm .ic-page .ic-title{margin:0 0 8px;}
+  body.pm .ic-slot{margin:0 0 6mm;break-inside:avoid;}
+  body.pm .ic-slot > .ic-label{margin:0 0 4px;}
+  body.pm .ic-drop img{max-height:112mm !important;max-width:100%;}
   /* 太长的页：先挤一挤 */
   .page.tight p{margin-top:3px !important;margin-bottom:3px !important;}
   .page.tight br{display:none;}
   .page.tight .stamp-space{height:40px !important;}
   .page.tight .feerow{margin:2px 0 2px 18px !important;}
   @media print{ .feerow .lbl{min-width:0;} }
+  /* IC 前面 + 后面放同一页 */
+  @media print{
+    .ic-page .ic-title{margin:0 0 8px;}
+    .ic-slot{margin:0 0 6mm;break-inside:avoid;}
+    .ic-slot > .ic-label{margin:0 0 4px;}
+    .ic-drop img{max-height:112mm !important;max-width:100%;}
+  }
 </style>
 <script>
 /* 打印前：费用名字整个显示出来；内容超过一页 A4 的 → 自动挤小，不会跑到下一页（移位） */
@@ -1219,7 +1230,7 @@
       if (p.scrollHeight <= H) return;
       var cs = getComputedStyle(p), pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       var r = (H - pad) / (p.scrollHeight - pad) * 0.98;
-      if (r < 0.8) return;   /* 本来就是两页长的（例如 Credit Card 那份）→ 不动 */
+      if (r < 0.6) r = 0.6;
       var w = document.createElement('div'); w.className = 'pfit'; while (p.firstChild) w.appendChild(p.firstChild); p.appendChild(w);
       w.style.zoom = r; w.style.width = (100 / r) + '%';
     });
