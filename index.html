@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123145000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123150000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "494";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "495";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7262,19 +7262,18 @@ function SalesSummaryPage({ currentUser }) {
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END 的")),
       h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-        h("thead", null, h("tr", null, ["#", "AS AT " + dd, "BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "公司", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined } }, x)))),
+        h("thead", null, h("tr", null, ["#", "AS AT " + dd, "BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined } }, x)))),
         h("tbody", null,
-          !ppl.length ? h("tr", null, h("td", { colSpan: 9, style: { ...l, textAlign: "center", color: "#94a3b8", padding: 24 } }, (window.__crmBsPeople || []).length ? "没有资料" : "读取中…")) :
+          !ppl.length ? h("tr", null, h("td", { colSpan: 8, style: { ...l, textAlign: "center", color: "#94a3b8", padding: 24 } }, (window.__crmBsPeople || []).length ? "没有资料" : "读取中…")) :
           ppl.map((r, i) => h("tr", { key: r.k, style: r.run ? { background: "#fff1f2" } : r.ended ? { opacity: .6 } : undefined },
             h("td", { style: { ...l, color: "#94a3b8", width: 30 } }, i + 1),
             h("td", { style: { ...l, fontWeight: 800 } }, r.name, r.rc ? h("span", { style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#7c3aed" } }, "RC") : null, r.ended ? h("span", { style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#7c3aed" } }, "END") : null),
             h("td", { style: c }, money(r.bank)), h("td", { style: c }, money(r.au, "#c2410c")), h("td", { style: c }, money(r.cu, "#b91c1c")), h("td", { style: c }, money(r.run, "#dc2626")),
             h("td", { style: { ...c, fontWeight: 900 } }, lsFmt(r.tot)),
-            h("td", { style: { ...l, fontWeight: 800, color: r.co === "FUTURE" ? "#ea580c" : "#2563eb" } }, r.co),
             h("td", { style: { ...l, minWidth: 220 } }, h("input", { key: r.k + ":" + r.note, defaultValue: r.note, placeholder: "备注…", onBlur: e => { const v = e.target.value.trim(); if (v !== r.note) setNote(r.k, v); }, onKeyDown: e => { if (e.key === "Enter") e.target.blur(); },
               style: { width: "100%", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 8px", fontFamily: "inherit", fontSize: 12.5, boxSizing: "border-box", textTransform: "none" } })))),
           ppl.length ? h("tr", { style: { background: "#f8fafc" } }, h("td", { style: l }), h("td", { style: { ...l, fontWeight: 900 } }, "TOTAL"),
-            ["bank", "au", "cu", "run", "tot"].map(f => h("td", { key: f, style: { ...c, fontWeight: 900 } }, lsFmt(sum(f)))), h("td", { style: l }), h("td", { style: l })) : null))));
+            ["bank", "au", "cu", "run", "tot"].map(f => h("td", { key: f, style: { ...c, fontWeight: 900 } }, lsFmt(sum(f)))), h("td", { style: l })) : null))));
   };
   const SRC = { bs: { lb: "Bank Statement" }, pl: { lb: "PL Costing", re: /^(FINPRO|FUTURE|PL)_COSTING_PART\.html$/i }, car: { lb: "Car Costing", re: /^CAR_SALES_QUOTATION\.html$/i }, agr: { lb: "Agreement", re: /^(FINPRO|FUTURE)_AGREEMENT\.html$/i } };
   const agV = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
