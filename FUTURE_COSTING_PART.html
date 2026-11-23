@@ -481,9 +481,9 @@ function calcSalary(){
   rows.forEach(r=>{
     const amt=parseNum(r.querySelector('.amt-input').value);
     /* CUSTOMER USE = 红色，TOTAL = SALARY + CUSTOMER USE */
-    const cu=/^CUSTOMER USE$/i.test(String((r.querySelector('.name-input')||{}).value||'').trim());
-    [r.querySelector('.name-input'),r.querySelector('.amt-input')].forEach(function(el){ if(el){ el.style.color=cu?'#dc2626':''; el.style.fontWeight=cu?'900':''; } });
-    r.querySelector('.lucasCell').style.color=cu?'#dc2626':'';
+    const nmU=String((r.querySelector('.name-input')||{}).value||'').trim(), cu=/^(CUSTOMER|AGENT) USE$/i.test(nmU), col=/^AGENT USE$/i.test(nmU)?'#c2410c':'#dc2626';   /* CUSTOMER USE 红色、AGENT USE 橙色 */
+    [r.querySelector('.name-input'),r.querySelector('.amt-input')].forEach(function(el){ if(el){ el.style.color=cu?col:''; el.style.fontWeight=cu?'900':''; } });
+    r.querySelector('.lucasCell').style.color=cu?col:'';
     sum+=amt;
     r.querySelector('.lucasCell').textContent=fmt(amt);
     r.querySelector('.agentCell').textContent=fmt(0);
@@ -584,12 +584,12 @@ function restoreData(d){
     var seenSal={};
     (d.parts[id]||[]).forEach(row=>{
       /* Part C：重复的 SALARY / SALARY BALANCE / CUSTOMER USE 只显示一行 */
-      if(id==='partSalBody'){ var nn=String(row.name||'').trim().toUpperCase(), kk=/^SALARY( BALANCE)?$/.test(nn)?'S':nn==='CUSTOMER USE'?'U':''; if(kk){ if(seenSal[kk]) return; seenSal[kk]=1; } }
+      if(id==='partSalBody'){ var nn=String(row.name||'').trim().toUpperCase(), kk=/^SALARY( BALANCE)?$/.test(nn)?'S':nn==='CUSTOMER USE'?'U':nn==='AGENT USE'?'G':''; if(kk){ if(seenSal[kk]) return; seenSal[kk]=1; } }
       /* 旧的空白 EPF / SOCSO/EIS/PCB / BACKDATE EPF/SOCSO 不要了（有数目的才留着） */
       if(id==='partABody' && /^(EPF|SOCSO\/EIS\/PCB|BACKDATE EPF\/SOCSO)$/i.test(String(row.name||'').trim()) && !parseNum(row.amt||'')) return;
       // a Part A non-pinned row without a mult column is a plain added row
       const noMult = !!row.auto; // Part A 每一行（除了 LAWYER / M&V）都有 × 格子；Bank Statement / Lending 自动加的没有
-      const tr=addRow(id,(id==='partSalBody' && /^\s*SALARY\s*$/i.test(String(row.name||'')) && (d.parts.partSalBody||[]).some(function(z){ return /^\s*CUSTOMER USE\s*$/i.test(String(z.name||'')); }) ? 'SALARY BALANCE' : String(row.name||'').replace(/^\s*SALARY - /i,'EPF/SOCSO/PCB - ')),row.amt,row.pinned,row.lock,noMult);   /* 显示 EPF/SOCSO/PCB - 日期 */
+      const tr=addRow(id,(id==='partSalBody' && /^\s*SALARY\s*$/i.test(String(row.name||'')) && (d.parts.partSalBody||[]).some(function(z){ return /^\s*(CUSTOMER|AGENT) USE\s*$/i.test(String(z.name||'')); }) ? 'SALARY BALANCE' : String(row.name||'').replace(/^\s*SALARY - /i,'EPF/SOCSO/PCB - ')),row.amt,row.pinned,row.lock,noMult);   /* 显示 EPF/SOCSO/PCB - 日期 */
       const multEl=tr.querySelector('.mult-input');
       if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
       if(row.agentAmt) tr.dataset.agentAmt=row.agentAmt;
@@ -959,7 +959,7 @@ if(saved && saved.parts){
         if(/^BACKDATE EPF\/SOCSO$/.test(n) && p && p.bd) swapNoX(tr,p.bd);
         else if(!mon.length && !(p && p.noSal) && /^EPF$/.test(n) && p && p.epf) swapNoX(tr,p.epf);
         else if(!mon.length && !(p && p.noSal) && /^SOCSO\/EIS\/PCB$/.test(n) && p && p.soc) swapNoX(tr,p.soc); });
-      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(/^SALARY( BALANCE)?$/.test(nameOf(tr))) tr.remove(); }); addAuto('partSalBody',p.cuse?'SALARY BALANCE':'SALARY',p.bal); if(p.cuse){ addAuto('partSalBody','CUSTOMER USE',p.cuse); } }
+      if(p && p.bal){ rowsOf('partSalBody').forEach(function(tr){ if(/^SALARY( BALANCE)?$/.test(nameOf(tr))) tr.remove(); }); addAuto('partSalBody',(p.cuse||p.ause)?'SALARY BALANCE':'SALARY',p.bal); if(p.cuse){ addAuto('partSalBody','CUSTOMER USE',p.cuse); } if(p.ause){ addAuto('partSalBody','AGENT USE',p.ause); } }
     }
     /* 每个月 / Lending：跟主系统同一套规则（用 Bank Statement 每一行自己的 id 对，同一个日期也会分开）
        第一次 → Part A（没有 ×）；存档后再加的 → Part A.A Charges（+10%）；Lending (A) → Part A，(A.A) → Part A.A */

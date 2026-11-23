@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123110500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123115000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "477";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "478";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -6432,9 +6432,10 @@ function costSyncData(data, p, L, opt) {
     /* 存档一律叫「SALARY」（旧版也看得懂 → 不会互相一直加）；有 CUSTOMER USE 时表格上显示「SALARY BALANCE」。
        重复的 SALARY / SALARY BALANCE / CUSTOMER USE 只留一行 */
     const sName = "SALARY";
-    { let got = false, gotU = false; for (let i = 0; i < S.length; i++) { const n = N(S[i]);
+    { let got = false, gotU = false, gotA = false; for (let i = 0; i < S.length; i++) { const n = N(S[i]);
         if (/^SALARY( BALANCE)?$/.test(n)) { if (got) { S.splice(i, 1); i--; } else got = true; }
-        else if (n === "CUSTOMER USE") { if (gotU) { S.splice(i, 1); i--; } else gotU = true; } } }
+        else if (n === "CUSTOMER USE") { if (gotU) { S.splice(i, 1); i--; } else gotU = true; }
+        else if (n === "AGENT USE") { if (gotA) { S.splice(i, 1); i--; } else gotA = true; } } }
     const si = S.findIndex(r => /^SALARY( BALANCE)?$/.test(N(r)));
     if (si >= 0) { if (S[si].amt !== p.bal) S[si].amt = p.bal; if (N(S[si]) !== sName) S[si].name = sName; S[si].auto = true; }
     else S.unshift({ name: sName, amt: p.bal, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true });
@@ -6443,6 +6444,11 @@ function costSyncData(data, p, L, opt) {
     if (p.cuse) { if (ui >= 0) { if (S2[ui].amt !== p.cuse) S2[ui].amt = p.cuse; S2[ui].auto = true; }
       else { const at = S2.findIndex(r => /^SALARY( BALANCE)?$/.test(N(r))); S2.splice(at + 1, 0, { name: "CUSTOMER USE", amt: p.cuse, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); } }
     else if (ui >= 0 && S2[ui].auto) S2.splice(ui, 1);
+    /* 橙色 AGENT USE（Bank Statement 的 AGENT USE 那一栏加起来）放在 CUSTOMER USE / SALARY 下面；没有就拿掉 */
+    const ai = S2.findIndex(r => N(r) === "AGENT USE");
+    if (p.ause) { if (ai >= 0) { if (S2[ai].amt !== p.ause) S2[ai].amt = p.ause; S2[ai].auto = true; }
+      else { let at = S2.findIndex(r => N(r) === "CUSTOMER USE"); if (at < 0) at = S2.findIndex(r => /^SALARY( BALANCE)?$/.test(N(r))); S2.splice(at + 1, 0, { name: "AGENT USE", amt: p.ause, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true }); } }
+    else if (ai >= 0 && S2[ai].auto) S2.splice(ai, 1);
   }
   const nd = { ...data, parts };
   return JSON.stringify(nd) === JSON.stringify(data) ? null : nd;
@@ -6664,7 +6670,7 @@ function BsPeopleLoader() {
           const dt = bsNormDmy(x.date);
           months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || ""), costedAt: x.costedAt || 0, cid: x.id || ("i" + i) }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
-      let bal = "", cuse = ""; try { const cu = bsCustUse(bs), v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - cu; if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); } catch (e) {}
+      let bal = "", cuse = "", ause = ""; try { const cu = bsCustUse(bs), au = bsAgentUse(bs), v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - cu - au; if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); if (au) ause = lsFmt(au); } catch (e) {}   /* AGENT USE 也扣掉，另外一行放去 Part C */
       /* Verify 的 Salary：跟 Bank Statement 最近一个月的 Salary 计算（Basic + Allowance + Commission − EPF − SOCSO − EIS − PCB，员工那边） */
       let salItems = null;
       try { const crs = (bs.credits || []).filter(x => x && x.calc); const c = crs.length ? crs[crs.length - 1].calc : (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
@@ -6681,7 +6687,7 @@ function BsPeopleLoader() {
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ cuse, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
