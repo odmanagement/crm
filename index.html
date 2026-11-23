@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261120184500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123103000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "474";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "475";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -9878,7 +9878,11 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
             h("td", { style: { ...td, ...bg, minWidth: 170 } }, h("div", { style: { display: "flex", flexDirection: "row", gap: 6, alignItems: "center", flexWrap: "nowrap" } },
               h("button", { disabled: !can, onClick: () => { patchD(d, { comm: d.comm ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.comm ? "Commission DONE · " + String(d.comm.by || "").toUpperCase() + " · " + new Date(d.comm.at || 0).toLocaleDateString("en-GB") + "（按一下取消）" : "按一下 = Commission Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 11.5, cursor: can ? "pointer" : "default", whiteSpace: "nowrap", background: d.comm ? "#16a34a" : "#f1f5f9", color: d.comm ? "#fff" : "#94a3b8" } }, d.comm ? "✓ DONE" : "DONE"),
               h(LfPhotos, { ids: d.commPhotos || [], compact: true, ro: !can, onChange: ids => patchD(d, { commPhotos: ids }) }))),
-            h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase(),
+            h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24),
+              isMissionBoss(me) ? h("select", { value: canonUser(d.by || ""), title: "老板：换这份的 Admin（之前被改成老板的，换回原本的 agent）", onClick: e => e.stopPropagation(), onChange: e => { const v = e.target.value; if (!v || sameUser(v, d.by)) return; saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, by: v } : x)); monetSfx("save"); },
+                style: { border: "1px solid #e2e8f0", borderRadius: 6, background: "#fff", fontWeight: 800, fontSize: 12, padding: "2px 4px", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer" } },
+                Array.from(new Set([canonUser(d.by || "")].concat((drafts || []).filter(x => tools.some(t => t.file === x.file)).map(x => canonUser(x.by || ""))))).filter(Boolean).sort().map(u => h("option", { key: u, value: u }, u.toUpperCase())))
+              : String(d.by || "—").toUpperCase(),
               h("button", { disabled: !can, onClick: () => { patchD(d, { chk: d.chk ? null : { by: me, at: Date.now() } }); monetSfx("save"); }, title: d.chk ? "✓ " + String(d.chk.by || "").toUpperCase() + " · " + new Date(d.chk.at || 0).toLocaleDateString("en-GB") + (can ? "（按一下取消）" : "") : (can ? "按一下打勾" : "只有 Admin（" + String(d.by || "").toUpperCase() + "）可以打勾"),
                 style: { marginLeft: 6, width: 22, height: 22, borderRadius: 6, border: "2px solid " + (d.chk ? "#16a34a" : "#cbd5e1"), background: d.chk ? "#16a34a" : "#fff", color: "#fff", fontSize: 13, fontWeight: 900, lineHeight: "16px", padding: 0, cursor: can ? "pointer" : "default", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, d.chk ? "✓" : ""))),
             !hasCar && h("td", { style: { ...td, ...bg, whiteSpace: "nowrap" } }, h("button", { disabled: !can,
@@ -10126,7 +10130,7 @@ function FormsPage({ currentUser, tools, noLib }) {
     const tk = t => String(t || "").trim().toUpperCase().replace(/\s+/g, " ");
     const ex = (open.draft && open.draft.native ? list.find(x => x.id === open.draft.id) : null) || list.find(x => x.native && x.file === open.tool.file && x.title === hit.label && sameUser(x.by, me))
       || (/COSTING_PART/i.test(open.tool.file || "") ? list.filter(x => x.native && x.file === open.tool.file && costKeyName(x) === costKeyName({ native: hit.entry, title: hit.label })).sort((a, b) => (b.at || 0) - (a.at || 0))[0] : null);   /* Costing：同一个名字只有一份 */   /* 打开的那一份优先，不会另外多开一份 */
-    const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: me, at: Date.now(), values: undefined };
+    const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: (ex && ex.by) || me, lastBy: me, at: Date.now(), values: undefined };   /* 老板改别人的存档 → Admin 还是原本的人（不然原本的 agent 就不能再填了） */
     let nl = ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list];
     if (open.tool.file === "PL_COSTING.html" && COST_TO_FUTURE_USERS.includes(me)) try {   /* Money / Alice → 自动开 / 更新 Future Agreement */
       const pf = costPrefillFrom(d);
