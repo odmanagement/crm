@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123150000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123151000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "495";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "496";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7236,6 +7236,15 @@ function SalesSummaryPage({ currentUser }) {
   const em = new Map((Array.isArray(extL) ? extL : []).filter(x => x && x.id).map(x => [x.id, x]));
   /* ---- Bank Statement 总表（照 Google Sheet：BANK / Agent Used / Customer Used / RUNAWAY / BS TOTAL） ---- */
   const [noteL, saveNote] = useCloudList("sales_sum_notes");
+  /* 一次性：把 Google Sheet 里的备注搬进来（已经有备注的不盖掉；只搬一次，删掉了不会再出现） */
+  React.useEffect(() => {
+    if (!Array.isArray(noteL) || noteL.some(x => x && x.id === "__seed1") || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
+    const SEED = { "SELVENDRAN A/L MANIMARAN": "Money said LOSS case · FROM FUTURE 5,812.95", "LUKMAN NUL HAKIM BIN DAUD": "Money said LOSS case · FROM FUTURE 738.45", "YAP YUAN TIIANG": "FROM FUTURE 975.60",
+      "CHONG YUN HONG": "Kenny Zai said waiting costing together return", "LIM KIEN KEAT": "money using card", "NG YAP LONG": "money using card", "TAN ZEN YU": "CIMB X LOGIN",
+      "LEONG CHONG LI": "CL using card", "CHIA YAO FU": "VV using card", "YEOH LAI HOCK": "Ambank hard to login, need client approve in app", "WONG WAI GIAT": "HSBC Blocked", "WONG WAI GIAT PBB": "HSBC Blocked" };
+    const add = Object.keys(SEED).filter(k => !noteL.some(x => x && x.id === k && String(x.note || "").trim())).map(k => ({ id: k, note: SEED[k], by: "sheet", at: Date.now() }));
+    saveNote([...noteL.filter(x => x && !add.some(a => a.id === x.id)), ...add, { id: "__seed1", at: Date.now() }]);
+  }, [noteL]);
   const [bsTick, setBsTick] = React.useState(0), [bsEnd, setBsEnd] = React.useState(false), [bsQ, setBsQ] = React.useState("");
   React.useEffect(() => { const f = () => setBsTick(t => t + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
   const bsView = () => {
