@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123115000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123115500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "478";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "479";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -6854,9 +6854,10 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? fr(k, "h", { textAlign: "right" }) : rcRow ? h("div", { onClick: () => setShowRc(au.k), title: "点一下看全部记录", style: { textAlign: "right", cursor: "pointer", color: au.k === "rt" ? "#7c3aed" : "#0369a1", fontWeight: 900, textDecoration: "underline dotted", fontVariantNumeric: "tabular-nums" } }, lsFmt(au.total)) : ri >= 0 && ri <= recv.length ? mny(rv && rv.amount, v => setRow("received", ri, "amount", v)) : ""),
       h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : rcRow ? h("div", { onClick: () => setShowRc(au.k), style: { textAlign: "right", cursor: "pointer", color: au.k === "rt" ? "#7c3aed" : "#0369a1", fontWeight: 800, fontSize: 11.5, whiteSpace: "nowrap" } }, au.icon + " " + au.label + " × " + au.list.length) : ri >= 0 && ri <= recv.length ? dt(rv && rv.date, v => setRow("received", ri, "date", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center" } }, (() => {
+      h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center", background: k === 0 && !(d.cells || {})["0_j"] ? "#fee2e2" : undefined } }, (() => {
         /* 黄色上面的格子：填数目 = CUSTOMER USE → 红色字、自动 2 个小数点 */
         const ck = k + "_j", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
+        if (k === 0 && !v) return h("span", { style: { fontWeight: 900, fontSize: 11, color: "#b91c1c", letterSpacing: ".03em" } }, "CUSTOMER USE");   /* 标题：AGENT USE 左边 = CUSTOMER USE */
         return h("input", { ...ro, className: "keep-case", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
           onBlur: e => { setEdJ(null); focus.current = false; const t = e.target.value.trim(); if (BS_NUM_RE.test(t) && t !== lsFmt(lsNum(t))) setC(lsFmt(lsNum(t))); setTimeout(() => commit(), 0); },
           style: { ...box, ...aw(v), textAlign: "center", fontWeight: isN ? 900 : 400, color: isN ? "#dc2626" : undefined } }); })()   /* S.C 不要了 */),
@@ -6890,7 +6891,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tR)),
     h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "TOTAL"),
     h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = BALANCE + CUSTOMER USE + AGENT USE" }, lsFmt(bal + cuse + ause)),
-    h("td", { style: cell }), h("td", { style: { ...cell, fontWeight: 900, textAlign: "right", color: "#c2410c" } }, ause ? lsFmt(ause) : "")));
+    h("td", { style: cell }), h("td", { style: cell })));   /* 右下角不用再显示 AGENT USE（上面已经有一行） */
   /* ===== 像 Google Sheets：右键格子 → 换字颜色 / 底色 / 粗体 / 划线（跟着格子的位置，存在 bankStmt.sty） ===== */
   const sheetRef = React.useRef(null);
   const [bsPop, setBsPop] = React.useState(null);
