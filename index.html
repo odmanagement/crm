@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123115500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123122500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "479";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "481";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -9413,11 +9413,19 @@ function CompanyFilesPage() {
     xmas: ["#c53030", "#1f6f4a", "#d69e2e", "#2f855a", "#e05252", "#b7791f"]
   }[USER_THEMES[canonUser(window.__crmUser)]] || ["#6366f1", "#0ea5e9", "#14b8a6", "#8b5cf6", "#f43f5e", "#f59e0b", "#10b981", "#ec4899"];
   const colorOf = (c, i) => PAL[i % PAL.length];
-  const doc = (label, url, c) => url
+  const [psOpen, setPsOpen] = React.useState(null);   /* New Company 的 Payslip：在 CRM 里面打开（可以存档 / 删除，跟 Application Form 一样） */
+  const doc = (label, url, c) => url && label === "PAYSLIP" && c && c.isNew && !/^https?:/i.test(String(url))
+    ? h("button", { className: "co-doc yes", onClick: () => setPsOpen({ name: c.name, file: String(url).replace(/^\.?\//, "").split("?")[0] }) }, "📄 ", label, h("span", { style: { opacity: .7 } }, "💾"))
+    : url
     ? h("a", { className: "co-doc yes" + (label !== "PAYSLIP" ? " cl" : ""), href: String(url).replace(/\/copy(\?.*)?$/i, "/edit"), target: "_blank", rel: "noopener" }, label === "CL" ? "✉️ " : label === "OF" ? "📝 " : label.startsWith("BANK") ? "🏦 " : "📄 ", label, h("span", { style: { opacity: .7 } }, "↗"))
     : h("button", { className: "co-doc no", onClick: () => openEdit(c), title: "加链接" }, "+ ", label);
   return h("div", { className: "co-wrap cpw" },
     h("style", null, css),
+    psOpen && h("div", { style: { position: "fixed", inset: 0, zIndex: 150, background: "var(--bg, #f8fafc)", overflow: "auto", padding: "18px 22px" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 16 } },
+        h("button", { onClick: () => setPsOpen(null), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } }, "← 返回 Companies"),
+        h("div", { style: { fontWeight: 900, fontSize: 18 } }, psOpen.name, " · Payslip")),
+      h(FormsPage, { key: psOpen.file, currentUser: window.__crmUser, simple: true, tools: [{ name: psOpen.name + " Payslip", file: psOpen.file }] })),
     /* ===== 跟参考图：上面标题 + 搜索 + Add Company；分页有图标；卡片 = Logo / 名字 + 进度条 + 4 个打勾的文件 ===== */
     h("div", { className: "cp-top" },
       h("div", { className: "cp-ttl" }, h("span", { className: "cp-bico" }, h("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { key: 0, d: "M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18z" }), h("path", { key: 1, d: "M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" }), h("path", { key: 2, d: "M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" }), h("path", { key: 3, d: "M10 6h4" }), h("path", { key: 4, d: "M10 10h4" }), h("path", { key: 5, d: "M10 14h4" }), h("path", { key: 6, d: "M10 18h4" }))),
@@ -9440,8 +9448,9 @@ function CompanyFilesPage() {
           h("div", { className: "cp-prog" }, h("span", null), h("span", { className: "cp-pn" }, n + " / 4 (" + (n * 25) + "%)")),
           h("div", { className: "cp-bar" }, h("i", { style: { width: (n * 25) + "%" } })),
           h("div", { className: "cp-docs" }, docs.map(([lb, url]) => url
-            ? h("a", { key: lb, className: "cp-chip on", href: String(url).replace(/\/copy(\?.*)?$/i, "/edit"), target: "_blank", rel: "noopener", title: "打开 " + lb }, h("span", { className: "cp-ck" }, "✓"), lb)
-            : h("button", { key: lb, className: "cp-chip", onClick: () => openEdit(c), title: "加 " + lb + " 链接" }, h("span", { className: "cp-ck" }), lb)))); }),
+            ? (lb === "PAYSLIP" && c.isNew && !/^https?:/i.test(String(url)) ? h("button", { key: lb, className: "cp-chip on", title: "打开 Payslip（可以存档 / 删除）", onClick: () => setPsOpen({ name: c.name, file: String(url).replace(/^\.?\//, "").split("?")[0] }) }, h("span", { className: "cp-ck" }, "✓"), lb) :
+              h("a", { key: lb, className: "cp-chip on", href: String(url).replace(/\/copy(\?.*)?$/i, "/edit"), target: "_blank", rel: "noopener", title: "打开 " + lb }, h("span", { className: "cp-ck" }, "✓"), lb)
+            ) : h("button", { key: lb, className: "cp-chip", onClick: () => openEdit(c), title: "加 " + lb + " 链接" }, h("span", { className: "cp-ck" }), lb)))); }),
       rows.length === 0 && h("div", { style: { color: "#94a3b8", padding: 24 } }, "找不到公司")),
     edit && h("div", { onClick: () => setEdit(null), style: { position: "fixed", inset: 0, background: "rgba(15,15,40,.5)", backdropFilter: "blur(4px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 440, background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" } },
@@ -9909,7 +9918,7 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
               style: { border: "2px solid " + (d.bad ? "#dc2626" : "#fecaca"), borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 11.5, fontFamily: "inherit", cursor: can ? "pointer" : "default", background: d.bad ? "#dc2626" : "#fff", color: d.bad ? "#fff" : "#f87171" } }, d.bad ? "🚫 跑了" : "跑了?")));
         })))));
 }
-function FormsPage({ currentUser, tools, noLib }) {
+function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有这几个表格的存档列表（例如 Company 里面的 Payslip） */
   const h = React.createElement;
   const [drafts, saveDrafts, draftsFresh] = useCloudList("form_drafts");
   const [libData, saveLib] = useCloudList("form_files");
@@ -10223,7 +10232,10 @@ function FormsPage({ currentUser, tools, noLib }) {
     if (!open.draft) { const cs = myCats(), nm = String(open.tool.name || "").trim().toUpperCase();
       let c = cs.find(x => String(x.name || "").trim().toUpperCase() === nm);   /* 默认放进跟表格同名的分类（没有就自动开一个） */
       if (!c && nm) c = newCat(nm);
-      setSaveDlg({ title: guessTitle(vals), cat: (c || cs[0] || {}).id || "", closeAfter: !!closeAfter }); return; }
+      let t0 = guessTitle(vals);
+      if (/_Payslip_Generator\.html$/i.test(open.tool.file || "")) try { const dd = doc(), nmv = String((dd.querySelector('[data-f="name"]') || {}).value || "").trim().toUpperCase(), ms = dd.getElementById("mon"), yr = String((dd.getElementById("year") || {}).value || "").trim();
+        const mt = ms && ms.selectedIndex >= 0 ? String(ms.options[ms.selectedIndex].text || "").trim() : ""; t0 = [nmv, [mt, yr].filter(Boolean).join(" ")].filter(Boolean).join(" - ") || t0; } catch (e) {}   /* Payslip：存档名字 = 员工名字 - 月份 */
+      setSaveDlg({ title: t0, cat: (c || cs[0] || {}).id || "", closeAfter: !!closeAfter, edited: /_Payslip_Generator\.html$/i.test(open.tool.file || "") }); return; }
     if (open.draft) {
       const nd = agreeClosing({ ...open.draft, values: vals, at: now, by: open.draft.by || canonUser(currentUser), title: open.draft.title || guessTitle(vals) });
       saveDrafts(list.map(x => x.id === nd.id ? nd : x));
@@ -10251,14 +10263,31 @@ function FormsPage({ currentUser, tools, noLib }) {
   const delDraft = d => { if (!window.confirm("删除这份存档？" + (/AGREEMENT/i.test(d.file || "") ? "\n\n⚠ 连着的 Closing 也会一起删除。" : ""))) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); czAgreementDeleted(d); };
   /* Forms 的文件库：不放 Costing（PL / Car）和 Lending Sheet 的存档，那些在自己的页面 */
   const LIB_SKIP = ["FINPRO_COSTING_PART.html", "FUTURE_COSTING_PART.html", "PL_COSTING_PART.html", "CAR_SALES_QUOTATION.html", "LEANDING_SHEET.html", "FINPRO_AGREEMENT.html", "FUTURE_AGREEMENT.html"];
-  const mine = (drafts || []).filter(d => sameUser(d.by, currentUser) && !LIB_SKIP.includes(d.file));
+  const mine = simple ? (drafts || []).filter(d => tools.some(t => t.file === d.file))
+    : (drafts || []).filter(d => sameUser(d.by, currentUser) && !LIB_SKIP.includes(d.file) && !/_Payslip_Generator\.html$/i.test(d.file || ""));   /* Company 的 Payslip 存档放在 Company 那边，不放 Forms 文件库 */
   const list = mine.filter(d => !q || (d.form + " " + (d.title || "") + " " + d.by).toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.at - a.at);
   const fmtT = t => new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   const card = { display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, color: "#0f172a", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" };
   const icon = (bg, c, ch) => h("div", { style: { width: 40, height: 40, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: c, fontSize: 18 } }, ch);
   return h("div", { style: { padding: 4 } },
-    !noLib && h("div", { style: { fontSize: 14, color: "#64748b", marginBottom: 14, fontWeight: 600 } }, "点击打开表格 · 填好后按 💾 存档，下次可以继续"),
-    !noLib && h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 } },
+    !noLib && !simple && h("div", { style: { fontSize: 14, color: "#64748b", marginBottom: 14, fontWeight: 600 } }, "点击打开表格 · 填好后按 💾 存档，下次可以继续"),
+    simple && (() => { const me = canonUser(currentUser || ""), rowsS = mine.slice().sort((a, b) => (b.at || 0) - (a.at || 0)), th = { textAlign: "left", padding: "10px 12px", fontSize: 12, color: "#64748b", fontWeight: 800, borderBottom: "1px solid #e2e8f0" }, td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", fontSize: 13.5 };
+      return h("div", null,
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" } },
+          tools.map(t => h("button", { key: t.file, onClick: () => setOpen({ tool: t, draft: null }), style: { display: "flex", alignItems: "center", gap: 6, border: "none", background: "var(--navy, #1e3a8a)", color: "#fff", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" } }, h(Plus, { size: 16 }), " 新的一份")),
+          h("span", { style: { fontSize: 13, color: "#64748b", fontWeight: 600 } }, "填好后按 💾 存档 · 下次在下面打开继续")),
+        h("div", { style: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" } },
+          h("table", { style: { width: "100%", borderCollapse: "collapse" } },
+            h("thead", null, h("tr", null, ["存档", "日期", "谁存的", ""].map((x, i) => h("th", { key: i, style: th }, x)))),
+            h("tbody", null, !rowsS.length ? h("tr", null, h("td", { colSpan: 4, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 28 } }, "还没有存档 — 按「新的一份」，填好按 💾 存档")) :
+              rowsS.map(d => h("tr", { key: d.id },
+                h("td", { style: { ...td, fontWeight: 800, cursor: "pointer", color: "#1d4ed8" }, onClick: () => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }) }, "📄 ", d.title || "未命名"),
+                h("td", { style: { ...td, color: "#64748b" } }, d.at ? new Date(d.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"),
+                h("td", { style: { ...td, fontWeight: 700 } }, String(d.by || "—").toUpperCase()),
+                h("td", { style: { ...td, textAlign: "right", whiteSpace: "nowrap" } },
+                  h("button", { onClick: () => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, padding: "5px 12px", fontWeight: 700, cursor: "pointer", marginRight: 6 } }, "打开"),
+                  (sameUser(d.by, me) || isMissionBoss(me)) && h("button", { onClick: () => delDraft(d), title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", borderRadius: 8, padding: "5px 12px", fontWeight: 700, cursor: "pointer" } }, "🗑 删除")))))))); })(),
+    !noLib && !simple && h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 } },
       tools.map(t => h("button", { key: t.file, style: card, onClick: () => setOpen({ tool: t, draft: null }) },
         icon("#eef2ff", "#4f46e5", h(Folder, { size: 20, color: "#4f46e5" })),
         h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 700, fontSize: 14 } }, t.name), h("div", { style: { fontSize: 12, color: "#94a3b8", marginTop: 2 } }, "Open · 新的一份"))))),
@@ -10279,7 +10308,7 @@ function FormsPage({ currentUser, tools, noLib }) {
           h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
             h("button", { onClick: () => setPasteBox(null), style: { flex: 1, padding: 10, borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 700, cursor: "pointer" } }, "取消"),
             h("button", { onClick: () => mergeLocalDump(pasteBox), disabled: !pasteBox.trim(), style: { flex: 2, padding: 10, borderRadius: 10, border: "none", background: "linear-gradient(120deg,#f59e0b,#d97706)", color: "#fff", fontWeight: 800, cursor: "pointer", opacity: pasteBox.trim() ? 1 : .5 } }, "开始搬"))))),
-    !noLib && h(FileLibrary, { currentUser, data: libData, saveData: saveLib, drafts: mine, onOpenDraft: d => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), onMoveDraft: (d, cat) => saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, cat } : x)), onDelDraft: delDraft, onRenameDraft: d => { const o = (drafts || []).find(x => x.id === d.id) || d; const t = window.prompt("存档名字：", o.title || ""); if (t != null) renameDraftTo(o, t); },
+    !noLib && !simple && h(FileLibrary, { currentUser, data: libData, saveData: saveLib, drafts: mine, onOpenDraft: d => setOpen({ tool: tools.find(t => t.file === d.file) || { name: d.form, file: d.file }, draft: d }), onMoveDraft: (d, cat) => saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, cat } : x)), onDelDraft: delDraft, onRenameDraft: d => { const o = (drafts || []).find(x => x.id === d.id) || d; const t = window.prompt("存档名字：", o.title || ""); if (t != null) renameDraftTo(o, t); },
       onEditDraft: (d, t, cat) => { const o = (drafts || []).find(x => x.id === d.id) || d; const oc = { ...o, cat: cat || "" };
         if (String(t).trim() !== o.title) renameDraftTo(oc, t); else if ((o.cat || "") !== (cat || "")) saveDrafts((drafts || []).map(x => x.id === o.id ? oc : x)); } }),
     picker && h("div", { onClick: () => setPicker(null), style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(15,15,40,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
