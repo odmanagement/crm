@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123103000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123104500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "475";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "476";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -9823,6 +9823,17 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const [pick, setPick] = React.useState(false);
   const [typeF, setTypeF] = React.useState("");
   const agVal = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
+  /* 以前老板一存档，Costing 的 Admin 就变老板 → 老板打开这页时自动换回原本的人（用同一个客户名字的 Agreement / Lending Sheet / 其他 Costing 是谁建的来找）；找不到的就留着，老板可以用下拉自己选 */
+  React.useEffect(() => {
+    if (!isMissionBoss(me) || !fresh || !Array.isArray(drafts) || !drafts.length) return;
+    const nk = v => String(v || "").trim().toUpperCase().replace(/\s+/g, " ").replace(/\s*\(\d+\)$/, "");
+    const isCost = x => tools.some(t => t.file === x.file), own = {};
+    drafts.forEach(x => { if (!x || !x.by || isMissionBoss(x.by) || !/AGREEMENT|LEANDING_SHEET/i.test(x.file || "")) return; const k = nk(agVal(x, "@fName") || x.title); if (k && !own[k]) own[k] = canonUser(x.by); });
+    drafts.forEach(x => { if (!x || !x.by || isMissionBoss(x.by) || !isCost(x)) return; const k = costKeyName(x); if (k && !own[k]) own[k] = canonUser(x.by); });
+    let ch = false;
+    const nl = drafts.map(x => { if (!x || !isCost(x) || !isMissionBoss(x.by) || x.byFixed) return x; const o = own[costKeyName(x)]; if (!o) return x; ch = true; return { ...x, by: o, byFixed: canonUser(x.by) }; });
+    if (ch) saveDrafts(nl);
+  }, [fresh, drafts && drafts.length]);
   if (isAgree) return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h(YearBar, { items: allRows, getYear: yrD, value: kYr, onChange: setKYr }),
