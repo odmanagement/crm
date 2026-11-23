@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123133000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123134000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,8 +1924,15 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "488";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "489";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
+/* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
+const _editNoticeAt = {};
+const notifyOwnerEdit = (d, me, form) => { try {
+  if (!d || !d.by || sameUser(d.by, me)) return; const k = d.id + "|" + canonUser(me); if (Date.now() - (_editNoticeAt[k] || 0) < 10 * 60 * 1000) return; _editNoticeAt[k] = Date.now();
+  window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: /AGREEMENT/i.test(d.file || "") ? "agreement" : /CAR_SALES/i.test(d.file || "") ? "costing_car" : /COSTING/i.test(d.file || "") ? "costing_pl" : "html_forms", to: canonUser(d.by), from: canonUser(me), loud: true,
+    title: "✏️ " + String(me || "").toUpperCase() + " 改了你的 " + (form || d.form || "存档"), task: String(d.title || "").toUpperCase(), at: Date.now() });
+} catch (e) {} };
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
 const costPrefillFrom = d => {
@@ -6350,7 +6357,7 @@ function LendingLoader() {
   React.useEffect(() => {
     window.__crmLending = (list || []).filter(r => r && String(r.name || "").trim()).map(r => { const xs = (r.settlement || []).filter(x => x && (x.desc || x.amount));
       const nm = x => [String(x.desc || "").trim().toUpperCase(), String(x.acc || "").trim().toUpperCase()].filter(Boolean).join(" - ") || "SETTLEMENT";
-      return { name: String(r.name).trim().toUpperCase(), agent: String(r.agent || "").trim().toUpperCase(), at: r.updatedAt || r.at || 0, a: xs.filter(x => !x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)) })), aa: xs.filter(x => x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)), pct: String(x.pct == null ? "" : x.pct) })) }; })
+      return { name: String(r.name).trim().toUpperCase(), agent: String(r.agent || "").trim().toUpperCase(), by: canonUser(r.admin || r.by || ""), at: r.updatedAt || r.at || 0, a: xs.filter(x => !x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)) })), aa: xs.filter(x => x.aa).map(x => ({ name: nm(x), amt: lsFmt(lsNum(x.amount)), pct: String(x.pct == null ? "" : x.pct) })) }; })
       .sort((x, y) => y.at - x.at);
     try { window.dispatchEvent(new Event("crm-lending")); } catch (e) {}
   }, [list]);
@@ -6687,7 +6694,7 @@ function BsPeopleLoader() {
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ owner: canonUser(p.owner || p.by || (bs && bs.by) || ""), cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -9841,13 +9848,16 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
   const agVal = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
   /* 以前老板一存档，Costing 的 Admin 就变老板 → 老板打开这页时自动换回原本的人（用同一个客户名字的 Agreement / Lending Sheet / 其他 Costing 是谁建的来找）；找不到的就留着，老板可以用下拉自己选 */
   React.useEffect(() => {
-    if (!isMissionBoss(me) || !fresh || !Array.isArray(drafts) || !drafts.length) return;
+    if (!fresh || !Array.isArray(drafts) || !drafts.length) return;   /* 谁打开都会修（不只老板） */
     const nk = v => String(v || "").trim().toUpperCase().replace(/\s+/g, " ").replace(/\s*\(\d+\)$/, "");
     const isCost = x => tools.some(t => t.file === x.file), own = {};
     drafts.forEach(x => { if (!x || !x.by || isMissionBoss(x.by) || !/AGREEMENT|LEANDING_SHEET/i.test(x.file || "")) return; const k = nk(agVal(x, "@fName") || x.title); if (k && !own[k]) own[k] = canonUser(x.by); });
     drafts.forEach(x => { if (!x || !x.by || isMissionBoss(x.by) || !isCost(x)) return; const k = costKeyName(x); if (k && !own[k]) own[k] = canonUser(x.by); });
+    drafts.forEach(x => { if (!x || !x.by || isMissionBoss(x.by) || !/COSTING_PART|CAR_SALES_QUOTATION/i.test(x.file || "")) return; const k = costKeyName(x); if (k && !own[k]) own[k] = canonUser(x.by); });   /* Agreement 页：用同名 Costing 的 Admin */
+    try { (window.__crmLending || []).forEach(r => { const k = nk(r.name); if (k && r.by && !isMissionBoss(r.by) && !own[k]) own[k] = r.by; }); } catch (e) {}   /* Lending Sheet 是谁建的 */
+    try { (window.__crmBsPeople || []).forEach(r => { const k = nk(r.name); if (k && r.owner && !isMissionBoss(r.owner) && !own[k]) own[k] = r.owner; }); } catch (e) {}   /* Bank Statement 是谁建的 */
     let ch = false;
-    const nl = drafts.map(x => { if (!x || !isCost(x) || !isMissionBoss(x.by) || x.byFixed) return x; const o = own[costKeyName(x)]; if (!o) return x; ch = true; return { ...x, by: o, byFixed: canonUser(x.by) }; });
+    const nl = drafts.map(x => { if (!x || !isCost(x) || !isMissionBoss(x.by) || x.byFixed) return x; const o = own[costKeyName(x)] || own[nk(agVal(x, "@fName") || x.title)]; if (!o) return x; ch = true; return { ...x, by: o, byFixed: canonUser(x.by) }; });
     if (ch) saveDrafts(nl);
   }, [fresh, drafts && drafts.length]);
   if (isAgree) return h("div", null,
@@ -9865,7 +9875,11 @@ function CostingTable({ drafts, fresh, tools, currentUser, saveDrafts, onOpen })
           h("td", { style: { ...td, fontWeight: 800 } }, agVal(d, "@fAgent") || "—"),
           h("td", { style: td }, basePill(agVal(d, "@fBase"))),
           h("td", { style: td }, d.at ? new Date(d.at).toLocaleDateString("en-GB") : "—"),
-          h("td", { style: { ...td, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24), String(d.by || "—").toUpperCase()))); })))));
+          h("td", { style: { ...td, whiteSpace: "nowrap" } }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5 } }, czAvatar(d.by || "?", 24),
+            isMissionBoss(me) ? h("select", { value: canonUser(d.by || ""), title: "老板：换这份的 Admin", onClick: e => e.stopPropagation(), onChange: e => { const v = e.target.value; if (!v || sameUser(v, d.by)) return; saveDrafts((drafts || []).map(x => x.id === d.id ? { ...x, by: v } : x)); },
+              style: { border: "1px solid #e2e8f0", borderRadius: 6, background: "#fff", fontWeight: 800, fontSize: 12, padding: "2px 4px", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer" } },
+              Array.from(new Set([canonUser(d.by || "")].concat((drafts || []).map(x => canonUser(x.by || ""))))).filter(Boolean).sort().map(u => h("option", { key: u, value: u }, u.toUpperCase())))
+            : String(d.by || "—").toUpperCase()))); })))));
   return h("div", null,
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h(YearBar, { items: allRows, getYear: yrD, value: kYr, onChange: setKYr }),
@@ -10160,6 +10174,7 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
       || (/COSTING_PART/i.test(open.tool.file || "") ? list.filter(x => x.native && x.file === open.tool.file && costKeyName(x) === costKeyName({ native: hit.entry, title: hit.label })).sort((a, b) => (b.at || 0) - (a.at || 0))[0] : null);   /* Costing：同一个名字只有一份 */   /* 打开的那一份优先，不会另外多开一份 */
     const nd = { ...(ex || { id: uid() }), file: open.tool.file, form: open.tool.name, title: hit.label, native: hit.entry, cat: cat || (ex && ex.cat) || "", by: (ex && ex.by) || me, lastBy: me, at: Date.now(), values: undefined };   /* 老板改别人的存档 → Admin 还是原本的人（不然原本的 agent 就不能再填了） */
     let nl = ex ? list.map(x => x.id === ex.id ? nd : x) : [nd, ...list];
+    if (ex) notifyOwnerEdit(ex, me, open.tool.name);
     if (open.tool.file === "PL_COSTING.html" && COST_TO_FUTURE_USERS.includes(me)) try {   /* Money / Alice → 自动开 / 更新 Future Agreement */
       const pf = costPrefillFrom(d);
       if (pf.name) { const ag = nl.find(x => x.fromCosting === nd.id && x.file === "FUTURE_AGREEMENT.html");
@@ -10238,7 +10253,8 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
         const mt = ms && ms.selectedIndex >= 0 ? String(ms.options[ms.selectedIndex].text || "").trim() : ""; t0 = [nmv, [mt, yr].filter(Boolean).join(" ")].filter(Boolean).join(" - ") || t0; } catch (e) {}   /* Payslip：存档名字 = 员工名字 - 月份 */
       setSaveDlg({ title: t0, cat: (c || cs[0] || {}).id || "", closeAfter: !!closeAfter, edited: /_Payslip_Generator\.html$/i.test(open.tool.file || "") }); return; }
     if (open.draft) {
-      const nd = agreeClosing({ ...open.draft, values: vals, at: now, by: open.draft.by || canonUser(currentUser), title: open.draft.title || guessTitle(vals) });
+      const nd = agreeClosing({ ...open.draft, values: vals, at: now, by: open.draft.by || canonUser(currentUser), lastBy: canonUser(currentUser), title: open.draft.title || guessTitle(vals) });
+      notifyOwnerEdit(open.draft, canonUser(currentUser), open.tool.name);
       saveDrafts(list.map(x => x.id === nd.id ? nd : x));
       setOpen({ ...open, draft: nd });
     } else {
