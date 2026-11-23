@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123134000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123141800";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "489";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "490";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -4598,7 +4598,7 @@ function ownToast(who) {
 /* OD Payment（资料在 Lending Sheet / od_payments 里面）：照片、已付、Return → 全部人都可以改（里面一层层的也算） */
 const OWN_FREE_DEEP = {
   receipts: /^rcpt$/,   /* Boss Take 的 Receipt 照片：谁都可以放 */
-  bs_return_salary: /^name$/,   /* Return Salary 的名字谁都可以改（UNKNOWN → 真名字） */
+  bs_return_salary: /^(name|atm)$/,   /* Return Salary 的名字谁都可以改（UNKNOWN → 真名字） */
   /* Bank Statement / Rencai 最右边那一栏（COMPANY / POSITION / USE CARD / 下面的格子）：全部人都可以改 */
   bank_stmt_people: /^(company|position|useCard|\d+_k|ord)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k|ord)$/,   /* ord = 移上移下，谁都可以 */
   lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i,
@@ -7459,12 +7459,12 @@ function BsReturnPage({ clients, currentUser }) {
           h("span", { style: { flex: 1 } }),
           chip("", "ALL"), chip("not", "NOT DONE"), chip("done", "✓ DONE")),
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Date", "Name", "Amount", "PDF / 照片", "Done", ""].map((t, i) => h("th", { key: i, style: S.th }, t)))),
-      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 7, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
+      h("thead", null, h("tr", null, ["#", "Date", "Name", "Amount", "ATM Transfer", "PDF / 照片", "Done", ""].map((t, i) => h("th", { key: i, style: S.th }, t)))),
+      h("tbody", null, rows.length === 0 ? h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有资料")) :
         (() => { const unk = rows.filter(x => bsIsUnknownName(x.name)), kn = rows.filter(x => !bsIsUnknownName(x.name));
           /* 名字写 UNKNOWN 的：放在一起（最上面），方便看 */
           return unk.length ? [{ __hdr: "unk", n: unk.length, t: tot(unk) }, ...unk.map((x, i) => ({ ...x, __n: i + 1 })), ...(kn.length ? [{ __hdr: "kn", n: kn.length, t: tot(kn) }] : []), ...kn.map((x, i) => ({ ...x, __n: i + 1 }))] : rows.map((x, i) => ({ ...x, __n: i + 1 })); })().map(x => {
-          if (x.__hdr) return h("tr", { key: "hdr-" + x.__hdr }, h("td", { colSpan: 7, style: { ...S.td, textAlign: "left", fontWeight: 900, fontSize: 12.5, letterSpacing: ".04em", padding: "8px 14px", background: x.__hdr === "unk" ? "#fff7ed" : "#f8fafc", color: x.__hdr === "unk" ? "#c2410c" : "#475569", borderTop: "2px solid " + (x.__hdr === "unk" ? "#fdba74" : "#e2e8f0") } },
+          if (x.__hdr) return h("tr", { key: "hdr-" + x.__hdr }, h("td", { colSpan: 8, style: { ...S.td, textAlign: "left", fontWeight: 900, fontSize: 12.5, letterSpacing: ".04em", padding: "8px 14px", background: x.__hdr === "unk" ? "#fff7ed" : "#f8fafc", color: x.__hdr === "unk" ? "#c2410c" : "#475569", borderTop: "2px solid " + (x.__hdr === "unk" ? "#fdba74" : "#e2e8f0") } },
             (x.__hdr === "unk" ? "❓ UNKNOWN（还不知道是谁）" : "👤 有名字") + " · " + x.n + " 笔 · " + rcRM(x.t)));
           const bg = x.done ? { background: "#f0fdf4" } : bsIsUnknownName(x.name) ? { background: "#fffbeb" } : {}; return h("tr", { key: x.id },
           h("td", { style: { ...S.td, ...bg, color: "#94a3b8", width: 30 } }, x.__n),
@@ -7476,6 +7476,11 @@ function BsReturnPage({ clients, currentUser }) {
             style: { width: "100%", minWidth: 140, boxSizing: "border-box", border: "1px solid transparent", borderRadius: 8, padding: "6px 8px", background: "transparent", fontWeight: 900, fontSize: "inherit", fontFamily: "inherit", textAlign: "center", color: bsIsUnknownName(x.name) ? "#c2410c" : "inherit", textTransform: "uppercase", outline: "none" },
             onFocus: e => { e.target.style.borderColor = "#a5b4fc"; e.target.style.background = "#fff"; }, onBlurCapture: e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; } })),
           h("td", { style: { ...S.td, ...bg, ...S.tdNum, fontWeight: 900 } }, "RM " + lsFmt(lsNum(x.amount))),
+          /* 是不是 ATM TRANSFER：选 YES / NO */
+          h("td", { style: { ...S.td, ...bg } }, h("select", { value: x.atm || "", onChange: e => upd(x.id, "atm", e.target.value),
+            style: { border: "1px solid " + (x.atm === "yes" ? "#93c5fd" : x.atm === "no" ? "#e2e8f0" : "#e2e8f0"), borderRadius: 999, padding: "4px 10px", fontWeight: 800, fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+              background: x.atm === "yes" ? "#2563eb" : x.atm === "no" ? "#f1f5f9" : "#fff", color: x.atm === "yes" ? "#fff" : x.atm === "no" ? "#475569" : "#94a3b8" } },
+            h("option", { value: "", style: { color: "#111", background: "#fff" } }, "— 选 —"), h("option", { value: "yes", style: { color: "#111", background: "#fff" } }, "🏧 ATM TRANSFER"), h("option", { value: "no", style: { color: "#111", background: "#fff" } }, "✗ 不是"))),
           h("td", { style: { ...S.td, ...bg, minWidth: 120 } }, h(LfPhotos, { ids: x.photos || [], compact: true, onChange: ids => upd(x.id, "photos", ids) })),
           h("td", { style: { ...S.td, ...bg } }, h("button", { onClick: () => upd(x.id, "done", x.done ? null : { by: me, at: Date.now() }), title: x.done ? "DONE · " + String(x.done.by || "").toUpperCase() : "按一下 = Done", style: { border: "none", borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 12, cursor: "pointer", background: x.done ? "#16a34a" : "#fee2e2", color: x.done ? "#fff" : "#b91c1c" } }, x.done ? "✓ DONE" : "✕ NOT YET")),
           h("td", { style: { ...S.td, ...bg, width: 30 } }, lfCanEdit(x.by, me) && h("button", { onClick: () => del(x), title: "删除", style: { border: "none", background: "none", cursor: "pointer" } }, h(Trash2, { size: 14, color: "#94a3b8" })))); })))) ]; })());
