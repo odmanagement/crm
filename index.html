@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123151000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123152000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "496";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "497";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7244,6 +7244,12 @@ function SalesSummaryPage({ currentUser }) {
       "LEONG CHONG LI": "CL using card", "CHIA YAO FU": "VV using card", "YEOH LAI HOCK": "Ambank hard to login, need client approve in app", "WONG WAI GIAT": "HSBC Blocked", "WONG WAI GIAT PBB": "HSBC Blocked" };
     const add = Object.keys(SEED).filter(k => !noteL.some(x => x && x.id === k && String(x.note || "").trim())).map(k => ({ id: k, note: SEED[k], by: "sheet", at: Date.now() }));
     saveNote([...noteL.filter(x => x && !add.some(a => a.id === x.id)), ...add, { id: "__seed1", at: Date.now() }]);
+  }, [noteL]);
+  React.useEffect(() => {   /* 第二批（第三张截图） */
+    if (!Array.isArray(noteL) || !noteL.some(x => x && x.id === "__seed1") || noteL.some(x => x && x.id === "__seed2") || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
+    const SEED = { "LOH POH HONG": "Phone outside, need login HSBC check" };
+    const add = Object.keys(SEED).filter(k => !noteL.some(x => x && x.id === k && String(x.note || "").trim())).map(k => ({ id: k, note: SEED[k], by: "sheet", at: Date.now() }));
+    saveNote([...noteL.filter(x => x && !add.some(a => a.id === x.id)), ...add, { id: "__seed2", at: Date.now() }]);
   }, [noteL]);
   const [bsTick, setBsTick] = React.useState(0), [bsEnd, setBsEnd] = React.useState(false), [bsQ, setBsQ] = React.useState("");
   React.useEffect(() => { const f = () => setBsTick(t => t + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
