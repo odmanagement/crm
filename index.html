@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123144000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123145000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "493";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "494";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7229,13 +7229,56 @@ function AccountBlankPage({ title }) {
 /* ===== SALES → Summary：PL Costing / Car Costing / Agreement 一页看总数（每个月、每个 Agent、每个 Admin、Finpro vs Future） ===== */
 function SalesSummaryPage({ currentUser }) {
   const h = React.createElement;
+  const r2 = x => Math.round(x * 100) / 100;
   const [drafts] = useCloudList("form_drafts"), [metaL] = useCloudList("costing_meta"), [extL] = useCloudList("costing_extras");
-  const now = new Date(), [yr, setYr] = React.useState(String(now.getFullYear())), [mo, setMo] = React.useState("all"), [src, setSrc] = React.useState("pl");
+  const now = new Date(), [yr, setYr] = React.useState(String(now.getFullYear())), [mo, setMo] = React.useState("all"), [src, setSrc] = React.useState("bs");
   const mm = new Map((Array.isArray(metaL) ? metaL : []).filter(x => x && x.id).map(x => [x.id, x]));
   const em = new Map((Array.isArray(extL) ? extL : []).filter(x => x && x.id).map(x => [x.id, x]));
-  const SRC = { pl: { lb: "PL Costing", re: /^(FINPRO|FUTURE|PL)_COSTING_PART\.html$/i }, car: { lb: "Car Costing", re: /^CAR_SALES_QUOTATION\.html$/i }, agr: { lb: "Agreement", re: /^(FINPRO|FUTURE)_AGREEMENT\.html$/i } };
+  /* ---- Bank Statement 总表（照 Google Sheet：BANK / Agent Used / Customer Used / RUNAWAY / BS TOTAL） ---- */
+  const [noteL, saveNote] = useCloudList("sales_sum_notes");
+  const [bsTick, setBsTick] = React.useState(0), [bsEnd, setBsEnd] = React.useState(false), [bsQ, setBsQ] = React.useState("");
+  React.useEffect(() => { const f = () => setBsTick(t => t + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
+  const bsView = () => {
+    const key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+    const bad = new Set(), coOf = {};
+    (drafts || []).filter(d => d && /COSTING_PART\.html$/i.test(d.file || "")).sort((a, b) => (a.at || 0) - (b.at || 0)).forEach(d => { const k = costKeyName(d), e = em.get(d.id) || {}; if (e.bad || d.bad) bad.add(k); coOf[k] = /FUTURE/i.test(d.file) ? "FUTURE" : "FINPRO"; });
+    const notes = new Map((Array.isArray(noteL) ? noteL : []).filter(x => x && x.id).map(x => [x.id, x.note || ""]));
+    const seen = new Set();
+    const ppl = (window.__crmBsPeople || []).filter(p => p && p.name && p.started && (bsEnd || !p.ended)).filter(p => { const k = key(p.name); if (seen.has(k)) return false; seen.add(k); return true; })
+      .filter(p => !bsQ.trim() || key(p.name).includes(key(bsQ)))
+      .map(p => { const k = key(p.name), bal = lsNum(p.bal), au = lsNum(p.ause), cu = lsNum(p.cuse), tot = r2(bal + au + cu), run = bad.has(k);
+        return { k, name: k, bank: run ? 0 : bal, au: run ? 0 : au, cu: run ? 0 : cu, run: run ? tot : 0, tot, co: coOf[k] || "", rc: p.store === "bank_stmt_people_rencai", ended: p.ended, note: notes.get(k) || "", st: p.started || 0 }; })
+      .sort((a, b) => (b.run ? 1 : 0) - (a.run ? 1 : 0) || a.st - b.st);
+    const sum = f => r2(ppl.reduce((t, r) => t + r[f], 0));
+    const setNote = (k, v) => { const cur = Array.isArray(noteL) ? noteL : [], ex = cur.find(x => x.id === k); saveNote(ex ? cur.map(x => x.id === k ? { ...x, note: v, by: canonUser(currentUser || ""), at: Date.now() } : x) : [...cur, { id: k, note: v, by: canonUser(currentUser || ""), at: Date.now() }]); };
+    const c = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" }, l = { ...S.td, textAlign: "left" };
+    const money = (v, col) => v ? h("span", { style: col ? { color: col } : null }, lsFmt(v)) : "";
+    const dd = String(now.getDate()).padStart(2, "0") + "/" + String(now.getMonth() + 1).padStart(2, "0") + "/" + now.getFullYear();
+    return h("div", null,
+      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
+        card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
+        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
+      h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
+        h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: bsQ, onChange: e => setBsQ(e.target.value) })),
+        h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END 的")),
+      h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+        h("thead", null, h("tr", null, ["#", "AS AT " + dd, "BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "公司", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined } }, x)))),
+        h("tbody", null,
+          !ppl.length ? h("tr", null, h("td", { colSpan: 9, style: { ...l, textAlign: "center", color: "#94a3b8", padding: 24 } }, (window.__crmBsPeople || []).length ? "没有资料" : "读取中…")) :
+          ppl.map((r, i) => h("tr", { key: r.k, style: r.run ? { background: "#fff1f2" } : r.ended ? { opacity: .6 } : undefined },
+            h("td", { style: { ...l, color: "#94a3b8", width: 30 } }, i + 1),
+            h("td", { style: { ...l, fontWeight: 800 } }, r.name, r.rc ? h("span", { style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#7c3aed" } }, "RC") : null, r.ended ? h("span", { style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#7c3aed" } }, "END") : null),
+            h("td", { style: c }, money(r.bank)), h("td", { style: c }, money(r.au, "#c2410c")), h("td", { style: c }, money(r.cu, "#b91c1c")), h("td", { style: c }, money(r.run, "#dc2626")),
+            h("td", { style: { ...c, fontWeight: 900 } }, lsFmt(r.tot)),
+            h("td", { style: { ...l, fontWeight: 800, color: r.co === "FUTURE" ? "#ea580c" : "#2563eb" } }, r.co),
+            h("td", { style: { ...l, minWidth: 220 } }, h("input", { key: r.k + ":" + r.note, defaultValue: r.note, placeholder: "备注…", onBlur: e => { const v = e.target.value.trim(); if (v !== r.note) setNote(r.k, v); }, onKeyDown: e => { if (e.key === "Enter") e.target.blur(); },
+              style: { width: "100%", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 8px", fontFamily: "inherit", fontSize: 12.5, boxSizing: "border-box", textTransform: "none" } })))),
+          ppl.length ? h("tr", { style: { background: "#f8fafc" } }, h("td", { style: l }), h("td", { style: { ...l, fontWeight: 900 } }, "TOTAL"),
+            ["bank", "au", "cu", "run", "tot"].map(f => h("td", { key: f, style: { ...c, fontWeight: 900 } }, lsFmt(sum(f)))), h("td", { style: l }), h("td", { style: l })) : null))));
+  };
+  const SRC = { bs: { lb: "Bank Statement" }, pl: { lb: "PL Costing", re: /^(FINPRO|FUTURE|PL)_COSTING_PART\.html$/i }, car: { lb: "Car Costing", re: /^CAR_SALES_QUOTATION\.html$/i }, agr: { lb: "Agreement", re: /^(FINPRO|FUTURE)_AGREEMENT\.html$/i } };
   const agV = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
-  const rows = (drafts || []).filter(d => d && SRC[src].re.test(d.file || "")).map(d => {
+  const rows = src === "bs" ? [] : (drafts || []).filter(d => d && SRC[src].re.test(d.file || "")).map(d => {
     const m = mm.get(d.id) || d.meta || {}, e = em.get(d.id) || {}, t = new Date(d.createdAt || d.c0 || d.at || 0);
     return { id: d.id, ym: t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0"), y: String(t.getFullYear()),
       co: /FUTURE/i.test(d.file) ? "FUTURE" : /CAR_/i.test(d.file) ? "CAR" : "FINPRO",
@@ -7265,8 +7308,9 @@ function SalesSummaryPage({ currentUser }) {
     h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 } },
       Object.keys(SRC).map(k => h("button", { key: k, onClick: () => setSrc(k), style: { border: "1px solid " + (src === k ? "var(--navy, #1e3a8a)" : "#e2e8f0"), background: src === k ? "var(--navy, #1e3a8a)" : "#fff", color: src === k ? "#fff" : "#1e293b", borderRadius: 10, padding: "8px 16px", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } }, SRC[k].lb)),
       h("span", { style: { flex: 1 } }),
-      h("select", { value: yr, onChange: e => setYr(e.target.value), style: sel }, h("option", { value: "all" }, "全部年份"), years.map(y => h("option", { key: y, value: y }, y))),
-      h("select", { value: mo, onChange: e => setMo(e.target.value), style: sel }, h("option", { value: "all" }, "全部月份"), MN.map((m, i) => h("option", { key: m, value: String(i + 1).padStart(2, "0") }, m)))),
+      src !== "bs" && h("select", { value: yr, onChange: e => setYr(e.target.value), style: sel }, h("option", { value: "all" }, "全部年份"), years.map(y => h("option", { key: y, value: y }, y))),
+      src !== "bs" && h("select", { value: mo, onChange: e => setMo(e.target.value), style: sel }, h("option", { value: "all" }, "全部月份"), MN.map((m, i) => h("option", { key: m, value: String(i + 1).padStart(2, "0") }, m)))),
+    src === "bs" ? bsView() : h("div", null,
     h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 } },
       card("份数", T.n, "#4f46e5", "#eef2ff"),
       showMoney && card("SUBTOTAL 总数", RM(T.sub), "#a16207", "#fefce8"),
@@ -7276,7 +7320,7 @@ function SalesSummaryPage({ currentUser }) {
     mo === "all" && table("📅 每个月", byMonth, "月份", (a, b) => b.k.localeCompare(a.k)),
     table("👤 每个 Agent", agg(cur, r => r.agent), "Agent", (a, b) => b.n - a.n || b.sub - a.sub),
     table("🧑‍💼 每个 Admin", agg(cur, r => r.admin).map(o => ({ ...o, label: String(o.k).toUpperCase() })), "Admin", (a, b) => b.n - a.n),
-    src !== "car" && table("🏢 Finpro vs Future", agg(cur, r => r.co), "公司", (a, b) => a.k.localeCompare(b.k)));
+    src !== "car" && table("🏢 Finpro vs Future", agg(cur, r => r.co), "公司", (a, b) => a.k.localeCompare(b.k))));
 }
 
 function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped, onSetStatusBatch, onSetRemark }) {
