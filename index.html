@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123104500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123110500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1924,7 +1924,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "476";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "477";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* Money / Alice 是 Future：存档 PL Costing → 自动开一份 Future Agreement（名字、Loan For、Loan Amount、EPF / PCB / BACKDATE / LEGAL…都先填好） */
 const COST_TO_FUTURE_USERS = [];   /* 暂时不用（要开回来就放 "money", "alice"） */
@@ -6854,13 +6854,13 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
         return h("input", { ...ro, className: "keep-case", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
           onBlur: e => { setEdJ(null); focus.current = false; const t = e.target.value.trim(); if (BS_NUM_RE.test(t) && t !== lsFmt(lsNum(t))) setC(lsFmt(lsNum(t))); setTimeout(() => commit(), 0); },
           style: { ...box, ...aw(v), textAlign: "center", fontWeight: isN ? 900 : 400, color: isN ? "#dc2626" : undefined } }); })()   /* S.C 不要了 */),
-      h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : fr(k, "k", { fontWeight: 400 })),
-      /* 最右边新加一栏：AGENT USE（填数目 → 橙色、加起来） */
+      /* AGENT USE（填数目 → 橙色、加起来）—— 放在公司名字那栏的左边 */
       h("td", { style: { ...cell, minWidth: 100, textAlign: "right", fontWeight: 800, background: k === 0 ? "#ffedd5" : undefined } }, k === 0 ? h("span", { style: { fontWeight: 900, fontSize: 11, color: "#c2410c", letterSpacing: ".03em" } }, "AGENT USE") : (() => {
         const ck = k + "_ag", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
         return h("input", { ...ro, title: "AGENT USE", value: edJ === ck || !isN ? v : lsFmt(lsNum(v)), onChange: e => setC(e.target.value.toUpperCase()), onFocus: e => { setEdJ(ck); ev.onFocus && ev.onFocus(e); },
           onBlur: e => { setEdJ(null); focus.current = false; const t2 = e.target.value.trim(); if (BS_NUM_RE.test(t2) && t2 !== lsFmt(lsNum(t2))) setC(lsFmt(lsNum(t2))); setTimeout(() => commit(), 0); },
-          style: { ...box, ...aw(v), textAlign: "right", fontWeight: isN ? 900 : 400, color: isN ? "#c2410c" : undefined } }); })())));
+          style: { ...box, ...aw(v), textAlign: "right", fontWeight: isN ? 900 : 400, color: isN ? "#c2410c" : undefined } }); })()),
+      h("td", { style: { ...cell, minWidth: 180, fontWeight: 900, color: k === 2 ? "#dc2626" : undefined } }, k === 1 ? tx(d.company, v => set("company", v), { fontWeight: 900 }, "COMPANY", true) : k === 2 ? tx(d.position, v => set("position", v), { fontWeight: 900, color: "#dc2626" }, "POSITION", true) : k === 3 ? tx(d.useCard, v => set("useCard", v), { fontWeight: 900 }, "USE CARD", true) : fr(k, "k", { fontWeight: 400 }))));
   }
   trs.push(h("tr", { key: "add" }, h("td", { colSpan: 7, style: { ...cell, height: 14, padding: "2px 8px" } }),
     h("td", { style: { ...cell, height: 14, padding: "2px 8px", textAlign: "center" } }, h("button", { onClick: () => { const nx = { ...d, [XR]: (parseInt(d[XR]) || 0) + 1 }; setD(nx); commit(nx); }, title: "加格子下去", style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 6, padding: "1px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ ADD")),
