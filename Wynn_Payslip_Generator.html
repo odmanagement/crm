@@ -329,5 +329,24 @@ window.__crmSetExtra = function (o) {
   try { render(); } catch (e) {}
 };
 </script>
+<script>
+/* 打印 / 保存 PDF 的文件名：PAYSLIP 2026-08 - NAME（几个月：PAYSLIP 2026-08 to 2026-10 - NAME） */
+(function () {
+  var op = window.print.bind(window);
+  window.print = function () {
+    var old = document.title;
+    try {
+      var n = Math.max(1, Math.min(24, parseInt(D.cnt || D.count, 10) || 1)), s = D.dir === "back" ? -1 : 1, y0 = parseInt(D.year, 10) || new Date().getFullYear(), ks = [];
+      for (var i = 0; i < n; i++) { var t = y0 * 12 + (+D.mon || 0) + s * i; ks.push(t); }
+      ks.sort(function (a, b) { return a - b; });
+      var f = function (t) { return Math.floor(t / 12) + "-" + ("0" + ((t % 12 + 12) % 12 + 1)).slice(-2); };
+      var nm = String(D.name || "").trim().toUpperCase();
+      document.title = "PAYSLIP " + f(ks[0]) + (ks.length > 1 ? " to " + f(ks[ks.length - 1]) : "") + (nm ? " - " + nm : "");
+    } catch (e) {}
+    var pd = null, pold = ""; try { if (window.parent && window.parent !== window) { pd = window.parent.document; pold = pd.title; pd.title = document.title; } } catch (e) { pd = null; }   /* 在 CRM 里面打印：上面那页的名字也一起换 */
+    op(); setTimeout(function () { document.title = old; try { if (pd) pd.title = pold; } catch (e) {} }, 1000);
+  };
+})();
+</script>
 </body>
 </html>
