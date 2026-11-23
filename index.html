@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123142600";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123144000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1833,6 +1833,10 @@ const NAV = [{
     id: "salarylist",
     label: "Salary Status",
     icon: Wallet
+  }, {
+    id: "salessum",
+    label: "Summary",
+    icon: TrendingUp
   }]
 }, {
   /* OD Payment / Return Salary / Boss Take 放在一个 Group */
@@ -1924,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "492";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "493";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -3990,7 +3994,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
-  }) : page === "acc_salary" ? React.createElement(AccSalaryPage, { currentUser }) : page === "acc_final" ? React.createElement(AccountBlankPage, { title: "Final Record" }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
+  }) : page === "acc_salary" ? React.createElement(AccSalaryPage, { currentUser }) : page === "acc_final" ? React.createElement(AccountBlankPage, { title: "Final Record" }) : page === "salessum" ? React.createElement(SalesSummaryPage, { currentUser }) : page === "salarylist" ? /*#__PURE__*/React.createElement(SalaryListPage, {
     clients: clients,
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
@@ -7222,6 +7226,59 @@ function AccountBlankPage({ title }) {
     h("div", { style: { fontSize: 22, fontWeight: 900, color: "#1e1b4b" } }, title),
     h("div", { style: { marginTop: 8, color: "#94a3b8", fontWeight: 700 } }, "这一页准备好了，内容还没放")));
 }
+/* ===== SALES → Summary：PL Costing / Car Costing / Agreement 一页看总数（每个月、每个 Agent、每个 Admin、Finpro vs Future） ===== */
+function SalesSummaryPage({ currentUser }) {
+  const h = React.createElement;
+  const [drafts] = useCloudList("form_drafts"), [metaL] = useCloudList("costing_meta"), [extL] = useCloudList("costing_extras");
+  const now = new Date(), [yr, setYr] = React.useState(String(now.getFullYear())), [mo, setMo] = React.useState("all"), [src, setSrc] = React.useState("pl");
+  const mm = new Map((Array.isArray(metaL) ? metaL : []).filter(x => x && x.id).map(x => [x.id, x]));
+  const em = new Map((Array.isArray(extL) ? extL : []).filter(x => x && x.id).map(x => [x.id, x]));
+  const SRC = { pl: { lb: "PL Costing", re: /^(FINPRO|FUTURE|PL)_COSTING_PART\.html$/i }, car: { lb: "Car Costing", re: /^CAR_SALES_QUOTATION\.html$/i }, agr: { lb: "Agreement", re: /^(FINPRO|FUTURE)_AGREEMENT\.html$/i } };
+  const agV = (d, k) => { const x = (d.values || []).find(v => v[0] === k); return x ? String(x[1] || "") : ""; };
+  const rows = (drafts || []).filter(d => d && SRC[src].re.test(d.file || "")).map(d => {
+    const m = mm.get(d.id) || d.meta || {}, e = em.get(d.id) || {}, t = new Date(d.createdAt || d.c0 || d.at || 0);
+    return { id: d.id, ym: t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0"), y: String(t.getFullYear()),
+      co: /FUTURE/i.test(d.file) ? "FUTURE" : /CAR_/i.test(d.file) ? "CAR" : "FINPRO",
+      agent: String(m.agent || agV(d, "@fAgent") || "—").trim().toUpperCase() || "—", admin: canonUser(d.by || "") || "—",
+      sub: lsNum(m.subtotal), bal: lsNum(m.balance), done: !!(e.done || d.done), bad: !!(e.bad || d.bad) }; });
+  const years = Array.from(new Set(rows.map(r => r.y).concat([String(now.getFullYear())]))).sort().reverse();
+  const cur = rows.filter(r => (yr === "all" || r.y === yr) && (mo === "all" || r.ym.slice(5) === mo));
+  const agg = (list, key) => { const g = {}; list.forEach(r => { const k = key(r); const o = g[k] = g[k] || { k, n: 0, sub: 0, bal: 0, done: 0, bad: 0 }; o.n++; o.sub += r.sub; o.bal += r.bal; if (r.done) o.done++; if (r.bad) o.bad++; }); return Object.values(g); };
+  const T = agg(cur, () => "t")[0] || { n: 0, sub: 0, bal: 0, done: 0, bad: 0 };
+  const RM = v => "RM " + lsFmt(v);
+  const card = (lb, v, c, bg) => h("div", { style: { background: bg, border: "1px solid " + c + "33", borderRadius: 14, padding: "12px 16px", minWidth: 150, flex: "1 1 150px" } },
+    h("div", { style: { fontSize: 11.5, fontWeight: 800, color: c, letterSpacing: ".04em" } }, lb), h("div", { style: { fontSize: 20, fontWeight: 900, color: "#0f172a", marginTop: 4 } }, v));
+  const th = { ...S.th, textAlign: "left" }, td = { ...S.td, textAlign: "left" }, tdn = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 800 };
+  const showMoney = src !== "agr";
+  const table = (title, list, kLabel, sortBy) => h("div", { style: { ...S.tableWrap, marginBottom: 16 } },
+    h("div", { style: { padding: "10px 14px", fontWeight: 900, fontSize: 14, borderBottom: "1px solid #e2e8f0", background: "#f8fafc" } }, title),
+    h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, [kLabel, "份数"].concat(showMoney ? ["Subtotal", "Balance"] : [], ["DONE", "跑了"]).map((x, i) => h("th", { key: i, style: i ? { ...S.th, textAlign: "right" } : th }, x)))),
+      h("tbody", null, !list.length ? h("tr", null, h("td", { colSpan: 6, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 20 } }, "没有资料")) :
+        list.sort(sortBy).map(o => h("tr", { key: o.k }, h("td", { style: { ...td, fontWeight: 900 } }, o.label || o.k), h("td", { style: tdn }, o.n),
+          showMoney && h("td", { style: tdn }, RM(o.sub)), showMoney && h("td", { style: { ...tdn, color: o.bal < 0 ? "#15803d" : "#b91c1c" } }, RM(o.bal)),
+          h("td", { style: { ...tdn, color: "#15803d" } }, o.done || "—"), h("td", { style: { ...tdn, color: "#b91c1c" } }, o.bad || "—"))))));
+  const MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const byMonth = agg(cur, r => r.ym).map(o => ({ ...o, label: MN[+o.k.slice(5) - 1] + " " + o.k.slice(0, 4) }));
+  const sel = { border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontFamily: "inherit", background: "#fff" };
+  return h("div", null,
+    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 } },
+      Object.keys(SRC).map(k => h("button", { key: k, onClick: () => setSrc(k), style: { border: "1px solid " + (src === k ? "var(--navy, #1e3a8a)" : "#e2e8f0"), background: src === k ? "var(--navy, #1e3a8a)" : "#fff", color: src === k ? "#fff" : "#1e293b", borderRadius: 10, padding: "8px 16px", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } }, SRC[k].lb)),
+      h("span", { style: { flex: 1 } }),
+      h("select", { value: yr, onChange: e => setYr(e.target.value), style: sel }, h("option", { value: "all" }, "全部年份"), years.map(y => h("option", { key: y, value: y }, y))),
+      h("select", { value: mo, onChange: e => setMo(e.target.value), style: sel }, h("option", { value: "all" }, "全部月份"), MN.map((m, i) => h("option", { key: m, value: String(i + 1).padStart(2, "0") }, m)))),
+    h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 } },
+      card("份数", T.n, "#4f46e5", "#eef2ff"),
+      showMoney && card("SUBTOTAL 总数", RM(T.sub), "#a16207", "#fefce8"),
+      showMoney && card("BALANCE 总数", RM(T.bal), "#b91c1c", "#fef2f2"),
+      card("✓ DONE", T.done, "#15803d", "#f0fdf4"),
+      card("跑了", T.bad, "#b91c1c", "#fff1f2")),
+    mo === "all" && table("📅 每个月", byMonth, "月份", (a, b) => b.k.localeCompare(a.k)),
+    table("👤 每个 Agent", agg(cur, r => r.agent), "Agent", (a, b) => b.n - a.n || b.sub - a.sub),
+    table("🧑‍💼 每个 Admin", agg(cur, r => r.admin).map(o => ({ ...o, label: String(o.k).toUpperCase() })), "Admin", (a, b) => b.n - a.n),
+    src !== "car" && table("🏢 Finpro vs Future", agg(cur, r => r.co), "公司", (a, b) => a.k.localeCompare(b.k)));
+}
+
 function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser, onClearAll, onSetStopped, onSetStatusBatch, onSetRemark }) {
   const h = React.createElement;
   const [q, setQ] = React.useState("");
