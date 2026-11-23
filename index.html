@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123162000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123163000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "503";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "504";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -10548,6 +10548,14 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
             h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, open.draft ? "存档：" + (open.draft.title || "(未命名)") + " · " + fmtT(open.draft.at) : "新的一份（还没存档）")),
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
           viewOnly && h("span", { title: "只有 Admin 才能更改", style: { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10, padding: "7px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, "👁 只能看 · ADMIN " + String(open.draft.by || "").toUpperCase()),
+          /* 只有老板（Lucas）可以换这份的 Admin：换了以后那个 Admin 就可以直接改 */
+          open.draft && isMissionBoss(canonUser(currentUser || "")) && h("label", { title: "老板：换给哪个 Admin 改", style: { display: "flex", alignItems: "center", gap: 6, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: "4px 8px 4px 12px", fontWeight: 800, fontSize: 12.5, color: "#4338ca", whiteSpace: "nowrap" } }, "✏️ ADMIN",
+            h("select", { value: canonUser(open.draft.by || ""), onChange: e => { const v = e.target.value, me = canonUser(currentUser || ""), d0 = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!v || sameUser(v, d0.by)) return;
+                if (!window.confirm("把「" + (d0.title || "这份") + "」换给 " + v.toUpperCase() + " 做 Admin？\n换了以后 " + v.toUpperCase() + " 可以直接更改。")) return;
+                const nd = { ...d0, by: v, lastBy: me }; saveDrafts((drafts || []).map(x => x.id === d0.id ? nd : x)); setOpen({ ...open, draft: nd });
+                try { if (!sameUser(v, me) && window.__crmAddNotice) window.__crmAddNotice({ id: "own:" + d0.id + ":" + v + ":" + Date.now(), kind: "ref", page: /AGREEMENT/i.test(d0.file || "") ? "agreement" : /CAR_SALES/i.test(d0.file || "") ? "costing_car" : /COSTING/i.test(d0.file || "") ? "costing_pl" : "html_forms", to: v, from: me, loud: true, title: (d0.title || open.tool.name), task: "老板把这份换给你做 Admin，你现在可以更改了", at: Date.now() }); } catch (er) {} },
+              style: { border: "1px solid #c7d2fe", borderRadius: 7, background: "#fff", fontWeight: 800, fontSize: 12.5, padding: "3px 6px", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer", color: "#1e1b4b" } },
+              Array.from(new Set([canonUser(open.draft.by || "")].concat((drafts || []).flatMap(x => [canonUser(x.by || ""), canonUser(x.lastBy || "")])))).filter(u => u && !READONLY_USERS.includes(u)).sort().map(u => h("option", { key: u, value: u }, u.toUpperCase())))),
           open.draft && lfCanEdit(open.draft.by, canonUser(currentUser || "")) && h("button", { onClick: () => { const d = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!window.confirm("删除这份存档「" + (d.title || "") + "」？删除了不能还原。" + (/AGREEMENT/i.test(d.file || "") ? "\n\n⚠ 连着的 Closing 也会一起删除。" : ""))) return; if (d.native) nativeDelete(d.file, d.title); saveDrafts((drafts || []).filter(x => x.id !== d.id)); czAgreementDeleted(d); setOpen(null); }, title: "删除这份存档", style: { border: "1px solid #fecaca", background: "#fff", color: "#dc2626", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "🗑 删除"),
           open.draft && !viewOnly && !noLib && h("button", { onClick: () => { const t = window.prompt("存档名字：", open.draft.title || ""); if (t != null) { const nd = renameDraftTo(open.draft, t); setOpen({ ...open, draft: nd }); } }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "✎ 改名"),
           h("button", { onClick: () => { try { frameRef.current.contentWindow.focus(); frameRef.current.contentWindow.print(); } catch (e) {} }, style: { border: "1px solid #e2e8f0", background: "#fff", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" } }, "🖨 Print"),
