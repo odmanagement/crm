@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123166000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123170000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "507";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "508";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -3502,6 +3502,7 @@ function CRM({ onLogout, currentUser }) {
     try {
       const raw = await DB.get("mission_notices");
       const cur = raw ? JSON.parse(raw) : [];
+      if (n && n.id && cur.some(x => x && x.id === n.id)) return;   /* 同一个 id 已经有了 → 不重复 */
       const next = [...cur, n].slice(-200);
       setNotices(next);
       await DB.set("mission_notices", JSON.stringify(next));
@@ -3531,7 +3532,9 @@ function CRM({ onLogout, currentUser }) {
     if (loudSeen.current === null) loudSeen.current = { set: new Set(), since: Date.now() };
     const fresh = mine.filter(n => !loudSeen.current.set.has(n.id) && (n.at || 0) > loudSeen.current.since - 5000);
     mine.forEach(n => loudSeen.current.set.add(n.id));
-    if (fresh.length) crmLoudAlert(fresh[fresh.length - 1], () => { setOpenId(null); setPage(fresh[fresh.length - 1].page || "odpayment"); });
+    const go = n => () => { setOpenId(null); setPage(n.page || "odpayment"); };
+    fresh.filter(n => n.sticky).forEach(n => crmLoudAlert(n, go(n)));   /* 要按「知道了」的提醒：每一个都弹出来 */
+    const fl = fresh.filter(n => !n.sticky); if (fl.length) crmLoudAlert(fl[fl.length - 1], go(fl[fl.length - 1]));
   }, [notices]);
   window.__crmGoPage = pg => { setOpenId(null); setPage(pg); };
   window.__crmOpenClient = (cid, type) => { if (["house", "car", "personal"].includes(type)) setPage(type); setOpenId(cid); };
@@ -3886,7 +3889,7 @@ function CRM({ onLogout, currentUser }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "app-shell" + (USER_THEMES[canonUser(currentUser)] ? " theme-" + USER_THEMES[canonUser(currentUser)] : ""),
     style: S.shell
-  }, /*#__PURE__*/React.createElement("style", null, CSS), OD_PAY_NOTIFY.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(OdPayWatch, { me: currentUser }) : null, PL_APPROVE_NOTIFY.some(u => sameUser(u, currentUser)) ? React.createElement(PlApproveWatch, { me: currentUser, clients }) : null, SL_REMIND_USERS.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(SalStatusRemind, { me: currentUser }) : null, /*#__PURE__*/React.createElement(SideNav, {
+  }, /*#__PURE__*/React.createElement("style", null, CSS), OD_PAY_NOTIFY.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(OdPayWatch, { me: currentUser }) : null, PL_APPROVE_NOTIFY.some(u => sameUser(u, currentUser)) ? React.createElement(PlApproveWatch, { me: currentUser, clients }) : null, SL_REMIND_USERS.some(u => sameUser(u, currentUser)) ? /*#__PURE__*/React.createElement(SalStatusRemind, { me: currentUser }) : null, React.createElement(BsCollectRemind, { me: currentUser }), /*#__PURE__*/React.createElement(SideNav, {
     page: page,
     setPage: setPage,
     openGroups: openGroups,
@@ -6050,6 +6053,40 @@ const SL_REMIND_USERS = ["vv", "alice", "money"];   /* 每个月差不多 20 号
 const slNextYm = ym => { const [y, m] = String(ym).split("-").map(Number), d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
 /* 提醒日：20 号；20 号是星期六 / 日 → 提早到星期五 */
 const slRemindDay = (y, m) => { const d = new Date(y, m, 20), w = d.getDay(); return w === 6 ? 19 : w === 0 ? 18 : 20; };
+/* ===== 收回 Salary 提醒（每个负责的 Admin 自己的客户，看 Bank Statement 的 Balance） =====
+   6 号起：Balance 还有（> RM 1,000）→ 提醒去收回 Salary
+   15 号起：至少要收回一半（Balance 要 ≤ 最近一个月 Salary 的一半）→ 没有就每天提醒
+   25 号起：全部要收回，Balance 只能剩 RM 1,000 → 没有就每天提醒
+   客户已经 END，Balance 还有 → 每天提醒（不管几号），收完为止 */
+const BS_COLLECT_KEEP = 1000;
+function bsCollectList(me, now) {
+  const day = now.getDate(), out = [];
+  (window.__crmBsPeople || []).forEach(p => {
+    if (!p || !p.bal || !sameUser(p.owner || "lucas", me)) return;
+    const b = lsNum(p.bal); if (!(b > 0.5)) return;
+    if (p.ended) { out.push({ p, b, why: "⛔ 已经 END，还没收回", need: b }); return; }
+    if (day >= 25) { if (b > BS_COLLECT_KEEP + 0.5) out.push({ p, b, why: "25 号了，只能剩 RM " + lsFmt(BS_COLLECT_KEEP), need: b - BS_COLLECT_KEEP }); }
+    else if (day >= 15) { const lim = Math.max(BS_COLLECT_KEEP, (p.lastCr || 0) * 0.5); if (b > lim + 0.5) out.push({ p, b, why: "15 号了，至少要收回一半（最多剩 RM " + lsFmt(lim) + "）", need: b - lim }); }
+    else if (day >= 6) { if (b > BS_COLLECT_KEEP + 0.5) out.push({ p, b, why: "6 号了，要开始收回 Salary", need: b - BS_COLLECT_KEEP }); }
+  });
+  return out.sort((x, y) => (y.p.ended ? 1 : 0) - (x.p.ended ? 1 : 0) || y.b - x.b);
+}
+function BsCollectRemind({ me }) {
+  React.useEffect(() => {
+    const run = () => { const meC = canonUser(me || ""); if (!meC || READONLY_USERS.includes(meC) || !Array.isArray(window.__crmBsPeople) || !window.__crmBsPeople.length) return;
+      const now = new Date(), ds = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + (now.getHours() >= 14 ? "pm" : "am");   /* 一天两次：早上 + 下午 2 点后 */
+      const k = "crm_bscollect_" + meC + "_" + ds; try { if (localStorage.getItem(k)) return; } catch (e) { return; }
+      const L = bsCollectList(meC, now); try { localStorage.setItem(k, "1"); } catch (e) {}
+      if (!L.length) return;
+      const nEnd = L.filter(x => x.p.ended).length, tot = L.reduce((t, x) => t + x.b, 0);
+      const task = L.slice(0, 15).map(x => "• " + x.p.name + " — Balance RM " + lsFmt(x.b) + "｜" + x.why + (x.p.ended ? "" : "（还要收 RM " + lsFmt(x.need) + "）")).join("\n") + (L.length > 15 ? "\n…还有 " + (L.length - 15) + " 个" : "");
+      try { window.__crmAddNotice && window.__crmAddNotice({ id: "bscollect_" + meC + "_" + ds, kind: "ref", page: L[0].p.store === "bank_stmt_people_rencai" ? "bankstmt2" : "bankstmt", to: meC, from: "system", loud: true, sticky: true,
+        title: "💰 收回 Salary 提醒 · " + L.length + " 个客户" + (nEnd ? "（" + nEnd + " 个已经 END ⛔）" : "") + " · 共 RM " + lsFmt(tot), task, at: Date.now() }); } catch (e) {} };
+    const t0 = setTimeout(run, 10000), t = setInterval(run, 20 * 60 * 1000); window.addEventListener("crm-bs-people", run);
+    return () => { clearTimeout(t0); clearInterval(t); window.removeEventListener("crm-bs-people", run); };
+  }, [me]);
+  return null;
+}
 function SalStatusRemind({ me }) {
   React.useEffect(() => {
     const run = () => { const now = new Date(), ym = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
@@ -6722,8 +6759,11 @@ function BsPeopleLoader() {
       const salSets = [];
       try { const cr3 = bs.credits || [], st3 = cr3.findIndex(x => x && x.stop), c0 = (cr3.find(x => x && x.calc) || {}).calc || (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
         cr3.forEach((x, i) => { if (!x || (st3 >= 0 && i >= st3) || !(x.date || x.amount)) return; const c = x.calc || c0; if (!c) return; salSets.push({ label: x.date ? bsNormDmy(x.date) : "", items: mkSal(c) }); }); } catch (e) {}
+      /* 最近一个月进去的 Salary（Credited）数目 → 15 号至少要收回一半 */
+      let lastCr = 0; try { const cr4 = bs.credits || [], st4 = cr4.findIndex(x => x && x.stop); let best = "";
+        cr4.forEach((x, i) => { if (!x || (st4 >= 0 && i >= st4) || !lsNum(x.amount)) return; const d = x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (d >= best) { best = d; lastCr = lsNum(x.amount); } }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ owner: canonUser(p.owner || p.by || (bs && bs.by) || ""), cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ owner: canonUser(p.owner || p.by || (bs && bs.by) || ""), lastCr, cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
@@ -6765,6 +6805,23 @@ function crmLoudAlert(n, onGo) {
       const beep = (f, t, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "square"; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.6, t + .01); g.gain.setValueAtTime(.6, t + d - .03); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + .02); };
       let t = ac.currentTime + .05; for (let r = 0; r < 3; r++) { for (let i = 0; i < 3; i++) { beep(1320, t, .12); beep(1760, t + .14, .12); t += .32; } t += .45; } }
   } catch (e) {}
+  /* sticky：一定要按「知道了」才会关（收回 Salary 提醒用），不会被别的提醒盖掉 */
+  if (n && n.sticky) { try {
+    const id = "crm-sticky-" + String(n.id || "x").replace(/[^\w-]/g, ""); if (document.getElementById(id)) return;
+    const esc = v => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const w = document.createElement("div"); w.id = id;
+    Object.assign(w.style, { position: "fixed", inset: "0", zIndex: 100001, background: "rgba(15,23,42,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" });
+    w.innerHTML = '<div style="background:#fff;border-radius:18px;max-width:640px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden;font-family:inherit;animation:crmShake .5s ease 0s 3">'
+      + '<div style="background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;padding:16px 20px;font-weight:900;font-size:19px">🔔 ' + esc(n.title) + '</div>'
+      + '<div style="padding:14px 20px;white-space:pre-line;font-size:14px;line-height:1.7;color:#1e293b;font-weight:700;max-height:55vh;overflow:auto">' + esc(n.task) + '</div>'
+      + '<div style="display:flex;gap:10px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #f1f5f9"><button data-a="ok" style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:inherit">知道了</button><button data-a="go" style="border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:inherit">去 Bank Statement →</button></div></div>';
+    w.querySelector('[data-a="ok"]').onclick = () => w.remove();
+    w.querySelector('[data-a="go"]').onclick = () => { w.remove(); onGo && onGo(); };
+    w.firstChild.style.transform = "none";
+    try { w.style.fontFamily = getComputedStyle(document.querySelector(".cz-page") || document.getElementById("root") || document.body).fontFamily; w.querySelectorAll("button").forEach(b => b.style.fontFamily = w.style.fontFamily); } catch (e) {}
+    document.body.appendChild(w);
+    try { if (document.hidden && "Notification" in window && Notification.permission === "granted") new Notification(n.title || "", { body: n.task || "" }); } catch (e) {}
+  } catch (e) {} return; }
   try {
     const old = document.getElementById("crm-loud-alert"); if (old) old.remove();
     const d = document.createElement("div"); d.id = "crm-loud-alert";
