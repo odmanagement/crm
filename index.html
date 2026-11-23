@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123164000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123165000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "505";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "506";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7691,9 +7691,13 @@ function ReceiptPage({ currentUser, clients }) {
   const [bsP1] = useCloudList("bank_stmt_people"), [bsP2] = useCloudList("bank_stmt_people_rencai");
   const bsNames = Array.from(new Set([...items.map(x => x.from), ...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name)].map(n => String(n || "").trim().toUpperCase()).filter(Boolean))).sort();
   /* 改错名字（一次性）：JANICE LEE → JANICE LEE SZE CHEE，KHONG CHIA WYE → KHONG CHIU WYE */
-  React.useEffect(() => { if (!list || READONLY_USERS.includes(me)) return; const FIX = { "JANICE LEE": "JANICE LEE SZE CHEE", "KHONG CHIA WYE": "KHONG CHIU WYE" };
+  React.useEffect(() => { if (!list || READONLY_USERS.includes(me)) return; const FIX = { "JANICE LEE": "JANICE LEE SZE CHEE", "KHONG CHIA WYE": "KHONG CHIU WYE", "SYAMIL": "SYAMIL HAFIZI BIN SABARUDIN" };
     const key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
-    if (items.some(x => FIX[key(x.from)])) save(items.map(x => FIX[key(x.from)] ? { ...x, from: FIX[key(x.from)] } : x)); }, [list]);
+    const fx = n => FIX[key(n)] || rcFullName(n);
+    if (items.some(x => fx(x.from) && fx(x.from) !== key(x.from))) save(items.map(x => { const v = fx(x.from); return v && v !== key(x.from) ? { ...x, from: v } : x; })); }, [list, bsP1, bsP2, clients && clients.length]);
+  /* 名字只打一半（例 SYAMIL）→ Bank Statement / 客户名单里只有一个是这样开头的，就换成 fullname */
+  const fullPool = Array.from(new Set([...(bsP1 || []).map(p => p.name), ...(bsP2 || []).map(p => p.name), ...(clients || []).map(c => c && (c.name || c.fullName))].map(n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ")).filter(Boolean)));
+  const rcFullName = n => { const k = String(n || "").trim().toUpperCase().replace(/\s+/g, " "); if (!k || fullPool.includes(k)) return ""; const m = fullPool.filter(x => x.startsWith(k + " ")); return m.length === 1 ? m[0] : ""; };
   const renameRc = r => { const t = window.prompt("改名字：", String(r.from || "").toUpperCase()); if (t == null || !t.trim()) return; const nv = t.trim().toUpperCase().replace(/\s+/g, " ");
     const same = items.filter(x => x.id !== r.id && String(x.from || "").trim().toUpperCase() === String(r.from || "").trim().toUpperCase());
     const all = same.length && window.confirm("还有 " + same.length + " 张收据也是「" + String(r.from || "").toUpperCase() + "」，要一起改成「" + nv + "」吗？");
@@ -7710,7 +7714,7 @@ function ReceiptPage({ currentUser, clients }) {
   const create = (andPrint) => {
     if (!f.from.trim()) { alert("请填名字"); return; }
     if (!(Number(String(f.amount).replace(/,/g, "")) > 0)) { alert("请填金额"); return; }
-    const r = { id: uid(), no: nextNo(), ...f, from: f.from.trim(), amount: String(f.amount).replace(/,/g, ""), method: f.atm ? (f.atmType === "transfer" ? "ATM Transfer" : "ATM Withdraw") : "", by: me, at: Date.now() };
+    const r = { id: uid(), no: nextNo(), ...f, from: rcFullName(f.from) || f.from.trim().toUpperCase(), amount: String(f.amount).replace(/,/g, ""), method: f.atm ? (f.atmType === "transfer" ? "ATM Transfer" : "ATM Withdraw") : "", by: me, at: Date.now() };
     save([r, ...items]); monetSfx("create");
     btNotify(String(me || "").toUpperCase() + " 新增了一笔 Boss Take 🧾", String(r.from || "").toUpperCase() + " · RM " + lsFmt(lsNum(r.amount)) + (r.remark ? " · " + r.remark : ""));
     setF(blank());
