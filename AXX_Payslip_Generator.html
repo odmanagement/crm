@@ -351,5 +351,15 @@ window.addEventListener("input", function (e) {
   var a = el.selectionStart, b = el.selectionEnd; el.value = u; try { el.setSelectionRange(a, b); } catch (er) {}
 }, true);
 </script>
+<style>.no-count-row{display:none!important}</style>
+<script>
+/* 不用「份数 / 时间方向」：藏起来，一律出 1 张 */
+(function(){ var el=document.querySelector('[data-f="count"]'); if(!el) return; var row=el.closest('.grid'); if(row) row.classList.add('no-count-row');
+  try{ D.count="1"; D.dir="fwd"; render(); }catch(e){} })();
+</script>
+<script>
+/* CRM「新的一份」：全部清空（存起来的员工不会删） */
+window.__crmNewBlank = function () { try { var keep = D.coName; D = blank(); if (keep && "coName" in D && !D.coName) D.coName = keep; if ("count" in D) { D.count = "1"; D.dir = "fwd"; } localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} try { buildForm(); } catch (e) {} try { render(); } catch (e) {} };
+</script>
 </body>
 </html>
