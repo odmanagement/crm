@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123163000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261123164000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "504";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "505";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -6427,15 +6427,18 @@ function costSyncData(data, p, L, opt) {
   for (let i = 0; i < C.length; i++) { const r = C[i]; if (!isSal(r) || !r.cid) continue; const m = byId.get(r.cid);
     if (seen.has(r.cid) || (r.auto && m && m.costed === "a")) { C.splice(i, 1); i--; } else seen.add(r.cid); }
   /* 3. 名字 / 数目跟着 Bank Statement */
-  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (r.name !== m.name) r.name = m.name;   /* 存档一律用「SALARY - 日期」（旧版看得懂 → 不会再一直加；表格上显示 EPF/SOCSO/PCB） */ if (r.amt !== m.amt) r.amt = m.amt; });
+  [...A, ...C].forEach(r => { const m = r.cid && byId.get(r.cid); if (!m) return; if (r.name !== m.name) r.name = m.name;   /* 存档一律用「SALARY - 日期」（旧版看得懂 → 不会再一直加；表格上显示 EPF/SOCSO/PCB） */ 
+    /* 数目：跟着 Bank Statement；但是自己手动改过（跟上次 Bank Statement 给的不一样）就留着自己改的 */
+    const bs = r.bsAmt, man = bs !== undefined && bs !== "" && Math.abs(lsNum(r.amt) - lsNum(bs)) > 0.005;
+    if (!man) { if (r.amt !== m.amt) r.amt = m.amt; r.bsAmt = m.amt; } });
   /* 3b. Part A 还没有月份、也还没有任何月份存档过（没颜色）→ Part A.A 里自动加的月份搬去 Part A（第一次都放 Part A） */
   if (months.length && !A.some(isSal) && !months.some(m => m.costed)) for (let i = 0; i < C.length; i++) { const r = C[i]; if (isSal(r) && r.auto && r.cid && byId.has(r.cid)) { C.splice(i, 1); i--; putA({ ...r, mult: "", hasMult: false }); } }
   /* 4. 还没进这份 Costing 的月份 */
   const hasSal = [...A, ...C].some(isSal), epfOld = A.some(r => /^(EPF|SOCSO\/EIS\/PCB)$/.test(N(r)) && lsNum(r.amt));
   const missing = months.filter(m => !seen.has(m.cid));
   const allCosted = months.length && months.every(m => m.costed), noneCosted = !months.some(m => m.costed);
-  const rowA = m => ({ name: m.name, amt: m.amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
-  const rowC = m => ({ name: m.name, amt: m.amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
+  const rowA = m => ({ name: m.name, amt: m.amt, bsAmt: m.amt, mult: "", hasMult: false, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
+  const rowC = m => ({ name: m.name, amt: m.amt, bsAmt: m.amt, mult: "10", hasMult: true, pinned: false, agentAmt: "", lock: false, auto: true, cid: m.cid });
   if (missing.length && (noneCosted || (!hasSal && (fresh || epfOld || allCosted)))) {   /* 还没存档过（没颜色）→ 全部 Part A */
     /* 第一次（还没有任何月份）→ 全部放 Part A（没有 ×）；EPF / SOCSO 清空 */
     missing.forEach(m => putA(rowA(m)));

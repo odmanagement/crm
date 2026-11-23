@@ -311,8 +311,8 @@ function rowHtml(name,amt,withMult,pinned,lockAmt,isPartA,isPartC){
 }
 /* Part A 的月份搬去 Part A.A（+10%）：保留连接（cid），存档后 Bank Statement 那个月变蓝色 */
 window.__moveAA=function(btn){ var tr=btn.closest('tr'); if(!tr) return; var n=tr.querySelector('.name-input'), a=tr.querySelector('.amt-input');
-  var cid=tr.dataset.cid||'', nm=n?n.value:'', am=a?a.value:''; tr.remove();
-  var nt=addRow('partCBody',nm,am); var m=nt.querySelector('.mult-input'); if(m) m.value='10'; if(cid) nt.dataset.cid=cid; nt.dataset.auto='0';
+  var cid=tr.dataset.cid||'', bsA=tr.dataset.bsAmt||'', nm=n?n.value:'', am=a?a.value:''; tr.remove();
+  var nt=addRow('partCBody',nm,am); var m=nt.querySelector('.mult-input'); if(m) m.value='10'; if(cid) nt.dataset.cid=cid; if(bsA) nt.dataset.bsAmt=bsA; nt.dataset.auto='0';
   try{ if(typeof formatAllAmounts==='function') formatAllAmounts(); calc(); if(typeof autoSave==='function') autoSave(); }catch(e){} };
 function addRow(bodyId,name,amt,pinned,lockAmt,noMult){
   // Part A rows get × column, except pinned (LAWYER/M&V) and rows flagged noMult
@@ -525,7 +525,8 @@ function collectData(){
         pinned:r.classList.contains('pinned-row'),
         lock:r.querySelector('.amt-input').hasAttribute('readonly'),
         auto:r.dataset.auto==='1',
-        cid:r.dataset.cid||''
+        cid:r.dataset.cid||'',
+        bsAmt:r.dataset.bsAmt||''   /* Bank Statement 给的数目；自己改了跟这个不一样 = 手动，不会被盖掉 */
       };
     });
   });
@@ -554,6 +555,7 @@ function restoreData(d){
       if(multEl) multEl.value = (id==='partCBody' && !row.hasMult) ? (d.cMult||'') : (row.mult||'');
       if(row.auto) tr.dataset.auto='1';
       if(row.cid) tr.dataset.cid=row.cid;
+      if(row.bsAmt) tr.dataset.bsAmt=row.bsAmt;
     });
   });
   document.getElementById('balBody').innerHTML='';
