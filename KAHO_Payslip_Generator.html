@@ -143,6 +143,7 @@
 
   <div class="card">
     <h2>EPF / SOCSO / EIS / PCB <small>自动算（灰色）· 自己打数字会变橙色 · 删掉回到自动 · 不扣填 0</small></h2>
+    <div class="row" style="margin:-4px 0 14px;gap:10px;flex-wrap:wrap"><label style="margin:0;font-size:13px;color:#374151;font-weight:600">EPF 雇主（Employer）</label><select data-f="erRate" style="width:auto;min-width:240px"><option value="">自动（RM5,000 以上 12%，以下 13%）</option><option value="12">12%</option><option value="13">13%</option></select></div>
     <div class="grid g7" id="stat"></div>
     <div class="grid g7" id="ytd"></div>
     <div class="hint">YTD 空白 = 跟 Current Mth 一样（第一个月）；之后的月份可以填累计数目</div>
@@ -243,7 +244,7 @@ const $ = id => document.getElementById(id);
 
 function calc() {
   const wage = D.earn.filter(x => x.s || x.fixed).reduce((t, x) => t + N(x.a), 0);
-  const rate = wage > 5000 ? 12 : 13, [se, sw] = socso(wage), [ee, ew] = eis(wage);
+  const rate = D.erRate === "12" ? 12 : D.erRate === "13" ? 13 : (wage > 5000 ? 12 : 13), [se, sw] = socso(wage), [ee, ew] = eis(wage);
   const auto = { epfEe: epf(wage, 11), epfEr: epf(wage, rate), socEe: sw, socEr: se, eisEe: ew, eisEr: ee };
   const v = k => D.ov[k] !== undefined && D.ov[k] !== "" ? N(D.ov[k]) : auto[k];
   auto.pcb = pcb(wage, v("epfEe"));
@@ -322,7 +323,7 @@ $("addEarn").onclick = () => { D.earn.push({ n: "", a: "", s: false }); buildFor
 $("addDed").onclick = () => { D.ded.push({ n: "", a: "" }); buildForm(); render(); };
 
 /* ---------- 员工存档 ---------- */
-const PF = ["name", "dept", "bank", "empno", "socsono", "epfno", "taxno", "earn", "ded", "leave"];
+const PF = ["erRate", "name", "dept", "bank", "empno", "socsono", "epfno", "taxno", "earn", "ded", "leave"];
 let presets = load(PKEY, []);
 const fillPresets = sel => { $("preset").innerHTML = '<option value="">— 手动填写 / 选择员工 —</option>' + presets.map((p, i) => `<option value="${i}">${esc(p.name)}${p.empno ? " · " + esc(p.empno) : ""}</option>`).join(""); if (sel != null) $("preset").value = sel; };
 $("preset").onchange = () => { const p = presets[$("preset").value]; if (!p) return; PF.forEach(k => { if (p[k] !== undefined) D[k] = JSON.parse(JSON.stringify(p[k])); }); D.ov = {}; D.ytd = {}; buildForm(); render(); };
@@ -375,6 +376,18 @@ fillPresets(); buildForm(); render();
   const rs = document.getElementById("reset"); if (rs) rs.addEventListener("click", () => setTimeout(() => { sync(); render(); }, 0));
   sync(); render();
 })();
+</script>
+<script>
+/* CRM 存档：整份资料（D）一起存 / 打开时整份放回去（员工、收入、扣除、月份、份数都会回来） */
+window.__crmGetExtra = function () { try { return { state: JSON.stringify(D) }; } catch (e) { return {}; } };
+window.__crmSetExtra = function (o) {
+  if (!o || !o.state) return;
+  try { D = Object.assign({}, D, JSON.parse(o.state)); } catch (e) { return; }
+  try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {}
+  try { buildForm(); } catch (e) {}
+  var c = document.getElementById("msCnt"), d = document.getElementById("msDir"); if (c) c.value = D.cnt || 1; if (d) d.value = D.dir === "back" ? "back" : "fwd";
+  try { render(); } catch (e) {}
+};
 </script>
 </body>
 </html>

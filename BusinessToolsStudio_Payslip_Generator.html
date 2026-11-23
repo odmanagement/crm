@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Payslip 生成器 · BUSINESS TOOLS STUDIO SDN.BHD.</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef0f3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; }
+  .app { max-width: 1080px; margin: 0 auto; padding: 18px 20px 60px; }
+  h1 { margin: 0; color: #111827; font-size: 24px; }
+  .sub { color: #6b7280; font-size: 13px; margin: 6px 0 20px; }
+  .card { background: #fff; border-radius: 14px; border: 1px solid #e0e3e8; padding: 16px 24px 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; color: #111827; margin: 4px 0 14px; padding-bottom: 10px; border-bottom: 1px solid #eceef1; display: flex; align-items: center; gap: 10px; }
+  .card h2 small { font-weight: 400; color: #9ca3af; font-size: 12px; }
+  .grid { display: grid; gap: 12px 16px; margin-bottom: 12px; }
+  .g4 { grid-template-columns: repeat(4, 1fr); } .g3 { grid-template-columns: repeat(3, 1fr); } .g2 { grid-template-columns: 1fr 1fr; }
+  label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 5px; }
+  input, select { width: 100%; padding: 9px 11px; font-size: 14px; border: 1px solid #d9dce1; border-radius: 6px; background: #fbfbfc; font-family: inherit; color: #111; outline: none; }
+  input:focus, select:focus { border-color: #111827; background: #fff; }
+  input.ov { color: #b45309; font-weight: 700; border-color: #f5c88a; background: #fffbeb; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .mini { border: 1px solid #d1d5db; background: #fff; color: #111827; border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .items .it { display: grid; grid-template-columns: 1fr 160px 110px 34px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .items.ded .it { grid-template-columns: 1fr 160px 34px; }
+  .chk { font-size: 12px; color: #4b5563; display: flex; align-items: center; gap: 5px; margin: 0; white-space: nowrap; }
+  .chk input { width: auto; }
+  .x { border: none; background: #f3f4f6; border-radius: 6px; height: 34px; cursor: pointer; color: #9ca3af; font-size: 16px; }
+  .x:hover { color: #ef4444; }
+  .hint { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+  .btns { display: flex; gap: 12px; margin: 18px 0; flex-wrap: wrap; }
+  .btn { border: none; border-radius: 6px; padding: 12px 22px; font-size: 14px; color: #fff; cursor: pointer; font-family: inherit; }
+  .btn.k { background: #111827; } .btn.s { background: #8e939c; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ---------- 工资单（照 BUSINESS TOOLS STUDIO 格式） ---------- */
+  .slipwrap { overflow-x: auto; }
+  .slip { width: 210mm; margin: 0 auto 14px; background: #fff; border: 1px solid #d6d6d6; padding: 9mm 10mm 9mm; font-family: "Century Gothic", "Questrial", "Avenir", "Segoe UI", Arial, sans-serif; color: #000; font-size: 11px; }
+  .hd { line-height: 1.4; white-space: nowrap; }
+  .hd .co { font-weight: 700; font-size: 16px; }
+  .hd .co small { font-size: 9.5px; }
+  .hd .tw { display: inline-block; width: 220px; }
+  .for { text-align: right; font-weight: 700; font-size: 11.5px; padding-right: 22px; margin-top: 2px; }
+  .info { border: 1px solid #000; margin: 6px 0 0 0; padding: 10px 6px 4px; display: grid; grid-template-columns: 1fr 1fr; line-height: 1.4; white-space: nowrap; }
+  .kv { display: grid; grid-template-columns: 90px 10px 1fr; align-content: start; }
+  .kv.r { grid-template-columns: 100px 10px 1fr; }
+  table.m { width: 100%; border-collapse: collapse; margin-top: 18px; table-layout: fixed; }
+  .m td { padding: 0 4px; line-height: 1.4; white-space: nowrap; }
+  .m .c1 { border-left: 1px solid #000; }
+  .m .c2 { width: 130px; text-align: right; border-left: 1px solid #000; }
+  .m .c3 { width: 235px; text-align: right; border-left: 1px solid #000; border-right: 1px solid #000; }
+  .m tr.h td { border-top: 1px solid #000; border-bottom: 1px solid #000; padding-top: 1px; padding-bottom: 1px; }
+  .m tr.h .c2 { text-align: center; }
+  .m .sec td { padding-top: 14px; }
+  .m .sec .c1 { font-weight: 700; }
+  .m tr.gap td { height: var(--gap, 14px); }
+  .m tr.tot td { border-top: 1px solid #000; border-bottom: 1px solid #000; padding-top: 8px; padding-bottom: 8px; }
+  .m tr.tot .c3 { text-align: right; }
+  .m tr.tot .c3 span { float: left; }
+  .net { display: flex; justify-content: flex-end; }
+  .net div { width: 235px; border: 1px solid #000; border-top: none; display: flex; justify-content: space-between; padding: 14px 6px 22px 16px; font-weight: 700; font-size: 13px; }
+  .net div span:last-child { font-size: 14px; }
+  @media (max-width: 860px) { .g4, .g3, .twocol { grid-template-columns: 1fr 1fr; } }
+  @media print {
+    html, body { background: #fff; }
+    .app > *:not(#out) { display: none !important; }
+    .app { padding: 0; max-width: none; }
+    .slipwrap { overflow: visible; }
+    .slip { border: none; margin: 0; break-after: page; page-break-after: always; }
+    .slip:last-child { break-after: auto; page-break-after: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Payslip 生成器 · BUSINESS TOOLS STUDIO SDN.BHD.</h1>
+  <div class="sub">填写员工资料 → EPF / SOCSO / EIS / TAX 自动算 → 保存 PDF</div>
+
+  <div class="card">
+    <h2>员工资料</h2>
+    <div class="grid g3" style="grid-template-columns:2fr 1fr 1fr">
+      <div><label>快速载入员工资料</label>
+        <div class="row"><select id="preset"><option value="">— 手动填写 / 选择员工 —</option></select>
+          <button class="mini" id="savePreset">💾 存这个员工</button><button class="mini" id="delPreset" style="color:#b91c1c">🗑</button></div></div>
+      <div><label>起始月份 Payslip For</label>
+        <div class="row"><select id="mon"></select><input id="year" inputmode="numeric" style="width:80px"></div></div>
+      <div><label>PAYMENT DATE（下个月几号）</label><input data-f="payday" inputmode="numeric" autocomplete="off" placeholder="1"></div>
+    </div>
+    <div class="grid g3" style="grid-template-columns:1fr 1fr 2fr">
+      <div><label>份数（几个月）</label><input data-f="count" type="number" min="1" max="24" inputmode="numeric"></div>
+      <div><label>时间方向</label><select data-f="dir"><option value="fwd">往后（起始月起递增）</option><option value="back">往前（起始月起递减）</option></select></div>
+      <div><label>&nbsp;</label><div class="hint" id="rangeHint" style="padding-top:9px"></div></div>
+    </div>
+    <div class="grid g4">
+      <div><label>NAME</label><input data-f="name" autocomplete="off"></div>
+      <div><label>IC <small>（空白 = 不显示）</small></label><input data-f="ic" autocomplete="off"></div>
+      <div><label>BANK A/C NO.</label><input data-f="bank" autocomplete="off"></div>
+      <div><label>BANK</label><input data-f="bankName" autocomplete="off" placeholder="例 CIMB BANK"></div>
+    </div>
+  </div>
+
+  <div class="twocol">
+    <div class="card">
+      <h2>EARNING <small>收入 · 0 显示「-」</small></h2>
+      <div class="items" id="earn"></div>
+      <button class="mini" id="addEarn">＋ 加一项</button>
+      <div class="hint">勾「扣 EPF/TAX」= 这一项也算 EPF / SOCSO / EIS / TAX（BASIC SALARY 一定算）</div>
+    </div>
+    <div class="card">
+      <h2>DEDUCTIONS <small>其他扣款（EPF / SOCSO / EIS / TAX 在下面自动算）</small></h2>
+      <div class="items ded" id="ded"></div>
+      <button class="mini" id="addDed">＋ 加一项（Advance / Unpaid Leave …）</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>EPF / SOCSO / EIS / TAX <small>自动算（灰色）· 自己打数字会变橙色 · 删掉回到自动 · 不扣填 0</small></h2>
+    <div class="row" style="margin:-4px 0 14px;gap:10px;flex-wrap:wrap"><label style="margin:0;font-size:13px;color:#374151;font-weight:600">EPF 雇主（Employer）</label><select data-f="erRate" style="width:auto;min-width:240px"><option value="">自动（RM5,000 以上 12%，以下 13%）</option><option value="12">12%</option><option value="13">13%</option></select></div>
+    <div class="grid g4" id="statEe"></div>
+    <div class="grid g4" id="statEr"></div>
+    <div class="hint">TAX 自动算 = 单身没有其他减免；有配偶、孩子等减免的，直接填数目</div>
+  </div>
+
+  <div class="btns">
+    <button class="btn k" id="gen">生成工资单</button>
+    <button class="btn s" id="print">打印 / 保存 PDF</button>
+    <button class="btn s" id="reset" style="background:#dcdee3;color:#334155">清空</button>
+  </div>
+
+  <div id="out" class="slipwrap"></div>
+  <template id="tpl"><div class="slip">
+    <div class="hd">
+      <div class="co">BUSINESS TOOLS STUDIO SDN.BHD. <small>(1437614-U / 202101037314)</small></div>
+      <div>A22-01, 289 JALAN KLANG LAMA, THE SCOTT GARDEN</div>
+      <div>58100 W.P. KUALA LUMPUR</div>
+      <div><span class="tw">TEL : 03-7890 2851</span>WEBSITE : btoolstudio.com</div>
+    </div>
+    <div class="for">Payslip For <span class="s_month"></span></div>
+    <div class="info">
+      <div class="kv s_left"></div>
+      <div class="kv r s_right"></div>
+    </div>
+    <table class="m"><tbody class="s_tbl"></tbody></table>
+    <div class="net"><div><span>NETT SALARY</span><span class="s_net"></span></div></div>
+  </div></template>
+</div>
+
+<script>
+const N = v => Number(String(v == null ? "" : v).replace(/,/g, "")) || 0;
+const F = n => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const r2 = x => Math.round(x * 100) / 100;
+const esc = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+/* ---------- 法定扣款（跟 payroll.my；同 CRM 算法） ---------- */
+const SOC_UP = [30,50,70,100,140,200,300,400,500,600,700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,2500,2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,3800,3900,4000,4100,4200,4300,4400,4500,4600,4700,4800,4900,5000,5100,5200,5300,5400,5500,5600,5700,5800,5900,6000];
+const LF_EIS = [[30,0.05],[50,0.10],[100,0.20],[200,0.30],[300,0.50],[400,0.70],[500,0.90],[600,1.10],[700,1.30],[800,1.50],[900,1.70],[1000,1.90],[1100,2.10],[1200,2.30],[1300,2.50],[1400,2.70],[1500,2.90],[1600,3.10],[1700,3.30],[1800,3.50],[1900,3.70],[2000,3.90],[2100,4.10],[2200,4.30],[2300,4.50],[2400,4.70],[2500,4.90],[2600,5.10],[2700,5.30],[2800,5.50],[2900,5.70],[3000,5.90],[3100,6.10],[3200,6.30],[3300,6.50],[3400,6.70],[3500,6.90],[3600,7.10],[3700,7.30],[3800,7.50],[3900,7.70],[4000,7.90],[4100,8.10],[4200,8.30],[4300,8.50],[4400,8.70],[4500,8.90],[4600,9.10],[4700,9.30],[4800,9.50],[4900,9.70],[5000,9.90],[5200,10.30],[5400,10.70],[5600,11.10],[5800,11.50],[6000,11.90]];
+const socso = w => { if (!(w > 0)) return [0, 0]; let prev = 0, up = null; for (const u of SOC_UP) { if (w <= u) { up = u; break; } prev = u; } if (up == null) { up = 6000; prev = 5900; }
+  const mid = (prev + up) / 2, r5 = x => { const y = x * 20, f = Math.floor(y + 1e-9), d = y - f; const n = d > 0.5 + 1e-7 ? f + 1 : d < 0.5 - 1e-7 ? f : (f % 2 === 0 ? f : f + 1); return Math.round(n * 5) / 100; };
+  const inj = r5(mid * 0.0125); return [r2(inj + r5(mid * 0.005)), inj]; };
+const eis = w => { if (w <= 0) return [0, 0]; if (w > 5000) { if (w > 6000) return [11.90, 11.90]; const up = Math.ceil(w / 100) * 100, v = r2((up - 50) * 0.002); return [v, v]; }
+  for (const r of LF_EIS) if (w <= r[0]) return [r[1], r[1]]; return [11.90, 11.90]; };
+const epf = (w, rate) => { if (!(w > 0)) return 0; const band = w <= 5000 ? Math.ceil(w / 20) * 20 : Math.ceil(w / 100) * 100; return Math.ceil(band * rate / 100); };
+const pcb = (w, epfEe) => { if (!(w > 0)) return 0; const ch = w * 12 - 9000 - Math.min(epfEe * 12, 4000); if (ch <= 5000) return 0;
+  const bands = [[5000, 20000, 0.01, 0], [20000, 35000, 0.03, 150], [35000, 50000, 0.06, 600], [50000, 70000, 0.11, 1500], [70000, 100000, 0.19, 3700], [100000, 400000, 0.25, 9400], [400000, 600000, 0.26, 84400], [600000, 2000000, 0.28, 136400], [2000000, Infinity, 0.30, 528400]];
+  let tax = 0; for (const [lo, hi, rate, base] of bands) if (ch > lo && ch <= hi) { tax = base + (ch - lo) * rate; break; }
+  if (ch <= 35000) tax -= 400; const m = tax / 12; return m < 10 ? 0 : Math.ceil(m * 20 - 1e-9) / 20; };
+
+
+/* ---------- 资料 ---------- */
+const MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const EE = [["epfEe","EPF (EMPLOYEE)"],["socEe","SOCSO (EMPLOYEE)"],["eisEe","EIS (EMPLOYEE)"],["pcb","TAX"]];
+const ER = [["epfEr","EPF (EMPLOYER)"],["socEr","SOCSO (EMPLOYER)"],["eisEr","EIS (EMPLOYER)"]];
+const KEY = "bts_payslip_form", PKEY = "bts_payslip_presets";
+const blank = () => { const d = new Date(); return { name: "", ic: "", bank: "", bankName: "", payday: "1", count: "1", dir: "fwd",
+  mon: d.getMonth(), year: String(d.getFullYear()),
+  earn: [{ n: "BASIC SALARY", a: "", s: true, fixed: true }, { n: "BONUS", a: "", s: false }, { n: "COMMISSION", a: "", s: false }],
+  ded: [], ov: {} }; };
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let D = Object.assign(blank(), load(KEY, {}));
+const $ = id => document.getElementById(id);
+
+function calc() {
+  const wage = D.earn.filter(x => x.s || x.fixed).reduce((t, x) => t + N(x.a), 0);
+  const rate = D.erRate === "12" ? 12 : D.erRate === "13" ? 13 : (wage > 5000 ? 12 : 13), [se, sw] = socso(wage), [ee, ew] = eis(wage);
+  const auto = { epfEe: epf(wage, 11), epfEr: epf(wage, rate), socEe: sw, socEr: se, eisEe: ew, eisEr: ee };
+  const v = k => D.ov[k] !== undefined && D.ov[k] !== "" ? N(D.ov[k]) : auto[k];
+  auto.pcb = pcb(wage, v("epfEe"));
+  const cur = {}; [...EE, ...ER].forEach(([k]) => cur[k] = v(k));
+  const te = r2(D.earn.reduce((t, x) => t + N(x.a), 0));
+  const td = r2(cur.epfEe + cur.socEe + cur.eisEe + cur.pcb + D.ded.reduce((t, x) => t + N(x.a), 0));
+  return { auto, cur, te, td, net: r2(te - td) };
+}
+
+/* ---------- 表单 ---------- */
+function buildForm() {
+  $("mon").innerHTML = MON.map((m, i) => `<option value="${i}">${m}</option>`).join(""); $("mon").value = D.mon; $("year").value = D.year;
+  document.querySelectorAll("[data-f]").forEach(el => el.value = D[el.dataset.f] || "");
+  $("earn").innerHTML = D.earn.map((x, i) => `<div class="it"><input data-l="earn" data-i="${i}" data-p="n" value="${esc(x.n)}" ${x.fixed ? "readonly" : ""} placeholder="项目名称"><input data-l="earn" data-i="${i}" data-p="a" class="money" value="${esc(x.a)}" inputmode="decimal" placeholder="RM"><label class="chk">${x.fixed ? "" : `<input type="checkbox" data-l="earn" data-i="${i}" data-p="s" ${x.s ? "checked" : ""}>扣 EPF/TAX`}</label>${x.fixed ? "<span></span>" : `<button class="x" data-rm="earn" data-i="${i}">×</button>`}</div>`).join("");
+  $("ded").innerHTML = D.ded.map((x, i) => `<div class="it"><input data-l="ded" data-i="${i}" data-p="n" value="${esc(x.n)}" placeholder="项目名称"><input data-l="ded" data-i="${i}" data-p="a" class="money" value="${esc(x.a)}" inputmode="decimal" placeholder="RM"><button class="x" data-rm="ded" data-i="${i}">×</button></div>`).join("") || '<div class="hint" style="margin-bottom:8px">没有其他扣款</div>';
+  $("statEe").innerHTML = EE.map(([k, t]) => `<div><label>${t}</label><input data-ov="${k}" class="money" inputmode="decimal"></div>`).join("");
+  $("statEr").innerHTML = ER.map(([k, t]) => `<div><label>${t}</label><input data-ov="${k}" class="money" inputmode="decimal"></div>`).join("");
+  refreshStat();
+}
+function refreshStat() {
+  const c = calc();
+  document.querySelectorAll("[data-ov]").forEach(el => { const k = el.dataset.ov, has = D.ov[k] !== undefined && D.ov[k] !== "";
+    if (el !== document.activeElement) el.value = has ? D.ov[k] : F(c.auto[k]); el.classList.toggle("ov", has); el.dataset.dirty = ""; });
+}
+
+/* ---------- 工资单 ---------- */
+/* 要出的月份（由旧到新） */
+function months() {
+  const n = Math.max(1, Math.min(24, parseInt(D.count, 10) || 1)), y0 = parseInt(D.year, 10) || new Date().getFullYear(), step = D.dir === "back" ? -1 : 1, out = [];
+  for (let i = 0; i < n; i++) { const t = y0 * 12 + (+D.mon) + i * step; out.push({ y: Math.floor(t / 12), m: ((t % 12) + 12) % 12 }); }
+  return out.sort((p, q) => (p.y * 12 + p.m) - (q.y * 12 + q.m));
+}
+function render() {
+  const c = calc(), up = s => esc(String(s || "").toUpperCase()), amt = n => n ? F(n) : "-";
+  const row = (a, b, cc, cls) => `<tr${cls ? ` class="${cls}"` : ""}><td class="c1">${a}</td><td class="c2">${b}</td><td class="c3">${cc}</td></tr>`;
+  let h = row("DESCRIPTION", "EARNING", "DEDUCTIONS", "h");
+  h += '<tr class="gap" style="--gap:6px"><td class="c1"></td><td class="c2"></td><td class="c3"></td></tr>';
+  D.earn.filter(x => x.fixed || x.n || N(x.a)).forEach(x => h += row(up(x.n), amt(N(x.a)), ""));
+  D.ded.filter(x => x.n || N(x.a)).forEach(x => h += row(up(x.n), "", amt(N(x.a))));
+  h += row("EMPLOYEE", "", "", "sec");
+  [["EPF", c.cur.epfEe], ["SOCSO", c.cur.socEe], ["EIS", c.cur.eisEe], ["TAX", c.cur.pcb]].forEach(([k, v]) => h += row(k, "", amt(v)));
+  h += row("EMPLOYER", "", "", "sec");
+  [["EPF", c.cur.epfEr], ["SOCSO", c.cur.socEr], ["EIS", c.cur.eisEr]].forEach(([k, v]) => h += row(k, amt(v), ""));
+  h += row("", "", "", "gap");
+  h += `<tr class="tot"><td class="c1">TOTAL EARNINGS</td><td class="c2">${F(c.te)}</td><td class="c3"><span>TOTAL DEDUCTIONS</span>${F(c.td)}</td></tr>`;
+  const L = [["NAME", D.name], ["IC", D.ic, true], ["BANK A/C NO.", D.bank]].filter(x => !x[2] || String(x[1] || "").trim())
+    .map(([k, v]) => `<span>${k}</span><span>:</span><span>${up(v)}</span>`).join("");
+  const day = parseInt(D.payday, 10);
+  const ms = months(), out = $("out"), tpl = $("tpl").content; out.innerHTML = "";
+  ms.forEach(({ y, m }) => {
+    const el = tpl.cloneNode(true);
+    el.querySelector(".s_month").textContent = MON[m] + " " + y;
+    el.querySelector(".s_left").innerHTML = L;
+    const pm = (m + 1) % 12, py = m === 11 ? y + 1 : y;
+    const pd = day > 0 ? day + "/" + (pm + 1) + "/" + py : "";
+    el.querySelector(".s_right").innerHTML = [["PAYMENT DATE", pd], ["BANK", D.bankName]].map(([k, v]) => `<span>${k}</span><span>:</span><span>${up(v)}</span>`).join("");
+    el.querySelector(".s_tbl").innerHTML = h;
+    el.querySelector(".s_net").textContent = F(c.net);
+    out.appendChild(el);
+  });
+  const f = ms[0], l = ms[ms.length - 1];
+  $("rangeHint").textContent = ms.length > 1 ? `会出 ${ms.length} 张：${MON[f.m]} ${f.y} → ${MON[l.m]} ${l.y}（每月一页）` : `出 1 张：${MON[f.m]} ${f.y}`;
+  store(KEY, D);
+  fitPage();
+}
+const update = () => { refreshStat(); render(); };
+
+/* 纸张高度 = 工资单实际高度 */
+function fitPage() { const sl = document.querySelector("#out .slip"); if (!sl) return; const mm = Math.ceil(sl.offsetHeight * 25.4 / 96) + 1;
+  let st = document.getElementById("pageSize"); if (!st) { st = document.createElement("style"); st.id = "pageSize"; document.head.appendChild(st); }
+  st.textContent = "@page { size: 210mm " + mm + "mm; margin: 0; }"; }
+window.addEventListener("beforeprint", fitPage);
+
+/* ---------- 打字 ---------- */
+document.addEventListener("input", e => {
+  const el = e.target, d = el.dataset;
+  if (d.f) D[d.f] = el.value;
+  else if (d.l) { const it = D[d.l][+d.i]; if (d.p === "s") it.s = el.checked; else it[d.p] = el.value; }
+  else if (d.ov) { d.dirty = "1"; if (el.value.trim() === "") delete D.ov[d.ov]; else D.ov[d.ov] = el.value; el.classList.toggle("ov", !!el.value.trim()); render(); return; }
+  else if (el.id === "year") D.year = el.value;
+  else return;
+  update();
+});
+document.addEventListener("change", e => { if (e.target.dataset.f === "dir") { D.dir = e.target.value; render(); } if (e.target.id === "mon") { D.mon = +e.target.value; render(); } if (e.target.dataset.p === "s") update(); });
+document.addEventListener("focusout", e => {
+  const el = e.target, d = el.dataset;
+  if (el.classList.contains("money")) { const t = el.value.trim(); const f = t && /^-?[\d,]*\.?\d*$/.test(t) ? F(N(t)) : t;
+    if (d.ov) { if (!d.dirty) return; if (t) D.ov[d.ov] = f; else delete D.ov[d.ov]; }
+    else if (d.l) D[d.l][+d.i].a = f;
+    el.value = f; update(); }
+  if (["name", "bankName"].includes(d.f) || d.p === "n") { if (el.readOnly) return; el.value = el.value.toUpperCase(); if (d.f) D[d.f] = el.value; else D[d.l][+d.i].n = el.value; render(); }
+});
+document.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (!b) return; D[b.dataset.rm].splice(+b.dataset.i, 1); buildForm(); render(); });
+$("addEarn").onclick = () => { D.earn.push({ n: "", a: "", s: false }); buildForm(); render(); };
+$("addDed").onclick = () => { D.ded.push({ n: "", a: "" }); buildForm(); render(); };
+
+/* ---------- 员工存档 ---------- */
+const PF = ["erRate", "name", "ic", "bank", "bankName", "earn", "ded"];
+let presets = load(PKEY, []);
+const fillPresets = sel => { $("preset").innerHTML = '<option value="">— 手动填写 / 选择员工 —</option>' + presets.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join(""); if (sel != null) $("preset").value = sel; };
+$("preset").onchange = () => { const p = presets[$("preset").value]; if (!p) return; PF.forEach(k => { if (p[k] !== undefined) D[k] = JSON.parse(JSON.stringify(p[k])); }); D.ov = {}; buildForm(); render(); };
+$("savePreset").onclick = () => { if (!D.name.trim()) { alert("请先填 NAME"); return; } const p = {}; PF.forEach(k => p[k] = JSON.parse(JSON.stringify(D[k])));
+  const i = presets.findIndex(x => x.name.toUpperCase() === p.name.toUpperCase()); if (i >= 0) presets[i] = p; else presets.push(p);
+  presets.sort((a, b) => a.name.localeCompare(b.name)); store(PKEY, presets); fillPresets(presets.findIndex(x => x.name === p.name)); alert("已存：" + p.name); };
+$("delPreset").onclick = () => { const i = $("preset").value; if (i === "") { alert("先选一个员工"); return; } if (!confirm("删除「" + presets[i].name + "」？")) return; presets.splice(i, 1); store(PKEY, presets); fillPresets(); };
+
+$("gen").onclick = () => { render(); $("out").scrollIntoView({ behavior: "smooth" }); };
+$("print").onclick = () => { render(); fitPage(); const old = document.title; const ms = months(), f = ms[0], l = ms[ms.length - 1]; document.title = "Payslip-" + (D.name || "").toUpperCase() + "-" + MON[f.m] + " " + f.y + (ms.length > 1 ? " to " + MON[l.m] + " " + l.y : ""); window.print(); document.title = old; };
+$("reset").onclick = () => { if (!confirm("清空全部资料？（存起来的员工不会删）")) return; D = blank(); buildForm(); render(); };
+fillPresets(); buildForm(); render();
+</script>
+<script>
+/* CRM 存档：整份资料（D）一起存 / 打开时整份放回去（员工、收入、扣除、月份、份数都会回来） */
+window.__crmGetExtra = function () { try { return { state: JSON.stringify(D) }; } catch (e) { return {}; } };
+window.__crmSetExtra = function (o) {
+  if (!o || !o.state) return;
+  try { D = Object.assign({}, D, JSON.parse(o.state)); } catch (e) { return; }
+  try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {}
+  try { buildForm(); } catch (e) {}
+  var c = document.getElementById("msCnt"), d = document.getElementById("msDir"); if (c) c.value = D.cnt || 1; if (d) d.value = D.dir === "back" ? "back" : "fwd";
+  try { render(); } catch (e) {}
+};
+</script>
+</body>
+</html>
