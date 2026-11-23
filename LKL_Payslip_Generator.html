@@ -339,5 +339,15 @@ window.__crmSetExtra = function (o) {
   };
 })();
 </script>
+<style>input[data-f]:not([type=number]):not([inputmode=numeric]):not([inputmode=decimal]), input[data-p="n"], textarea[data-f] { text-transform: uppercase; }</style>
+<script>
+/* 打的字全部变大写（名字、Position、公司、收入 / 扣款名字…） */
+window.addEventListener("input", function (e) {
+  var el = e.target; if (!el || !el.matches) return;
+  if (!el.matches('input[data-f]:not([type=number]):not([inputmode=numeric]):not([inputmode=decimal]), input[data-p="n"], textarea[data-f]') || el.readOnly) return;
+  var v = el.value, u = v.toUpperCase(); if (v === u) return;
+  var a = el.selectionStart, b = el.selectionEnd; el.value = u; try { el.setSelectionRange(a, b); } catch (er) {}
+}, true);
+</script>
 </body>
 </html>
