@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124111000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124112000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "517";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "518";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7352,7 +7352,10 @@ function SalesSummaryPage({ currentUser }) {
     /* 先跟 Summary 表的顺序排（表里的人都放），有 Bank Statement / 人才 的就用 CRM 的数目，没有就用表的数目；然后再加表里没有的 BS / 人才 */
     const loose = n => key(n).replace(/[^A-Z0-9 ]/g, "").replace(/\s+(PBB|PBE|MBB|CIMB|RHB|HLB|HLBB|AMBANK|AMB|HSBC|OCBC|UOB|BSN|BIMB|AFFIN|ALLIANCE|SCB|AGRO|MUAMALAT|RAKYAT|PUBLIC|MAYBANK|HONG LEONG|\(\d+\)|\d+)$/g, "").trim();
     const bpAll = (window.__crmBsPeople || []).filter(p => p && p.name);
-    const findBp = n => { const k = key(n), L = loose(n); return bpAll.find(p => key(p.name) === k) || bpAll.find(p => loose(p.name) === L) || bpAll.find(p => { const q = loose(p.name); return q.length > 5 && L.length > 5 && (q.startsWith(L + " ") || L.startsWith(q + " ")); }); };
+    /* 同一个名字 BS 跟人才都有 → 先拿有 START / 人才 / 有数目的那份 */
+    const rankBp = p => (p.started ? 8 : 0) + (p.store === "bank_stmt_people_rencai" ? 4 : 0) + (String(p.bal || "").trim() || p.ause || p.cuse ? 2 : 0) + ((p.months || []).length ? 1 : 0);
+    const best = L => L.length ? L.slice().sort((x, y) => rankBp(y) - rankBp(x))[0] : null;
+    const findBp = n => { const k = key(n), L = loose(n); return best(bpAll.filter(p => key(p.name) === k)) || best(bpAll.filter(p => loose(p.name) === L)) || best(bpAll.filter(p => { const q = loose(p.name); return q.length > 5 && L.length > 5 && (q.startsWith(L + " ") || L.startsWith(q + " ")); })); };
     const fromBp = (p, nm, i) => { const k = key(nm), bal = lsNum(p.bal), au = lsNum(p.ause), cu = lsNum(p.cuse), tot = r2(bal + au + cu), run = bad.has(key(p.name)) || bad.has(k);
       return { k, name: k, bank: run ? 0 : bal, au: run ? 0 : au, cu: run ? 0 : cu, run: run ? tot : 0, tot, co: coOf[key(p.name)] || coOf[k] || "", rc: p.store === "bank_stmt_people_rencai", ended: p.ended, note: notes.get(k) || notes.get(key(p.name)) || "", st: p.started || 0, ord: i }; };
     const shAll = (Array.isArray(shL) ? shL : []).filter(x => x && x.id !== "__seed" && key(x.name)).sort((a, b) => (a.ord || 0) - (b.ord || 0));
