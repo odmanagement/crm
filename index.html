@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124134000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124134500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "540";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "541";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -9269,12 +9269,20 @@ function CarApptAutoAdd({ me }) {
       const dt = new Date(d.c0 || d.at || Date.now()); dt.setDate(dt.getDate() + 2); while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() + 1);
       const ds = String(dt.getDate()).padStart(2, "0") + "/" + String(dt.getMonth() + 1).padStart(2, "0") + "/" + dt.getFullYear();
       const stops = {}; CAR_APPT_STOPS.forEach(st => { stops[st.k] = { date: ds, time: CAR_APPT_TIMES[st.k] || "" }; });
-      add.push({ id: uid(), name: nm, stops, by: meC, at: Date.now(), fromCost: d.id }); });
+      if (add.some(x => nk(x.name) === nm)) return;
+      add.push({ id: "ca_" + d.id, name: nm, stops, by: meC, at: Date.now(), fromCost: d.id }); });
     try { localStorage.setItem(LS, JSON.stringify(seen.slice(-2000))); } catch (e) {}
     /* 之前自动开的、名字放错成 Agent 的 → 换回顾客名字 */
     let fix = false; const appts2 = appts.map(x => { if (!x || !x.fromCost) return x; const d = drafts.find(y => y && y.id === x.fromCost); if (!d || !sameUser(d.by, meC)) return x;
       const cn = nk(carClientName(d)); if (cn && cn !== nk(x.name) && nk(x.name) === nk(costKeyName(d))) { fix = true; return { ...x, name: cn }; } return x; });
-    if (add.length || fix) { saveAppts([...add, ...appts2]);
+    /* 自动开的有重复（同一个顾客两个时间表）→ 只留一个：有人改过的优先，不然留最早的；有人改过的两个都留 */
+    let all = [...add, ...appts2]; const grp = {};
+    all.forEach(x => { if (x && x.fromCost && nk(x.name)) (grp[nk(x.name)] = grp[nk(x.name)] || []).push(x); });
+    const drop = new Set();
+    Object.values(grp).forEach(g => { if (g.length < 2) return; const keep = g.slice().sort((a, b) => ((b.updatedAt ? 1 : 0) - (a.updatedAt ? 1 : 0)) || ((a.at || 0) - (b.at || 0)))[0];
+      g.forEach(x => { if (x !== keep && !x.updatedAt) drop.add(x); }); });
+    if (drop.size) { all = all.filter(x => !drop.has(x)); fix = true; }
+    if (add.length || fix) { saveAppts(all);
       add.forEach(x => { try { window.__crmAddNotice && window.__crmAddNotice({ id: "carappt_" + x.fromCost, kind: "ref", page: "carappt", to: meC, from: "system", title: "🚗 Car Appointment 已经开好", task: x.name + " · " + (Object.values(x.stops)[0] || {}).date + " · 去填时间", at: Date.now() }); } catch (e) {} }); }
   }, [drafts, appts, fresh]);
   return null;
