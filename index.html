@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124172000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124175000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "554";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "555";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -6059,7 +6059,8 @@ SL_ST.allow = ["🎁 ALLOWANCE", "#fef3c7", "#b45309", "#fcd34d", "🎁"];
 SL_ST.comm = ["💼 COMMISSION", "#cffafe", "#0e7490", "#67e8f9", "💼"];
 const SL_KEYS = ["new", "build", "net", "allow", "comm", "stop"];   /* HAVEN'T START 不要了（24/11/2026）；加 ALLOWANCE、COMMISSION */
 const SL_FRESH_FROM = "2026-12";   /* 这个月开始 Salary Status 每个月 1 号重新开始 */
-const SL_CARRY = ["new", "build", "net"];   /* 这几个 → 自动放进下个月的 Salary Listing；STOP 不放 */
+const SL_CARRY = ["new", "build", "net", "allow", "comm"];
+const ACC_REF_YM = "2026-10";   /* Salary Listing 以后的月份：颜色 + 顺序跟着 10 月 */   /* 这几个 → 自动放进下个月的 Salary Listing；STOP 不放 */
 const SL_REMIND_USERS = ["vv", "alice", "money"];   /* 每个月差不多 20 号提醒来填 Salary Status */
 const slNextYm = ym => { const [y, m] = String(ym).split("-").map(Number), d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
 /* 提醒日：20 号；20 号是星期六 / 日 → 提早到星期五 */
@@ -7207,7 +7208,15 @@ function AccSalaryPage({ currentUser }) {
   const endYm = {}; (window.__crmBsPeople || []).forEach(p => { if (!p || !p.ended || !p.name) return; const d = new Date(p.endAt > 1 ? p.endAt : Date.now()), y = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"), k = slNameKey(p.name); if (k && (!endYm[k] || y < endYm[k])) endYm[k] = y; });
   const isEnded = x => { const e = x && x.name && endYm[slNameKey(x.name)]; return !!e && String(x.ym || "") >= e; };
   const endedRows = items.filter(x => x.ym === ym && isEnded(x));
-  const allRows = items.filter(x => x.ym === ym && !isEnded(x));
+  /* 10 月之后的月份：顺序跟着 10 月（10 月没有的人放后面） */
+  const refIdx = new Map(); items.filter(x => x.ym === ACC_REF_YM).forEach((x, i) => { const k = slNameKey(x.name); if (k && !refIdx.has(k)) refIdx.set(k, i); });
+  const allRows = items.filter(x => x.ym === ym && !isEnded(x)).map((x, i) => [x, ym > ACC_REF_YM && refIdx.has(slNameKey(x.name)) ? refIdx.get(slNameKey(x.name)) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map(a => a[0]);
+  /* 10 月之后的月份：还没跟过颜色的那一行 → 照 10 月同名字那一行的颜色（只做一次；之后自己改的不会被盖） */
+  React.useEffect(() => { if (!canEdit || !accFresh || !Array.isArray(list)) return; let ch = false;
+    const ref = new Map(); items.filter(x => x.ym === ACC_REF_YM).forEach(x => { const k = slNameKey(x.name); if (k && !ref.has(k)) ref.set(k, x); });
+    const next = items.map(x => { if (!x || x.styInit || !(String(x.ym || "") > ACC_REF_YM) || !x.name) return x; const t = ref.get(slNameKey(x.name)); ch = true; if (!t) return { ...x, styInit: 1 };
+      return { ...x, styInit: 1, sty: { ...(t.sty || {}), ...(x.sty || {}) }, ...(x.color === undefined && t.color ? { color: t.color } : {}), ...(x.blue === undefined && t.blue ? { blue: t.blue } : {}), ...(x.nameBg === undefined && t.nameBg ? { nameBg: t.nameBg } : {}) }; });
+    if (ch) saveRaw(next); }, [list, accFresh]);
   const rows = allRows.filter(x => !sql || [x.name, x.company, x.agent, x.lbl, x.acc].join(" ").toLowerCase().includes(sql));
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
   const add = () => save([...items, { id: uid(), ym, company: "", name: "", agent: "", by: currentUser, at: Date.now() }]);
@@ -7602,9 +7611,20 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
       const st = r.stopped ? "stop" : r.st, i = list.findIndex(x => x && x.ym === nx && slNameKey(x.name) === k);
       /* NETT SALARY：NET 自动填上个月（之前最近一个月）的 NET */
       const prevNet = () => { const pv = list.filter(x => x && x.ym < nx && slNameKey(x.name) === k && String(x.net || "").trim()).sort((x, y) => x.ym < y.ym ? 1 : -1)[0]; return pv ? pv.net : ""; };
-      if (SL_CARRY.includes(st)) { if (i >= 0) { if (st === "net" && !list[i].noDed) { list[i] = { ...list[i], noDed: true, net: String(list[i].net || "").trim() ? list[i].net : prevNet() }; ch = true; } return; }
+      /* ALLOWANCE → ALW 那格黄色；COMMISSION → COMM 那格黄色（提醒要填） */
+      const hiK = st === "allow" ? "alw" : st === "comm" ? "comm" : "";
+      const hiSty = sty0 => { const s2 = { ...(sty0 || {}) }; if (hiK) s2[hiK] = { ...(s2[hiK] || {}), bg: "#ffff00" }; return s2; };
+      /* 颜色 / 公司 / 户口 跟着上个月（10 月）那一行 */
+      const tpl = list.filter(x => x && x.ym < nx && slNameKey(x.name) === k).sort((a, b) => (a.ym === ACC_REF_YM ? -1 : b.ym === ACC_REF_YM ? 1 : a.ym < b.ym ? 1 : -1))[0] || {};
+      if (SL_CARRY.includes(st)) { if (i >= 0) { let r0 = list[i], c0 = false;
+          if (st === "net" && !r0.noDed) { r0 = { ...r0, noDed: true, net: String(r0.net || "").trim() ? r0.net : prevNet() }; c0 = true; }
+          if (hiK && !((r0.sty || {})[hiK] || {}).bg) { r0 = { ...r0, sty: hiSty(r0.sty) }; c0 = true; }
+          if (c0) { list[i] = r0; ch = true; } return; }
         const basic = ((bp && bp.salItems) || []).find(x => x.id === "basic_bs"), salStr = basic && lsNum(basic.amount) > 0 ? lsFmt(lsNum(basic.amount)) : "";
-        list.push({ id: uid(), ym: nx, name: String(r.c.name).toUpperCase(), company: String((bp && bp.company) || "").toUpperCase(), agent: String((bp && bp.agent) || "").toUpperCase(), salary: salStr, bsSal: salStr, ...(bp && bp.pid ? { bsId: bp.pid } : {}), ...(r.src === "rencai" ? { lbl: "RC" } : {}), ...(st === "net" ? { noDed: true, net: prevNet() } : {}), autoSl: stM, by: me, at: Date.now() }); ch = true; }
+        list.push({ id: uid(), ym: nx, name: String(r.c.name).toUpperCase(), company: String((bp && bp.company) || "").toUpperCase(), agent: String((bp && bp.agent) || "").toUpperCase(), salary: salStr, bsSal: salStr, ...(bp && bp.pid ? { bsId: bp.pid } : {}), ...(r.src === "rencai" ? { lbl: "RC" } : {}), ...(st === "net" ? { noDed: true, net: prevNet() } : {}),
+          ...(tpl.acc ? { acc: tpl.acc } : {}), ...(tpl.color ? { color: tpl.color } : {}), ...(tpl.blue ? { blue: tpl.blue } : {}), ...(tpl.nameBg ? { nameBg: tpl.nameBg } : {}), ...(tpl.payto ? { payto: tpl.payto } : {}), ...(tpl.pct ? { pct: tpl.pct } : {}),
+          ...(!String((bp && bp.company) || "").trim() && tpl.company ? { company: tpl.company } : {}), ...(!String((bp && bp.agent) || "").trim() && tpl.agent ? { agent: tpl.agent } : {}),
+          sty: hiSty(tpl.sty), styInit: 1, autoSl: stM, by: me, at: Date.now() }); ch = true; }
       else if (st === "stop" && i >= 0 && list[i].autoSl) { list.splice(i, 1); ch = true; } });
     if (ch) saveAcc(list); };
   const setSt = (r, k) => { if (r.bsOnly) { const me = canonUser(window.__crmUser || ""); const o = (slSt || []).find(x => x && x.id === r.bsOnly) || {}; const L = (slSt || []).filter(x => x && x.id !== r.bsOnly); saveSlSt([...L, { id: r.bsOnly, name: r.c.name, m: { ...(o.m || {}), [stM]: k }, by: me, at: Date.now() }]); } else onSetStatus(r.c.id, k, stM); };
