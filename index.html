@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124141500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124154000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "545";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "547";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7382,13 +7382,13 @@ function SalesSummaryPage({ currentUser }) {
     const dd = String(now.getDate()).padStart(2, "0") + "/" + String(now.getMonth() + 1).padStart(2, "0") + "/" + now.getFullYear();
     return h("div", null,
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
-        card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
+        card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("CUSTOMER BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
         card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END 的")),
-      h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-        h("thead", null, h("tr", null, ["#", "AS AT " + dd, "BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined } }, x)))),
+      h("div", { style: { ...S.tableWrap, overflowY: "auto", maxHeight: "calc(100vh - 210px)" } }, h("table", { className: "cz-table", style: S.dataTable },   /* 滑下去标题一直在上面 */
+        h("thead", null, h("tr", null, ["#", "AS AT " + dd, "CUSTOMER BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined, position: "sticky", top: 0, zIndex: 3 } }, x)))),
         h("tbody", null,
           !ppl.length ? h("tr", null, h("td", { colSpan: 8, style: { ...l, textAlign: "center", color: "#94a3b8", padding: 24 } }, (window.__crmBsPeople || []).length ? "没有资料" : "读取中…")) :
           ppl.map((r, i) => h("tr", { key: r.k, style: r.run ? { background: "#fff1f2" } : r.ended ? { opacity: .6 } : undefined },
@@ -7446,6 +7446,10 @@ function SalesSummaryPage({ currentUser }) {
           !onlyA.length ? h("div", { style: { fontSize: 12, color: "#94a3b8" } }, "没有") : onlyA.map(k => h("div", { key: k, style: li }, h("b", null, k),
             !ro && h("button", { onClick: () => addRow(k), style: { border: "1px solid #a5b4fc", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } }, "+ 加进 Summary 表"))))) : null);
   };
+  /* 一次性：Summary 表删掉 PANG CHUN MAN、WONG WAI GIAT PBB（24/11/2026 要求） */
+  React.useEffect(() => { if (!Array.isArray(shL) || !shL.some(x => x && x.id === "__seed") || shL.some(x => x && x.id === "__del1") || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
+    const DEL = ["PANG CHUN MAN", "WONG WAI GIAT PBB"], kk = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+    saveSh([...shL.filter(x => !(x && x.id !== "__seed" && DEL.includes(kk(x.name)))), { id: "__del1", at: Date.now() }]); }, [shL]);
   const sheetView = () => {
     const all = (Array.isArray(shL) ? shL : []), meta = all.find(x => x && x.id === "__seed") || {}, rowsS = all.filter(x => x && x.id !== "__seed").sort((a, b) => (a.ord || 0) - (b.ord || 0));
     const upd = (id, pt) => saveSh(all.map(x => x.id === id ? { ...x, ...pt } : x));
@@ -7466,11 +7470,11 @@ function SalesSummaryPage({ currentUser }) {
     const btn = { border: "none", background: "none", cursor: "pointer", color: "#94a3b8" };
     return h("div", null,
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
-        card("人数", rowsS.length, "#4f46e5", "#eef2ff"), card("BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
+        card("人数", rowsS.length, "#4f46e5", "#eef2ff"), card("CUSTOMER BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
         card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
       h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: { ...S.dataTable, fontSize: 12.5 } },
         h("thead", null, h("tr", null, ["#", h("span", { key: "a" }, "AS AT ", h("input", { key: "asat:" + (meta.asAt || ""), defaultValue: meta.asAt || "", onBlur: e => { const v = e.target.value.trim(); if (v !== meta.asAt) upd("__seed", { asAt: v }); }, style: { width: 96, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "inherit", borderRadius: 6, padding: "2px 6px", fontWeight: 900, fontFamily: "inherit" } })),
-          "BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "CRM", "Remark", "", "", ""].map(th))),
+          "CUSTOMER BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "CRM", "Remark", "", "", ""].map(th))),
         h("tbody", null, rowsS.map((r, i) => { const t = totOf(r), off = r.tot !== undefined && r.tot !== "" && Math.abs(lsNum(r.tot) - tot(r)) > 0.005, blue = r.fg === "blue" ? "#1d4ed8" : undefined;
           return h("tr", { key: r.id, style: r.line ? { borderBottom: "2px solid #dc2626" } : undefined },
             h("td", { style: { ...td, color: "#94a3b8", width: 26 } }, i + 1),
@@ -11425,6 +11429,7 @@ function TypePage({
   const isP = isPLike(type);
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
+  const [pgFilter, setPgFilter] = useState("all");   /* Personal / Car：分类 Pending Sign / Pending Disbursement（银行后面那个选单） */
   const [showClosed, setShowClosed] = useState(false);   /* Personal / Car：CLOSING = 点了号码（紫色）已经 Close 的 */
   const [sumYr, setSumYr] = useState(new Date().getFullYear());   /* 上面的年份（◀ 2026 ▶）：CLOSING 也跟着这个年份 */
   const closeYr = String(sumYr), setCloseYr = y => setSumYr(+y);
@@ -11436,7 +11441,7 @@ function TypePage({
   const rows = clients.flatMap(c => (c.loans || []).filter(l => l.type === type).map(l => ({
     loan: l,
     client: c
-  }))).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => {
+  }))).filter(r => stageFilter === "all" || r.loan.stage === stageFilter).filter(r => !isP || pgFilter === "all" || (r.loan.banks || []).some(b => b && b.dis === pgFilter && !["rejected", "unable", "fraud"].includes(b.status))).filter(r => {
     if (!q) return true;
     const s = q.toLowerCase();
     return [r.client.name, r.client.phone, r.loan.bank, r.loan.subject].filter(Boolean).join(" ").toLowerCase().includes(s);
@@ -11488,7 +11493,10 @@ React.createElement(LoanSumBar, { rows: statRows, yr: sumYr, setYr: setSumYr }),
   onClick: () => setShowClosed(v => !v),
   title: showClosed ? "回去还没 Close 的" : "看已经 Close 的（紫色号码）",
   style: { ...S.addBtn, background: showClosed ? "linear-gradient(135deg,#7c3aed,#6b21a8)" : "#fff", color: showClosed ? "#fff" : "#7c3aed", border: "2px solid #7c3aed", boxShadow: "none", whiteSpace: "nowrap" }
-}, showClosed ? "← BACK" : "CLOSING", " (", showClosed ? clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && !l.closedMark).length, 0) : closedN, ")")), !isP && /*#__PURE__*/React.createElement("div", {
+}, showClosed ? "← BACK" : "CLOSING", " (", showClosed ? clients.reduce((n, c) => n + (c.loans || []).filter(l => l.type === type && !l.closedMark).length, 0) : closedN, ")")), isP && React.createElement("div", { style: S.filters },
+  [["all", "全部"], ["pendsign", "Pending Sign", "#7c3aed"], ["penddisb", "Pending Disbursement", "#db2777"]].map(([k, lb, col]) => {
+    const n = k === "all" ? null : clients.flatMap(c => c.loans || []).filter(l => l.type === type && (showClosed ? !!l.closedMark : !l.closedMark) && (l.banks || []).some(b => b && b.dis === k && !["rejected", "unable", "fraud"].includes(b.status))).length;
+    return React.createElement(Chip, { key: k, active: pgFilter === k, onClick: () => setPgFilter(k), label: lb + (n == null ? "" : " " + n), color: col }); })), !isP && /*#__PURE__*/React.createElement("div", {
   style: S.filters
 }, /*#__PURE__*/React.createElement(Chip, {
   active: stageFilter === "all",
