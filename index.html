@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124110000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124111000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "515";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "517";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -8069,8 +8069,10 @@ function LeavePage({ currentUser }) {
   };
   const del = x => { if (window.confirm("删除 " + String(x.name).toUpperCase() + " 的请假记录？")) save(items.filter(y => y.id !== x.id)); };
   const canEdit = x => boss || sameUser(x.by, currentUser) || sameUser(x.name, currentUser);
+  /* 下面的列表：只有老板看到全部；staff 只看到自己的（上面的卡片大家都看到） */
+  const vis = boss ? items : items.filter(x => sameUser(x.name, currentUser) || sameUser(x.by, currentUser));
   const onToday = items.filter(x => x.status !== "rejected" && x.from <= t && (x.to || x.from) >= t);
-  const shown = items.filter(x => view === "all" || (view === "upcoming" ? (x.to || x.from) >= t : (x.to || x.from) < t))
+  const shown = vis.filter(x => view === "all" || (view === "upcoming" ? (x.to || x.from) >= t : (x.to || x.from) < t))
     .filter(x => !q || (x.name + " " + x.reason + " " + x.type).toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => view === "past" ? (b.from || "").localeCompare(a.from || "") : (a.from || "").localeCompare(b.from || ""));
   const daysByPerson = items.filter(x => x.status === "approved" && (x.from || "").slice(0, 4) === t.slice(0, 4)).reduce((acc, x) => { acc[x.name] = (acc[x.name] || 0) + leaveDays(x.from, x.to, x.type); return acc; }, {});
@@ -8107,7 +8109,7 @@ function LeavePage({ currentUser }) {
     h("div", { style: { display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / reason", value: q, onChange: e => setQ(e.target.value) })),
       h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 申请请假")),
-    h("div", { style: S.filters }, [["upcoming", "即将 / 进行中"], ["past", "已过去"], ["all", "全部"]].map(([k, l]) => h(Chip, { key: k, active: view === k, onClick: () => setView(k), label: l + " " + items.filter(x => k === "all" || (k === "upcoming" ? (x.to || x.from) >= t : (x.to || x.from) < t)).length }))),
+    h("div", { style: S.filters }, [["upcoming", "即将 / 进行中"], ["past", "已过去"], ["all", "全部"]].map(([k, l]) => h(Chip, { key: k, active: view === k, onClick: () => setView(k), label: l + " " + vis.filter(x => k === "all" || (k === "upcoming" ? (x.to || x.from) >= t : (x.to || x.from) < t)).length }))),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, ["#", "Name", "Type", "From", "To", "Days", "Reason", "Status", ""].map((x, i) => h("th", { key: i, style: S.th }, x)))),
       h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
