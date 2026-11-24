@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124182000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124183000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "558";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "559";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -4310,7 +4310,8 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
         h("div", { style: { flex: 1, fontSize: 15, fontWeight: 700, color: "#050505" } }, "通知 (" + items.length + ")"),
         h("button", { onClick: () => setOpen(false), title: "收起", style: { background: "#f0f2f5", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, h(X, { size: 14, color: "#65676b" }))),
       h("div", { style: { maxHeight: 380, overflowY: "auto", padding: 6 } },
-        items.map(it => h("div", { key: it.key, style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start", background: it.kind === "n" ? "#f0fdf4" : "transparent", marginBottom: 2 } },
+        items.map(it => { const isLoan = (it.kind === "n" && ["personal", "car", "house"].includes(it.n.page)) || /\bloans?\b|pinjaman|贷款|disburs|pending sign/i.test(titleOf(it) + " " + textOf(it));   /* 跟 Loan 有关 → 整行黄色 */
+          return h("div", { key: it.key, title: isLoan ? "跟 Loan 有关" : undefined, style: { display: "flex", gap: 10, padding: "10px 8px", borderRadius: 10, alignItems: "flex-start", background: isLoan ? "#fef08a" : it.kind === "n" ? "#f0fdf4" : "transparent", borderLeft: isLoan ? "4px solid #ca8a04" : undefined, marginBottom: 2 } },
           avatar(it.name, 40, it.kind === "n" && !isFu(it)),
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontSize: 13, color: "#65676b" } }, h("b", { style: { color: isFu(it) ? "#0369a1" : it.kind === "n" ? "#15803d" : "#050505" } }, titleOf(it)), " · " + ago(it.at)),
@@ -4326,7 +4327,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
                 it.n.kind === "mreply" && h("button", { key: "mv", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 isFu(it) && it.n.cid && h("button", { key: "v", onClick: () => { setOpen(false); window.__crmOpenClient && window.__crmOpenClient(it.n.cid, it.n.ltype); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "c", onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了")
-              ])))))),
+              ]))); }))),
     !open && peek && h("div", {
       onClick: () => { askNotify(); setOpen(true); setPeek(false); },
       style: { position: "absolute", ...(onLeft ? { left: 70 } : { right: 70 }), bottom: 6, width: 240, background: "#fff", borderRadius: 18, boxShadow: "0 4px 16px rgba(0,0,0,.18)", padding: "10px 30px 10px 14px", cursor: "pointer", animation: "mhPeek .25s ease-out" }
@@ -12943,6 +12944,7 @@ function Detail({
   verification
 }) {
   const [addingLoan, setAddingLoan] = useState(false);
+  const [showOtherLoans, setShowOtherLoans] = useState(false);   /* 从 Personal / Car / House 打开：按上面的 Loan 名字 → 也看这个客户其他的 Loan */
   const [copiedV, setCopiedV] = useState(false);
   const [showHist, setShowHist] = useState(false);
   const loans = client.loans || [];
@@ -13104,9 +13106,11 @@ function Detail({
     size: 14
   }), " Add Loan")), loans.length === 0 && !addingLoan && /*#__PURE__*/React.createElement("div", {
     style: S.fuEmpty
-  }, "No loans yet"), (onlyType ? loans.filter(l => l.type === onlyType) : loans).map(l => /*#__PURE__*/React.createElement(LoanBlock, {
+  }, "No loans yet"), (onlyType && !showOtherLoans ? loans.filter(l => l.type === onlyType) : loans.slice().sort((a, b) => (a.type === onlyType ? 0 : 1) - (b.type === onlyType ? 0 : 1))).map(l => /*#__PURE__*/React.createElement(LoanBlock, {
     key: l.id,
     loan: l,
+    otherLoans: onlyType && l.type === onlyType ? Array.from(new Set(loans.filter(x => x.type !== onlyType).map(x => typeOf(x.type).label))) : [],
+    showOthers: showOtherLoans, onToggleOthers: () => setShowOtherLoans(v => !v), isOther: !!onlyType && l.type !== onlyType,
     onUpdate: updateLoan,
     onRemove: () => removeLoan(l.id),
     currentUser: currentUser,
@@ -13361,6 +13365,10 @@ function CalcSection({
 }
 function LoanBlock({
   loan,
+  otherLoans,
+  showOthers,
+  onToggleOthers,
+  isOther,
   onUpdate,
   onRemove,
   currentUser,
@@ -13485,13 +13493,15 @@ function LoanBlock({
   return /*#__PURE__*/React.createElement("div", {
     style: {
       ...S.loanBlock,
-      borderLeftColor: t.color
+      borderLeftColor: t.color,
+      ...(isOther ? { boxShadow: "0 0 0 2px " + t.color + "55", background: t.color + "08" } : {})
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: S.loanBlockHead
   }, /*#__PURE__*/React.createElement("button", {
     style: S.loanBlockTitle,
-    onClick: () => setExpanded(v => !v)
+    onClick: () => { if (otherLoans && otherLoans.length && onToggleOthers) onToggleOthers(); else setExpanded(v => !v); },
+    title: otherLoans && otherLoans.length ? (showOthers ? "收起其他 Loan" : "这个客户还有：" + otherLoans.join("、") + "（按一下看）") : undefined
   }, /*#__PURE__*/React.createElement(Icon, {
     size: 16,
     color: t.color
@@ -13505,7 +13515,8 @@ function LoanBlock({
       background: st.color + "1a",
       color: st.color
     }
-  }, st.label), /*#__PURE__*/React.createElement(ChevronDown, {
+  }, st.label), otherLoans && otherLoans.length > 0 && React.createElement("span", { style: { marginLeft: 6, background: showOthers ? "#4f46e5" : "#eef2ff", color: showOthers ? "#fff" : "#4338ca", border: "1px solid #c7d2fe", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, whiteSpace: "nowrap" } },
+    showOthers ? "收起其他 Loan" : "+ " + otherLoans.join(" / ")), isOther && React.createElement("span", { style: { marginLeft: 6, background: t.color, color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900 } }, "其他 LOAN"), /*#__PURE__*/React.createElement(ChevronDown, {
     size: 15,
     color: "#94a3b8",
     style: {
