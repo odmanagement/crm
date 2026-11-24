@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124130500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124131000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "535";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "536";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7047,7 +7047,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
       sw(!!PS.b, null, "粗体", () => setBsSty(bsPop.k, { b: PS.b ? 0 : 1 }), "b"),
       sw(!!PS.s, null, "划线", () => setBsSty(bsPop.k, { s: PS.s ? 0 : 1 }), "s"),
       sw(false, null, "清除", () => { setBsSty(bsPop.k, { c: "", bg: "", b: 0, s: 0 }); setBsPop(null); }, "clr")));
-  return h("div", { ref: sheetRef, "data-sid": sid, onContextMenu: onCtx, className: "bs-sheet" + (d.ended ? " bs-ended" : ""), style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
+  return h("div", { ref: sheetRef, "data-sid": sid, onContextMenu: onCtx, className: "bs-sheet" + (d.ended ? " bs-ended" : "") + (tC > 0.005 && Math.abs(bal + cuse + ause) < 0.005 ? " bs-zero" : ""),   /* 黄色 TOTAL = 0 → 整个变青色（像 Google Sheet） */ style: { background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", borderTop: "4px solid #0f172a", borderBottom: "4px solid #0f172a", boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto", position: "relative" } },
     onDel && h("button", { onClick: onDel, title: "删除", style: { position: "absolute", bottom: 4, right: 4, border: "none", background: "rgba(255,255,255,.9)", borderRadius: 6, cursor: "pointer", padding: 3, zIndex: 1 } }, h(Trash2, { size: 14, color: "#94a3b8" })),
     bsCss && h("style", null, bsCss), bsPopEl, fillEl,
     h("table", { style: { borderCollapse: "collapse", width: "100%", fontFamily: "Arial, sans-serif", color: "#111827" } }, h("tbody", null, trs)),
@@ -14539,6 +14539,10 @@ button:active, a:active { transform: scale(.97); }
 /* Bank Statement：END 打勾 → 整个变紫色 */
 div.bs-sheet.bs-ended, div.bs-sheet.bs-ended td, div.bs-sheet.bs-ended th { background: #ede9fe !important; }
 div.bs-sheet.bs-ended { border-color: #a78bfa !important; }
+/* Bank Statement：黄色 TOTAL = 0 → 整个变青色（像 Google Sheet） */
+div.bs-sheet.bs-zero, div.bs-sheet.bs-zero td, div.bs-sheet.bs-zero th { background: #00ff00 !important; }
+div.bs-sheet.bs-zero input, div.bs-sheet.bs-zero textarea, div.bs-sheet.bs-zero select { background: transparent !important; }
+div.bs-sheet.bs-zero { border-color: #16a34a !important; }
 /* Bank Statement 表格：全部字体粗体 */
 .bs-sheet, .bs-sheet * , div.bs-sheet.bs-sheet input, div.bs-sheet.bs-sheet select, div.bs-sheet.bs-sheet textarea, div.bs-sheet.bs-sheet td, div.bs-sheet.bs-sheet th { font-weight: 800 !important; }
 .bs-sheet input::placeholder, .bs-sheet textarea::placeholder { font-weight: 700 !important; }
