@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124112000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124112500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "518";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "519";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7373,9 +7373,7 @@ function SalesSummaryPage({ currentUser }) {
     const money = (v, col) => v ? h("span", { style: col ? { color: col } : null }, lsFmt(v)) : "";
     const dd = String(now.getDate()).padStart(2, "0") + "/" + String(now.getMonth() + 1).padStart(2, "0") + "/" + now.getFullYear();
     return h("div", null,
-      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
-        card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
-        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
+      /* CRM 自动：上面的卡片不要了 */
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END 的")),
