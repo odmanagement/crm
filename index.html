@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124175000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124180500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "555";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "556";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -3389,7 +3389,8 @@ function CRM({ onLogout, currentUser }) {
   const _slStopKey = React.useRef("");
   React.useEffect(() => { const t = setTimeout(() => { try { DB.migrateFiles(); } catch (e) {} }, 40000); const t2 = setTimeout(() => { try { ensureFullBackup(); } catch (e) {} }, 60000); return () => { clearTimeout(t); clearTimeout(t2); }; }, []);   /* 以前的照片慢慢搬去 Storage */
   const [clients, setClients] = useState([]);
-  const [slStatusList] = useCloudList("salary_status");
+  const [slStatusList, saveSlStatusList] = useCloudList("salary_status");
+  const [accSalL, saveAccSalL] = useCloudList("acc_salary");
   React.useEffect(() => { const set = new Set([...(clients || []).filter(c => c && (slLatest(c.salaryStatusM) === "stop" || c.slStopped) && String(c.name || "").trim()).map(c => slNameKey(c.name)), ...(slStatusList || []).filter(x => x && (slLatest(x.m) === "stop" || x.stopped)).map(x => x.id)]);
     const k = Array.from(set).sort().join("|"); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients, slStatusList]);
   const [verifications, setVerifications] = useState([]);
@@ -3603,6 +3604,19 @@ function CRM({ onLogout, currentUser }) {
     persistVerifications([v, ...verifications]);
     alert(`${client.name} sent to verify queue`);
   };
+  /* Car Loan 按 Pending Sign → 这个月 Salary Status = STOP SALARY；之后月份的 Salary Listing 拿掉；Bank Statement / Rencai 显示 STOP SALARY */
+  const _cps = React.useRef({}); _cps.current = { clients, slStatusList, accSalL, saveSlStatusList, saveAccSalL, persist: n => persist(n) };
+  React.useEffect(() => { window.__crmCarPendSign = name => {
+    const { clients: cs, slStatusList: sl, accSalL: acc, saveSlStatusList: saveSl, saveAccSalL: saveAcc, persist: ps } = _cps.current;
+    const k = slNameKey(name); if (!k || isReadOnlyUser()) return; const me = canonUser(window.__crmUser || "");
+    const d = new Date(), cur = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    const o = (sl || []).find(x => x && x.id === k) || { id: k, name: String(name || "").toUpperCase() };
+    saveSl([...(sl || []).filter(x => x && x.id !== k), { ...o, m: { ...(o.m || {}), [cur]: "stop" }, by: me, at: Date.now(), carPend: 1 }]);
+    const c = (cs || []).find(x => x && slNameKey(x.name) === k);
+    if (c && (c.loans || []).some(l => l.type === "personal")) setTimeout(() => { const cs2 = _cps.current.clients || []; ps(cs2.map(x => x.id === c.id ? { ...x, salaryStatusM: { ...(x.salaryStatusM || {}), [cur]: "stop" }, salaryStatusBy: me, salaryStatusAt: Date.now() } : x)); }, 800);
+    if (Array.isArray(acc)) { const nx = acc.filter(x => !(x && String(x.ym || "") > cur && slNameKey(x.name) === k)); if (nx.length !== acc.length) saveAcc(nx); }
+    try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "salarylist", to: me, from: "system", title: "⛔ STOP SALARY", task: String(name || "").toUpperCase() + " · Car Loan Pending Sign → 自动 STOP SALARY", at: Date.now() }); } catch (e) {}
+  }; }, []);
   const persist = async next => {
     /* Loan（House / Car / Personal）：谁都可以操作，不套用「只有建立的人可以改」 */
     /* Personal Loan 一 Submit，同一个人也有 Car Loan → 通知 Lucas 去 Submit Car Loan（有声音） */
@@ -13409,7 +13423,9 @@ function LoanBlock({
       return x;
     }) });
   }, [loan.id, banks.length]);
-  const setBank = (i, k, v) => onUpdate({
+  /* Car Loan 选 Pending Sign → 自动 STOP SALARY（Salary Status / Salary Listing / Bank Statement） */
+  const carPend = (k, v) => { if (k === "dis" && v === "pendsign" && loan.type === "car") setTimeout(() => { try { window.__crmCarPendSign && window.__crmCarPendSign(clientName); } catch (e) {} }, 300); };
+  const setBank = (i, k, v) => (carPend(k, v), onUpdate({
     ...loan,
     banks: banks.map((b, j) => j === i ? {
       ...b,
@@ -13417,7 +13433,7 @@ function LoanBlock({
       ...(k === "status" && (v === "approved" || v === "disbursed") && !b.approvedAt ? { approvedAt: today() } : {}),
       ...(k === "dis" && v === "collect" && !b.collectAt ? { collectAt: today() } : {})
     } : b)
-  });
+  }));
   const removeBank = i => onUpdate({
     ...loan,
     banks: banks.filter((_, j) => j !== i)
@@ -13438,6 +13454,7 @@ function LoanBlock({
   const setBankV = (i, b, k, v) => {
     if (i >= 0) return setBank(i, k, v);
     if (v === "" || v == null) return;
+    carPend(k, v);
     onUpdate({ ...loan, banks: [...banks, { bank: b.bank, officer: "", status: "submitted", amount: "", date: today(), dis: "", [k]: v, ...(k === "status" && (v === "approved" || v === "disbursed") ? { approvedAt: today() } : {}), ...(k === "dis" && v === "collect" ? { collectAt: today() } : {}) }] });
   };
   if (editingLoan) return /*#__PURE__*/React.createElement(LoanForm, {
