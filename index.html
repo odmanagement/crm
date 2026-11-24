@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124123000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124123500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "528";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "529";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7520,8 +7520,8 @@ function SalesSummaryPage({ currentUser }) {
   const byMonth = agg(cur, r => r.ym).map(o => ({ ...o, label: MN[+o.k.slice(5) - 1] + " " + o.k.slice(0, 4) }));
   const sel = { border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 12px", fontWeight: 800, fontFamily: "inherit", background: "#fff" };
   return h("div", null,
-    false && h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 } },   /* 整页只看 CRM 自动：上面的按钮都不显示 */
-      Object.keys(SRC).filter(k => k !== "sheet").map(k => h("button", { key: k, onClick: () => setSrc(k),   /* Summary 表 不显示（CRM 自动还是跟着它排） */ style: { border: "1px solid " + (src === k ? "var(--navy, #1e3a8a)" : "#e2e8f0"), background: src === k ? "var(--navy, #1e3a8a)" : "#fff", color: src === k ? "#fff" : "#1e293b", borderRadius: 10, padding: "8px 16px", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } }, SRC[k].lb)),
+    h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 } },
+      Object.keys(SRC).map(k => h("button", { key: k, onClick: () => setSrc(k), style: { border: "1px solid " + (src === k ? "var(--navy, #1e3a8a)" : "#e2e8f0"), background: src === k ? "var(--navy, #1e3a8a)" : "#fff", color: src === k ? "#fff" : "#1e293b", borderRadius: 10, padding: "8px 16px", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } }, SRC[k].lb)),
       h("span", { style: { flex: 1 } }),
       src !== "bs" && src !== "sheet" && h("select", { value: yr, onChange: e => setYr(e.target.value), style: sel }, h("option", { value: "all" }, "全部年份"), years.map(y => h("option", { key: y, value: y }, y))),
       src !== "bs" && src !== "sheet" && h("select", { value: mo, onChange: e => setMo(e.target.value), style: sel }, h("option", { value: "all" }, "全部月份"), MN.map((m, i) => h("option", { key: m, value: String(i + 1).padStart(2, "0") }, m)))),
