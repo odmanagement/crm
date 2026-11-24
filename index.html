@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124181500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124182000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "557";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "558";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -3392,7 +3392,13 @@ function CRM({ onLogout, currentUser }) {
   const [slStatusList, saveSlStatusList] = useCloudList("salary_status");
   const [accSalL, saveAccSalL] = useCloudList("acc_salary");
   React.useEffect(() => { const set = new Set([...(clients || []).filter(c => c && (slLatest(c.salaryStatusM) === "stop" || c.slStopped) && String(c.name || "").trim()).map(c => slNameKey(c.name)), ...(slStatusList || []).filter(x => x && (slLatest(x.m) === "stop" || x.stopped)).map(x => x.id)]);
-    const k = Array.from(set).sort().join("|"); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients, slStatusList]);
+    /* 从哪个月开始 STOP（最后一段连续 STOP 的第一个月；# 搬去 STOP SALARY 的 → 那天的月份）→ Salary Listing 那个月开始不显示 */
+    const ymOf = t => { const d = new Date(t > 1 ? t : Date.now()); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+    const stopFrom = (m, stopped) => { const ks = Object.keys(m || {}).filter(x => m[x]).sort(); let f = ""; for (let i = ks.length - 1; i >= 0; i--) { if (m[ks[i]] === "stop") f = ks[i]; else break; } if (stopped) { const y = ymOf(stopped.at || 1); if (!f || y < f) f = y; } return f; };
+    const ym = {}; (clients || []).forEach(c => { if (!c || !String(c.name || "").trim()) return; const f = stopFrom(c.salaryStatusM, c.slStopped); if (f) ym[slNameKey(c.name)] = f; });
+    (slStatusList || []).forEach(x => { if (!x || !x.id) return; const f = stopFrom(x.m, x.stopped); if (f && (!ym[x.id] || f < ym[x.id])) ym[x.id] = f; });
+    window.__crmSalStopYm = ym;
+    const k = Array.from(set).sort().join("|") + "#" + JSON.stringify(ym); if (k === _slStopKey.current && window.__crmSalStop) return; _slStopKey.current = k; window.__crmSalStop = set; try { window.dispatchEvent(new Event("crm-salstop")); } catch (e) {} }, [clients, slStatusList]);
   const [verifications, setVerifications] = useState([]);
   const [bankers, setBankers] = useState([]);
   const [missions, setMissions] = useState([]);
@@ -7220,7 +7226,11 @@ function AccSalaryPage({ currentUser }) {
   const [, setBsTick] = React.useState(0);
   React.useEffect(() => { const f = () => setBsTick(n => n + 1); window.addEventListener("crm-bs-people", f); return () => window.removeEventListener("crm-bs-people", f); }, []);
   const endYm = {}; (window.__crmBsPeople || []).forEach(p => { if (!p || !p.ended || !p.name) return; const d = new Date(p.endAt > 1 ? p.endAt : Date.now()), y = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"), k = slNameKey(p.name); if (k && (!endYm[k] || y < endYm[k])) endYm[k] = y; });
-  const isEnded = x => { const e = x && x.name && endYm[slNameKey(x.name)]; return !!e && String(x.ym || "") >= e; };
+  React.useEffect(() => { const f = () => setBsTick(n => n + 1); window.addEventListener("crm-salstop", f); return () => window.removeEventListener("crm-salstop", f); }, []);
+  /* Salary Status 按了 STOP SALARY → 那个月开始 Salary Listing 不显示（以前的月份照样在；改回别的就回来） */
+  const stopYm = x => { const k = x && x.name && slNameKey(x.name), m = window.__crmSalStopYm || {}; return k && window.__crmSalStop && window.__crmSalStop.has(k) ? m[k] || "" : ""; };
+  const isStopped = x => { const s0 = stopYm(x); return !!s0 && String(x.ym || "") >= s0; };
+  const isEnded = x => { const e = x && x.name && endYm[slNameKey(x.name)]; return (!!e && String(x.ym || "") >= e) || isStopped(x); };
   const endedRows = items.filter(x => x.ym === ym && isEnded(x));
   /* 10 月之后的月份：顺序跟着 10 月（10 月没有的人放后面） */
   /* 10 月之后的月份：照 10 月同名字那一行 → 颜色（只跟一次）、公司 / 户口 / Agent（空的才填）、EPF / SOCSO / EIS（空的就照 Salary 算，跟 10 月一样是雇主 + 员工）、PCB / HRDF（Salary 跟 10 月一样才照抄） */
@@ -7288,7 +7298,7 @@ function AccSalaryPage({ currentUser }) {
       h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0, minWidth: 200 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / company / agent", value: sq, onChange: e => setSq(e.target.value) })),
       !canEdit && h("span", { style: { background: "#f1f5f9", color: "#64748b", borderRadius: 999, padding: "6px 12px", fontWeight: 800, fontSize: 12 } }, "👁 只能看 · 只有 CHIALING 可以改"),
       canEdit && h("button", { onClick: e => { e.stopPropagation(); setPaint(v => !v); setPop(null); }, title: "打开后点格子 = 换字颜色 / Highlight（也可以直接右键点格子）", style: { border: paint ? "2px solid #7c3aed" : "1px solid #e2e8f0", background: paint ? "#f3e8ff" : "#fff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", fontWeight: 900, fontSize: 13, cursor: "pointer" } }, paint ? "🎨 颜色模式（开）" : "🎨 颜色"),
-      endedRows.length > 0 && h("span", { title: "Bank Statement 已经 END：" + endedRows.map(x => x.name).join("、") + "（取消 END 就会回来）", style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "help" } }, "🟣 已 END 不显示 " + endedRows.length + " 人"),
+      endedRows.length > 0 && h("span", { title: "Bank Statement 已经 END / Salary Status STOP SALARY：" + endedRows.map(x => x.name + (isStopped(x) ? "（STOP）" : "（END）")).join("、") + "（取消就会回来）", style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 12px", fontWeight: 900, fontSize: 12.5, cursor: "help" } }, "🟣 已 END / ⛔ STOP 不显示 " + endedRows.length + " 人"),
       canEdit && hid.length > 0 && h("button", { onClick: () => saveHid([]), title: "隐藏了：" + hid.map(k => ACC_COLT[k] || k).join("、"), style: { border: "1px solid #94a3b8", background: "#f8fafc", color: "#334155", borderRadius: 999, padding: "7px 14px", cursor: "pointer", fontWeight: 900, fontSize: 13 } }, "👁 显示隐藏的 " + hid.length + " 栏"),
       canEdit && h("button", { onClick: copyPrev, style: { border: "1px solid #c4b5fd", background: "#f5f3ff", color: "#6d28d9", borderRadius: 999, padding: "7px 14px", cursor: "pointer", fontWeight: 900, fontSize: 13 } }, "⧉ 复制上个月名单"),
       canEdit && h("button", { style: S.addBtn, onClick: add }, h(Plus, { size: 16 }), " 加一个人")),
