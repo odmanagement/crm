@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124180500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124181500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "556";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "557";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7223,13 +7223,20 @@ function AccSalaryPage({ currentUser }) {
   const isEnded = x => { const e = x && x.name && endYm[slNameKey(x.name)]; return !!e && String(x.ym || "") >= e; };
   const endedRows = items.filter(x => x.ym === ym && isEnded(x));
   /* 10 月之后的月份：顺序跟着 10 月（10 月没有的人放后面） */
+  /* 10 月之后的月份：照 10 月同名字那一行 → 颜色（只跟一次）、公司 / 户口 / Agent（空的才填）、EPF / SOCSO / EIS（空的就照 Salary 算，跟 10 月一样是雇主 + 员工）、PCB / HRDF（Salary 跟 10 月一样才照抄） */
+  const refRow = new Map(); items.filter(x => x.ym === ACC_REF_YM).forEach(x => { const k = slNameKey(x.name); if (k && !refRow.has(k)) refRow.set(k, x); });
+  const accFill = x => { if (!x || !x.name || !(String(x.ym || "") > ACC_REF_YM)) return x; const t = refRow.get(slNameKey(x.name)); let y = x, c = false; const set = (k, v) => { if (v === undefined || v === null || v === "") return; if (!c) { y = { ...y }; c = true; } y[k] = v; };
+    if (t && !x.styInit) { set("sty", { ...(t.sty || {}), ...(x.sty || {}) }); if (x.color === undefined) set("color", t.color); if (x.blue === undefined) set("blue", t.blue); if (x.nameBg === undefined) set("nameBg", t.nameBg); set("styInit", 1); }
+    if (t) ["company", "acc", "agent"].forEach(k => { if (!String(x[k] || "").trim()) set(k, t[k]); });
+    const sal = lsNum(x.salary);
+    if (sal > 0 && !x.noDed && !["epf", "socso", "eis"].some(k => String(x[k] || "").trim())) { try { const o = bsCalcOut({ salary: sal, ov: {}, adds: [] }); set("epf", lsFmt(o.v("epfEr") + o.v("epfEe"))); set("socso", lsFmt(o.v("socEr") + o.v("socEe"))); set("eis", lsFmt(o.v("eisEr") + o.v("eisEe"))); set("autoDed", 1); } catch (e) {} }
+    if (t && sal > 0 && Math.abs(sal - lsNum(t.salary)) < 0.005) ["pcb", "hrdf"].forEach(k => { if (!String(x[k] || "").trim() && String(t[k] || "").trim()) set(k, t[k]); });
+    return y; };
+  const accFillView = x => { try { return accFill(x); } catch (e) { return x; } };
   const refIdx = new Map(); items.filter(x => x.ym === ACC_REF_YM).forEach((x, i) => { const k = slNameKey(x.name); if (k && !refIdx.has(k)) refIdx.set(k, i); });
-  const allRows = items.filter(x => x.ym === ym && !isEnded(x)).map((x, i) => [x, ym > ACC_REF_YM && refIdx.has(slNameKey(x.name)) ? refIdx.get(slNameKey(x.name)) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map(a => a[0]);
-  /* 10 月之后的月份：还没跟过颜色的那一行 → 照 10 月同名字那一行的颜色（只做一次；之后自己改的不会被盖） */
+  const allRows = items.filter(x => x.ym === ym && !isEnded(x)).map(accFillView).map((x, i) => [x, ym > ACC_REF_YM && refIdx.has(slNameKey(x.name)) ? refIdx.get(slNameKey(x.name)) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map(a => a[0]);
   React.useEffect(() => { if (!canEdit || !accFresh || !Array.isArray(list)) return; let ch = false;
-    const ref = new Map(); items.filter(x => x.ym === ACC_REF_YM).forEach(x => { const k = slNameKey(x.name); if (k && !ref.has(k)) ref.set(k, x); });
-    const next = items.map(x => { if (!x || x.styInit || !(String(x.ym || "") > ACC_REF_YM) || !x.name) return x; const t = ref.get(slNameKey(x.name)); ch = true; if (!t) return { ...x, styInit: 1 };
-      return { ...x, styInit: 1, sty: { ...(t.sty || {}), ...(x.sty || {}) }, ...(x.color === undefined && t.color ? { color: t.color } : {}), ...(x.blue === undefined && t.blue ? { blue: t.blue } : {}), ...(x.nameBg === undefined && t.nameBg ? { nameBg: t.nameBg } : {}) }; });
+    const next = items.map(x => { const y = accFill(x); if (y !== x) ch = true; return y; });
     if (ch) saveRaw(next); }, [list, accFresh]);
   const rows = allRows.filter(x => !sql || [x.name, x.company, x.agent, x.lbl, x.acc].join(" ").toLowerCase().includes(sql));
   const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
