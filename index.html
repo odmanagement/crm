@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124162000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124163000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "549";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "550";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7393,8 +7393,11 @@ function SalesSummaryPage({ currentUser }) {
         const ns = ppl.filter(r => !r.sheet && !r.st), dup = ppl.filter(r => r.dupBoth);
         return h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "-4px 0 12px", fontSize: 12.5, fontWeight: 800 } },
           h("span", { style: { color: "#64748b" } }, "BS TOTAL 分开："),
-          grp.map(([lb, f, col]) => { const L = ppl.filter(f); return h("span", { key: lb, style: { border: "1px solid " + col + "55", background: col + "10", color: col, borderRadius: 999, padding: "3px 10px" } }, lb + " RM " + lsFmt(r2(L.reduce((t, r) => t + r.tot, 0))) + "（" + L.length + " 人）"); }),
-          ns.length > 0 && h("span", { title: ns.map(r => r.name).join("、"), style: { color: "#b45309", borderRadius: 999, padding: "3px 10px", background: "#fffbeb", border: "1px solid #fcd34d", cursor: "help" } }, "其中还没 START（在 PENDING）RM " + lsFmt(r2(ns.reduce((t, r) => t + r.tot, 0))) + "（" + ns.length + " 人）"),
+          grp.map(([lb, f, col], gi) => { const L = ppl.filter(f), S2 = X => r2(X.reduce((t, r) => t + r.tot, 0));
+            /* 进行中 = 跟 Bank Statement / Rencai 页面「进行中」下面的 TOTAL OUTSTANDING 一样；END / 还没 START 的另外写 */
+            const E2 = gi < 2 ? L.filter(r => r.ended) : [], P2 = gi < 2 ? L.filter(r => !r.ended && !r.st) : [], A2 = gi < 2 ? L.filter(r => !r.ended && r.st) : L;
+            return h("span", { key: lb, title: [...E2, ...P2].map(r => r.name + (r.ended ? "（END）" : "（还没 START）") + " " + lsFmt(r.tot)).join("\n"), style: { border: "1px solid " + col + "55", background: col + "10", color: col, borderRadius: 999, padding: "3px 10px", cursor: E2.length || P2.length ? "help" : undefined } },
+              lb + " RM " + lsFmt(S2(L)) + "（" + L.length + " 人）" + (E2.length || P2.length ? " = 进行中 " + lsFmt(S2(A2)) + (E2.length ? " + END " + lsFmt(S2(E2)) + "（" + E2.length + "）" : "") + (P2.length ? " + 还没 START " + lsFmt(S2(P2)) + "（" + P2.length + "）" : "") : "")); }),
           dup.length > 0 && h("span", { title: dup.map(r => r.name).join("、"), style: { color: "#b91c1c", borderRadius: 999, padding: "3px 10px", background: "#fef2f2", border: "1px solid #fecaca", cursor: "help" } }, "BS 跟 Rencai 都有、这里只算一次：" + dup.length + " 人")); })(),
       h("div", { style: { ...S.tableWrap, overflowY: "auto", maxHeight: "calc(100vh - 210px)" } }, h("table", { className: "cz-table", style: S.dataTable },   /* 滑下去标题一直在上面 */
         h("thead", null, h("tr", null, ["#", "AS AT " + dd, "CUSTOMER BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined, position: "sticky", top: 0, zIndex: 3 } }, x)))),
