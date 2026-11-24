@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124135000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124140000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "542";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "543";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -4616,7 +4616,7 @@ const clCachePut = (key, val) => { clearTimeout(_clPut[key]); _clPut[key] = setT
 /* ===== 谁建立，只有那个人可以改（Lucas 全部都可以；备注大家都可以）=====
    旧资料没有记录是谁建立的 → 第一个改的人变成主人（owner） */
 const OWN_KEYS = ["bank_stmt_people", "bank_stmt_people_rencai", "lending_fee", "od_payments", "receipts", "bs_return_salary", "return_salary", "leaves", "phones", "submissions", "doc_tracking"];
-const OWN_FREE = /remark|rmk|note|memo|followups|comments|replies|备注|^(waitTypes|waitDoneAt|waitInfo|aeonGxDone|stage|meta|updatedAt|updatedBy|checked|checkedBy|checkedAt|paid|paidAt|paidBy)$/i;   /* ✓ 打勾、已付 / 未付：全部人都可以按 */   /* 备注 + 系统自己更新的栏位 */
+const OWN_FREE = /remark|rmk|note|memo|followups|comments|replies|备注|^(waitTypes|waitDoneAt|waitInfo|aeonGxDone|stage|meta|updatedAt|updatedBy|checked|checkedBy|checkedAt|paid|paidAt|paidBy|err)$/i;   /* ✓ 打勾、已付 / 未付：全部人都可以按 */   /* 备注 + 系统自己更新的栏位 */
 const ownBoss = () => { try { return isMissionBoss(window.__crmUser); } catch (e) { return false; } };
 const ownerOf = x => x ? (x.owner || x.createdBy || x.by || x.staff || "") : "";
 let _ownToastT = 0;
@@ -7876,7 +7876,7 @@ function ReceiptPage({ currentUser, clients }) {
       const gi = 0;
       const g = groups[0];
       const navBtn = (dis) => ({ width: 36, height: 36, borderRadius: 10, border: "1px solid #c7d2fe", background: dis ? "#f1f5f9" : "#fff", color: dis ? "#cbd5e1" : "#4f46e5", fontSize: 16, fontWeight: 900, cursor: dis ? "default" : "pointer" });
-      const tdEmpty = t => h("tr", null, h("td", { colSpan: 8, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, t));
+      const tdEmpty = t => h("tr", null, h("td", { colSpan: 9, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, t));
       return [
         g && h("div", { key: "bar", style: { ...card, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px" } },
           h("div", { style: { minWidth: 110, textAlign: "center" } },
@@ -7893,9 +7893,9 @@ function ReceiptPage({ currentUser, clients }) {
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
         h("div", { key: "tbl", style: S.tableWrap }, h("table", { className: "cz-table cz-center", style: S.dataTable },
-          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "已付 / 未付", "Receipt", "Remark", "By", "✓"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
+          h("thead", null, h("tr", null, ["Date", "Name", "Amount", "已付 / 未付", "Receipt", "Remark", "By", "Error", "✓"].map((x, i) => h("th", { key: i, style: S.th }, x)))),
           h("tbody", null, list === null ? tdEmpty("载入中…") : !g ? tdEmpty(items.length ? "找不到" : "还没有 Boss Take") :
-            g.rows.map(r => h("tr", { key: r.id },
+            g.rows.map(r => h("tr", { key: r.id, style: r.err ? { background: "#fef2f2" } : undefined },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
               h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), (boss || sameUser(r.by, currentUser)) && h("button", { onClick: () => renameRc(r), title: "改名字", style: { marginLeft: 6, border: "none", background: "none", cursor: "pointer", color: "#94a3b8", fontSize: 12, padding: 0 } }, "✎"),
                 r.atm && ((boss || sameUser(r.by, currentUser)) ? h("select", { value: r.method === "ATM Transfer" ? "transfer" : "withdraw", title: "ATM Withdraw / ATM Transfer（选「取消」= 不是 ATM）",
@@ -7912,6 +7912,17 @@ function ReceiptPage({ currentUser, clients }) {
               h("td", { style: { ...S.td, minWidth: 110 } }, h(LfPhotos, { ids: r.rcpt || [], compact: true, onChange: ids => save(items.map(x => x.id === r.id ? { ...x, rcpt: ids } : x)) })),
               h("td", { style: { ...S.td, minWidth: 160, maxWidth: 260 } }, h(AutoTextarea, { value: r.remark || "", readOnly: READONLY_USERS.includes(me), placeholder: READONLY_USERS.includes(me) ? "" : "备注…", onCommit: v => { save(items.map(x => x.id === r.id ? { ...x, remark: v } : x)); if (String(v || "").trim() && String(v).trim() !== String(r.remark || "").trim()) btNotify(String(me || "").toUpperCase() + " 在 Boss Take 写了备注 ✍️", String(r.from || "").toUpperCase() + " · RM " + lsFmt(lsNum(r.amount)) + " · " + String(v).trim()); }, style: { textAlign: "center", fontSize: 13 } })),
               h("td", { style: S.td }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 } }, czAvatar(r.by, 22), String(r.by || "").toUpperCase())),
+              /* ERROR：按一下 → 写哪里错 → 提醒建这张的人（再按一下 = 已经改好，取消） */
+              h("td", { style: { ...S.td, minWidth: 110 } }, r.err
+                ? h("div", { title: "按一下 = 已经改好，取消 ERROR", onClick: () => { if (READONLY_USERS.includes(me) || !window.confirm("已经改好了？取消 ERROR")) return; save(items.map(x => x.id === r.id ? { ...x, err: null } : x)); }, style: { cursor: READONLY_USERS.includes(me) ? "default" : "pointer" } },
+                    h("span", { style: { display: "inline-block", background: "#dc2626", color: "#fff", borderRadius: 999, padding: "3px 10px", fontWeight: 900, fontSize: 11.5 } }, "⚠ ERROR"),
+                    r.err.note && h("div", { style: { fontSize: 11.5, color: "#b91c1c", fontWeight: 700, marginTop: 3, whiteSpace: "normal" } }, r.err.note),
+                    h("div", { style: { fontSize: 10.5, color: "#94a3b8", fontWeight: 700 } }, String(r.err.by || "").toUpperCase() + (r.err.at ? " · " + String(r.err.at).split("-").reverse().join("/") : "")))
+                : !READONLY_USERS.includes(me) && h("button", { title: "这张有错误 → 提醒建的人", onClick: () => { const note = window.prompt("哪里错？（会提醒 " + String(r.by || "").toUpperCase() + "）", ""); if (note === null) return;
+                    save(items.map(x => x.id === r.id ? { ...x, err: { by: canonUser(currentUser), at: today(), note: String(note).trim() } } : x));
+                    if (r.by && !sameUser(r.by, me)) try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "receipt", to: canonUser(r.by), from: me, loud: true, sticky: true, goLabel: "去 Boss Take →",
+                      title: "⚠ Boss Take 有错误", task: String(r.from || "").toUpperCase() + " · " + rcRM(rcNum(r.amount)) + (r.date ? " · " + String(r.date).split("-").reverse().join("/") : "") + (String(note).trim() ? "\n错误：" + String(note).trim() : "") + "\n" + String(me || "").toUpperCase() + " 说这张有错，请去改。", at: Date.now() }); } catch (e) {} },
+                    style: { border: "1px dashed #fca5a5", background: "#fff", color: "#ef4444", borderRadius: 999, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } }, "⚠ Error")),
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
                 (boss || sameUser(r.by, currentUser)) && h("button", { style: { ...S.fuDel, border: "1px solid #fecaca", background: "#fff5f5", borderRadius: 8, padding: "5px 7px" }, title: "删除这张收据", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#ef4444" }))))))))
