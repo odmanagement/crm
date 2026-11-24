@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124164500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124172000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "551";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "554";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -6055,7 +6055,9 @@ function LendingFeePage({ currentUser }) {
 /* ---------- Salary Listing：Personal Loan 有填 CIMB / AEON CREDIT 的客户，自动列出来 ---------- */
 const SALARY_BANKS = ["CIMB", "AEON CREDIT"];
 const SL_ST = { notyet: ["⏳ HAVEN'T START", "#f1f5f9", "#475569", "#cbd5e1", "⏳"], build: ["▶ CONTINUE SALARY", "#dcfce7", "#15803d", "#86efac", "✅"], stop: ["⛔ STOP SALARY", "#fee2e2", "#b91c1c", "#fca5a5", "⛔"], new: ["🆕 NEW SALARY", "#dbeafe", "#1d4ed8", "#93c5fd", "🆕"], net: ["💰 NETT SALARY", "#f3e8ff", "#7e22ce", "#d8b4fe", "💰"] };
-const SL_KEYS = ["notyet", "new", "build", "net", "stop"];
+SL_ST.allow = ["🎁 ALLOWANCE", "#fef3c7", "#b45309", "#fcd34d", "🎁"];
+SL_ST.comm = ["💼 COMMISSION", "#cffafe", "#0e7490", "#67e8f9", "💼"];
+const SL_KEYS = ["new", "build", "net", "allow", "comm", "stop"];   /* HAVEN'T START 不要了（24/11/2026）；加 ALLOWANCE、COMMISSION */
 const SL_FRESH_FROM = "2026-12";   /* 这个月开始 Salary Status 每个月 1 号重新开始 */
 const SL_CARRY = ["new", "build", "net"];   /* 这几个 → 自动放进下个月的 Salary Listing；STOP 不放 */
 const SL_REMIND_USERS = ["vv", "alice", "money"];   /* 每个月差不多 20 号提醒来填 Salary Status */
