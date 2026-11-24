@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124113500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124115000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1833,10 +1833,6 @@ const NAV = [{
     id: "salarylist",
     label: "Salary Status",
     icon: Wallet
-  }, {
-    id: "salessum",
-    label: "Summary",
-    icon: TrendingUp
   }]
 }, {
   /* OD Payment / Return Salary / Boss Take 放在一个 Group */
@@ -1873,6 +1869,10 @@ const NAV = [{
     id: "acc_final",
     label: "Final Record",
     icon: Folder
+  }, {
+    id: "salessum",   /* Summary 从 SALES 搬来 ACCOUNT */
+    label: "Summary",
+    icon: TrendingUp
   }]
 }, {
   id: "mission",
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "521";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "523";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -2001,14 +2001,18 @@ function PlApproveWatch({ me, clients }) {
     clients.forEach(c => (c && c.loans || []).forEach(l => { if (!l || l.type !== "personal" || !plIsApproved(l)) return;
       const own = canonUser(loanOwner(l) || c.staff || c.createdBy || c.by || ""); if (own !== meC) return;
       const b = (l.banks || []).find(x => x && (x.status === "approved" || x.status === "disbursed")) || {};
-      mine.push({ k: c.id + "|" + l.id, name: String(c.name || "").toUpperCase(), bank: String(b.bank || b.name || l.bank || "").toUpperCase(), amt: b.approved || b.amount || l.approved || l.amount || "", cid: c.id }); }));
+      mine.push({ k: c.id + "|" + l.id, name: String(c.name || "").toUpperCase(), bank: String(b.bank || b.name || l.bank || "").toUpperCase(), amt: b.approved || b.amount || l.approved || l.amount || "", cid: c.id, ap: b.approvedAt || "" }); }));
+    /* 一 APPROVED 当天：提醒收钱（大框框，要按「知道了」；当天早上 / 下午各一次）；以前没看过的也提醒一次 */
+    const td = today(), half = new Date().getHours() < 13 ? "am" : "pm";
+    const say = (x, tag) => { try { window.__crmAddNotice && window.__crmAddNotice({ id: "plcollect_" + x.k.replace(/[^\w]/g, "") + "_" + tag, kind: "ref", page: "personal", to: meC, from: "system", loud: true, sticky: true, goLabel: "去 Personal Loan →",
+      title: "💰 Personal Loan APPROVED · 今天去收钱", task: x.name + (x.bank ? " · " + x.bank : "") + (lsNum(x.amt) ? " · RM " + lsFmt(lsNum(x.amt)) : "") + "\n客户今天 APPROVED 了，记得今天跟客户收钱！", at: Date.now() }); } catch (e) {} };
+    mine.filter(x => x.ap === td).forEach(x => say(x, td + half));
     let seen = null; try { seen = JSON.parse(localStorage.getItem(LS) || "null"); } catch (e) {}
     const keys = mine.map(x => x.k);
     if (!Array.isArray(seen)) { try { localStorage.setItem(LS, JSON.stringify(keys)); } catch (e) {} return; }   /* 第一次：以前 approved 的当作看过 */
-    const ss = new Set(seen), fresh = mine.filter(x => !ss.has(x.k));
-    fresh.forEach(x => { try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "personal", to: meC, from: "system", loud: true,
-      title: "🎉 Personal Loan APPROVED", task: x.name + (x.bank ? " · " + x.bank : "") + (lsNum(x.amt) ? " · RM " + lsFmt(lsNum(x.amt)) : ""), at: Date.now() }); } catch (e) {} });
-    if (fresh.length) try { localStorage.setItem(LS, JSON.stringify(Array.from(new Set([...seen, ...keys])).slice(-3000))); } catch (e) {}
+    const ss = new Set(seen), fresh = mine.filter(x => !ss.has(x.k) && x.ap !== td);
+    fresh.forEach(x => say(x, "new"));
+    if (keys.some(k => !ss.has(k))) try { localStorage.setItem(LS, JSON.stringify(Array.from(new Set([...seen, ...keys])).slice(-3000))); } catch (e) {}
   }, [clients]);
   return null;
 }
@@ -6816,7 +6820,7 @@ function crmLoudAlert(n, onGo) {
     w.innerHTML = '<div style="background:#fff;border-radius:18px;max-width:640px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden;font-family:inherit;animation:crmShake .5s ease 0s 3">'
       + '<div style="background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;padding:16px 20px;font-weight:900;font-size:19px">🔔 ' + esc(n.title) + '</div>'
       + '<div style="padding:14px 20px;white-space:pre-line;font-size:14px;line-height:1.7;color:#1e293b;font-weight:700;max-height:55vh;overflow:auto">' + esc(n.task) + '</div>'
-      + '<div style="display:flex;gap:10px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #f1f5f9"><button data-a="ok" style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:inherit">知道了</button><button data-a="go" style="border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:inherit">去 Bank Statement →</button></div></div>';
+      + '<div style="display:flex;gap:10px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #f1f5f9"><button data-a="ok" style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:inherit">知道了</button><button data-a="go" style="border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:inherit">' + esc(n.goLabel || "去 Bank Statement →") + '</button></div></div>';
     w.querySelector('[data-a="ok"]').onclick = () => w.remove();
     w.querySelector('[data-a="go"]').onclick = () => { w.remove(); onGo && onGo(); };
     w.firstChild.style.transform = "none";
