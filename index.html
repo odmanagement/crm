@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261123172600";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124103000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "510";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "511";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7359,6 +7359,7 @@ function SalesSummaryPage({ currentUser }) {
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
         card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
         card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
+      diffBox(),
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END 的")),
@@ -7380,6 +7381,47 @@ function SalesSummaryPage({ currentUser }) {
   const [shL, saveSh] = useCloudList("sales_sheet");
   React.useEffect(() => { if (!Array.isArray(shL) || shL.some(x => x && x.id === "__seed") || READONLY_USERS.includes(canonUser(currentUser || ""))) return;
     saveSh([{ id: "__seed", asAt: "19/11/2026", at: Date.now() }, ...SALES_SHEET_SEED]); }, [shL]);
+  /* ---- 对比：Summary 表 vs CRM 自动，人数对不上的名字列出来 + 原因 ---- */
+  const [dfOpen, setDfOpen] = React.useState(false);
+  const diffBox = () => {
+    const key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
+    const all = (Array.isArray(shL) ? shL : []), rowsS = all.filter(x => x && x.id !== "__seed" && key(x.name));
+    const bp = (window.__crmBsPeople || []).filter(p => p && p.name);
+    const autoK = new Set(bp.filter(p => p.started && !p.ended).map(p => key(p.name)));
+    const sheetK = new Set(rowsS.map(r => key(r.name)));
+    const loose = n => key(n).replace(/[^A-Z0-9 ]/g, "").replace(/\s+(PBB|PBE|MBB|CIMB|RHB|HLB|HLBB|AMBANK|AMB|HSBC|OCBC|UOB|BSN|BIMB|AFFIN|ALLIANCE|SCB|AGRO|MUAMALAT|RAKYAT|PUBLIC|MAYBANK|HONG LEONG|\(\d+\)|\d+)$/g, "").trim();
+    const findBp = n => { const k = key(n), L = loose(n); return bp.find(p => key(p.name) === k) || bp.find(p => loose(p.name) === L) || bp.find(p => { const q = loose(p.name); return q.length > 5 && L.length > 5 && (q.startsWith(L + " ") || L.startsWith(q + " ")); }); };
+    const seenS = new Set(), dupS = [];
+    rowsS.forEach(r => { const k = key(r.name); if (seenS.has(k)) dupS.push(r); seenS.add(k); });
+    const onlyS = [], usedAuto = new Set();
+    rowsS.forEach(r => { const k = key(r.name); if (autoK.has(k)) { usedAuto.add(k); return; }
+      const p = findBp(r.name);
+      let why;
+      if (!p) why = "CRM Bank Statement 找不到这个名字";
+      else { const pk = key(p.name), same = pk !== k;
+        if (same && autoK.has(pk) && sheetK.has(pk)) why = "跟「" + pk + "」是同一个人（两个户口），CRM 自动只算一个";
+        else if (same && autoK.has(pk)) { why = "CRM 名字写「" + pk + "」，名字不一样"; usedAuto.add(pk); }
+        else if (p.ended) why = (same ? "CRM 名字「" + pk + "」，" : "") + "已经 END —— CRM 自动不算 END 的（勾「也看 END 的」才会出现）";
+        else if (!p.started) why = (same ? "CRM 名字「" + pk + "」，" : "") + "Bank Statement 还没按「开始」";
+        else why = "CRM 名字「" + pk + "」"; }
+      onlyS.push({ n: key(r.name), why }); });
+    dupS.forEach(r => onlyS.push({ n: key(r.name), why: "Summary 表里重复两行" }));
+    const onlyA = [...autoK].filter(k => !sheetK.has(k) && !usedAuto.has(k)).sort();
+    const nS = rowsS.length, nA = autoK.size, n = onlyS.length + onlyA.length;
+    const addRow = nm => { const mx = all.filter(x => x && x.id !== "__seed").reduce((m, x) => Math.max(m, x.ord || 0), 0); saveSh([...all, { id: uid(), ord: mx + 1, name: nm, bank: "", au: "", cu: "", run: "", crm: true, rmk: "" }]); };
+    const ro = READONLY_USERS.includes(canonUser(currentUser || ""));
+    const li = { padding: "5px 0", borderBottom: "1px dashed #e2e8f0", fontSize: 12.5, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" };
+    if (!bp.length) return null;
+    return h("div", { style: { border: "1px solid " + (n ? "#fdba74" : "#86efac"), background: n ? "#fff7ed" : "#f0fdf4", borderRadius: 12, padding: "10px 14px", marginBottom: 14 } },
+      h("div", { onClick: () => setDfOpen(o => !o), style: { cursor: "pointer", fontWeight: 900, fontSize: 13.5, color: n ? "#c2410c" : "#15803d" } },
+        (n ? "⚠️ " : "✅ ") + "人数对比：Summary 表 " + nS + " 个 · CRM 自动 " + nA + " 个" + (n ? " —— 有 " + n + " 个对不上（按这里看" + (dfOpen ? "，再按收起" : "") + "）" : " —— 名字都对得上")),
+      dfOpen && n ? h("div", { style: { marginTop: 8, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" } },
+        h("div", null, h("div", { style: { fontWeight: 900, fontSize: 12.5, marginBottom: 4 } }, "📋 Summary 表有，CRM 自动没有（" + onlyS.length + "）"),
+          !onlyS.length ? h("div", { style: { fontSize: 12, color: "#94a3b8" } }, "没有") : onlyS.map((x, i) => h("div", { key: i, style: li }, h("b", null, x.n), h("span", { style: { color: "#64748b" } }, x.why)))),
+        h("div", null, h("div", { style: { fontWeight: 900, fontSize: 12.5, marginBottom: 4 } }, "🤖 CRM 自动有，Summary 表没有（" + onlyA.length + "）"),
+          !onlyA.length ? h("div", { style: { fontSize: 12, color: "#94a3b8" } }, "没有") : onlyA.map(k => h("div", { key: k, style: li }, h("b", null, k),
+            !ro && h("button", { onClick: () => addRow(k), style: { border: "1px solid #a5b4fc", background: "#eef2ff", color: "#4338ca", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } }, "+ 加进 Summary 表"))))) : null);
+  };
   const sheetView = () => {
     const all = (Array.isArray(shL) ? shL : []), meta = all.find(x => x && x.id === "__seed") || {}, rowsS = all.filter(x => x && x.id !== "__seed").sort((a, b) => (a.ord || 0) - (b.ord || 0));
     const upd = (id, pt) => saveSh(all.map(x => x.id === id ? { ...x, ...pt } : x));
@@ -7402,6 +7444,7 @@ function SalesSummaryPage({ currentUser }) {
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
         card("人数", rowsS.length, "#4f46e5", "#eef2ff"), card("BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
         card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
+      diffBox(),
       h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: { ...S.dataTable, fontSize: 12.5 } },
         h("thead", null, h("tr", null, ["#", h("span", { key: "a" }, "AS AT ", h("input", { key: "asat:" + (meta.asAt || ""), defaultValue: meta.asAt || "", onBlur: e => { const v = e.target.value.trim(); if (v !== meta.asAt) upd("__seed", { asAt: v }); }, style: { width: 96, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "inherit", borderRadius: 6, padding: "2px 6px", fontWeight: 900, fontFamily: "inherit" } })),
           "BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "CRM", "Remark", "", "", ""].map(th))),
