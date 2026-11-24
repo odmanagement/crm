@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124141000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124141500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "544";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "545";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -4638,6 +4638,9 @@ const OWN_FREE_DEEP = {
   /* Verify：Mark Verified / Failed / Reopen 全部人都可以按（资料本身还是只有建立的人可以改） */
   verifications: /^(status|verifiedBy|verifiedAt|clientId)$/, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)/i };
 /* 代填：某人建立的资料，这些人也可以改（Bank Statement / Rencai：谁建的 Chialing 都可以填） */
+/* 某些人可以改别人资料的某几格：Boss Take 的名字（from）→ CHIALING 可以改全部人的（包括老板） */
+const OWN_FIELD_DELEGATE = { receipts: { chialing: /^from$/ } };
+const ownFieldOk = (key, me, k) => { try { const m = key && OWN_FIELD_DELEGATE[key], re = m && m[canonUser(me)]; return !!(re && re.test(k)); } catch (e) { return false; } };
 const OWN_DELEGATE = { bank_stmt_people: { "*": ["chialing"] }, bank_stmt_people_rencai: { "*": ["chialing"] } };   /* "*" = 谁建的都可以 */
 const ownDelegate = (key, ow, me) => { try { const m = key && OWN_DELEGATE[key]; return !!(m && [...(m[canonUser(ow)] || []), ...(m["*"] || [])].includes(canonUser(me))); } catch (e) { return false; } };
 const ownStrip = (v, re) => Array.isArray(v) ? v.map(y => ownStrip(y, re)) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => { if (!re.test(k) && !OWN_FREE.test(k)) o[k] = ownStrip(v[k], re); return o; }, {}) : v;
@@ -4656,7 +4659,7 @@ function ownGuardList(prev, next, ownerFn, stampKey, key) {
     if (ownBoss() || sameUser(ow, me) || ownDelegate(key, ow, me)) return x;
     const dre = key && OWN_FREE_DEEP[key]; if (dre && _J(ownStrip(o, dre)) === _J(ownStrip(x, dre))) return x;   /* 只改了照片 / 已付 / Return */
     const m = { ...o }; let cut = false;
-    new Set([...Object.keys(o), ...Object.keys(x)]).forEach(k => { if (_J(o[k]) === _J(x[k])) return; if (OWN_FREE.test(k)) m[k] = x[k]; else cut = true; });
+    new Set([...Object.keys(o), ...Object.keys(x)]).forEach(k => { if (_J(o[k]) === _J(x[k])) return; if (OWN_FREE.test(k) || ownFieldOk(key, me, k)) m[k] = x[k]; else cut = true; });
     if (cut) blocked = ow;
     return cut ? m : x;
   });
@@ -7897,7 +7900,7 @@ function ReceiptPage({ currentUser, clients }) {
           h("tbody", null, list === null ? tdEmpty("载入中…") : !g ? tdEmpty(items.length ? "找不到" : "还没有 Boss Take") :
             g.rows.map(r => h("tr", { key: r.id, style: r.err ? { background: "#fef2f2" } : undefined },
               h("td", { style: S.td }, h("input", { type: "date", value: r.date || "", onChange: e => e.target.value && save(items.map(x => x.id === r.id ? { ...x, date: e.target.value } : x)), style: { padding: "5px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "inherit", background: "#fff" } })),
-              h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), (boss || sameUser(r.by, currentUser)) && h("button", { onClick: () => renameRc(r), title: "改名字", style: { marginLeft: 6, border: "none", background: "none", cursor: "pointer", color: "#94a3b8", fontSize: 12, padding: 0 } }, "✎"),
+              h("td", { style: { ...S.td, fontWeight: 700 } }, String(r.from || "").toUpperCase(), (boss || sameUser(r.by, currentUser) || sameUser(me, "chialing")) && h("button", { onClick: () => renameRc(r), title: "改名字", style: { marginLeft: 6, border: "none", background: "none", cursor: "pointer", color: "#94a3b8", fontSize: 12, padding: 0 } }, "✎"),
                 r.atm && ((boss || sameUser(r.by, currentUser)) ? h("select", { value: r.method === "ATM Transfer" ? "transfer" : "withdraw", title: "ATM Withdraw / ATM Transfer（选「取消」= 不是 ATM）",
                   onChange: e => { const v = e.target.value; if (v === "none") { if (window.confirm("取消 ATM？")) save(items.map(x => x.id === r.id ? { ...x, atm: false, method: /^ATM/.test(x.method || "") ? "" : x.method } : x)); return; } save(items.map(x => x.id === r.id ? { ...x, atm: true, method: v === "transfer" ? "ATM Transfer" : "ATM Withdraw" } : x)); },
                   style: { marginLeft: 8, verticalAlign: "middle", border: "1px solid #2563eb", background: "#2563eb", color: "#fff", borderRadius: 999, padding: "2px 6px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" } },
