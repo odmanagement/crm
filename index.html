@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124134500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261124135000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "541";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "542";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7370,7 +7370,7 @@ function SalesSummaryPage({ currentUser }) {
       const bank = lsNum(r.bank), au = lsNum(r.au), cu = lsNum(r.cu), run = lsNum(r.run), tot = r2(bank + au + cu + run);
       list0.push({ k, name: k, bank, au, cu, run, tot, co: coOf[k] || "", rc: false, ended: p ? p.ended : false, note: notes.get(k) || r.rmk || "", st: 0, ord: i, sheet: true }); });
     bpAll.filter(p => p.started && (bsEnd || !p.ended)).forEach(p => { const k = key(p.name); if (used.has(k) || seen.has(k)) return; used.add(k); seen.add(k); list0.push(fromBp(p, p.name, 100000 + (p.started || 0))); });
-    const ppl = list0.filter(r => r.sheet || Math.abs(r.tot) > 0.005)   /* Bank Statement 那边 BS TOTAL 变 0 → Summary 不出现 */
+    const ppl = list0.filter(r => Math.abs(r.tot) > 0.005)   /* BS TOTAL 是 0（Bank Statement 或 Summary 表的都一样）→ Summary 不出现 */
       .filter(r => !bsQ.trim() || r.k.includes(key(bsQ)));
     const sum = f => r2(ppl.reduce((t, r) => t + r[f], 0));
     const setNote = (k, v) => { const cur = Array.isArray(noteL) ? noteL : [], ex = cur.find(x => x.id === k); saveNote(ex ? cur.map(x => x.id === k ? { ...x, note: v, by: canonUser(currentUser || ""), at: Date.now() } : x) : [...cur, { id: k, note: v, by: canonUser(currentUser || ""), at: Date.now() }]); };
