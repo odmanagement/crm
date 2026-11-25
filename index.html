@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125102000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125103000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1605,7 +1605,7 @@ async function checkRestorePw(pw) {
 const FULLBK_KEEP = 14;
 const FULLBK_SKIP = /^(fdraft:_meta|fbsp:_meta|fbsr:_meta|flf:_meta|fodp:_meta|backup_|bkdraft_|fullbk_|ffile_|ficimg_|mphoto_|dtfile_|celeb_seen_|filemig_|data_version)/;
 const DL_SKIP = /^(backup_|bkdraft_|fullbk_|celeb_seen_|filemig_)/;
-const CRM_KEY_LABELS = { clients: "客户 / 贷款（House / Car / Personal）", bank_stmt_people: "Bank Statement", bank_stmt_people_rencai: "Rencai Bank Statement", lending_fee: "Lending Sheet", od_payments: "OD Payment", receipts: "Boss Take", bs_return_salary: "Return Salary", return_salary: "Return Salary · Alice", leaves: "On Leave", missions: "Mission", bankers: "Banker", verifications: "Verify", submissions: "Closing", costing_extras: "Costing（Done / Commission / 照片）", doc_tracking: "Customer Docs", phones: "Phone", referrals: "Referral", form_files: "HTML 文件库", form_drafts: "表格存档（旧）" };
+const CRM_KEY_LABELS = { clients: "客户 / 贷款（House / Car / Personal）", bank_stmt_people: "Bank Statement", bank_stmt_people_rencai: "Rencai Bank Statement", lending_fee: "Lending Sheet", od_payments: "OD Payment", od_credit_card: "Credit Card", receipts: "Boss Take", bs_return_salary: "Return Salary", return_salary: "Return Salary · Alice", leaves: "On Leave", missions: "Mission", bankers: "Banker", verifications: "Verify", submissions: "Closing", costing_extras: "Costing（Done / Commission / 照片）", doc_tracking: "Customer Docs", phones: "Phone", referrals: "Referral", form_files: "HTML 文件库", form_drafts: "表格存档（旧）" };
 const crmKeyLabelX = k => /^fdraft:/.test(k) ? "表格存档 · " + k.slice(7) : /^fbsp:/.test(k) ? "Bank Statement · " + k.slice(5) : /^fbsr:/.test(k) ? "Rencai Bank Statement · " + k.slice(5) : /^flf:/.test(k) ? "Lending Sheet · " + k.slice(4) : /^fodp:/.test(k) ? "OD Payment · " + k.slice(5) : null;
 const crmKeyLabel = k => CRM_KEY_LABELS[k] || (/^fdraft:/.test(k) ? "表格存档 " + k.slice(7) : /^fbsp:/.test(k) ? "Bank Statement " + k.slice(5) : /^fbsr:/.test(k) ? "Rencai Bank Statement " + k.slice(5) : /^flf:/.test(k) ? "Lending Sheet " + k.slice(4) : /^fodp:/.test(k) ? "OD Payment " + k.slice(5) : k);
 async function crmAllKeys() {
@@ -1855,6 +1855,10 @@ const NAV = [{
     id: "receipt",
     label: "Boss Take",
     icon: Receipt
+  }, {
+    id: "creditcard",
+    label: "Credit Card",
+    icon: Wallet
   }]
 }, {
   /* ACCOUNT：Salary Listing / Final Record */
@@ -1928,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "561";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "562";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -2038,6 +2042,56 @@ function OdPayWatch({ me }) {
     try { localStorage.setItem(LS, JSON.stringify(Array.from(new Set([...seen, ...keys])).slice(-3000))); } catch (e) {}
   }, [list, fresh0]);
   return null;
+}
+/* ---------- Credit Card（OD Management）：Name · Date · Amount · 照片（点一下上传 / 鼠标放在 📷 上 Ctrl+V 贴上） ---------- */
+function CreditCardPage({ currentUser }) {
+  const h = React.createElement;
+  const me = canonUser(currentUser || "");
+  const ro = READONLY_USERS.includes(me);
+  const [list, save] = useCloudList("od_credit_card");
+  const items = list || [];
+  const blank = () => ({ name: "", date: today(), amount: "", photos: [] });
+  const [nf, setNf] = React.useState(blank);
+  const [q, setQ] = React.useState("");
+  const ql = q.trim().toLowerCase();
+  const add = () => {
+    if (!String(nf.name || "").trim()) { alert("请填 Name"); return; }
+    save([{ id: uid(), at: Date.now(), by: me, name: String(nf.name).trim().toUpperCase(), date: nf.date || today(), amount: lsNum(nf.amount), photos: nf.photos || [] }, ...items]);
+    setNf(blank()); try { monetSfx("create"); } catch (e) {}
+  };
+  const upd = (id, patch) => { if (ro) return; save(items.map(x => x.id === id ? { ...x, ...patch } : x)); };
+  const del = id => { if (ro) return; if (window.confirm("删除这一行？")) save(items.filter(x => x.id !== id)); };
+  const rows = items.filter(x => !ql || [x.name, x.date, x.amount, x.by].join(" ").toLowerCase().includes(ql))
+    .slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.at || 0) - (a.at || 0));
+  const total = rows.reduce((t, x) => t + lsNum(x.amount), 0);
+  const inp = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid #cbd5e1", fontSize: 14, fontFamily: "inherit", outline: "none", background: "#fff" };
+  const cell = (x, k, ex) => h("input", { defaultValue: k === "amount" ? (x.amount ? lsFmt(lsNum(x.amount)) : "") : (x[k] || ""), key: x.id + k + (x[k] || ""), readOnly: ro, type: k === "date" ? "date" : "text",
+    onBlur: e => { let v = e.target.value; if (k === "amount") v = lsNum(v); else if (k === "name") v = String(v).trim().toUpperCase(); if (String(v) !== String(x[k] == null ? "" : x[k])) upd(x.id, { [k]: v }); },
+    onKeyDown: e => { if (e.key === "Enter") e.target.blur(); }, style: { ...inp, border: "1px solid transparent", background: "transparent", ...(ex || {}) } });
+  const th = S.th, td = S.td;
+  return h("div", { className: "cz-page" },
+    h("div", { style: { display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" } },
+      h("div", { style: { flex: "1 1 160px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "💳 TOTAL CREDIT CARD" + (ql ? "（搜寻结果）" : "")), h("div", { style: { fontSize: 19, fontWeight: 900, color: "#1e1b4b" } }, "RM " + lsFmt(total))),
+      h("div", { style: { flex: "1 1 120px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "笔数"), h("div", { style: { fontSize: 19, fontWeight: 900, color: "#1e1b4b" } }, rows.length))),
+    h("div", { style: { ...S.searchWrap, marginBottom: 12 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search 名字 / 日期 / 数目", value: q, onChange: e => setQ(e.target.value) })),
+    !ro && h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", background: "#fff", border: "1px solid #eef0f6", borderRadius: 14, padding: "12px 14px", marginBottom: 14 } },
+      h("div", { style: { flex: "2 1 200px" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "NAME"), h("input", { value: nf.name, onChange: e => setNf({ ...nf, name: e.target.value }), onKeyDown: e => { if (e.key === "Enter") add(); }, style: { ...inp, textTransform: "uppercase", fontWeight: 800 } })),
+      h("div", { style: { flex: "1 1 140px" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "DATE"), h("input", { type: "date", value: nf.date, onChange: e => setNf({ ...nf, date: e.target.value }), style: inp })),
+      h("div", { style: { flex: "1 1 120px" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "AMOUNT (RM)"), h("input", { value: nf.amount, inputMode: "decimal", onChange: e => setNf({ ...nf, amount: e.target.value }), onBlur: e => { const v = e.target.value.trim(); if (v) setNf({ ...nf, amount: lsFmt(lsNum(v)) }); }, onKeyDown: e => { if (e.key === "Enter") add(); }, style: { ...inp, textAlign: "right", fontWeight: 800 } })),
+      h("div", { style: { flex: "0 0 auto" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "照片（Ctrl+V）"), h(LfPhotos, { ids: nf.photos, compact: true, onChange: v => setNf(f => ({ ...f, photos: v })) })),
+      h("button", { onClick: add, style: { ...S.addBtn, height: 38 } }, h(Plus, { size: 16 }), " Add")),
+    h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
+      h("thead", null, h("tr", null, ["#", "Name", "Date", "Amount (RM)", "照片", "By", ""].map((x, i) => h("th", { key: i, style: i === 3 ? { ...th, ...S.thNum } : th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        !rows.length ? h("tr", null, h("td", { colSpan: 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 在上面填 Name / Date / Amount 按 Add")) :
+        rows.map((x, i) => h("tr", { key: x.id },
+          h("td", { style: { ...td, width: 34, color: "#94a3b8", fontWeight: 800 } }, i + 1),
+          h("td", { style: { ...td, minWidth: 180 } }, cell(x, "name", { textTransform: "uppercase", fontWeight: 900, fontSize: 15 })),
+          h("td", { style: { ...td, width: 150 } }, cell(x, "date")),
+          h("td", { style: { ...td, width: 140 } }, cell(x, "amount", { textAlign: "right", fontWeight: 900, fontSize: 16 })),
+          h("td", { style: td }, h(LfPhotos, { ids: x.photos || [], compact: true, ro, onChange: v => upd(x.id, { photos: v }) })),
+          h("td", { style: { ...td, fontSize: 12, color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" } }, x.by ? String(x.by).toUpperCase() : ""),
+          h("td", { style: { ...td, width: 40, textAlign: "center" } }, !ro && h("button", { onClick: () => del(x.id), title: "删除", style: { border: "none", background: "transparent", color: "#ef4444", cursor: "pointer" } }, h(Trash2, { size: 15 })))))))));
 }
 function ODPaymentPage({ currentUser }) {
   const h = React.createElement;
@@ -4057,7 +4111,7 @@ function CRM({ onLogout, currentUser }) {
     currentUser: currentUser,
     tools: COSTING_TOOLS.filter(t => t.grp === page && !(FORMS_HIDDEN[String(window.__crmUser || "").toLowerCase()] || []).includes(t.file)),
     noLib: true
-  }) : page === "odpayment" ? /*#__PURE__*/React.createElement(ODPaymentPage, {
+  }) : page === "creditcard" ? React.createElement(CreditCardPage, { currentUser }) : page === "odpayment" ? /*#__PURE__*/React.createElement(ODPaymentPage, {
     currentUser: currentUser
   }) : page === "lendingfee" ? /*#__PURE__*/React.createElement(LendingFeePage, {
     currentUser: currentUser
@@ -4455,7 +4509,7 @@ function MissionPhotos({ mission, onChange, onClose, onRemark, canManage = true 
 /* ---------- 左边菜单（头像 + 职位 + 文字菜单） ---------- */
 const ROLE_LABELS = { lucas: "Boss", admin: "Admin" };
 /* 上面的搜索：打页面名字（例如 boss take）→ 直接跳去那页 */
-const PAGE_ALIAS = { carappt: "car appointment 约 时间 appt 预约 batu caves", banksop: "sop 银行 步骤 alliance muamalat 表格 form", receipt: "老板 boss 收据", returnsalary: "退薪 return", bankstmt: "银行 bank statement bs", bankstmt2: "人才 rencai", lendingfee: "lending 借", costing_pl: "pl costing 成本", costing_car: "car costing 车", submission: "closing 结案", salarylist: "salary status 薪水", acc_salary: "salary listing 薪水 account", acc_final: "final record", phone: "phone sim 电话", banker: "banker 银行家", mission: "mission 任务", verify: "verify 核对", onleave: "leave 请假", referral: "referral 红包", todo: "todo 待办", dashboard: "dashboard 首页", agreement: "agreement 合约", odpayment: "od payment 付款" };
+const PAGE_ALIAS = { carappt: "car appointment 约 时间 appt 预约 batu caves", banksop: "sop 银行 步骤 alliance muamalat 表格 form", receipt: "老板 boss 收据", returnsalary: "退薪 return", bankstmt: "银行 bank statement bs", bankstmt2: "人才 rencai", lendingfee: "lending 借", costing_pl: "pl costing 成本", costing_car: "car costing 车", submission: "closing 结案", salarylist: "salary status 薪水", acc_salary: "salary listing 薪水 account", acc_final: "final record", phone: "phone sim 电话", banker: "banker 银行家", mission: "mission 任务", verify: "verify 核对", onleave: "leave 请假", referral: "referral 红包", todo: "todo 待办", dashboard: "dashboard 首页", agreement: "agreement 合约", odpayment: "od payment 付款", creditcard: "credit card 信用卡 cc" };
 function NightToggle() {
   const [on, setOn] = React.useState(() => document.documentElement.classList.contains("crm-night"));
   const flip = () => { const v = !on; setOn(v); document.documentElement.classList.toggle("crm-night", v); try { localStorage.setItem("crm_night", v ? "1" : "0"); } catch (e) {} };
@@ -4464,7 +4518,7 @@ function NightToggle() {
 /* ===== 上面的 🔍：打页面名 → 跳页面；打人名 → 列出这个人在每一页的全部资料 ===== */
 const PJ_SRC = [   /* [云端 key, 页面] —— form_drafts 看 file 决定页面 */
   ["bank_stmt_people", "bankstmt"], ["bank_stmt_people_rencai", "bankstmt2"], ["lending_fee", "lendingfee"], ["od_payments", "odpayment"],
-  ["submissions", "submission"], ["form_drafts", null], ["bs_return_salary", "bsreturn"], ["return_salary", "returnsalary"], ["receipts", "receipt"],
+  ["submissions", "submission"], ["form_drafts", null], ["bs_return_salary", "bsreturn"], ["return_salary", "returnsalary"], ["receipts", "receipt"], ["od_credit_card", "creditcard"],
   ["acc_salary", "acc_salary"], ["doc_tracking", "doctrack"], ["phone_sims", "phone"], ["salary_status", "salarylist"]];
 const PJ_NAME_KEY = /^(name|customerName|clientName|client|customer|custName|title|payto|payTo)$/i;
 const PJ_INFO = ["agent", "company", "companyName", "bank", "position", "status", "stage", "month", "ym", "date", "amount", "total"];
