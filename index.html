@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125115000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1932,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "567";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "568";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -13339,6 +13339,7 @@ function CalcSection({
     return x.toLocaleString("en-US", hasDec ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
   };
   const numOf = v => Number(String(v == null ? "" : v).replace(/[^0-9.-]/g, "")) || 0;
+  const fc = v => { const t = String(v == null ? "" : v).trim(); return t && /^-?[\d,]*\.?\d*$/.test(t) && numOf(t) ? fmt(t) : t; };   /* 数目加逗号：290000 → 290,000 */
   // 自动带入：Cost = 贷款的 Cost（Amount）；LUCAS 卡的 Company = Lucas Cost − Cost
   const loanCost = numOf(loan.amount), loanLucas = numOf(loan.lucasCost);
   const isName = (it, n) => String(it.name || "").trim().toLowerCase() === n;
@@ -13348,12 +13349,17 @@ function CalcSection({
     return null;
   };
   const effAmt = (it, ci) => { const a = autoOf(it, ci); return a ? a.v : numOf(it.amount); };
+  /* SPA：银行有 APPROVED（或 Disbursed）→ 自动 = Approved 的数目（「450,000 X90% =405,000」拿 = 后面的数） */
+  const apprAmt = (() => { const bs = (loan.banks || []).filter(b => b && (b.status === "approved" || b.status === "disbursed"));
+    const v = bs.map(b => { const t = String(b.amount || ""); const m = t.split("=").pop(); return numOf(m); }).filter(x => x > 0);
+    return v.length ? Math.max(...v) : 0; })();
+  const spaOf = c => apprAmt || numOf(c.spa);
   const netOf = (c, ci) => {
     const idx = ci === undefined ? calcs.indexOf(c) : ci;
-    return numOf(c.spa) - (c.items || []).reduce((s, it) => s + effAmt(it, idx), 0);
+    return spaOf(c) - (c.items || []).reduce((s, it) => s + effAmt(it, idx), 0);
   };
   const copyCalc = (c, ci) => {
-    let txt = "Spa ： " + fmt(c.spa) + "\n";
+    let txt = "Spa ： " + fmt(spaOf(c)) + "\n";
     const its = c.items || [];
     if (ci !== 0) {
       // LUCAS 卡：Cost 显示 = Cost + Company（即 Lucas Cost），不显示 Company 那一行
@@ -13408,12 +13414,14 @@ function CalcSection({
   h("div", { className: "calc-row", style: row },
     h("span", { style: { flex: 1, fontSize: 14, fontWeight: 600, color: "#0f172a" } }, "Spa"),
     h(DebouncedInput, {
-      type: "number",
+      type: "text",
       className: "calc-in",
       style: { ...amt, fontWeight: 600 },
       placeholder: "0",
-      value: c.spa,
-      onCommit: v => updCalc(ci, { spa: v })
+      value: apprAmt ? fmt(apprAmt) : fc(c.spa),
+      disabled: !!apprAmt,
+      title: apprAmt ? "自动 = 银行 Approved 的数目" : "",
+      onCommit: v => updCalc(ci, { spa: String(v).replace(/,/g, "") })
     }),
     h("span", { style: { width: 20 } })),
   (c.items || []).map((it, ii) => h("div", { key: it.id || ii, className: "calc-row", style: row },
@@ -13426,14 +13434,14 @@ function CalcSection({
       onCommit: v => updItem(ci, ii, "name", v)
     }),
     h(DebouncedInput, {
-      type: "number",
+      type: "text",
       className: "calc-in",
       style: { ...amt, color: "#475569" },
       placeholder: "0",
-      value: autoOf(it, ci) ? String(autoOf(it, ci).v) : it.amount,
+      value: autoOf(it, ci) ? fmt(autoOf(it, ci).v) : fc(it.amount),
       disabled: !!autoOf(it, ci),
       title: autoOf(it, ci) ? autoOf(it, ci).why : "",
-      onCommit: v => updItem(ci, ii, "amount", v)
+      onCommit: v => updItem(ci, ii, "amount", String(v).replace(/,/g, ""))
     }),
     h("button", {
       className: "calc-del",
