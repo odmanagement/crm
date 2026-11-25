@@ -3675,7 +3675,7 @@ function CRM({ onLogout, currentUser }) {
     const c = (cs || []).find(x => x && slNameKey(x.name) === k);
     if (c && (c.loans || []).some(l => l.type === "personal")) setTimeout(() => { const cs2 = _cps.current.clients || []; ps(cs2.map(x => x.id === c.id ? { ...x, salaryStatusM: { ...(x.salaryStatusM || {}), [cur]: "stop" }, salaryStatusBy: me, salaryStatusAt: Date.now() } : x)); }, 800);
     if (Array.isArray(acc)) { const nx = acc.filter(x => !(x && String(x.ym || "") > cur && slNameKey(x.name) === k)); if (nx.length !== acc.length) saveAcc(nx); }
-    try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "salarylist", to: me, from: "system", title: "⛔ STOP SALARY", task: String(name || "").toUpperCase() + " · Car Loan " + (why === "penddisb" ? "Pending Disbursement" : "Pending Sign") + " → 自动 STOP SALARY", at: Date.now() }); } catch (e) {}
+    try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "salarylist", focus: String(name || "").toUpperCase(), to: me, from: "system", title: "⛔ STOP SALARY", task: String(name || "").toUpperCase() + " · Car Loan " + (why === "penddisb" ? "Pending Disbursement" : "Pending Sign") + " → 自动 STOP SALARY", at: Date.now() }); } catch (e) {}
   }; }, []);
   const persist = async next => {
     /* Loan（House / Car / Personal）：谁都可以操作，不套用「只有建立的人可以改」 */
@@ -4396,7 +4396,7 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
                 h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "d", onClick: () => onDone && onDone(it.m.id), style: btn("#16a34a", "#fff") }, h(Check, { size: 13 }), "Done")
               ] : [
-                it.n.kind === "ref" && h("button", { key: "rv", onClick: () => { setOpen(false); window.__crmGoPage && window.__crmGoPage(it.n.page || "referral"); }, style: btn(it.n.page ? "#7c3aed" : "#dc2626", "#fff") }, it.n.page ? "👀 去看看" : "🧧 去看看"),
+                it.n.kind === "ref" && h("button", { key: "rv", onClick: () => { setOpen(false); if (it.n.focus) { window.__crmFocus = { page: it.n.page, name: it.n.focus, at: Date.now() }; } window.__crmGoPage && window.__crmGoPage(it.n.page || "referral"); if (it.n.focus) setTimeout(() => { try { window.dispatchEvent(new Event("crm-focus")); } catch (e) {} }, 50); }, style: btn(it.n.page ? "#7c3aed" : "#dc2626", "#fff") }, it.n.page ? "👀 去看看" : "🧧 去看看"),
                 it.n.kind === "mreply" && h("button", { key: "mv", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 isFu(it) && it.n.cid && h("button", { key: "v", onClick: () => { setOpen(false); window.__crmOpenClient && window.__crmOpenClient(it.n.cid, it.n.ltype); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "c", onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了")
@@ -7712,7 +7712,10 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   React.useEffect(() => { if (isReadOnlyUser() || !useCloud || !(clients || []).length) return; (async () => { try { if (await DB._rawGet("sl_reset_v1")) return;
     await DB.set("sl_reset_v1", JSON.stringify({ at: new Date().toISOString(), by: canonUser(window.__crmUser || "") })); onClearAll && onClearAll(); saveSlSt([]); } catch (e) {} })(); }, [(clients || []).length > 0]);
   const nowM = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
-  const [stM, setStM] = React.useState(nowM);   /* 选月份来按 Salary Status；还没按的月份是空的 */
+  const [stM, setStM] = React.useState(nowM);
+  /* 从通知「去看看」跳过来 → 找到那个人、切到对的地方、highlight */
+  const [hiK, setHiK] = React.useState(null);
+  const hiRef = React.useRef(null);   /* 选月份来按 Salary Status；还没按的月份是空的 */
   /* 按了先放着（虚线），按「✓ 确认更改」才存 */
   const [pend, setPend] = React.useState({});
   React.useEffect(() => { setPend({}); }, [stM]);
@@ -7783,6 +7786,17 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && r.src === src && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
     .sort((x, y) => (x.startAt - y.startAt) || String(x.date || "").localeCompare(String(y.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));   /* 旧 → 新：最新 START 的放最下面 */
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
+  hiRef.current = rows;
+  React.useEffect(() => {
+    const go = () => { const f = window.__crmFocus; if (!f || f.page !== "salarylist" || Date.now() - f.at > 60000) return;
+      const k = slNameKey(f.name), r = (hiRef.current || []).find(x => slNameKey(x.c.name) === k);
+      if (!r) return;   /* 资料还没到 → 等下次 render 再找 */
+      window.__crmFocus = null;
+      setStM(nowM); setMonth(""); setFb(""); setQ(""); setSrc(r.src); setFs(r.stopped ? "stopped" : ""); setHiK(k);
+      let n = 0; const sc = setInterval(() => { const el = document.querySelector('tr[data-slk="' + k.replace(/"/g, "") + '"]'); if (el || ++n > 20) { clearInterval(sc); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); } }, 150);
+      setTimeout(() => setHiK(x => x === k ? null : x), 8000); };
+    go(); window.addEventListener("crm-focus", go); return () => window.removeEventListener("crm-focus", go);
+  });
   const copyText = () => {
     const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
     const lastCf = (cfList || [])[0];
@@ -7798,7 +7812,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const navBtn = dis => ({ width: 36, height: 36, borderRadius: 10, border: "1px solid #c7d2fe", background: dis ? "#f1f5f9" : "#fff", color: dis ? "#cbd5e1" : "#4f46e5", fontSize: 16, fontWeight: 900, cursor: dis ? "default" : "pointer" });
   const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "12px 16px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
   const nOf = k => shown.filter(r => r.st === k).length;
-  return h("div", { className: "cz-page" },
+  return h("div", { className: "cz-page" }, h("style", null, "@keyframes slHiPulse{50%{background:#fde047;outline-color:#dc2626}}"),
     h("div", { style: card },
       /* 不跟日期：按「确认」→ 记下确认更改的日期 */
       h("button", { onClick: () => { if (!window.confirm(nPend ? "确认 " + nPend + " 个更改？" : "确认 Salary Listing？")) return; applyPend(); const me = canonUser(window.__crmUser || ""); saveCf([{ id: uid(), by: me, at: Date.now(), n: nPend, m: stM }, ...(cfList || [])].slice(0, 50)); },
@@ -7818,7 +7832,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
         h("input", { type: "month", value: stM, onChange: e => e.target.value && setStM(e.target.value), title: "选月份来按 Salary Status", style: { border: "1px solid rgba(255,255,255,.6)", borderRadius: 8, padding: "2px 6px", fontWeight: 900, fontSize: 12, fontFamily: "inherit", background: "#fff", color: "#9d174d" } }),
         stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))), h("th", { style: S.th }, "Remark"), h("th", { style: S.th }, "Company"))),
       h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
-        shown.map((r, i) => { const m = SL_ST[r.st]; return h("tr", { key: r.c.id, style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}) } },
+        shown.map((r, i) => { const m = SL_ST[r.st], hi = hiK && slNameKey(r.c.name) === hiK; return h("tr", { key: r.c.id, "data-slk": slNameKey(r.c.name), style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}), ...(hi ? { background: "#fef08a", outline: "3px solid #f59e0b", outlineOffset: -3, animation: "slHiPulse 1s ease-in-out 4" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol, cursor: "pointer", ...(r.stopped ? { background: "#fecaca", color: "#b91c1c", fontWeight: 900 } : {}) }, title: r.stopped ? "在 STOP SALARY · 再点一次搬回来" : "点一下 = 搬去 STOP SALARY", onClick: () => setStopped(r, !r.stopped) }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
           h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => r.bsOnly ? (window.__crmGoPage && window.__crmGoPage("bankstmt")) : onOpen(r.c.id), title: r.bsOnly ? "打开 Bank Statement" : "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
