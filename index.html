@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261124183000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125102000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1928,7 +1928,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "559";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "561";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -3738,6 +3738,24 @@ function CRM({ onLogout, currentUser }) {
     });
     if (changed && canonUser(window.__crmUser) !== "admin") persist(next);
   }, [clients, verifications]);
+  /* 一次性：LEE ZHENG YI 的客户 + Loan 由 Joey 换成 Alice（Joey 或老板登录时自动改） */
+  React.useEffect(() => {
+    if (!Array.isArray(clients) || !clients.length) return;
+    const me = window.__crmUser || "";
+    if (!(sameUser(me, "joey") || ownBoss())) return;
+    const nm = x => String(x || "").toUpperCase().replace(/[^A-Z]/g, "");
+    const isJ = v => v && sameUser(v, "joey");
+    const fix = o => { let x = o, cc = false; ["owner", "createdBy", "admin", "staff"].forEach(k => { if (isJ(x[k])) { x = { ...x, [k]: "alice" }; cc = true; } }); return [x, cc]; };
+    let changed = false;
+    const next = clients.map(c => {
+      if (!c || nm(c.name) !== "LEEZHENGYI") return c;
+      let [cx, c1] = fix(c), lc = false;
+      const loans = (c.loans || []).map(l => { const [lx, l1] = fix(l); if (l1) lc = true; return lx; });
+      if (c1 || lc) { changed = true; return { ...cx, loans }; }
+      return c;
+    });
+    if (changed) persist(next);
+  }, [clients]);
   /* Verify：Mark Verified 时才把选好的 Loan Type 建去对应的 Loan 页面（不跳页） */
   const verifyFinalize = nv => {
     let list = clients, cid = nv.clientId;
@@ -14043,8 +14061,8 @@ function CollectReminder({ clients, currentUser, onOpen, onDone }) {
   const items = [];
   (clients || []).forEach(c => (c.loans || []).forEach(l => {
     if (l.type !== "personal") return;
-    const adm = l.admin || l.createdBy;
-    if (!adm || !sameUser(adm, currentUser)) return;
+    /* 只有 Alice 看到（全部 Personal Loan 的收钱提醒） */
+    if (!PL_APPROVE_NOTIFY.some(u => sameUser(u, currentUser))) return;
     (l.banks || []).forEach((b, bi) => {
       if (b.collected || !(b.status === "approved" || b.status === "disbursed")) return;
       const since = b.approvedAt || b.date;
