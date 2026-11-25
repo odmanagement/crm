@@ -10683,9 +10683,9 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
       const dd = doc(); if (!dd) return; const gv = id => String((dd.getElementById(id) || {}).value || "").trim();
       const client = gv("fName") || open.draft.title; if (client) dtLinkAgreement({ client, agent: gv("fAgent"), draftId: open.draft.id, form: open.tool.name, by: currentUser });
     } catch (e) {} }, 600);
-    if (noLib && open && open.draft && !draftCanEdit(open.draft, canonUser(currentUser || ""))) setTimeout(() => { try {
-      const st = d.createElement("style"); st.textContent = "button:not(.allow-view),.del,.addrow,.btn-additem,[onclick]{pointer-events:none !important;opacity:.45} input,textarea,select{pointer-events:none !important;background:transparent !important} .phead-toggle{pointer-events:auto !important;opacity:1}"; d.head.appendChild(st);
-      d.querySelectorAll("input,textarea,select").forEach(el => { el.readOnly = true; if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio" || el.type === "file") el.disabled = true; });
+    if (noLib && open && open.draft && !draftCanEdit(((drafts || []).find(x => x && x.id === open.draft.id) || open.draft), canonUser(currentUser || ""))) setTimeout(() => { try {
+      const st = d.createElement("style"); st.id = "crm-viewonly"; st.textContent = "button:not(.allow-view),.del,.addrow,.btn-additem,[onclick]{pointer-events:none !important;opacity:.45} input,textarea,select{pointer-events:none !important;background:transparent !important} .phead-toggle{pointer-events:auto !important;opacity:1}"; d.head.appendChild(st);
+      d.querySelectorAll("input,textarea,select").forEach(el => { if (el.readOnly || el.disabled) return; el.setAttribute("data-crm-ro", "1"); el.readOnly = true; if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio" || el.type === "file") el.disabled = true; });
     } catch (e) {} }, 200);
     setTimeout(() => { baseRef.current = JSON.stringify(currentVals()); }, 150);
   };
@@ -10903,7 +10903,13 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
   React.useEffect(() => { if (!openKeyFile && syncedOnce.current) syncNative(); }, [openKeyFile]);
   React.useEffect(() => { if (openKeyFile) { snapRef.current = snapshotLS(); const t = setInterval(captureFormChanges, 4000); return () => { clearInterval(t); captureFormChanges(); }; } }, [openKeyFile]);
   /* Costing：只有那份存档的 Admin（建立的人）或老板可以改，其他人只能看 */
-  const viewOnly = !!(noLib && open && open.draft && !draftCanEdit(open.draft, canonUser(currentUser || "")));
+  /* 用最新的那份（老板刚换了 Admin 也会马上生效）；不能改 → 锁住；可以改了 → 自动解锁 */
+  const liveDraft = open && open.draft ? ((drafts || []).find(x => x && x.id === open.draft.id) || open.draft) : null;
+  const viewOnly = !!(noLib && liveDraft && !draftCanEdit(liveDraft, canonUser(currentUser || "")));
+  React.useEffect(() => { if (!open || !open.draft || !liveDraft) return;
+    if (liveDraft !== open.draft && (liveDraft.by !== open.draft.by || JSON.stringify(liveDraft.editors || []) !== JSON.stringify(open.draft.editors || []))) setOpen(o => o && o.draft && o.draft.id === liveDraft.id ? { ...o, draft: { ...o.draft, by: liveDraft.by, editors: liveDraft.editors } } : o);
+    try { const d = doc(); if (!d) return; const st = d.getElementById("crm-viewonly");
+      if (!viewOnly && st) { st.remove(); d.querySelectorAll("[data-crm-ro]").forEach(el => { el.readOnly = false; el.disabled = false; el.removeAttribute("data-crm-ro"); }); } } catch (e) {} });
   const [shareOpen, setShareOpen] = React.useState(false);
   /* 表格里面加/删照片（例如 Costing Part 的 Payment）→ 自动存档；还没存过的新表格就提醒先存档 */
   const doSaveRef = React.useRef(null); doSaveRef.current = doSave;
@@ -10981,7 +10987,7 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
             h("div", { style: { fontWeight: 900, fontSize: 15, color: "#1e1b4b" } }, open.tool.name),
             h("div", { style: { fontSize: 12, color: "#94a3b8", fontWeight: 600 } }, open.draft ? "存档：" + (open.draft.title || "(未命名)") + " · " + fmtT(open.draft.at) : "新的一份（还没存档）")),
           msg && h("span", { style: { color: "#16a34a", fontWeight: 800, fontSize: 13 } }, msg),
-          viewOnly && h("span", { title: "只有 Admin 才能更改", style: { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10, padding: "7px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, "👁 只能看 · ADMIN " + String(open.draft.by || "").toUpperCase()),
+          viewOnly && h("span", { title: "只有 Admin 才能更改", style: { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 10, padding: "7px 12px", fontWeight: 800, fontSize: 12.5, whiteSpace: "nowrap" } }, "👁 只能看 · ADMIN " + String((liveDraft || open.draft).by || "").toUpperCase() + " · 你：" + String(canonUser(currentUser || "") || "?").toUpperCase()),
           /* 只有老板（Lucas）可以换这份的 Admin：换了以后那个 Admin 就可以直接改 */
           open.draft && isMissionBoss(canonUser(currentUser || "")) && h("label", { title: "老板：换给哪个 Admin 改", style: { display: "flex", alignItems: "center", gap: 6, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: "4px 8px 4px 12px", fontWeight: 800, fontSize: 12.5, color: "#4338ca", whiteSpace: "nowrap" } }, "✏️ ADMIN",
             h("select", { value: canonUser(open.draft.by || ""), onChange: e => { const v = e.target.value, me = canonUser(currentUser || ""), d0 = (drafts || []).find(x => x.id === open.draft.id) || open.draft; if (!v || sameUser(v, d0.by)) return;
