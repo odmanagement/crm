@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125110000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125111000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1932,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "565";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "566";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -15140,6 +15140,9 @@ html body .vf-head span { color: var(--th-fg, #fff) !important; font-size: 11.5p
 .tp-table tbody tr:hover td { background: #f3f0ff !important; }
 .tp-table tbody tr:hover td[style*="253, 230, 138"] { background: #fcd34d !important; }
 .tp-table thead th { position: sticky; top: 0; z-index: 2; }
+/* 全部 CRM 表格：滑下去标题一直固定在上面（表格自己滑，标题不动） */
+.app-content .tp-wrap, .app-content div[style*="overflow"]:has(> table > thead) { max-height: calc(100vh - 150px); }
+.app-content .tp-wrap > table > thead, .app-content div[style*="overflow"]:has(> table > thead) > table > thead { position: sticky; top: 0; z-index: 6; }
 .tp-table thead th:first-child { left: 0; }
 .tp-table thead th[style*="left: 0"], .tp-table thead th[style*="left:0"] { z-index: 5 !important; }
 .tp-table tbody td[style*="sticky"] { z-index: 3 !important; }
