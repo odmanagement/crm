@@ -1929,6 +1929,9 @@ const FORMS_TOOLS = [{
 }, {
   name: "PL Costing",
   file: "PL_COSTING.html"
+}, {
+  name: "IPOHNEX Confirmation Letter",
+  file: "IPOHNEX_Confirmation_Letter.html"
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
@@ -10088,6 +10091,27 @@ function nativeDelete(file, label) {
 /* ---------- Forms：在 CRM 里打开，可以存档 ---------- */
 /* 表格后来新加的格子（有 data-x）不算进位置编号，用自己的 id 存，旧存档才不会错位 */
 const FORM_FIELDS = "input:not([data-x]), textarea:not([data-x]), select:not([data-x])";
+/* IC / NRIC 栏位：打 12 个数字自动变 xxxxxx-xx-xxxx（有英文字母的，例如护照号码，不动） */
+const icDash = v => { const raw = String(v || ""); if (/[A-Za-z]/.test(raw)) return raw; const dg = raw.replace(/\D/g, "").slice(0, 12);
+  if (!dg) return raw.trim() ? raw : ""; return dg.slice(0, 6) + (dg.length > 6 ? "-" + dg.slice(6, 8) : "") + (dg.length > 8 ? "-" + dg.slice(8) : ""); };
+function formICAutoDash(doc) {
+  const cache = new WeakMap(), RX = /(^|[^A-Z])(IC|NRIC|I\/C|MYKAD|KP)([^A-Z]|$)/i, BAD = /copy|photo|image|gambar|salinan|上传|照片/i;
+  const isIC = el => { if (cache.has(el)) return cache.get(el);
+    let ok = false;
+    if (el.tagName === "INPUT" && (!el.type || el.type === "text" || el.type === "tel" || el.type === "search")) {
+      let txt = Array.from(el.labels || []).map(l => l.textContent).join(" ");
+      let p = el.parentElement; for (let i = 0; !txt.trim() && p && i < 2; i++, p = p.parentElement) { const lb = p.querySelector("label, .lbl, .label, th"); if (lb && !lb.contains(el)) txt = lb.textContent; }
+      if (!txt.trim()) { const pv = el.previousElementSibling; if (pv) txt = pv.textContent; }
+      const all = txt + " " + (el.placeholder || "");
+      const idn = (el.id || "") + " " + (el.name || "");
+      ok = (RX.test(all) && !BAD.test(all)) || /(^|[_\s-])(ic|nric|icno|ic_no|nric_no)([_\s-]|$)/i.test(idn);
+    }
+    cache.set(el, ok); return ok; };
+  const fix = el => { if (!isIC(el)) return; const nv = icDash(el.value); if (nv !== el.value) { el.value = nv; try { el.setSelectionRange(nv.length, nv.length); } catch (e) {} } };
+  doc.addEventListener("input", e => fix(e.target), true);
+  doc.addEventListener("blur", e => fix(e.target), true);
+  doc.querySelectorAll("input").forEach(fix);
+}
 function formReadValues(doc) {
   const extra = Array.from(doc.querySelectorAll("[data-x][id]")).map(el => ["@" + el.id, el.type === "checkbox" ? (el.checked ? "1" : "") : el.value]);
   const els = Array.from(doc.querySelectorAll(FORM_FIELDS));
@@ -10609,6 +10633,7 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
   const onFrameLoad = () => {
     const d = doc(); if (!d) return;
     hideInnerSave(d);
+    if (open && /AGREEMENT/i.test(open.tool.file || "")) try { formICAutoDash(d); } catch (e) {}   /* Agreement：IC 自动变 xxxxxx-xx-xxxx */
     try {
       const w = frameRef.current.contentWindow, formName = open ? open.tool.name : "表格";
       const origClick = w.HTMLAnchorElement.prototype.click;
