@@ -4741,6 +4741,7 @@ const ownDelegate = (key, ow, me) => { try { const m = key && OWN_DELEGATE[key];
 const ownStrip = (v, re) => Array.isArray(v) ? v.map(y => ownStrip(y, re)) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => { if (!re.test(k) && !OWN_FREE.test(k)) o[k] = ownStrip(v[k], re); return o; }, {}) : v;
 function ownGuardList(prev, next, ownerFn, stampKey, key) {
   if (!Array.isArray(prev) || !Array.isArray(next)) return next;
+  if (window.__crmSysWrite) return next;   /* 系统自己同步（不是人在改）→ 不挡 */
   const me = canonUser(window.__crmUser || ""); if (!me) return next;
   const of = ownerFn || ownerOf, sk = stampKey || "owner";
   const pm = new Map(prev.filter(x => x && x.id != null).map(x => [x.id, x])); let blocked = null;
@@ -6805,7 +6806,7 @@ function SalToBsSync({ currentUser }) {
           if (!pc) return p; ch = true;
           return { ...p, bankStmt: { ...bs, credits: cr, slDone: done, updatedAt: Date.now(), updatedBy: me } };
         });
-        if (ch) save(next);
+        if (ch) { window.__crmSysWrite = true; try { save(next); } finally { window.__crmSysWrite = false; } }   /* 拿掉还没打勾的：系统做的，不挡也不跳「只有建立的人可以更改」 */
       });
     }, 2500);
     return () => clearTimeout(t);
@@ -10800,11 +10801,25 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
     const oa = w.alert, op = w.prompt, oc = w.confirm;
     w.alert = () => {}; w.prompt = () => label; w.confirm = () => true;
     try { if (typeof w.__crmBeforeSave === "function") w.__crmBeforeSave(); } catch (e) {}
-    try { w.saveArchive(); } catch (e) {}
+    /* 抓住真正的错误（通常是这台电脑的储存空间满了：存档里有照片）→ 清掉已经备份在云端的旧存档副本，再存一次 */
+    let sErr = null; const SP = w.Storage && w.Storage.prototype, oSet = SP && SP.setItem;
+    if (SP) SP.setItem = function () { try { return oSet.apply(this, arguments); } catch (e) { sErr = e; throw e; } };
+    const run = () => { try { w.saveArchive(); } catch (e) { sErr = sErr || e; } };
+    run();
+    const isQuota = e => e && (e.name === "QuotaExceededError" || e.code === 22 || /quota|exceed/i.test(String(e.message || e)));
+    if (isQuota(sErr)) {
+      try { const cloud = new Set((drafts || []).filter(x => x && x.native).map(x => x.file + "|" + x.title));
+        Object.keys(FORM_NATIVE).forEach(f => { const a2 = FORM_NATIVE[f]; let raw; try { raw = JSON.parse(localStorage.getItem(a2.key) || (a2.type === "arr" ? "[]" : "{}")); } catch (e) { return; }
+          if (a2.type === "arr") { const k2 = (raw || []).filter(e => !(e && e.name && cloud.has(f + "|" + e.name) && !(f === open.tool.file && e.name === label))); if (k2.length !== (raw || []).length) localStorage.setItem(a2.key, JSON.stringify(k2)); }
+          else { let n = 0; Object.keys(raw || {}).forEach(k => { if (cloud.has(f + "|" + k) && !(f === open.tool.file && k === label)) { delete raw[k]; n++; } }); if (n) localStorage.setItem(a2.key, JSON.stringify(raw)); } });
+      } catch (e) {}
+      sErr = null; run();
+    }
+    if (SP) SP.setItem = oSet;
     w.alert = oa; w.prompt = op; w.confirm = oc;
     const after = nativeRead(open.tool.file);
     const hit = after.find(x => x.label === label) || after.find(x => x.label === String(label).toUpperCase()) || after.filter(x => { const b = before.find(y => y.label === x.label); return !b || JSON.stringify(b.entry) !== JSON.stringify(x.entry); }).sort((a, b) => b.t - a.t)[0];
-    if (!hit) { alert(ad.type === "arr" ? "请先在表格里填写客户姓名再存档" : "存档失败"); return true; }
+    if (!hit) { alert(sErr ? "存档失败：" + (isQuota(sErr) ? "这台电脑的储存空间满了（照片太多 / 太大）。请把照片缩小或少放几张再存。" : (sErr.message || sErr)) : ad.type === "arr" ? "请先在表格里填写客户姓名再存档" : "存档失败"); return true; }
     const me = canonUser(currentUser);
     const list = (drafts || []).slice();
     const tk = t => String(t || "").trim().toUpperCase().replace(/\s+/g, " ");
