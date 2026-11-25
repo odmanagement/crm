@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125125500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1932,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "569";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "570";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -10608,6 +10608,10 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
     return () => window.removeEventListener("beforeunload", fn);
   }, [open]);
   const guessTitle = vals => { const nmF = vals.filter(x => /^(name|client_?name|clientname|customer_?name|custname|cname|applicant_?name|fname)#/i.test(x[0])); const nm = nmF.find(x => x[1] && String(x[1]).trim()); if (nm) return String(nm[1]).trim().toUpperCase().slice(0, 40); if (nmF.length) return ""; const v = vals.map(x => x[1]).find(x => x && String(x).trim().length > 1 && !/^\d{4}-\d{2}-\d{2}$/.test(x)); return v ? String(v).trim().slice(0, 40) : ""; };
+  /* Payslip 存档名字 = 员工名字 - 最新月份（几个月的话拿最后一个月） */
+  const psTitleNow = () => { try { const dd = doc(); if (!dd) return ""; const nmv = String((dd.querySelector('[data-f="name"]') || {}).value || "").trim().toUpperCase(), ms = dd.getElementById("mon"); if (!nmv || !ms) return "";
+      const y0 = parseInt((dd.getElementById("year") || {}).value, 10) || new Date().getFullYear(), m0 = Math.max(0, ms.selectedIndex), cn = dd.getElementById("msCnt") || dd.querySelector('[data-f="count"]'), n = Math.max(1, Math.min(24, parseInt(cn && cn.value, 10) || 1)), back = ((dd.getElementById("msDir") || {}).value || "") === "back";
+      const t = y0 * 12 + m0 + (back ? 0 : n - 1); return nmv + " - " + RC_MONTHS[((t % 12) + 12) % 12] + " " + Math.floor(t / 12); } catch (e) { return ""; } };
   const [saveDlg, setSaveDlg] = React.useState(null);
   // 存档窗口开着时，名字跟着表格的 NAME 走（自己改过就不再自动换）
   React.useEffect(() => {
@@ -10786,11 +10790,13 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
       let c = cs.find(x => String(x.name || "").trim().toUpperCase() === nm);   /* 默认放进跟表格同名的分类（没有就自动开一个） */
       if (!c && nm) c = newCat(nm);
       let t0 = guessTitle(vals);
-      if (/_Payslip_Generator\.html$/i.test(open.tool.file || "")) try { const dd = doc(), nmv = String((dd.querySelector('[data-f="name"]') || {}).value || "").trim().toUpperCase(), ms = dd.getElementById("mon"), yr = String((dd.getElementById("year") || {}).value || "").trim();
-        const mt = ms && ms.selectedIndex >= 0 ? String(ms.options[ms.selectedIndex].text || "").trim() : ""; t0 = [nmv, [mt, yr].filter(Boolean).join(" ")].filter(Boolean).join(" - ") || t0; } catch (e) {}   /* Payslip：存档名字 = 员工名字 - 月份 */
+      if (/_Payslip_Generator\.html$/i.test(open.tool.file || "")) t0 = psTitleNow() || t0;   /* Payslip：存档名字 = 员工名字 - 月份 */
       setSaveDlg({ title: t0, cat: (c || cs[0] || {}).id || "", closeAfter: !!closeAfter, edited: /_Payslip_Generator\.html$/i.test(open.tool.file || "") }); return; }
     if (open.draft) {
-      const nd = agreeClosing({ ...open.draft, values: vals, at: now, by: open.draft.by || canonUser(currentUser), lastBy: canonUser(currentUser), title: open.draft.title || guessTitle(vals) });
+      /* Payslip：存档名字 = 员工名字 - 最新月份（换了月份再存档，名字也跟着换；自己改过别的名字就不动） */
+      let t1 = open.draft.title || guessTitle(vals);
+      if (/_Payslip_Generator\.html$/i.test(open.tool.file || "") && (!open.draft.title || /^.+ - (JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER|[A-Z]{3,9}) \d{4}$/i.test(String(open.draft.title).trim()))) t1 = psTitleNow() || t1;
+      const nd = agreeClosing({ ...open.draft, values: vals, at: now, by: open.draft.by || canonUser(currentUser), lastBy: canonUser(currentUser), title: t1 });
       notifyOwnerEdit(open.draft, canonUser(currentUser), open.tool.name);
       saveDrafts(list.map(x => x.id === nd.id ? nd : x));
       setOpen({ ...open, draft: nd });
