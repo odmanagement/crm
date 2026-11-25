@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125125500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125130000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1932,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "570";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "571";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -12294,7 +12294,7 @@ function printVerification(v, client) {
   const rowRaw = (label, val) => `<div class="r"><span class="l">${label}</span><span class="c">:</span><span class="v">${esc(val)}</span></div>`;
   const bar = t => `<div class="bar">${t}</div>`;
   const married = v.marital === "married", single = v.marital === "single";
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(v.customerName || "Verification")}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc("Application Form (" + String(v.customerName || "").trim().toUpperCase() + ")")}</title>
   <style>
     @page { size: A4; margin: 14mm 12mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
@@ -12362,10 +12362,13 @@ function printVerification(v, client) {
   doc.write(html);
   doc.close();
   const doPrint = () => {
+    /* PDF 文件名：Application Form (Full Name as IC) —— 上面那页的名字也一起换，印完换回来 */
+    const pOld = document.title; try { document.title = "Application Form (" + String(v.customerName || "").trim().toUpperCase() + ")"; } catch (e) {}
     try {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
     } catch (e) {}
+    setTimeout(() => { try { document.title = pOld; } catch (e) {} }, 1500);
   };
   if (iframe.contentWindow.document.readyState === "complete") {
     setTimeout(doPrint, 300);
