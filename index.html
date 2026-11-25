@@ -7663,7 +7663,7 @@ function SalesSummaryPage({ currentUser }) {
     h("div", { style: { fontSize: 11.5, fontWeight: 800, color: c, letterSpacing: ".04em" } }, lb), h("div", { style: { fontSize: 20, fontWeight: 900, color: "#0f172a", marginTop: 4 } }, v));
   /* TOTAL LOADING（默认 RM 800,000，按一下可以改）→ COMPANY BANK BALANCE = TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY */
   const [btL] = useCloudList("receipts");   /* Boss Take 还没付回（未付）的总数 */
-  const unclaimBT = r2((Array.isArray(btL) ? btL : []).filter(x => x && !x.paid && !x.deleted).reduce((t, x) => t + rcNum(x.amount), 0));
+  const unclaimBT = r2((Array.isArray(btL) ? btL : []).filter(x => x && !x.paid && !x.deleted && !x.err).reduce((t, x) => t + rcNum(x.amount), 0));   /* 有 ERROR 的不算 */
   const loadAmt = (() => { const x = (Array.isArray(noteL) ? noteL : []).find(y => y && y.id === "__loading"); return x && String(x.note || "").trim() !== "" ? lsNum(x.note) : 800000; })();
   const editLoad = () => { if (READONLY_USERS.includes(canonUser(currentUser || ""))) return; const v = window.prompt("TOTAL LOADING (RM)", lsFmt(loadAmt)); if (v === null) return; const n = lsNum(v); if (!(n >= 0)) return;
     const cur = Array.isArray(noteL) ? noteL : []; saveNote([...cur.filter(y => !(y && y.id === "__loading")), { id: "__loading", note: String(n), by: canonUser(currentUser || ""), at: Date.now() }]); };
@@ -8085,11 +8085,13 @@ function ReceiptPage({ currentUser, clients }) {
             h("div", { style: { fontSize: 11.5, color: "#64748b", fontWeight: 700 } }, g.rows.length + " 笔")),
           h("div", { style: { background: "#fefce8", border: "1px solid #fde68a", borderRadius: 12, padding: "6px 16px", textAlign: "right" } },
             h("div", { style: { fontSize: 11, fontWeight: 800, color: "#a16207" } }, "TOTAL"),
-            h("div", { style: { fontSize: 20, fontWeight: 900, color: "#713f12" } }, rcRM(g.total))),
+            h("div", { style: { fontSize: 20, fontWeight: 900, color: "#713f12" } }, rcRM(g.rows.filter(x => !x.err).reduce((t, x) => t + rcNum(x.amount), 0)))),   /* 有 ERROR 的不算在里面 */
           h("div", { style: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
-            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#15803d" } }, "✓ 已付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#14532d" } }, rcRM(g.rows.filter(x => x.paid).reduce((t, x) => t + rcNum(x.amount), 0)))),
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#15803d" } }, "✓ 已付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#14532d" } }, rcRM(g.rows.filter(x => x.paid && !x.err).reduce((t, x) => t + rcNum(x.amount), 0)))),
           h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
-            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c" } }, "未付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#991b1b" } }, rcRM(g.rows.filter(x => !x.paid).reduce((t, x) => t + rcNum(x.amount), 0)))),
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#b91c1c" } }, "未付"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#991b1b" } }, rcRM(g.rows.filter(x => !x.paid && !x.err).reduce((t, x) => t + rcNum(x.amount), 0)))),
+          g.rows.some(x => x.err) && h("div", { title: "有 ERROR 的另外算，不算在 TOTAL / 已付 / 未付 里面", style: { background: "#fff", border: "2px dashed #dc2626", borderRadius: 12, padding: "6px 14px", textAlign: "right" } },
+            h("div", { style: { fontSize: 11, fontWeight: 800, color: "#dc2626" } }, "⚠ ERROR（" + g.rows.filter(x => x.err).length + " 笔，没算在里面）"), h("div", { style: { fontSize: 16, fontWeight: 900, color: "#dc2626" } }, rcRM(g.rows.filter(x => x.err).reduce((t, x) => t + rcNum(x.amount), 0)))),
           h("span", { style: { flex: 1 } }),
           h("button", { onClick: async () => { await rcCopy(rcWhatsAppText(g)); setCopied(g.key); setTimeout(() => setCopied(c => c === g.key ? "" : c), 2000); }, style: { border: "1px solid #86efac", background: copied === g.key ? "#22c55e" : "#f0fdf4", color: copied === g.key ? "#fff" : "#15803d", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, copied === g.key ? "✓ 已复制" : "📋 Copy (WhatsApp)"),
           h("button", { onClick: () => rcExcel(g), style: { border: "1px solid #a7f3d0", background: "#ecfdf5", color: "#047857", borderRadius: 10, padding: "8px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "📊 Excel")),
