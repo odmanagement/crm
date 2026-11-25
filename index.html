@@ -7677,8 +7677,7 @@ function SalesSummaryPage({ currentUser }) {
       op("o3", "−"), box("cu", card("CUSTOMER USED", RM(cu), "#b91c1c", "#fef2f2")),
       op("o4", "−"), box("rn", card("RUNAWAY", RM(run), "#dc2626", "#fff1f2")),
       op("o6", "−"), box("ub", h("div", { onClick: () => { try { window.__crmGoPage && window.__crmGoPage("receipt"); } catch (e) {} }, title: "Boss Take 未付的总数 · 按一下去 Boss Take", style: { cursor: "pointer", display: "flex", flex: 1 } }, card("UNCLAIM BOSS TAKE", RM(unclaimBT), "#a16207", "#fefce8"))),
-      op("o5", "="), box("cb", card("COMPANY BANK BALANCE · AS AT " + dd, RM(bal), bal < 0 ? "#dc2626" : "#15803d", bal < 0 ? "#fef2f2" : "#f0fdf4")),
-      box("bt", card("BS TOTAL", RM(tot), "#1d4ed8", "#eff6ff"), { marginLeft: 14, paddingLeft: 14, borderLeft: "2px dashed #cbd5e1" })]; };
+      op("o5", "="), box("cb", card("COMPANY BANK BALANCE · AS AT " + dd, RM(bal), bal < 0 ? "#dc2626" : "#15803d", bal < 0 ? "#fef2f2" : "#f0fdf4"))]; };   /* BS TOTAL 不放这一排了（25/11/2026） */
   const th = { ...S.th, textAlign: "left" }, td = { ...S.td, textAlign: "left" }, tdn = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 800 };
   const showMoney = src !== "agr";
   const table = (title, list, kLabel, sortBy) => h("div", { style: { ...S.tableWrap, marginBottom: 16 } },
