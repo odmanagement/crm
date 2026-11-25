@@ -110,9 +110,6 @@
       <div><label>签名 + 公司章（已放好，可换）</label><div class="row"><img id="sigPrev" style="height:34px;max-width:100px;object-fit:contain;border:1px solid #eee;background:#fff"><label class="mini" style="margin:0;cursor:pointer">📷 换<input type="file" id="sigFile" accept="image/*" style="display:none"></label><button class="mini" id="sigReset">↺ 原本的</button><button class="mini" id="sigClr" style="color:#b91c1c">不要</button></div></div>
     </div>
     <div class="grid g3">
-      <div><label>日期（右上角）</label><input data-f="date" autocomplete="off" placeholder="26/07/2026"></div>
-    </div>
-    <div class="grid g3">
       <div><label>NAME</label><input data-f="name" autocomplete="off"></div>
       <div><label>NRIC NO. <small>（空白 = 不显示）</small></label><input data-f="ic" autocomplete="off"></div>
       <div><label>STAFF NO.</label><input data-f="staff" autocomplete="off" placeholder="例 W001"></div>
@@ -127,7 +124,7 @@
       <h2>EARNINGS <small>收入 · 0 显示「-」</small></h2>
       <div class="items" id="earn"></div>
       <button class="mini" id="addEarn">＋ 加一项</button>
-      <div class="hint">LESS : UNPAID LEAVE 填正数，会自动扣掉 · 勾「扣 EPF/PCB」= 这一项也算 EPF / SOCSO / EIS / PCB</div>
+      <div class="hint">勾「扣 EPF/PCB」= 这一项也算 EPF / SOCSO / EIS / PCB</div>
     </div>
     <div class="card">
       <h2>DEDUCTIONS <small>其他扣款（EPF / SOCSO / EIS / PCB 在下面自动算）</small></h2>
@@ -221,28 +218,33 @@ const KEY = "btpass_payslip_form", PKEY = "btpass_payslip_presets";
 const today = () => { const d = new Date(); return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear(); };
 const blank = () => { const d = new Date(); return { name: "", ic: "", staff: "", position: "", date: today(),
   mon: d.getMonth(), year: String(d.getFullYear()),
-  earn: [{ n: "BASIC PAY", a: "", s: true, fixed: true }, { n: "LESS : UNPAID LEAVE", a: "", s: true, fixed: true, less: true }, { n: "ALLOWANCE", a: "", s: false }, { n: "BONUS", a: "", s: false }],
+  earn: [{ n: "BASIC PAY", a: "", s: true, fixed: true }, { n: "ALLOWANCE", a: "", s: false }, { n: "BONUS", a: "", s: false }],
   ded: [{ n: "DEDUCTION", a: "" }], ov: {}, leave: { MEDICAL: ["0", "0", "0", ""], ANNUAL: ["0", "0", "0", ""] } }; };
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let D = Object.assign(blank(), load(KEY, {}));
 const $ = id => document.getElementById(id);
 const val = x => x.less ? -Math.abs(N(x.a)) : N(x.a);
+/* UNPAID LEAVE 不要了：旧资料里空的那一行拿掉；有填数目的（旧存档）照样留着，数目不变 */
+const migrateUL = () => { const ls = (D.earn || []).filter(x => x.less); D.earn = (D.earn || []).filter(x => !x.less);
+  D.ded = [...ls.filter(x => N(x.a)).map(x => ({ n: "UNPAID LEAVE", a: x.a, ul: true })), ...(D.ded || []).filter(x => !x.ul || N(x.a))]; };
+const ulAmt = () => (D.ded || []).filter(x => x.ul).reduce((t, x) => t + Math.abs(N(x.a)), 0);
 
 function calc() {
-  const wage = Math.max(0, D.earn.filter(x => x.s || x.fixed).reduce((t, x) => t + val(x), 0));
+  const wage = Math.max(0, D.earn.filter(x => x.s || x.fixed).reduce((t, x) => t + val(x), 0) - ulAmt());   /* UNPAID LEAVE 扣掉后才算 EPF / SOCSO / EIS / PCB */
   const rate = D.erRate === "12" ? 12 : D.erRate === "13" ? 13 : (wage > 5000 ? 12 : 13), [se, sw] = socso(wage), [ee, ew] = eis(wage);
   const auto = { epfEe: epf(wage, 11), epfEr: epf(wage, rate), socEe: sw, socEr: se, eisEe: ew, eisEr: ee };
   const v = k => D.ov[k] !== undefined && D.ov[k] !== "" ? N(D.ov[k]) : auto[k];
   auto.pcb = pcb(wage, v("epfEe"));
   const cur = {}; [...EE, ...ER].forEach(([k]) => cur[k] = v(k));
   const te = r2(D.earn.reduce((t, x) => t + val(x), 0));
-  const td = r2(cur.epfEe + cur.socEe + cur.eisEe + cur.pcb + D.ded.reduce((t, x) => t + N(x.a), 0));
+  const td = r2(cur.epfEe + cur.socEe + cur.eisEe + cur.pcb + D.ded.reduce((t, x) => t + (x.ul ? Math.abs(N(x.a)) : N(x.a)), 0));
   return { auto, cur, te, td, net: r2(te - td) };
 }
 
 /* ---------- 表单 ---------- */
 function buildForm() {
+  migrateUL();
   $("mon").innerHTML = MON.map((m, i) => `<option value="${i}">${m}</option>`).join(""); $("mon").value = D.mon; $("year").value = D.year;
   document.querySelectorAll("[data-f]").forEach(el => el.value = D[el.dataset.f] || "");
   $("earn").innerHTML = D.earn.map((x, i) => `<div class="it"><input data-l="earn" data-i="${i}" data-p="n" value="${esc(x.n)}" ${x.fixed ? "readonly" : ""} placeholder="项目名称"><input data-l="earn" data-i="${i}" data-p="a" class="money" value="${esc(x.a)}" inputmode="decimal" placeholder="RM"><label class="chk">${x.fixed ? "" : `<input type="checkbox" data-l="earn" data-i="${i}" data-p="s" ${x.s ? "checked" : ""}>扣 EPF/PCB`}</label>${x.fixed ? "<span></span>" : `<button class="x" data-rm="earn" data-i="${i}">×</button>`}</div>`).join("");
@@ -262,7 +264,7 @@ function refreshStat() {
 /* ---------- 工资单 ---------- */
 function render() {
   const c = calc(), up = s => esc(String(s || "").toUpperCase()), amt = n => n ? F(n) : "-";
-  $("s_date").textContent = D.date || "";
+  $("s_date").textContent = ""; $("s_date").style.display = "none";   /* 右上角日期不要了 */
   $("s_name").textContent = String(D.name || "").toUpperCase();
   $("s_ic").textContent = D.ic || ""; const showIc = !!String(D.ic || "").trim(); $("s_icL").style.display = $("s_ic").style.display = showIc ? "" : "none";
   $("s_staff").textContent = String(D.staff || "").toUpperCase();
@@ -271,7 +273,7 @@ function render() {
   const E = D.earn.filter(x => x.fixed || x.n || N(x.a));
   $("s_eN").innerHTML = E.map(x => `<div>${up(x.n)}</div>`).join("");
   $("s_eA").innerHTML = E.map(x => `<div>${amt(N(x.a))}</div>`).join("");
-  const Dd = [["EMPLOYEE EPF", c.cur.epfEe], ["EMPLOYEE SOCSO", c.cur.socEe], ["EMPLOYEE EIS", c.cur.eisEe], ["", null], ["PCB", c.cur.pcb], ...D.ded.filter(x => x.n || N(x.a)).map(x => [x.n, N(x.a)])];
+  const Dd = [["EMPLOYEE EPF", c.cur.epfEe], ["EMPLOYEE SOCSO", c.cur.socEe], ["EMPLOYEE EIS", c.cur.eisEe], ["", null], ["PCB", c.cur.pcb], ...D.ded.filter(x => x.n || N(x.a)).map(x => [x.n, x.ul ? Math.abs(N(x.a)) : N(x.a)])];
   $("s_dN").innerHTML = Dd.map(x => `<div>${x[0] ? up(x[0]) : "&nbsp;"}</div>`).join("");
   $("s_dA").innerHTML = Dd.map(x => `<div>${x[1] === null ? "&nbsp;" : amt(x[1])}</div>`).join("");
   $("s_te").textContent = F(c.te); $("s_td").textContent = F(c.td); $("s_net").textContent = F(c.net);
@@ -298,7 +300,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => { if (e.target.id === "mon") { D.mon = +e.target.value; render(); } if (e.target.dataset.p === "s") update(); });
 document.addEventListener("focusout", e => {
   const el = e.target, d = el.dataset;
-  if (el.classList.contains("money")) { const t = el.value.trim(); const f = t && /^-?[\d,]*\.?\d*$/.test(t) ? F(d.l === "earn" && D.earn[+d.i].less ? Math.abs(N(t)) : N(t)) : t;
+  if (el.classList.contains("money")) { const t = el.value.trim(); const f = t && /^-?[\d,]*\.?\d*$/.test(t) ? F((d.l === "earn" && D.earn[+d.i].less) || (d.l === "ded" && D.ded[+d.i].ul) ? Math.abs(N(t)) : N(t)) : t;
     if (d.ov) { if (!d.dirty) return; if (t) D.ov[d.ov] = f; else delete D.ov[d.ov]; }
     else if (d.l) D[d.l][+d.i].a = f;
     el.value = f; update(); }
