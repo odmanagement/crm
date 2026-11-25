@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125104000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125105000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1932,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "563";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "564";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -13028,7 +13028,11 @@ function Detail({
     const ic = dg(client.ic), ph = dg(client.phone), n0 = nm(client.name);
     return (allClients || []).filter(c => c && c.id !== client.id && ((ic.length >= 10 && dg(c.ic) === ic) || (ph.length >= 9 && dg(c.phone) === ph) || (n0.length >= 4 && nm(c.name) === n0)))
       .flatMap(c => (c.loans || []).map(l => ({ c, l }))); })();
-  const otherLabels = onlyType ? Array.from(new Set([...loans.filter(x => x.type !== onlyType), ...linkedLoans.map(x => x.l)].map(x => typeOf(x.type).label))) : [];
+  /* 每种其他 Loan 一个按钮：按了跳去那个 Loan 页面，打开这个客户 */
+  const otherLabels = (() => { if (!onlyType) return []; const seen = {}, out = [];
+    [...loans.filter(x => x.type !== onlyType).map(l => ({ l, cid: client.id })), ...linkedLoans.map(x => ({ l: x.l, cid: x.c.id }))].forEach(({ l, cid }) => {
+      if (!["house", "car", "personal"].includes(l.type)) return; const k = l.type + "|" + cid; if (seen[k]) return; seen[k] = 1; out.push({ type: l.type, cid, label: typeOf(l.type).label }); });
+    return out; })();
   const saveLoan = loan => {
     const exists = loans.some(l => l.id === loan.id);
     onUpdate({
@@ -13594,8 +13598,7 @@ function LoanBlock({
     style: S.loanBlockHead
   }, /*#__PURE__*/React.createElement("button", {
     style: S.loanBlockTitle,
-    onClick: () => { if (otherLoans && otherLoans.length && onToggleOthers) onToggleOthers(); else setExpanded(v => !v); },
-    title: otherLoans && otherLoans.length ? (showOthers ? "收起其他 Loan" : "这个客户还有：" + otherLoans.join("、") + "（按一下看）") : undefined
+    onClick: () => setExpanded(v => !v)
   }, /*#__PURE__*/React.createElement(Icon, {
     size: 16,
     color: t.color
@@ -13609,8 +13612,7 @@ function LoanBlock({
       background: st.color + "1a",
       color: st.color
     }
-  }, st.label), otherLoans && otherLoans.length > 0 && React.createElement("span", { style: { marginLeft: 6, background: showOthers ? "#4f46e5" : "#eef2ff", color: showOthers ? "#fff" : "#4338ca", border: "1px solid #c7d2fe", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, whiteSpace: "nowrap" } },
-    showOthers ? "收起其他 Loan" : "+ " + otherLoans.join(" / ")), hasOnly && !(otherLoans && otherLoans.length) && React.createElement("span", { title: "这个客户没有申请其他 Loan", style: { marginLeft: 6, background: "#f1f5f9", color: "#94a3b8", border: "1px solid #e2e8f0", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" } }, "没有其他 Loan"), isOther && React.createElement("span", { style: { marginLeft: 6, background: t.color, color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900 } }, "其他 LOAN"), /*#__PURE__*/React.createElement(ChevronDown, {
+  }, st.label), otherLoans && otherLoans.map((o, k) => React.createElement("span", { key: "ol" + k, role: "button", title: "跳去 " + o.label + " 看资料", onClick: e => { e.stopPropagation(); try { window.__crmOpenClient && window.__crmOpenClient(o.cid, o.type); } catch (er) {} }, style: { marginLeft: 6, background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, whiteSpace: "nowrap", cursor: "pointer" } }, "+ " + o.label + " ➜")), hasOnly && !(otherLoans && otherLoans.length) && React.createElement("span", { title: "这个客户没有申请其他 Loan", style: { marginLeft: 6, background: "#f1f5f9", color: "#94a3b8", border: "1px solid #e2e8f0", borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" } }, "没有其他 Loan"), isOther && React.createElement("span", { style: { marginLeft: 6, background: t.color, color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 900 } }, "其他 LOAN"), /*#__PURE__*/React.createElement(ChevronDown, {
     size: 15,
     color: "#94a3b8",
     style: {
