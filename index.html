@@ -4396,7 +4396,8 @@ function MissionPopups({ missions, notices, currentUser, onView, onDone, onClear
                 h("button", { key: "v", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "d", onClick: () => onDone && onDone(it.m.id), style: btn("#16a34a", "#fff") }, h(Check, { size: 13 }), "Done")
               ] : [
-                it.n.kind === "ref" && h("button", { key: "rv", onClick: () => { setOpen(false); if (it.n.focus) { window.__crmFocus = { page: it.n.page, name: it.n.focus, at: Date.now() }; } window.__crmGoPage && window.__crmGoPage(it.n.page || "referral"); if (it.n.focus) setTimeout(() => { try { window.dispatchEvent(new Event("crm-focus")); } catch (e) {} }, 50); }, style: btn(it.n.page ? "#7c3aed" : "#dc2626", "#fff") }, it.n.page ? "👀 去看看" : "🧧 去看看"),
+                it.n.kind === "ref" && h("button", { key: "rv", onClick: () => { setOpen(false); const fc = it.n.focus || (it.n.page === "salarylist" && /STOP SALARY/i.test(it.n.title || "") ? String(it.n.task || "").split(" · ")[0].trim() : "");   /* 旧的通知没有 focus → 从内容拿名字 */
+                  if (fc) { window.__crmFocus = { page: it.n.page, name: fc, at: Date.now() }; } window.__crmGoPage && window.__crmGoPage(it.n.page || "referral"); if (fc) setTimeout(() => { try { window.dispatchEvent(new Event("crm-focus")); } catch (e) {} }, 50); }, style: btn(it.n.page ? "#7c3aed" : "#dc2626", "#fff") }, it.n.page ? "👀 去看看" : "🧧 去看看"),
                 it.n.kind === "mreply" && h("button", { key: "mv", onClick: () => { setOpen(false); onView && onView(); }, style: btn("#0084ff", "#fff") }, "查看"),
                 isFu(it) && it.n.cid && h("button", { key: "v", onClick: () => { setOpen(false); window.__crmOpenClient && window.__crmOpenClient(it.n.cid, it.n.ltype); }, style: btn("#0084ff", "#fff") }, "查看"),
                 h("button", { key: "c", onClick: () => onClearNotice && onClearNotice(it.n.id), style: btn("#e4e6eb", "#050505") }, "知道了")
@@ -7787,15 +7788,19 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     .sort((x, y) => (x.startAt - y.startAt) || String(x.date || "").localeCompare(String(y.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));   /* 旧 → 新：最新 START 的放最下面 */
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   hiRef.current = rows;
+  const [hiMiss, setHiMiss] = React.useState("");
   React.useEffect(() => {
     const go = () => { const f = window.__crmFocus; if (!f || f.page !== "salarylist" || Date.now() - f.at > 60000) return;
       const k = slNameKey(f.name), r = (hiRef.current || []).find(x => slNameKey(x.c.name) === k);
-      if (!r) return;   /* 资料还没到 → 等下次 render 再找 */
-      window.__crmFocus = null;
+      if (!r) {   /* 资料还没到 → 等一下再找；等了 4 秒还是没有 → 告诉他 */
+        if (Date.now() - f.at > 4000) { window.__crmFocus = null; setQ(""); setHiMiss(String(f.name || "").toUpperCase()); setTimeout(() => setHiMiss(""), 10000); }
+        return; }
+      window.__crmFocus = null; setHiMiss("");
       setStM(nowM); setMonth(""); setFb(""); setQ(""); setSrc(r.src); setFs(r.stopped ? "stopped" : ""); setHiK(k);
       let n = 0; const sc = setInterval(() => { const el = document.querySelector('tr[data-slk="' + k.replace(/"/g, "") + '"]'); if (el || ++n > 20) { clearInterval(sc); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); } }, 150);
       setTimeout(() => setHiK(x => x === k ? null : x), 8000); };
-    go(); window.addEventListener("crm-focus", go); return () => window.removeEventListener("crm-focus", go);
+    go(); window.addEventListener("crm-focus", go); const iv = window.__crmFocus ? setInterval(go, 500) : null;
+    return () => { window.removeEventListener("crm-focus", go); if (iv) clearInterval(iv); };
   });
   const copyText = () => {
     const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
@@ -7813,6 +7818,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "12px 16px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
   const nOf = k => shown.filter(r => r.st === k).length;
   return h("div", { className: "cz-page" }, h("style", null, "@keyframes slHiPulse{50%{background:#fde047;outline-color:#dc2626}}"),
+    hiMiss && h("div", { style: { background: "#fef2f2", border: "2px solid #fca5a5", color: "#b91c1c", borderRadius: 12, padding: "10px 14px", fontWeight: 800, marginBottom: 12 } }, "⛔ " + hiMiss + " 已经 STOP SALARY，但 Salary Status 这里没有他（Bank Statement / Rencai 还没按 START 的人不会出现在这里）"),
     h("div", { style: card },
       /* 不跟日期：按「确认」→ 记下确认更改的日期 */
       h("button", { onClick: () => { if (!window.confirm(nPend ? "确认 " + nPend + " 个更改？" : "确认 Salary Listing？")) return; applyPend(); const me = canonUser(window.__crmUser || ""); saveCf([{ id: uid(), by: me, at: Date.now(), n: nPend, m: stM }, ...(cfList || [])].slice(0, 50)); },
