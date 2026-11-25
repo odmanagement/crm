@@ -10643,6 +10643,16 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
     const d = doc(); if (!d) return;
     hideInnerSave(d);
     if (open && /AGREEMENT/i.test(open.tool.file || "")) try { formICAutoDash(d); } catch (e) {}   /* Agreement：IC 自动变 xxxxxx-xx-xxxx */
+    if (open && /AGREEMENT/i.test(open.tool.file || "")) try {   /* Agreement 打印 / PDF 文件名：Finpro Agreement 客户名字 / Future Agreement 客户名字 */
+      const w = frameRef.current.contentWindow, op = w.print.bind(w), co = /FUTURE/i.test(open.tool.file) ? "Future" : "Finpro";
+      w.print = function () {
+        let nm = ""; try { const el = w.document.getElementById("fName"); nm = String((el && el.value) || "").trim(); } catch (e) {}
+        if (!nm) try { nm = guessTitle(currentVals()); } catch (e) {}
+        const t = (co + " Agreement " + String(nm || "").toUpperCase()).trim(), o1 = w.document.title, o2 = document.title;
+        try { w.document.title = t; document.title = t; } catch (e) {}
+        op(); setTimeout(() => { try { w.document.title = o1; document.title = o2; } catch (e) {} }, 1500);
+      };
+    } catch (e) {}
     try {
       const w = frameRef.current.contentWindow, formName = open ? open.tool.name : "表格";
       const origClick = w.HTMLAnchorElement.prototype.click;
@@ -12436,8 +12446,8 @@ function printVerification(v, client) {
   doc.write(html);
   doc.close();
   const doPrint = () => {
-    /* PDF 文件名：Application Form (Full Name as IC) —— 上面那页的名字也一起换，印完换回来 */
-    const pOld = document.title; try { document.title = "Application Form (" + String(v.customerName || "").trim().toUpperCase() + ")"; } catch (e) {}
+    /* PDF 文件名：Application Form Full Name as IC（不用括号）—— 上面那页的名字也一起换，印完换回来 */
+    const pOld = document.title, pT = ("Application Form " + String(v.customerName || "").trim().toUpperCase()).trim(); try { document.title = pT; } catch (e) {} try { iframe.contentDocument.title = pT; } catch (e) {}
     try {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
