@@ -6226,7 +6226,8 @@ function SalStatusRemind({ me }) {
 /* ---------- Bank Statement（每个 Salary 客户一份）：Charges & Fees / CHQ Date + Credited / 收回的钱 ---------- */
 const BS_FEES = ["EPF =3m", "SOCSO =3m", "EIS =3m", "TAX =3m", "CHQ FEES"];
 const bsTot = (rows, k) => (rows || []).reduce((a, x) => a + lsNum(x[k || "amount"]), 0);
-const bsBalance = bs => { if (!bs) return null; return bsTot(bs.credits) - bsTot(bs.received); };   /* Balance 不算 Backdate（以前的 Fees EPF=3m 等也是 Backdate，不算） */
+const bsOpenBal = bs => lsNum(bs && bs.opening);   /* OPENING BALANCE：开户时户口里本来有的钱（算进 Balance） */
+const bsBalance = bs => { if (!bs) return null; return bsOpenBal(bs) + bsTot(bs.credits) - bsTot(bs.received); };   /* Balance 不算 Backdate（以前的 Fees EPF=3m 等也是 Backdate，不算） */
 function BankStmtModal({ c, banks, onSave, onClose }) {
   const h = React.createElement;
   const init = c.bankStmt || {};
@@ -6246,7 +6247,7 @@ function BankStmtModal({ c, banks, onSave, onClose }) {
   const box = (title, color, kids, total) => h("div", { style: { flex: "1 1 260px", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", minWidth: 0 } },
     h("div", { style: { background: color, padding: "6px 10px", fontWeight: 900, fontSize: 12.5, color: "#1e293b", display: "flex" } }, h("span", { style: { flex: 1 } }, title), total != null && h("span", null, lsFmt(total))),
     h("div", { style: { padding: 8, display: "flex", flexDirection: "column", gap: 5 } }, kids));
-  const tC = bsTot(d.credits), tF = bsTot(d.fees), tR = bsTot(d.received), bal = tC - tR;
+  const tC = bsTot(d.credits), tF = bsTot(d.fees), tR = bsTot(d.received), bal = bsOpenBal(d) + tC - tR;
   const stopAt = d.credits.findIndex(x => x.stop);
   return h("div", { onClick: onClose, style: { position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", zIndex: 9999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 12px", overflowY: "auto" } },
     h("div", { onClick: e => e.stopPropagation(), style: { background: "#fff", borderRadius: 18, width: "100%", maxWidth: 1000, boxShadow: "0 30px 80px -20px rgba(0,0,0,.5)" } },
@@ -6873,7 +6874,7 @@ function BsPeopleLoader() {
           const dt = bsNormDmy(x.date);
           months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || ""), costedAt: x.costedAt || 0, cid: x.id || ("i" + i) }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
-      let bal = "", cuse = "", ause = ""; try { const cu = bsCustUse(bs), au = bsAgentUse(bs), v = bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - cu - au; if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); if (au) ause = lsFmt(au); } catch (e) {}   /* AGENT USE 也扣掉，另外一行放去 Part C */
+      let bal = "", cuse = "", ause = ""; try { const cu = bsCustUse(bs), au = bsAgentUse(bs), v = bsOpenBal(bs) + bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - cu - au; if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); if (au) ause = lsFmt(au); } catch (e) {}   /* AGENT USE 也扣掉，另外一行放去 Part C */
       /* Verify 的 Salary：跟 Bank Statement 最近一个月的 Salary 计算（Basic + Allowance + Commission − EPF − SOCSO − EIS − PCB，员工那边） */
       let salItems = null;
       try { const crs = (bs.credits || []).filter(x => x && x.calc); const c = crs.length ? crs[crs.length - 1].calc : (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
@@ -7019,7 +7020,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
   const bdFee = d.backdate ? bsBackdate(d.backdate).fee : 0;
-  const cuse = bsCustUse(d), ause = bsAgentUse(d), tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = tC - tR - cuse - ause;   /* 黄色 = Balance − 红色 CUSTOMER USE */   /* Balance 不算 Backdate（以前的 Fees 也不算） */
+  const cuse = bsCustUse(d), ause = bsAgentUse(d), tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = bsOpenBal(d) + tC - tR - cuse - ause;   /* 黄色 = Balance − 红色 CUSTOMER USE */   /* Balance 不算 Backdate（以前的 Fees 也不算） */
   const trs = [];
   /* 最上面：START SALARY ON 选择（选了之后字还可以手动改） */
   const ST_OPT = BS_START_OPTS, so = ST_OPT.find(o => o.k === d.startType);
@@ -7036,7 +7037,13 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
       h("select", { value: d.startType || "", title: "选择", onChange: e => { const o = ST_OPT.find(x => x.k === e.target.value); const nx = { ...d, startType: o ? o.k : "", startText: o ? o.t + " " : "" }; setD(nx); commit(nx); },
         style: { border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 14, fontWeight: 900, color: so ? so.c : "#64748b", background: "#fff", maxWidth: so ? 30 : 340, cursor: "pointer" } },
         h("option", { value: "" }, "— 选择 START SALARY —"), ST_OPT.map(o => h("option", { key: o.k, value: o.k, style: { color: o.c } }, o.t))),
-      so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 20, color: so.c, letterSpacing: .5, WebkitTextStroke: ".4px " + so.c }, "", true)))),
+      so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 20, color: so.c, letterSpacing: .5, WebkitTextStroke: ".4px " + so.c }, "", true)),
+      /* OPENING BALANCE：开户时户口里本来有的钱 → 算进 Balance */
+      h("label", { title: "OPENING BALANCE：开户时户口里本来有的钱（会算进 BALANCE）", style: { display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", fontSize: 11.5, fontWeight: 900, color: "#0f766e", background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 8, padding: "3px 8px", flex: "0 0 auto" } }, "OPENING BAL RM",
+        h("input", { key: "ob:" + (d.opening || ""), defaultValue: d.opening || "", placeholder: "0.00", inputMode: "decimal", readOnly: READONLY_USERS.includes(canonUser(window.__crmUser || "")),
+          onBlur: e => { const t = e.target.value.trim(), v = t === "" ? "" : /^-?[\d,]*\.?\d*$/.test(t) ? lsFmt(lsNum(t)) : t; e.target.value = v; if (v !== (d.opening || "")) { const nx = { ...d, opening: v }; setD(nx); commit(nx); } },
+          onKeyDown: e => { if (e.key === "Enter") e.target.blur(); },
+          style: { width: 80, border: "1px solid #99f6e4", borderRadius: 6, padding: "3px 6px", textAlign: "right", fontWeight: 900, fontSize: 13, fontFamily: "inherit", background: "#fff", fontVariantNumeric: "tabular-nums" } })))),
     /* 最后面：END 打勾 → 整个变紫色 */
     h("td", { colSpan: 2, style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
       h("label", { title: d.ended ? "已经 END · " + String(d.ended.by || "").toUpperCase() + " · " + new Date(d.ended.at || 0).toLocaleDateString("en-GB") : "打勾 = END（整个变紫色）", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: d.ended ? "#6d28d9" : "#64748b" } },
