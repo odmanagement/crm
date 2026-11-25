@@ -15203,7 +15203,7 @@ div.bs-sheet.bs-zero { border-color: #16a34a !important; }
 .theme-cat .dk-dash .dash3d > div:first-child { border-left-color: #dc2626 !important; }
 .theme-cat .cz-table thead tr { background: linear-gradient(90deg,#b91c1c,#dc2626 55%,#f59e0b) !important; }
 .cz-page { margin: -28px; padding: 28px; min-height: calc(100vh - 67px); background: transparent; }
-.cz-page > div:last-child { border-radius: 16px !important; overflow-x: auto; overflow-y: hidden; box-shadow: 0 12px 34px -12px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
+.cz-page > div:last-child { border-radius: 16px !important; overflow-x: auto; overflow-y: auto;   /* 以前 hidden + 限高 → 表格最下面几行滑不到 */ box-shadow: 0 12px 34px -12px rgba(79,70,229,.3) !important; border: 1px solid #e0e7ff !important; }
 .cz-table thead tr { background: linear-gradient(90deg,#7c3aed,#4f46e5 45%,#0ea5e9); }
 .cz-table thead th { background: transparent !important; color: #fff !important; border-color: rgba(255,255,255,.12) !important; letter-spacing: .03em; }
 .cz-table tbody tr td { transition: background .15s; border-color: #eef0fb !important; }
