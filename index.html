@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125175000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125175500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7048,12 +7048,13 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
       h("label", { title: "OPENING BALANCE：开户时户口里本来有的钱（会算进 BALANCE）", style: { display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", fontSize: 11.5, fontWeight: 900, color: "#0f766e", background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 8, padding: "3px 8px", flex: "0 0 auto" } }, "OPENING BAL RM",
         h("input", { key: "ob:" + (d.opening || "") + "|" + (d.openingF || ""), defaultValue: d.opening || "", placeholder: "0.00", readOnly: READONLY_USERS.includes(canonUser(window.__crmUser || "")),
           title: d.openingF ? d.openingF.replace(/\+/g, " + ").replace(/(\d)-/g, "$1 - ") + " = " + (d.opening || "") : "可以打 56+725+156，会自动加起来",
-          onFocus: e => { if (d.openingF) e.target.value = d.openingF; e.target.select(); },   /* 点进去 → 看到怎么加出来的 */
+          onFocus: e => { if (d.openingF) e.target.value = d.openingF; e.target.style.width = "calc(" + Math.max(9, e.target.value.length + 2) + "ch + 12px)"; e.target.select(); },   /* 点进去 → 看到怎么加出来的（格子跟着变宽，看得到全部） */
+          onInput: e => { e.target.style.width = "calc(" + Math.max(9, e.target.value.length + 2) + "ch + 12px)"; },
           onBlur: e => { const t = e.target.value.trim(); let v = "", f = "";
             if (t) { const n = bsCalcExpr(t); if (n === null) { v = t; } else { v = lsFmt(n); if (/[-+*/]/.test(t.replace(/^-/, ""))) f = t.replace(/\s+/g, ""); } }
-            e.target.value = v; if (v !== (d.opening || "") || f !== (d.openingF || "")) { const nx = { ...d, opening: v, openingF: f }; setD(nx); commit(nx); } },
+            e.target.value = v; e.target.style.width = "96px"; if (v !== (d.opening || "") || f !== (d.openingF || "")) { const nx = { ...d, opening: v, openingF: f }; setD(nx); commit(nx); } },
           onKeyDown: e => { if (e.key === "Enter") e.target.blur(); },
-          style: { width: 96, border: "1px solid #99f6e4", borderRadius: 6, padding: "3px 6px", textAlign: "right", fontWeight: 900, fontSize: 13, fontFamily: "inherit", background: "#fff", fontVariantNumeric: "tabular-nums" } }),
+          style: { width: 96, maxWidth: 420, transition: "width .15s", border: "1px solid #99f6e4", borderRadius: 6, padding: "3px 6px", textAlign: "right", fontWeight: 900, fontSize: 13, fontFamily: "inherit", background: "#fff", fontVariantNumeric: "tabular-nums" } }),
         d.openingF && h("span", { title: d.openingF, style: { fontSize: 10, color: "#0f766e", opacity: .7, cursor: "help" } }, "Σ")))),
     /* 最后面：END 打勾 → 整个变紫色 */
     h("td", { colSpan: 2, style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
