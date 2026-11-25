@@ -6786,16 +6786,17 @@ function SalToBsSync({ currentUser }) {
         const next = ppl.map(p => {
           if (!p || !p.name) return p; const mm = byName[slNameKey(p.name)] || {}, um = unchk[slNameKey(p.name)] || {}; if (!Object.keys(mm).length && !Object.keys(um).length) return p;
           const ow = p.by || p.owner || p.createdBy || "";
-          if (!(sameUser(ow, me) || ownDelegate(store, ow, me))) return p;
+          const isOwn = sameUser(ow, me) || ownDelegate(store, ow, me);   /* 加：只由主人（或代填的人）；拿掉还没打勾的：谁登入都可以做 */
+          if (!isOwn && !Object.keys(um).length) return p;
           const bs = p.bankStmt || {}; if (bs.ended) return p;
           if (window.__crmSalStop && window.__crmSalStop.has(slNameKey(p.name))) return p;
           let cr = (bs.credits || []).slice(); if (cr.some(c => c && c.stop)) return p;
           let done = (bs.slDone || []).slice(); let pc = false;
           /* 还没打勾：自动加的那一行（没填日期、数目没改过）拿掉，月份也从 slDone 拿掉 → 打勾后会再加回来 */
-          cr = cr.filter(c => { if (!c || !c.sl || !um[c.sl] || c.date || c.calc || lsFmt(lsNum(c.amount)) !== c.slAmt) return true; pc = true; done = done.filter(y => y !== c.sl); return false; });
+          cr = cr.filter(c => { if (!c || !c.sl || !um[c.sl] || c.date || c.calc || (c.slAmt && lsFmt(lsNum(c.amount)) !== c.slAmt)) return true; pc = true; done = done.filter(y => y !== c.sl); return false; });
           /* 同一个月重复了 → 留第一个 */
           const seen = new Set(); cr = cr.filter(c => { if (!c || !c.sl) return true; if (seen.has(c.sl)) { pc = true; return false; } seen.add(c.sl); return true; });
-          Object.keys(mm).sort().forEach(ym => {
+          if (isOwn) Object.keys(mm).sort().forEach(ym => {
             const amt = mm[ym], i = cr.findIndex(c => c && c.sl === ym);
             if (i >= 0) { const c = cr[i]; if (c.amount !== amt && !c.calc && lsFmt(lsNum(c.amount)) === c.slAmt) { cr[i] = { ...c, amount: amt, slAmt: amt }; pc = true; } return; }
             if (done.includes(ym)) return;
