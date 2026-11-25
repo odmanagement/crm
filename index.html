@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125130000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125173500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -991,6 +991,7 @@ const APP_BUILD = "20261125130000";   /* 每次上传新版都要换 → 所有�
     document.body.appendChild(b);
   };
   const onNew = () => { doReload(); idleReload(); };
+  let baseHash = null;
   const check = async () => {
     try {
       const url = location.href.split("#")[0];
@@ -998,13 +999,16 @@ const APP_BUILD = "20261125130000";   /* 每次上传新版都要换 → 所有�
       if (!r.ok) return;
       const t = await r.text();
       const m = t.match(/const APP_BUILD = "(\d+)"/);
-      if (m && m[1] !== APP_BUILD) onNew();
+      if (m && m[1] !== APP_BUILD) { onNew(); return; }
+      /* 就算忘了换 APP_BUILD：文件内容跟打开时不一样 → 也当作有新版本 */
+      let hsh = 0; for (let i = 0; i < t.length; i += 7) hsh = (hsh * 31 + t.charCodeAt(i)) | 0; hsh = t.length + ":" + hsh;
+      if (baseHash === null) baseHash = hsh; else if (hsh !== baseHash) onNew();
     } catch (e) {}
   };
   setInterval(check, 60000);
   window.addEventListener("focus", check);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
-  setTimeout(check, 15000);
+  setTimeout(check, 3000);   /* 一打开先记下现在的版本 */
 })();
 /* ===== 只读账号（只能看，不能改） ===== */
 const READONLY_USERS = ["admin"];
