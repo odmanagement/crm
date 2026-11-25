@@ -7522,7 +7522,8 @@ function SalesSummaryPage({ currentUser }) {
     return h("div", null,
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
         card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("CUSTOMER BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
-        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
+        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff"),
+        loadCards(sum("bank"), sum("au"), sum("cu"), sum("run"))),
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END / 还没 START 的")),
@@ -7623,7 +7624,8 @@ function SalesSummaryPage({ currentUser }) {
     return h("div", null,
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
         card("人数", rowsS.length, "#4f46e5", "#eef2ff"), card("CUSTOMER BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
-        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
+        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff"),
+        loadCards(sum("bank"), sum("au"), sum("cu"), sum("run"))),
       h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: { ...S.dataTable, fontSize: 12.5 } },
         h("thead", null, h("tr", null, ["#", h("span", { key: "a" }, "AS AT ", h("input", { key: "asat:" + (meta.asAt || ""), defaultValue: meta.asAt || "", onBlur: e => { const v = e.target.value.trim(); if (v !== meta.asAt) upd("__seed", { asAt: v }); }, style: { width: 96, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "inherit", borderRadius: 6, padding: "2px 6px", fontWeight: 900, fontFamily: "inherit" } })),
           "CUSTOMER BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "CRM", "Remark", "", "", ""].map(th))),
@@ -7666,6 +7668,13 @@ function SalesSummaryPage({ currentUser }) {
   const RM = v => "RM " + lsFmt(v);
   const card = (lb, v, c, bg) => h("div", { style: { background: bg, border: "1px solid " + c + "33", borderRadius: 14, padding: "12px 16px", minWidth: 150, flex: "1 1 150px" } },
     h("div", { style: { fontSize: 11.5, fontWeight: 800, color: c, letterSpacing: ".04em" } }, lb), h("div", { style: { fontSize: 20, fontWeight: 900, color: "#0f172a", marginTop: 4 } }, v));
+  /* TOTAL LOADING（默认 RM 800,000，按一下可以改）→ COMPANY BANK BALANCE = TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY */
+  const loadAmt = (() => { const x = (Array.isArray(noteL) ? noteL : []).find(y => y && y.id === "__loading"); return x && String(x.note || "").trim() !== "" ? lsNum(x.note) : 800000; })();
+  const editLoad = () => { if (READONLY_USERS.includes(canonUser(currentUser || ""))) return; const v = window.prompt("TOTAL LOADING (RM)", lsFmt(loadAmt)); if (v === null) return; const n = lsNum(v); if (!(n >= 0)) return;
+    const cur = Array.isArray(noteL) ? noteL : []; saveNote([...cur.filter(y => !(y && y.id === "__loading")), { id: "__loading", note: String(n), by: canonUser(currentUser || ""), at: Date.now() }]); };
+  const loadCards = (bank, au, cu, run) => { const bal = r2(loadAmt - bank - au - cu - run), td = new Date(), dd = String(td.getDate()).padStart(2, "0") + "/" + String(td.getMonth() + 1).padStart(2, "0") + "/" + td.getFullYear();
+    return [h("div", { key: "ld", onClick: editLoad, title: "按一下改 TOTAL LOADING", style: { cursor: "pointer" , display: "flex", flex: "1 1 150px", minWidth: 150 } }, card("TOTAL LOADING ✎", RM(loadAmt), "#7c3aed", "#f5f3ff")),
+      h("div", { key: "cb", title: "TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY", style: { display: "flex", flex: "1 1 150px", minWidth: 150 } }, card("COMPANY BANK BALANCE · AS AT " + dd, RM(bal), bal < 0 ? "#dc2626" : "#15803d", bal < 0 ? "#fef2f2" : "#f0fdf4"))]; };
   const th = { ...S.th, textAlign: "left" }, td = { ...S.td, textAlign: "left" }, tdn = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 800 };
   const showMoney = src !== "agr";
   const table = (title, list, kLabel, sortBy) => h("div", { style: { ...S.tableWrap, marginBottom: 16 } },
@@ -8111,7 +8120,7 @@ function ReceiptPage({ currentUser, clients }) {
                     save(items.map(x => x.id === r.id ? { ...x, err: { by: canonUser(currentUser), at: today(), note: String(note).trim() } } : x));
                     if (r.by && !sameUser(r.by, me)) try { window.__crmAddNotice && window.__crmAddNotice({ id: uid(), kind: "ref", page: "receipt", to: canonUser(r.by), from: me, loud: true, sticky: true, goLabel: "去 Boss Take →",
                       title: "⚠ Boss Take 有错误", task: String(r.from || "").toUpperCase() + " · " + rcRM(rcNum(r.amount)) + (r.date ? " · " + String(r.date).split("-").reverse().join("/") : "") + (String(note).trim() ? "\n错误：" + String(note).trim() : "") + "\n" + String(me || "").toUpperCase() + " 说这张有错，请去改。", at: Date.now() }); } catch (e) {} },
-                    style: { border: "1px dashed #fca5a5", background: "#fff", color: "#ef4444", borderRadius: 999, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } }, "⚠ Error")),
+                    style: { border: "1px dashed #86efac", background: "#f0fdf4", color: "#16a34a", borderRadius: 999, padding: "4px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" } }, "⚠ Error")),   /* 没问题 = 绿色；有 ERROR 才是红色 */
               h("td", { style: { ...S.td, whiteSpace: "nowrap" } },
                 h("button", { onClick: () => save(items.map(x => x.id === r.id ? { ...x, checked: !x.checked, checkedBy: !x.checked ? canonUser(currentUser) : null, checkedAt: !x.checked ? today() : null } : x)), title: r.checked ? "已打勾" + (r.checkedBy ? " · " + String(r.checkedBy).toUpperCase() : "") + (r.checkedAt ? " · " + r.checkedAt.split("-").reverse().join("/") : "") : "点一下打勾", style: { width: 30, height: 30, borderRadius: 8, border: r.checked ? "2px solid #16a34a" : "2px solid #cbd5e1", background: r.checked ? "#22c55e" : "#fff", color: "#fff", fontWeight: 900, fontSize: 17, lineHeight: 1, cursor: "pointer", marginRight: 8, verticalAlign: "middle" } }, r.checked ? "✓" : ""),
                 (boss || sameUser(r.by, currentUser)) && h("button", { style: { ...S.fuDel, border: "1px solid #fecaca", background: "#fff5f5", borderRadius: 8, padding: "5px 7px" }, title: "删除这张收据", onClick: () => del(r) }, h(Trash2, { size: 15, color: "#ef4444" }))))))))
