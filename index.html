@@ -6767,6 +6767,7 @@ function CostingAutoSync({ currentUser }) {
    · 只由那个人头的主人（或代填的人）来加，避免两边一起加
    · 加过的月份记在 slDone，删掉了也不会再加回来；Salary Listing 的 NET 改了 → 那一行没手动改过就跟着改 */
 const SAL_BS_FROM = "2026-12";
+const SAL_CHECK_USERS = ["chialing"];   /* Salary Listing 打勾（check 好了）→ NET 才自动跳去 Bank Statement / Rencai */
 function SalToBsSync({ currentUser }) {
   const [sal, , sFresh] = useCloudList("acc_salary");
   const [p1, save1, f1] = useCloudList("bank_stmt_people");
@@ -6776,7 +6777,7 @@ function SalToBsSync({ currentUser }) {
     if (!me || READONLY_USERS.includes(me) || !sFresh || !f1 || !f2 || !Array.isArray(sal)) return;
     const t = setTimeout(() => {
       const byName = {};
-      sal.forEach(x => { if (!x || !x.name || String(x.ym || "") < SAL_BS_FROM || x.noTotal) return; const n = lsNum(x.net); if (!(n > 0)) return; const k = slNameKey(x.name); if (!k) return; (byName[k] = byName[k] || {})[x.ym] = lsFmt(n); });
+      sal.forEach(x => { if (!x || !x.name || String(x.ym || "") < SAL_BS_FROM || x.noTotal || !x.slChk) return;   /* 要等 Chialing 打勾才跳去 Bank Statement / Rencai */ const n = lsNum(x.net); if (!(n > 0)) return; const k = slNameKey(x.name); if (!k) return; (byName[k] = byName[k] || {})[x.ym] = lsFmt(n); });
       if (!Object.keys(byName).length) return;
       [[p1, save1, "bank_stmt_people"], [p2, save2, "bank_stmt_people_rencai"]].forEach(([ppl, save, store]) => {
         if (!Array.isArray(ppl)) return; let ch = false;
@@ -7407,7 +7408,10 @@ function AccSalaryPage({ currentUser }) {
         h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 30, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, "载入中…")) :
           rows.length === 0 ? h("tr", null, h("td", { colSpan: 30, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 24 } }, ymLabel(ym) + " 还没有资料 — 按「加一个人」或「复制上个月名单」")) :
           rows.map((x, i) => h("tr", { key: x.id, style: x.color ? { color: x.color } : x.blue ? { color: "#1d4ed8" } : undefined },
-            h("td", { style: { ...td, textAlign: "center", fontWeight: 800, whiteSpace: "nowrap" } }, x.lbl || i + 1),
+            (() => { const canChk = SAL_CHECK_USERS.some(u => sameUser(u, currentUser)) || isMissionBoss(currentUser);
+              return h("td", { title: x.slChk ? "✓ 已 check（" + String(x.slChkBy || "").toUpperCase() + "）· NET 会自动跳去 Bank Statement / Rencai" + (canChk ? " · 再按一下取消" : "") : canChk ? "按一下打勾 = check 好了，NET 自动跳去 Bank Statement / Rencai" : "等 Chialing check 打勾",
+                onClick: canChk ? () => { if (x.slChk && !window.confirm("取消打勾？（已经跳过去 Bank Statement / Rencai 的不会自动删）")) return; saveRaw(items.map(y => y.id === x.id ? { ...y, slChk: !x.slChk, slChkBy: !x.slChk ? canonUser(currentUser) : null, slChkAt: !x.slChk ? Date.now() : null } : y)); } : undefined,
+                style: { ...td, textAlign: "center", fontWeight: 800, whiteSpace: "nowrap", cursor: canChk ? "pointer" : "default", ...(x.slChk ? { background: "#dcfce7", color: "#15803d" } : {}) } }, x.slChk ? "✓ " : "", x.lbl || i + 1); })(),
             h("td", { ...pe(x, "company"), style: { ...td, minWidth: "calc(" + (Math.max(8, ...rows.map(y => String(y.company || "").length)) + 1) + "ch + 12px)", ...cs(x, "company") } }, text(x, "company", 90)),
             h("td", { style: { ...td, minWidth: "calc(" + (Math.max(12, ...rows.map(y => String(y.name || "").length)) + 1) + "ch + 12px)", ...(x.nameBg ? { background: x.nameBg } : {}), ...cs(x, "name") }, ...pe(x, "name") }, text(x, "name", 200)),
             /* 名字隔壁：ACC NUMBER */
