@@ -7523,14 +7523,15 @@ function SalesSummaryPage({ currentUser }) {
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END / 还没 START 的")),
       /* BS TOTAL 分开看：Bank Statement / Rencai / 照 Summary 表（CRM 没有）→ 方便跟 Bank Statement、Rencai 下面的 TOTAL OUTSTANDING 对 */
-      (() => { const S2 = X => r2(X.reduce((t, r) => t + r.tot, 0)), on = all.filter(r => !r.off);
-        const A1 = on.filter(r => !r.sheet && !r.rc), R1 = on.filter(r => !r.sheet && r.rc), H1 = on.filter(r => r.sheet && !r.run), U1 = on.filter(r => r.sheet && r.run);
+      (() => { const S2 = X => r2(X.reduce((t, r) => t + r.tot, 0)), on0 = all.filter(r => !r.off), isRun = r => Math.abs(r.run || 0) > 0.005, on = on0.filter(r => !isRun(r));   /* TOTAL 不算 Runaway（另外显示） */
+        const A1 = on.filter(r => !r.sheet && !r.rc), R1 = on.filter(r => !r.sheet && r.rc), H1 = on.filter(r => r.sheet), U1 = on0.filter(isRun);
         const E1 = all.filter(r => r.off && r.ended), P1 = all.filter(r => r.off && !r.ended), dup = on.filter(r => r.dupBoth);
         const pill = (lb, X, col, tip) => h("span", { key: lb, title: tip || X.map(r => r.name + " " + lsFmt(r.tot)).join("\n"), style: { border: "1px solid " + col + "55", background: col + "10", color: col, borderRadius: 999, padding: "3px 10px", cursor: "help", whiteSpace: "nowrap" } }, lb + " " + lsFmt(S2(X)) + "（" + X.length + "）");
         return h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", margin: "-4px 0 12px", fontSize: 12.5, fontWeight: 800 } },
           h("span", { style: { color: "#1d4ed8" } }, "TOTAL " + lsFmt(S2(on)) + " ="),
-          pill("Bank Statement 进行中", A1, "#0f766e"), "+", pill("Rencai 进行中", R1, "#7c3aed"), "+", pill("Runaway（表）", U1, "#dc2626"),
+          pill("Bank Statement 进行中", A1, "#0f766e"), "+", pill("Rencai 进行中", R1, "#7c3aed"),
           H1.length > 0 && "+", H1.length > 0 && pill("照 Summary 表（CRM 没有）", H1, "#0891b2"),
+          U1.length > 0 && h("span", { style: { color: "#94a3b8", marginLeft: 6 } }, "｜另外（不算在 TOTAL）："), U1.length > 0 && pill("Runaway", U1, "#dc2626"),
           (E1.length + P1.length) > 0 && h("span", { style: { color: "#94a3b8", marginLeft: 6 } }, "｜不算："),
           E1.length > 0 && pill("END", E1, "#64748b"), P1.length > 0 && pill("还没 START", P1, "#ea580c"),
           dup.length > 0 && h("span", { title: dup.map(r => r.name).join("、"), style: { color: "#b91c1c", borderRadius: 999, padding: "3px 10px", background: "#fef2f2", border: "1px solid #fecaca", cursor: "help" } }, "BS 跟 Rencai 都有、这里只算一次：" + dup.length + " 人")); })(),
