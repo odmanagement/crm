@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125120000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -1932,7 +1932,7 @@ const FORMS_TOOLS = [{
 }];
 const HTML_TOOLS = FORMS_TOOLS;
 /* Agreement 页面（从 Forms 搬出来）：跟 Costing 一样的列表 */
-const FORM_FILE_VER = "568";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
+const FORM_FILE_VER = "569";   /* 每次改 HTML 表格就换号，避免旧版缓存 */
 const AGREE_TOOLS = [{ name: "Finpro Agreement", file: "FINPRO_AGREEMENT.html", grp: "agree_finpro" }, { name: "Future Agreement", file: "FUTURE_AGREEMENT.html", grp: "agree_future" }];
 /* 别人（例如老板）改了我建的存档 → 提醒原本建的人（同一份 10 分钟内只提醒一次） */
 const _editNoticeAt = {};
@@ -7481,17 +7481,19 @@ function SalesSummaryPage({ currentUser }) {
     const findBp = n => { const k = key(n), L = loose(n); return best(bpAll.filter(p => key(p.name) === k)) || best(bpAll.filter(p => loose(p.name) === L)) || best(bpAll.filter(p => { const q = loose(p.name); return q.length > 5 && L.length > 5 && (q.startsWith(L + " ") || L.startsWith(q + " ")); })); };
     const bothK = (() => { const a = new Set(), r = new Set(), o = new Set(); bpAll.forEach(p => { if (p.started && !p.ended && Math.abs(lsNum(p.bal) + lsNum(p.ause) + lsNum(p.cuse)) > 0.005) (p.store === "bank_stmt_people_rencai" ? r : a).add(key(p.name)); }); a.forEach(k => { if (r.has(k)) o.add(k); }); return o; })();
     const fromBp = (p, nm, i) => { const k = key(nm), bal = lsNum(p.bal), au = lsNum(p.ause), cu = lsNum(p.cuse), tot = r2(bal + au + cu), run = bad.has(key(p.name)) || bad.has(k);
-      return { k, name: k, bank: run ? 0 : bal, au: run ? 0 : au, cu: run ? 0 : cu, run: run ? tot : 0, tot, co: coOf[key(p.name)] || coOf[k] || "", rc: p.store === "bank_stmt_people_rencai", ended: p.ended, note: notes.get(k) || notes.get(key(p.name)) || "", st: p.started || 0, ord: i, dupBoth: bothK.has(key(p.name)), agent: String(p.agent || "").toUpperCase() }; };
+      return { k, name: k, bank: run ? 0 : bal, au: run ? 0 : au, cu: run ? 0 : cu, run: run ? tot : 0, tot, co: coOf[key(p.name)] || coOf[k] || "", rc: p.store === "bank_stmt_people_rencai", ended: p.ended, note: notes.get(k) || notes.get(key(p.name)) || "", st: p.started || 0, ord: i, dupBoth: bothK.has(key(p.name)), agent: String(p.agent || "").toUpperCase(), off: !!p.ended || !p.started }; };
     const shAll = (Array.isArray(shL) ? shL : []).filter(x => x && x.id !== "__seed" && key(x.name)).sort((a, b) => (a.ord || 0) - (b.ord || 0));
     const used = new Set(), seen = new Set(), list0 = [];
     shAll.forEach((r, i) => { const k = key(r.name); if (seen.has(k)) return; seen.add(k);
       const p = findBp(r.name);
       if (p && (p.started || p.store === "bank_stmt_people_rencai" || String(p.bal || "").trim()) && !used.has(key(p.name))) {   /* 人才的：没按 START 也跟人才的数目 */ used.add(key(p.name)); list0.push(fromBp(p, r.name, i)); return; }
       const bank = lsNum(r.bank), au = lsNum(r.au), cu = lsNum(r.cu), run = lsNum(r.run), tot = r2(bank + au + cu + run);
-      list0.push({ k, name: k, bank, au, cu, run, tot, co: coOf[k] || "", rc: false, ended: p ? p.ended : false, note: notes.get(k) || r.rmk || "", st: 0, ord: i, sheet: true, agent: String((p && p.agent) || "").toUpperCase() }); });
+      list0.push({ k, name: k, bank, au, cu, run, tot, co: coOf[k] || "", rc: false, ended: p ? p.ended : false, note: notes.get(k) || r.rmk || "", st: 0, ord: i, sheet: true, agent: String((p && p.agent) || "").toUpperCase(), off: !!p && !run && (!!p.ended || !p.started) }); });
     bpAll.filter(p => p.started && (bsEnd || !p.ended)).forEach(p => { const k = key(p.name); if (used.has(k) || seen.has(k)) return; used.add(k); seen.add(k); list0.push(fromBp(p, p.name, 100000 + (p.started || 0))); });
-    const ppl = list0.filter(r => Math.abs(r.tot) > 0.005)   /* BS TOTAL 是 0（Bank Statement 或 Summary 表的都一样）→ Summary 不出现 */
+    const all = list0.filter(r => Math.abs(r.tot) > 0.005)   /* BS TOTAL 是 0（Bank Statement 或 Summary 表的都一样）→ Summary 不出现 */
       .filter(r => !bsQ.trim() || r.k.includes(key(bsQ)) || (r.agent || "").includes(key(bsQ)));
+    /* 跟 Bank Statement / Rencai「进行中」的 TOTAL OUTSTANDING 一样：END 了 / 还没 START 的不算（勾「也看 END / 还没 START」才显示） */
+    const ppl = all.filter(r => bsEnd || !r.off);
     const sum = f => r2(ppl.reduce((t, r) => t + r[f], 0));
     const setNote = (k, v) => { const cur = Array.isArray(noteL) ? noteL : [], ex = cur.find(x => x.id === k); saveNote(ex ? cur.map(x => x.id === k ? { ...x, note: v, by: canonUser(currentUser || ""), at: Date.now() } : x) : [...cur, { id: k, note: v, by: canonUser(currentUser || ""), at: Date.now() }]); };
     const c = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" }, l = { ...S.td, textAlign: "left" };
@@ -7503,23 +7505,24 @@ function SalesSummaryPage({ currentUser }) {
         card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff")),
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent", value: bsQ, onChange: e => setBsQ(e.target.value) })),
-        h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END 的")),
+        h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END / 还没 START 的")),
       /* BS TOTAL 分开看：Bank Statement / Rencai / 照 Summary 表（CRM 没有）→ 方便跟 Bank Statement、Rencai 下面的 TOTAL OUTSTANDING 对 */
-      (() => { const grp = [["Bank Statement", r => !r.sheet && !r.rc, "#0f766e"], ["Rencai", r => !r.sheet && r.rc, "#7c3aed"], ["照 Summary 表（CRM 没有资料）", r => r.sheet, "#0891b2"]];
-        const ns = ppl.filter(r => !r.sheet && !r.st), dup = ppl.filter(r => r.dupBoth);
-        return h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "-4px 0 12px", fontSize: 12.5, fontWeight: 800 } },
-          h("span", { style: { color: "#64748b" } }, "BS TOTAL 分开："),
-          grp.map(([lb, f, col], gi) => { const L = ppl.filter(f), S2 = X => r2(X.reduce((t, r) => t + r.tot, 0));
-            /* 进行中 = 跟 Bank Statement / Rencai 页面「进行中」下面的 TOTAL OUTSTANDING 一样；END / 还没 START 的另外写 */
-            const E2 = gi < 2 ? L.filter(r => r.ended) : [], P2 = gi < 2 ? L.filter(r => !r.ended && !r.st) : [], A2 = gi < 2 ? L.filter(r => !r.ended && r.st) : L;
-            return h("span", { key: lb, title: [...E2, ...P2].map(r => r.name + (r.ended ? "（END）" : "（还没 START）") + " " + lsFmt(r.tot)).join("\n"), style: { border: "1px solid " + col + "55", background: col + "10", color: col, borderRadius: 999, padding: "3px 10px", cursor: E2.length || P2.length ? "help" : undefined } },
-              lb + " RM " + lsFmt(S2(L)) + "（" + L.length + " 人）" + (E2.length || P2.length ? " = 进行中 " + lsFmt(S2(A2)) + (E2.length ? " + END " + lsFmt(S2(E2)) + "（" + E2.length + "）" : "") + (P2.length ? " + 还没 START " + lsFmt(S2(P2)) + "（" + P2.length + "）" : "") : "")); }),
+      (() => { const S2 = X => r2(X.reduce((t, r) => t + r.tot, 0)), on = all.filter(r => !r.off);
+        const A1 = on.filter(r => !r.sheet && !r.rc), R1 = on.filter(r => !r.sheet && r.rc), H1 = on.filter(r => r.sheet && !r.run), U1 = on.filter(r => r.sheet && r.run);
+        const E1 = all.filter(r => r.off && r.ended), P1 = all.filter(r => r.off && !r.ended), dup = on.filter(r => r.dupBoth);
+        const pill = (lb, X, col, tip) => h("span", { key: lb, title: tip || X.map(r => r.name + " " + lsFmt(r.tot)).join("\n"), style: { border: "1px solid " + col + "55", background: col + "10", color: col, borderRadius: 999, padding: "3px 10px", cursor: "help", whiteSpace: "nowrap" } }, lb + " " + lsFmt(S2(X)) + "（" + X.length + "）");
+        return h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", margin: "-4px 0 12px", fontSize: 12.5, fontWeight: 800 } },
+          h("span", { style: { color: "#1d4ed8" } }, "TOTAL " + lsFmt(S2(on)) + " ="),
+          pill("Bank Statement 进行中", A1, "#0f766e"), "+", pill("Rencai 进行中", R1, "#7c3aed"), "+", pill("Runaway（表）", U1, "#dc2626"),
+          H1.length > 0 && "+", H1.length > 0 && pill("照 Summary 表（CRM 没有）", H1, "#0891b2"),
+          (E1.length + P1.length) > 0 && h("span", { style: { color: "#94a3b8", marginLeft: 6 } }, "｜不算："),
+          E1.length > 0 && pill("END", E1, "#64748b"), P1.length > 0 && pill("还没 START", P1, "#ea580c"),
           dup.length > 0 && h("span", { title: dup.map(r => r.name).join("、"), style: { color: "#b91c1c", borderRadius: 999, padding: "3px 10px", background: "#fef2f2", border: "1px solid #fecaca", cursor: "help" } }, "BS 跟 Rencai 都有、这里只算一次：" + dup.length + " 人")); })(),
       h("div", { style: { ...S.tableWrap, overflowY: "auto", maxHeight: "calc(100vh - 210px)" } }, h("table", { className: "cz-table", style: S.dataTable },   /* 滑下去标题一直在上面 */
         h("thead", null, h("tr", null, ["#", "AS AT " + dd, "AGENT", "CUSTOMER BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "Remark"].map((x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 3 && i <= 7 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined, position: "sticky", top: 0, zIndex: 3 } }, x)))),
         h("tbody", null,
           !ppl.length ? h("tr", null, h("td", { colSpan: 9, style: { ...l, textAlign: "center", color: "#94a3b8", padding: 24 } }, (window.__crmBsPeople || []).length ? "没有资料" : "读取中…")) :
-          ppl.map((r, i) => h("tr", { key: r.k, style: r.run ? { background: "#fff1f2" } : r.ended ? { opacity: .6 } : undefined },
+          ppl.map((r, i) => h("tr", { key: r.k, style: r.run ? { background: "#fff1f2" } : (r.ended || r.off) ? { opacity: .55 } : undefined },
             h("td", { style: { ...l, color: "#94a3b8", width: 30 } }, i + 1),
             h("td", { style: { ...l, fontWeight: 800 } }, r.name, r.rc ? h("span", { style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#7c3aed" } }, "RC") : null, r.ended ? h("span", { style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#7c3aed" } }, "END") : null, r.sheet ? h("span", { title: "CRM 没有 Bank Statement / 人才，数目照 Summary 表", style: { marginLeft: 6, fontSize: 10, fontWeight: 900, color: "#0891b2" } }, "表") : null),
             h("td", { style: { ...l, fontWeight: 800, color: "#475569", whiteSpace: "nowrap" } }, r.agent || ""),
