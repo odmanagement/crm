@@ -6776,19 +6776,23 @@ function SalToBsSync({ currentUser }) {
     const me = canonUser(currentUser || "");
     if (!me || READONLY_USERS.includes(me) || !sFresh || !f1 || !f2 || !Array.isArray(sal)) return;
     const t = setTimeout(() => {
-      const byName = {};
-      sal.forEach(x => { if (!x || !x.name || String(x.ym || "") < SAL_BS_FROM || x.noTotal || !x.slChk) return;   /* 要等 Chialing 打勾才跳去 Bank Statement / Rencai */ const n = lsNum(x.net); if (!(n > 0)) return; const k = slNameKey(x.name); if (!k) return; (byName[k] = byName[k] || {})[x.ym] = lsFmt(n); });
-      if (!Object.keys(byName).length) return;
+      const byName = {}, unchk = {};   /* unchk：还没打勾的（名字 → 月份）→ 之前自动加过去、还没人动过的那一行先拿掉，等打勾再出现 */
+      sal.forEach(x => { if (!x || !x.name || String(x.ym || "") < SAL_BS_FROM) return; const k = slNameKey(x.name); if (!k) return;
+        if (!x.slChk) { (unchk[k] = unchk[k] || {})[x.ym] = 1; return; }   /* 要等 Chialing 打勾才跳去 Bank Statement / Rencai */
+        if (x.noTotal) return; const n = lsNum(x.net); if (!(n > 0)) return; (byName[k] = byName[k] || {})[x.ym] = lsFmt(n); });
+      if (!Object.keys(byName).length && !Object.keys(unchk).length) return;
       [[p1, save1, "bank_stmt_people"], [p2, save2, "bank_stmt_people_rencai"]].forEach(([ppl, save, store]) => {
         if (!Array.isArray(ppl)) return; let ch = false;
         const next = ppl.map(p => {
-          if (!p || !p.name) return p; const mm = byName[slNameKey(p.name)]; if (!mm) return p;
+          if (!p || !p.name) return p; const mm = byName[slNameKey(p.name)] || {}, um = unchk[slNameKey(p.name)] || {}; if (!Object.keys(mm).length && !Object.keys(um).length) return p;
           const ow = p.by || p.owner || p.createdBy || "";
           if (!(sameUser(ow, me) || ownDelegate(store, ow, me))) return p;
           const bs = p.bankStmt || {}; if (bs.ended) return p;
           if (window.__crmSalStop && window.__crmSalStop.has(slNameKey(p.name))) return p;
           let cr = (bs.credits || []).slice(); if (cr.some(c => c && c.stop)) return p;
-          const done = (bs.slDone || []).slice(); let pc = false;
+          let done = (bs.slDone || []).slice(); let pc = false;
+          /* 还没打勾：自动加的那一行（没填日期、数目没改过）拿掉，月份也从 slDone 拿掉 → 打勾后会再加回来 */
+          cr = cr.filter(c => { if (!c || !c.sl || !um[c.sl] || c.date || c.calc || lsFmt(lsNum(c.amount)) !== c.slAmt) return true; pc = true; done = done.filter(y => y !== c.sl); return false; });
           /* 同一个月重复了 → 留第一个 */
           const seen = new Set(); cr = cr.filter(c => { if (!c || !c.sl) return true; if (seen.has(c.sl)) { pc = true; return false; } seen.add(c.sl); return true; });
           Object.keys(mm).sort().forEach(ym => {
