@@ -5934,6 +5934,8 @@ const lfNotifyPhoto = (admin, me, client, what, amount) => { if (!admin || sameU
 /* Lending 列表颜色：Settlement 全部付了 → 红；Funder Fee 还没付 / 没 Skip → 蓝 */
 const lfSettleDone = r => { const xs = (r.settlement || []).filter(x => x.desc || x.acc || x.amount); if (!xs.length) return false;
   return xs.every(x => { if (x.skip) return true; const ps = x.pays || []; if (!ps.length) return !!x.paid; const sum = ps.reduce((t, p) => t + (Number(p.amount) || 0), 0); return ps.every(p => p.paid) && sum >= lsNum(x.amount) - 0.005; }); };
+/* 单一项 Settlement 付完了没有（PDF 数目旁边打 ✅） */
+const lfSetItemDone = x => { if (!x || x.skip) return false; const ps = x.pays || []; if (!ps.length) return !!x.paid; const sum = ps.reduce((t, p) => t + (Number(p.amount) || 0), 0); return ps.every(p => p.paid) && sum >= lsNum(x.amount) - 0.005; };
 const lfFunderDone = r => { const n = lfNorm(r) || {}, pays = n.toBankPays || []; if (!pays.length) return !!(n.clientPaid || n.toBankSkip);
   if (!pays.every(p => p.paid)) return false; const rem = lfTbRemain(n, lfToBankOf(n)); return Math.abs(rem) < 0.005 || !!n.toBankSkip || !!n.clientPaid; };
 /* 谁先上传照片 / 按已付，就只有那个人（或老板）可以再改照片和已付 */
@@ -6064,6 +6066,20 @@ function LendingFeePage({ currentUser }) {
       d.querySelectorAll(".toolbar button").forEach(b => { if (/存档|读取|Reset/i.test(b.textContent)) b.style.display = "none"; });
       const css = d.createElement("style"); css.textContent = ".page .noprint{display:none !important} [title='reset to auto'],.rst,.page .additem{display:none !important} .page .del{visibility:hidden !important}"; d.head.appendChild(css);
       lsFill(f.contentWindow, pdf);
+      /* Settlement 付完了 → PDF 那一项的数目旁边放 ✅ */
+      try {
+        const box = d.getElementById("settlement"), xs = (pdf.settlement || []).filter(x => x.desc || x.acc || x.amount);
+        if (box) Array.from(box.children).forEach((row, i) => {
+          row.querySelectorAll(".lf-ok").forEach(z => z.remove());
+          if (!lfSetItemDone(xs[i])) return;
+          const ins = row.querySelectorAll("input"), amt = ins.length ? ins[ins.length - 1] : (row.lastElementChild || row);
+          if (getComputedStyle(row).position === "static") row.style.position = "relative";
+          const rr = row.getBoundingClientRect(), ar = amt.getBoundingClientRect();
+          const ok = d.createElement("span"); ok.className = "lf-ok"; ok.textContent = "✅";
+          ok.style.cssText = "position:absolute;left:" + (ar.right - rr.left + 4) + "px;top:" + (ar.top - rr.top) + "px;height:" + ar.height + "px;display:flex;align-items:center;font-size:12px;line-height:1;";
+          row.appendChild(ok);
+        });
+      } catch (e3) {}
       try {
         const n = lfNorm(pdf), pays = n.toBankPays || [];
         const tbEl = d.getElementById("tobank");
@@ -10791,7 +10807,11 @@ function FormsPage({ currentUser, tools, noLib, simple }) {   /* simple：只有
       if (!c && nm) c = newCat(nm);
       let t0 = guessTitle(vals);
       if (/_Payslip_Generator\.html$/i.test(open.tool.file || "")) t0 = psTitleNow() || t0;   /* Payslip：存档名字 = 员工名字 - 月份 */
-      setSaveDlg({ title: t0, cat: (c || cs[0] || {}).id || "", closeAfter: !!closeAfter, edited: /_Payslip_Generator\.html$/i.test(open.tool.file || "") }); return; }
+      if (/_Payslip_Generator\.html$/i.test(open.tool.file || "")) {   /* Payslip：不用问，直接存进 Company（跟公司同名的分类） */
+        if (!t0) { alert("请先填员工 NAME"); return; }
+        const base = t0; let n = 2; while ((drafts || []).some(d => d.file === open.tool.file && d.title === t0)) t0 = base + " (" + (n++) + ")";
+        confirmSave(t0, (c || cs[0] || {}).id || "", !!closeAfter); return; }
+      setSaveDlg({ title: t0, cat: (c || cs[0] || {}).id || "", closeAfter: !!closeAfter, edited: false }); return; }
     if (open.draft) {
       /* Payslip：存档名字 = 员工名字 - 最新月份（换了月份再存档，名字也跟着换；自己改过别的名字就不动） */
       let t1 = open.draft.title || guessTitle(vals);
