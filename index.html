@@ -7520,10 +7520,8 @@ function SalesSummaryPage({ currentUser }) {
     const money = (v, col) => v ? h("span", { style: col ? { color: col } : null }, lsFmt(v)) : "";
     const dd = String(now.getDate()).padStart(2, "0") + "/" + String(now.getMonth() + 1).padStart(2, "0") + "/" + now.getFullYear();
     return h("div", null,
-      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
-        card("人数", ppl.length, "#4f46e5", "#eef2ff"), card("CUSTOMER BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
-        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff"),
-        loadCards(sum("bank"), sum("au"), sum("cu"), sum("run"))),
+      h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
+        loadCards(sum("bank"), sum("au"), sum("cu"), sum("run"), sum("tot"))),
       h("div", { style: { display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
         h("div", { style: { ...S.searchWrap, flex: 1, marginBottom: 0 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search name / agent", value: bsQ, onChange: e => setBsQ(e.target.value) })),
         h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" } }, h("input", { type: "checkbox", checked: bsEnd, onChange: e => setBsEnd(e.target.checked) }), "也看 END / 还没 START 的")),
@@ -7622,10 +7620,8 @@ function SalesSummaryPage({ currentUser }) {
     const td = { ...S.td, padding: "2px 4px" }, th = (x, i) => h("th", { key: i, style: { ...S.th, textAlign: i >= 2 && i <= 6 ? "right" : "left", color: x === "RUNAWAY" ? "#fecaca" : undefined, padding: "8px 6px" } }, x);
     const btn = { border: "none", background: "none", cursor: "pointer", color: "#94a3b8" };
     return h("div", null,
-      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
-        card("人数", rowsS.length, "#4f46e5", "#eef2ff"), card("CUSTOMER BANK", RM(sum("bank")), "#0f766e", "#f0fdfa"), card("AGENT USED", RM(sum("au")), "#c2410c", "#fff7ed"),
-        card("CUSTOMER USED", RM(sum("cu")), "#b91c1c", "#fef2f2"), card("RUNAWAY", RM(sum("run")), "#dc2626", "#fff1f2"), card("BS TOTAL", RM(sum("tot")), "#1d4ed8", "#eff6ff"),
-        loadCards(sum("bank"), sum("au"), sum("cu"), sum("run"))),
+      h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
+        loadCards(sum("bank"), sum("au"), sum("cu"), sum("run"), sum("tot"))),
       h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: { ...S.dataTable, fontSize: 12.5 } },
         h("thead", null, h("tr", null, ["#", h("span", { key: "a" }, "AS AT ", h("input", { key: "asat:" + (meta.asAt || ""), defaultValue: meta.asAt || "", onBlur: e => { const v = e.target.value.trim(); if (v !== meta.asAt) upd("__seed", { asAt: v }); }, style: { width: 96, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "inherit", borderRadius: 6, padding: "2px 6px", fontWeight: 900, fontFamily: "inherit" } })),
           "CUSTOMER BANK", "Agent Used", "Customer Used", "RUNAWAY", "BS TOTAL", "CRM", "Remark", "", "", ""].map(th))),
@@ -7672,9 +7668,17 @@ function SalesSummaryPage({ currentUser }) {
   const loadAmt = (() => { const x = (Array.isArray(noteL) ? noteL : []).find(y => y && y.id === "__loading"); return x && String(x.note || "").trim() !== "" ? lsNum(x.note) : 800000; })();
   const editLoad = () => { if (READONLY_USERS.includes(canonUser(currentUser || ""))) return; const v = window.prompt("TOTAL LOADING (RM)", lsFmt(loadAmt)); if (v === null) return; const n = lsNum(v); if (!(n >= 0)) return;
     const cur = Array.isArray(noteL) ? noteL : []; saveNote([...cur.filter(y => !(y && y.id === "__loading")), { id: "__loading", note: String(n), by: canonUser(currentUser || ""), at: Date.now() }]); };
-  const loadCards = (bank, au, cu, run) => { const bal = r2(loadAmt - bank - au - cu - run), td = new Date(), dd = String(td.getDate()).padStart(2, "0") + "/" + String(td.getMonth() + 1).padStart(2, "0") + "/" + td.getFullYear();
-    return [h("div", { key: "ld", onClick: editLoad, title: "按一下改 TOTAL LOADING", style: { cursor: "pointer" , display: "flex", flex: "1 1 150px", minWidth: 150 } }, card("TOTAL LOADING ✎", RM(loadAmt), "#7c3aed", "#f5f3ff")),
-      h("div", { key: "cb", title: "TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY", style: { display: "flex", flex: "1 1 150px", minWidth: 150 } }, card("COMPANY BANK BALANCE · AS AT " + dd, RM(bal), bal < 0 ? "#dc2626" : "#15803d", bal < 0 ? "#fef2f2" : "#f0fdf4"))]; };
+  /* 顺序：TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY = COMPANY BANK BALANCE ｜ BS TOTAL 放最后 */
+  const loadCards = (bank, au, cu, run, tot) => { const bal = r2(loadAmt - bank - au - cu - run), td = new Date(), dd = String(td.getDate()).padStart(2, "0") + "/" + String(td.getMonth() + 1).padStart(2, "0") + "/" + td.getFullYear();
+    const op = (k, ch) => h("div", { key: k, style: { alignSelf: "center", fontSize: 26, fontWeight: 900, color: "#64748b", flex: "0 0 auto", padding: "0 2px" } }, ch);
+    const box = (k, el, extra) => h("div", { key: k, style: { display: "flex", flex: "1 1 130px", minWidth: 130, ...(extra || {}) } }, el);
+    return [box("ld", h("div", { onClick: editLoad, title: "按一下改 TOTAL LOADING", style: { cursor: "pointer", display: "flex", flex: 1 } }, card("TOTAL LOADING ✎", RM(loadAmt), "#7c3aed", "#f5f3ff"))),
+      op("o1", "−"), box("bk", card("CUSTOMER BANK", RM(bank), "#0f766e", "#f0fdfa")),
+      op("o2", "−"), box("au", card("AGENT USED", RM(au), "#c2410c", "#fff7ed")),
+      op("o3", "−"), box("cu", card("CUSTOMER USED", RM(cu), "#b91c1c", "#fef2f2")),
+      op("o4", "−"), box("rn", card("RUNAWAY", RM(run), "#dc2626", "#fff1f2")),
+      op("o5", "="), box("cb", card("COMPANY BANK BALANCE · AS AT " + dd, RM(bal), bal < 0 ? "#dc2626" : "#15803d", bal < 0 ? "#fef2f2" : "#f0fdf4")),
+      box("bt", card("BS TOTAL", RM(tot), "#1d4ed8", "#eff6ff"), { marginLeft: 14, paddingLeft: 14, borderLeft: "2px dashed #cbd5e1" })]; };
   const th = { ...S.th, textAlign: "left" }, td = { ...S.td, textAlign: "left" }, tdn = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 800 };
   const showMoney = src !== "agr";
   const table = (title, list, kLabel, sortBy) => h("div", { style: { ...S.tableWrap, marginBottom: 16 } },
