@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261125173500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261125175000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -6230,7 +6230,9 @@ function SalStatusRemind({ me }) {
 /* ---------- Bank Statement（每个 Salary 客户一份）：Charges & Fees / CHQ Date + Credited / 收回的钱 ---------- */
 const BS_FEES = ["EPF =3m", "SOCSO =3m", "EIS =3m", "TAX =3m", "CHQ FEES"];
 const bsTot = (rows, k) => (rows || []).reduce((a, x) => a + lsNum(x[k || "amount"]), 0);
-const bsOpenBal = bs => lsNum(bs && bs.opening);   /* OPENING BALANCE：开户时户口里本来有的钱（算进 Balance） */
+const bsOpenBal = bs => lsNum(bs && bs.opening);
+/* 56+725+156 这样打 → 算出来；只准数字和 + - * / ( ) */
+const bsCalcExpr = t => { const x = String(t || "").replace(/,/g, "").replace(/\s+/g, ""); if (!x || !/^[-+*/().\d]+$/.test(x)) return null; try { const v = Function('"use strict";return (' + x + ")")(); return typeof v === "number" && isFinite(v) ? Math.round(v * 100) / 100 : null; } catch (e) { return null; } };   /* OPENING BALANCE：开户时户口里本来有的钱（算进 Balance） */
 const bsBalance = bs => { if (!bs) return null; return bsOpenBal(bs) + bsTot(bs.credits) - bsTot(bs.received); };   /* Balance 不算 Backdate（以前的 Fees EPF=3m 等也是 Backdate，不算） */
 function BankStmtModal({ c, banks, onSave, onClose }) {
   const h = React.createElement;
@@ -7044,10 +7046,15 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
       so && h("div", { style: { flex: 1 } }, tx(d.startText, v => set("startText", v), { textAlign: "center", fontWeight: 900, fontSize: 20, color: so.c, letterSpacing: .5, WebkitTextStroke: ".4px " + so.c }, "", true)),
       /* OPENING BALANCE：开户时户口里本来有的钱 → 算进 Balance */
       h("label", { title: "OPENING BALANCE：开户时户口里本来有的钱（会算进 BALANCE）", style: { display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", fontSize: 11.5, fontWeight: 900, color: "#0f766e", background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 8, padding: "3px 8px", flex: "0 0 auto" } }, "OPENING BAL RM",
-        h("input", { key: "ob:" + (d.opening || ""), defaultValue: d.opening || "", placeholder: "0.00", inputMode: "decimal", readOnly: READONLY_USERS.includes(canonUser(window.__crmUser || "")),
-          onBlur: e => { const t = e.target.value.trim(), v = t === "" ? "" : /^-?[\d,]*\.?\d*$/.test(t) ? lsFmt(lsNum(t)) : t; e.target.value = v; if (v !== (d.opening || "")) { const nx = { ...d, opening: v }; setD(nx); commit(nx); } },
+        h("input", { key: "ob:" + (d.opening || "") + "|" + (d.openingF || ""), defaultValue: d.opening || "", placeholder: "0.00", readOnly: READONLY_USERS.includes(canonUser(window.__crmUser || "")),
+          title: d.openingF ? d.openingF.replace(/\+/g, " + ").replace(/(\d)-/g, "$1 - ") + " = " + (d.opening || "") : "可以打 56+725+156，会自动加起来",
+          onFocus: e => { if (d.openingF) e.target.value = d.openingF; e.target.select(); },   /* 点进去 → 看到怎么加出来的 */
+          onBlur: e => { const t = e.target.value.trim(); let v = "", f = "";
+            if (t) { const n = bsCalcExpr(t); if (n === null) { v = t; } else { v = lsFmt(n); if (/[-+*/]/.test(t.replace(/^-/, ""))) f = t.replace(/\s+/g, ""); } }
+            e.target.value = v; if (v !== (d.opening || "") || f !== (d.openingF || "")) { const nx = { ...d, opening: v, openingF: f }; setD(nx); commit(nx); } },
           onKeyDown: e => { if (e.key === "Enter") e.target.blur(); },
-          style: { width: 80, border: "1px solid #99f6e4", borderRadius: 6, padding: "3px 6px", textAlign: "right", fontWeight: 900, fontSize: 13, fontFamily: "inherit", background: "#fff", fontVariantNumeric: "tabular-nums" } })))),
+          style: { width: 96, border: "1px solid #99f6e4", borderRadius: 6, padding: "3px 6px", textAlign: "right", fontWeight: 900, fontSize: 13, fontFamily: "inherit", background: "#fff", fontVariantNumeric: "tabular-nums" } }),
+        d.openingF && h("span", { title: d.openingF, style: { fontSize: 10, color: "#0f766e", opacity: .7, cursor: "help" } }, "Σ")))),
     /* 最后面：END 打勾 → 整个变紫色 */
     h("td", { colSpan: 2, style: { ...cell, textAlign: "center", padding: "6px 30px 6px 10px", minWidth: 80 } },
       h("label", { title: d.ended ? "已经 END · " + String(d.ended.by || "").toUpperCase() + " · " + new Date(d.ended.at || 0).toLocaleDateString("en-GB") : "打勾 = END（整个变紫色）", style: { display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontWeight: 900, fontSize: 14, color: d.ended ? "#6d28d9" : "#64748b" } },
