@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126185000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126190000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2081,6 +2081,7 @@ function CreditCardPage({ currentUser }) {
   return h("div", { className: "cz-page" },
     h("div", { style: { display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" } },
       h("div", { style: { flex: "1 1 160px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "💳 TOTAL CREDIT CARD" + (ql ? "（搜寻结果）" : "")), h("div", { style: { fontSize: 19, fontWeight: 900, color: "#1e1b4b" } }, "RM " + lsFmt(total))),
+      h("div", { style: { flex: "1 1 160px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "−6% TOTAL"), h("div", { style: { fontSize: 19, fontWeight: 900, color: "#15803d" } }, "RM " + lsFmt(rows.reduce((t, x) => t + Math.round(lsNum(x.amount) * 94) / 100, 0)))),
       h("div", { style: { flex: "1 1 120px", background: "#fff", borderRadius: 14, padding: "12px 16px", border: "1px solid #eef0f6" } }, h("div", { style: { fontSize: 11.5, fontWeight: 800, color: "#94a3b8" } }, "笔数"), h("div", { style: { fontSize: 19, fontWeight: 900, color: "#1e1b4b" } }, rows.length))),
     h("div", { style: { ...S.searchWrap, marginBottom: 12 } }, h(Search, { size: 16, color: "#94a3b8" }), h("input", { style: S.search, placeholder: "Search 名字 / 日期 / 数目", value: q, onChange: e => setQ(e.target.value) })),
     !ro && h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", background: "#fff", border: "1px solid #eef0f6", borderRadius: 14, padding: "12px 14px", marginBottom: 14 } },
@@ -2091,14 +2092,16 @@ function CreditCardPage({ currentUser }) {
       h("div", { style: { flex: "0 0 auto" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "照片（Ctrl+V）"), h(LfPhotos, { ids: nf.photos, compact: true, onChange: v => setNf(f => ({ ...f, photos: v })) })),
       h("button", { onClick: add, style: { ...S.addBtn, height: 38 } }, h(Plus, { size: 16 }), " Add")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Name", "Date", "Amount (RM)", "公司", "照片", "By", "✓ Check", ""].map((x, i) => h("th", { key: i, style: i === 3 ? { ...th, ...S.thNum } : i === 7 ? { ...th, textAlign: "center" } : th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        !rows.length ? h("tr", null, h("td", { colSpan: 9, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 在上面填 Name / Date / Amount 按 Add")) :
+      h("thead", null, h("tr", null, ["#", "Name", "Date", "Amount (RM)", "−6% (RM)", "公司", "照片", "By", "✓ Check", ""].map((x, i) => h("th", { key: i, style: i === 3 || i === 4 ? { ...th, ...S.thNum } : i === 8 ? { ...th, textAlign: "center" } : th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 10, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        !rows.length ? h("tr", null, h("td", { colSpan: 10, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 在上面填 Name / Date / Amount 按 Add")) :
         rows.map((x, i) => h("tr", { key: x.id },
           h("td", { style: { ...td, width: 34, color: "#94a3b8", fontWeight: 800 } }, i + 1),
           h("td", { style: { ...td, minWidth: 180 } }, cell(x, "name", { textTransform: "uppercase", fontWeight: 900, fontSize: 15 })),
           h("td", { style: { ...td, width: 150 } }, cell(x, "date")),
           h("td", { style: { ...td, width: 140 } }, cell(x, "amount", { textAlign: "right", fontWeight: 900, fontSize: 16 })),
+          /* Amount − 6%（例：1,000 → 940.00） */
+          h("td", { style: { ...td, width: 120, textAlign: "right", fontWeight: 900, fontSize: 15, color: "#15803d", whiteSpace: "nowrap" }, title: "Amount × 94%" }, lsNum(x.amount) ? lsFmt(Math.round(lsNum(x.amount) * 94) / 100) : ""),
           h("td", { style: { ...td, width: 170 } }, coSel(x.co === "FINPRO" ? "FUTURE" : x.co, v => upd(x.id, { co: v }))),
           h("td", { style: td }, h(LfPhotos, { ids: x.photos || [], compact: true, ro, onChange: v => upd(x.id, { photos: v }) })),
           h("td", { style: { ...td, fontSize: 12, color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" } }, x.by ? String(x.by).toUpperCase() : ""),
