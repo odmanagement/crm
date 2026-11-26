@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126171000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126172000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2055,7 +2055,7 @@ function CreditCardPage({ currentUser }) {
   const [list, save] = useCloudList("od_credit_card");
   const items = list || [];
   const blank = () => ({ name: "", date: today(), amount: "", co: "", photos: [] });
-  const CC_COS = ["FINPRO", "MOTOR CONCEPT"];   /* Amount 隔壁选公司 */
+  const CC_COS = ["FUTURE", "MOTOR CONCEPT"];   /* Amount 隔壁选公司 */
   const canChk = me === "chialing" || isMissionBoss(me);   /* 打勾：Chialing（老板也可以） */
   const coSel = (val, onCh, ex) => h("select", { value: val || "", disabled: ro, onChange: e => onCh(e.target.value),
     style: { ...inp, width: "auto", minWidth: 150, fontWeight: 900, fontSize: 12.5, cursor: ro ? "default" : "pointer", ...(val === "FINPRO" ? { background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" } : val === "MOTOR CONCEPT" ? { background: "#fff7ed", color: "#c2410c", borderColor: "#fed7aa" } : { color: "#94a3b8" }), ...(ex || {}) } },
@@ -2099,7 +2099,7 @@ function CreditCardPage({ currentUser }) {
           h("td", { style: { ...td, minWidth: 180 } }, cell(x, "name", { textTransform: "uppercase", fontWeight: 900, fontSize: 15 })),
           h("td", { style: { ...td, width: 150 } }, cell(x, "date")),
           h("td", { style: { ...td, width: 140 } }, cell(x, "amount", { textAlign: "right", fontWeight: 900, fontSize: 16 })),
-          h("td", { style: { ...td, width: 170 } }, coSel(x.co, v => upd(x.id, { co: v }))),
+          h("td", { style: { ...td, width: 170 } }, coSel(x.co === "FINPRO" ? "FUTURE" : x.co, v => upd(x.id, { co: v }))),
           h("td", { style: td }, h(LfPhotos, { ids: x.photos || [], compact: true, ro, onChange: v => upd(x.id, { photos: v }) })),
           h("td", { style: { ...td, fontSize: 12, color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" } }, x.by ? String(x.by).toUpperCase() : ""),
           h("td", { style: { ...td, width: 110, textAlign: "center" } }, h("button", {
