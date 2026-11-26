@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126183000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126184500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -9503,7 +9503,7 @@ const carFinKeys = d => { const out = new Set(); try { const pages = d && d.nati
   return CAR_APPT_STOPS.map(s => s.k).filter(k => out.has(k)); };
 const carApptStops = r => r && Array.isArray(r.banks) && r.banks.length ? CAR_APPT_STOPS.filter(s => r.banks.includes(s.k)) : CAR_APPT_STOPS;
 const CAR_APPT_SLOTS = ["9:30 AM", "10:15 AM", "11:00 AM", "11:45 AM", "2:00 PM", "2:45 PM", "3:30 PM", "4:15 PM"];   /* 只去几家 → 时间从早上重新排（中午 12:30–2:00 吃饭） */
-const carApptRetime = (stops, banks, date) => { const out = { ...(stops || {}) }; CAR_APPT_STOPS.filter(s => banks.includes(s.k)).forEach((s, i) => { out[s.k] = { ...(out[s.k] || {}), date: (out[s.k] && out[s.k].date) || date || "", time: CAR_APPT_SLOTS[i] || "" }; }); return out; };
+const carApptRetime = (stops, banks, date) => { const out = { ...(stops || {}) }; CAR_APPT_STOPS.filter(s => banks.includes(s.k)).forEach((s, i) => { out[s.k] = { ...(out[s.k] || {}), date: (out[s.k] && out[s.k].date) || date || "", time: (out[s.k] && out[s.k].time) || CAR_APPT_TIMES[s.k] || "" }; }); return out; };   /* 时间跟原本的排法（CIMB 9:30、Batu Caves 10:15…），不重新挤 */
 const carApptText = r => {
   const st = r.stops || {};
   const out = ["CUSTOMER NAME : " + (r.name || "")];
