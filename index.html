@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126170000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126171000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -9532,7 +9532,7 @@ const CAR_APPT_TIMES = { cimb: "9:30 AM", batucaves: "10:15 AM", pbb: "11:00 AM"
 const carClientName = d => { try { const p = d && d.native && d.native.data && d.native.data.pages; const v = p && p[0] && p[0].inputs && p[0].inputs[0]; if (v && String(v).trim()) return String(v).trim(); } catch (e) {}
   return (d && d.meta && d.meta.client) || ""; };
 function CarApptAutoAdd({ me }) {
-  const [drafts] = useCloudList("form_drafts"), [appts, saveAppts, fresh] = useCloudList("car_appts");
+  const [drafts, , dFresh] = useCloudList("form_drafts"), [appts, saveAppts, fresh] = useCloudList("car_appts");
   React.useEffect(() => {
     if (!fresh || !Array.isArray(drafts) || !Array.isArray(appts)) return;
     const meC = canonUser(me || ""), LS = "crm_carappt_auto_" + meC;
@@ -9566,9 +9566,15 @@ function CarApptAutoAdd({ me }) {
     Object.values(grp).forEach(g => { if (g.length < 2) return; const keep = g.slice().sort((a, b) => ((b.updatedAt ? 1 : 0) - (a.updatedAt ? 1 : 0)) || ((a.at || 0) - (b.at || 0)))[0];
       g.forEach(x => { if (x !== keep && !x.updatedAt) drop.add(x); }); });
     if (drop.size) { all = all.filter(x => !drop.has(x)); fix = true; }
+    /* Car Costing 删掉了 → 它自动开的 Car Appointment 也一起删（资料要读好了才删；一次超过 5 份不见就不删，怕是读不到） */
+    if (dFresh && drafts.some(d => d && /^CAR_SALES_QUOTATION\.html$/i.test(d.file || ""))) {
+      const ids = new Set(drafts.filter(d => d && /^CAR_SALES_QUOTATION\.html$/i.test(d.file || "")).map(d => d.id));
+      const gone = all.filter(x => x && x.fromCost && !ids.has(x.fromCost));
+      if (gone.length && gone.length <= 5) { all = all.filter(x => !gone.includes(x)); fix = true; }
+    }
     if (add.length || fix) { saveAppts(all);
       add.forEach(x => { try { window.__crmAddNotice && window.__crmAddNotice({ id: "carappt_" + x.fromCost, kind: "ref", page: "carappt", to: meC, from: "system", title: "🚗 Car Appointment 已经开好", task: x.name + " · " + (Object.values(x.stops)[0] || {}).date + " · 去填时间", at: Date.now() }); } catch (e) {} }); }
-  }, [drafts, appts, fresh]);
+  }, [drafts, appts, fresh, dFresh]);
   return null;
 }
 function CarApptPage({ clients, currentUser }) {
@@ -9594,7 +9600,7 @@ function CarApptPage({ clients, currentUser }) {
       const tm = /(\d{1,2})[.:](\d{2})/.exec(v.time || "") || /^(\d{1,2})$/.exec(String(v.time || "").trim()); let hh = tm ? +tm[1] : 23, mi = tm && tm[2] ? +tm[2] : 59; if (tm && hh < 8) hh += 12;   /* 2.30 → 下午 2:30 */
       const ts = new Date(y, mo, d, hh, mi).getTime(); if (new Date(y, mo, d).getTime() >= t0) { if (best == null || ts < best) best = ts; } else if (past == null || ts > past) past = ts; });
     return best != null ? [1, best] : past != null ? [2, -past] : [0, -(x.at || 0)]; };
-  const shown = items.filter(x => !k || String(x.name || "").toLowerCase().includes(k)).map(x => [x, caWhen(x)]).sort((a, b) => a[1][0] - b[1][0] || a[1][1] - b[1][1]).map(a => a[0]);
+  const shown = items.filter(x => !k || String(x.name || "").toLowerCase().includes(k)).sort((a, b) => (b.at || 0) - (a.at || 0));   /* 最新开的在最上面 */
   const inp = { padding: "7px 10px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, fontWeight: 700, fontFamily: "inherit", outline: "none", background: "#fff", boxSizing: "border-box", minWidth: 0 };
   const btn = (bg, c, bd) => ({ border: "1px solid " + (bd || bg), background: bg, color: c, borderRadius: 10, padding: "8px 14px", fontWeight: 900, fontSize: 12.5, cursor: "pointer" });
   return h("div", { className: "cz-page", style: { maxWidth: 1100 } },
