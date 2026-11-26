@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126172000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126173000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2058,7 +2058,7 @@ function CreditCardPage({ currentUser }) {
   const CC_COS = ["FUTURE", "MOTOR CONCEPT"];   /* Amount 隔壁选公司 */
   const canChk = me === "chialing" || isMissionBoss(me);   /* 打勾：Chialing（老板也可以） */
   const coSel = (val, onCh, ex) => h("select", { value: val || "", disabled: ro, onChange: e => onCh(e.target.value),
-    style: { ...inp, width: "auto", minWidth: 150, fontWeight: 900, fontSize: 12.5, cursor: ro ? "default" : "pointer", ...(val === "FINPRO" ? { background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" } : val === "MOTOR CONCEPT" ? { background: "#fff7ed", color: "#c2410c", borderColor: "#fed7aa" } : { color: "#94a3b8" }), ...(ex || {}) } },
+    style: { ...inp, width: "auto", minWidth: 150, fontWeight: 900, fontSize: 12.5, cursor: ro ? "default" : "pointer", ...(val === "FUTURE" || val === "FINPRO" ? { background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" } : val === "MOTOR CONCEPT" ? { background: "#fff7ed", color: "#c2410c", borderColor: "#fed7aa" } : { color: "#94a3b8" }), ...(ex || {}) } },
     h("option", { value: "" }, "— 选 —"), CC_COS.map(c => h("option", { key: c, value: c }, c)));
   const [nf, setNf] = React.useState(blank);
   const [q, setQ] = React.useState("");
