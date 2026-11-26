@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126152500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126153500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7706,11 +7706,13 @@ function SalesSummaryPage({ currentUser }) {
   /* TOTAL LOADING（默认 RM 800,000，按一下可以改）→ COMPANY BANK BALANCE = TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY */
   const [btL] = useCloudList("receipts");   /* Boss Take 还没付回（未付）的总数 */
   const unclaimBT = r2((Array.isArray(btL) ? btL : []).filter(x => x && !x.paid && !x.deleted && !x.err).reduce((t, x) => t + rcNum(x.amount), 0));   /* 有 ERROR 的不算 */
+  const [rsL] = useCloudList("bs_return_salary");   /* Return Salary 名字写 UNKNOWN（还不知道是谁）的总数 */
+  const unkRS = r2((Array.isArray(rsL) ? rsL : []).filter(x => x && !x.deleted && bsIsUnknownName(x.name)).reduce((t, x) => t + lsNum(x.amount), 0));
   const loadAmt = (() => { const x = (Array.isArray(noteL) ? noteL : []).find(y => y && y.id === "__loading"); return x && String(x.note || "").trim() !== "" ? lsNum(x.note) : 800000; })();
   const editLoad = () => { if (READONLY_USERS.includes(canonUser(currentUser || ""))) return; const v = window.prompt("TOTAL LOADING (RM)", lsFmt(loadAmt)); if (v === null) return; const n = lsNum(v); if (!(n >= 0)) return;
     const cur = Array.isArray(noteL) ? noteL : []; saveNote([...cur.filter(y => !(y && y.id === "__loading")), { id: "__loading", note: String(n), by: canonUser(currentUser || ""), at: Date.now() }]); };
   /* 顺序：TOTAL LOADING − CUSTOMER BANK − AGENT USED − CUSTOMER USED − RUNAWAY = COMPANY BANK BALANCE ｜ BS TOTAL 放最后 */
-  const loadCards = (bank, au, cu, run, tot) => { const bal = r2(loadAmt - bank - au - cu - run - unclaimBT), td = new Date(), dd = String(td.getDate()).padStart(2, "0") + "/" + String(td.getMonth() + 1).padStart(2, "0") + "/" + td.getFullYear();
+  const loadCards = (bank, au, cu, run, tot) => { const bal = r2(loadAmt - bank - au - cu - run - unclaimBT - unkRS), td = new Date(), dd = String(td.getDate()).padStart(2, "0") + "/" + String(td.getMonth() + 1).padStart(2, "0") + "/" + td.getFullYear();
     const op = (k, ch) => h("div", { key: k, style: { alignSelf: "center", fontSize: 26, fontWeight: 900, color: "#64748b", flex: "0 0 auto", padding: "0 2px" } }, ch);
     const box = (k, el, extra) => h("div", { key: k, style: { display: "flex", flex: "1 1 130px", minWidth: 130, ...(extra || {}) } }, el);
     return [box("ld", h("div", { onClick: editLoad, title: "按一下改 TOTAL LOADING", style: { cursor: "pointer", display: "flex", flex: 1 } }, card("TOTAL LOADING ✎", RM(loadAmt), "#7c3aed", "#f5f3ff"))),
@@ -7719,6 +7721,7 @@ function SalesSummaryPage({ currentUser }) {
       op("o3", "−"), box("cu", card("CUSTOMER USED", RM(cu), "#b91c1c", "#fef2f2")),
       op("o4", "−"), box("rn", card("RUNAWAY", RM(run), "#dc2626", "#fff1f2")),
       op("o6", "−"), box("ub", h("div", { onClick: () => { try { window.__crmGoPage && window.__crmGoPage("receipt"); } catch (e) {} }, title: "Boss Take 未付的总数 · 按一下去 Boss Take", style: { cursor: "pointer", display: "flex", flex: 1 } }, card("UNCLAIM BOSS TAKE", RM(unclaimBT), "#a16207", "#fefce8"))),
+      op("o7", "−"), box("uk", h("div", { onClick: () => { try { window.__crmGoPage && window.__crmGoPage("bsreturn"); } catch (e) {} }, title: "Return Salary 名字写 UNKNOWN 的总数 · 按一下去 Return Salary", style: { cursor: "pointer", display: "flex", flex: 1 } }, card("RETURN SALARY · UNKNOWN", RM(unkRS), "#9a3412", "#fff7ed"))),
       op("o5", "="), box("cb", card("COMPANY BANK BALANCE · AS AT " + dd, RM(bal), bal < 0 ? "#dc2626" : "#15803d", bal < 0 ? "#fef2f2" : "#f0fdf4"))]; };   /* BS TOTAL 不放这一排了（25/11/2026） */
   const th = { ...S.th, textAlign: "left" }, td = { ...S.td, textAlign: "left" }, tdn = { ...S.td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 800 };
   const showMoney = src !== "agr";
