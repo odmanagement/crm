@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126112800";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2054,13 +2054,18 @@ function CreditCardPage({ currentUser }) {
   const ro = READONLY_USERS.includes(me);
   const [list, save] = useCloudList("od_credit_card");
   const items = list || [];
-  const blank = () => ({ name: "", date: today(), amount: "", photos: [] });
+  const blank = () => ({ name: "", date: today(), amount: "", co: "", photos: [] });
+  const CC_COS = ["FINPRO", "MOTOR CONCEPT"];   /* Amount 隔壁选公司 */
+  const canChk = me === "chialing" || isMissionBoss(me);   /* 打勾：Chialing（老板也可以） */
+  const coSel = (val, onCh, ex) => h("select", { value: val || "", disabled: ro, onChange: e => onCh(e.target.value),
+    style: { ...inp, width: "auto", minWidth: 150, fontWeight: 900, fontSize: 12.5, cursor: ro ? "default" : "pointer", ...(val === "FINPRO" ? { background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" } : val === "MOTOR CONCEPT" ? { background: "#fff7ed", color: "#c2410c", borderColor: "#fed7aa" } : { color: "#94a3b8" }), ...(ex || {}) } },
+    h("option", { value: "" }, "— 选 —"), CC_COS.map(c => h("option", { key: c, value: c }, c)));
   const [nf, setNf] = React.useState(blank);
   const [q, setQ] = React.useState("");
   const ql = q.trim().toLowerCase();
   const add = () => {
     if (!String(nf.name || "").trim()) { alert("请填 Name"); return; }
-    save([{ id: uid(), at: Date.now(), by: me, name: String(nf.name).trim().toUpperCase(), date: nf.date || today(), amount: lsNum(nf.amount), photos: nf.photos || [] }, ...items]);
+    save([{ id: uid(), at: Date.now(), by: me, name: String(nf.name).trim().toUpperCase(), date: nf.date || today(), amount: lsNum(nf.amount), co: nf.co || "", photos: nf.photos || [] }, ...items]);
     setNf(blank()); try { monetSfx("create"); } catch (e) {}
   };
   const upd = (id, patch) => { if (ro) return; save(items.map(x => x.id === id ? { ...x, ...patch } : x)); };
@@ -2082,19 +2087,26 @@ function CreditCardPage({ currentUser }) {
       h("div", { style: { flex: "2 1 200px" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "NAME"), h("input", { value: nf.name, onChange: e => setNf({ ...nf, name: e.target.value }), onKeyDown: e => { if (e.key === "Enter") add(); }, style: { ...inp, textTransform: "uppercase", fontWeight: 800 } })),
       h("div", { style: { flex: "1 1 140px" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "DATE"), h("input", { type: "date", value: nf.date, onChange: e => setNf({ ...nf, date: e.target.value }), style: inp })),
       h("div", { style: { flex: "1 1 120px" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "AMOUNT (RM)"), h("input", { value: nf.amount, inputMode: "decimal", onChange: e => setNf({ ...nf, amount: e.target.value }), onBlur: e => { const v = e.target.value.trim(); if (v) setNf({ ...nf, amount: lsFmt(lsNum(v)) }); }, onKeyDown: e => { if (e.key === "Enter") add(); }, style: { ...inp, textAlign: "right", fontWeight: 800 } })),
+      h("div", { style: { flex: "0 0 auto" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "公司"), coSel(nf.co, v => setNf(f => ({ ...f, co: v })))),
       h("div", { style: { flex: "0 0 auto" } }, h("div", { style: { fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 4 } }, "照片（Ctrl+V）"), h(LfPhotos, { ids: nf.photos, compact: true, onChange: v => setNf(f => ({ ...f, photos: v })) })),
       h("button", { onClick: add, style: { ...S.addBtn, height: 38 } }, h(Plus, { size: 16 }), " Add")),
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
-      h("thead", null, h("tr", null, ["#", "Name", "Date", "Amount (RM)", "照片", "By", ""].map((x, i) => h("th", { key: i, style: i === 3 ? { ...th, ...S.thNum } : th }, x)))),
-      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
-        !rows.length ? h("tr", null, h("td", { colSpan: 7, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 在上面填 Name / Date / Amount 按 Add")) :
+      h("thead", null, h("tr", null, ["#", "Name", "Date", "Amount (RM)", "公司", "照片", "By", "✓ Check", ""].map((x, i) => h("th", { key: i, style: i === 3 ? { ...th, ...S.thNum } : i === 7 ? { ...th, textAlign: "center" } : th }, x)))),
+      h("tbody", null, list === null ? h("tr", null, h("td", { colSpan: 9, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, "载入中…")) :
+        !rows.length ? h("tr", null, h("td", { colSpan: 9, style: { ...td, textAlign: "center", color: "#94a3b8", padding: 30 } }, items.length ? "找不到" : "还没有 — 在上面填 Name / Date / Amount 按 Add")) :
         rows.map((x, i) => h("tr", { key: x.id },
           h("td", { style: { ...td, width: 34, color: "#94a3b8", fontWeight: 800 } }, i + 1),
           h("td", { style: { ...td, minWidth: 180 } }, cell(x, "name", { textTransform: "uppercase", fontWeight: 900, fontSize: 15 })),
           h("td", { style: { ...td, width: 150 } }, cell(x, "date")),
           h("td", { style: { ...td, width: 140 } }, cell(x, "amount", { textAlign: "right", fontWeight: 900, fontSize: 16 })),
+          h("td", { style: { ...td, width: 170 } }, coSel(x.co, v => upd(x.id, { co: v }))),
           h("td", { style: td }, h(LfPhotos, { ids: x.photos || [], compact: true, ro, onChange: v => upd(x.id, { photos: v }) })),
           h("td", { style: { ...td, fontSize: 12, color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" } }, x.by ? String(x.by).toUpperCase() : ""),
+          h("td", { style: { ...td, width: 110, textAlign: "center" } }, h("button", {
+            onClick: canChk && !ro ? () => upd(x.id, x.chk ? { chk: null } : { chk: { by: me, at: Date.now() } }) : undefined,
+            title: x.chk ? "✓ " + String(x.chk.by || "").toUpperCase() + " · " + new Date(x.chk.at || Date.now()).toLocaleDateString("en-GB") + (canChk ? "（再按一下取消）" : "") : canChk ? "按一下打勾" : "等 Chialing 打勾",
+            style: { border: x.chk ? "none" : "1.5px dashed #cbd5e1", borderRadius: 8, width: 30, height: 30, cursor: canChk && !ro ? "pointer" : "default", fontWeight: 900, fontSize: 16,
+              background: x.chk ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#fff", color: x.chk ? "#fff" : "#cbd5e1" } }, x.chk ? "✓" : "")),
           h("td", { style: { ...td, width: 40, textAlign: "center" } }, !ro && h("button", { onClick: () => del(x.id), title: "删除", style: { border: "none", background: "transparent", color: "#ef4444", cursor: "pointer" } }, h(Trash2, { size: 15 })))))))));
 }
 function ODPaymentPage({ currentUser }) {
