@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126170000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -9495,10 +9495,19 @@ const CAR_APPT_STOPS = [
   { k: "jaecoo", name: "OE CREDIT", addr: "70, Jln Ulu Klang, Kuala Ampang, 68000 Ampang, Selangor. Tel: 03-4266 3030", link: "https://www.google.com/maps/search/?api=1&query=Jaecoo+Ampang+Siang+Hin+(KL)+Sdn+Bhd+70+Jalan+Ulu+Klang", linkLabel: "📍 Google Maps" },
   { k: "credit", name: "CREDIT COMPANY", after: "📌 How to find us:\n1️⃣ Park in front of Klinik Aurora.\n2️⃣ Walk to Block 12, Unit 12-2.\n3️⃣ Enter through the grey gate.\n4️⃣ Go up to Level 2.\n🗺️ Waze:\nhttps://waze.com/ul/hw2831c2qu\n🚗💨 See you soon! Please let us know when you’re on the way. 😊" },
   { k: "muamalat", name: "MUAMALAT (SHAH ALAM)", link: "https://share.google/ExL8HSCiEtNdGMh8V" }];
+/* Car Quotation 的 FINANCING 选哪家 → Car Appointment 只去那几家（GFS / X STAR / CHAILEASE / CARSOME = CREDIT COMPANY） */
+const CAR_FIN_MAP = [[/^CIMB( BANK)?( ISLAMIC)?$/, "cimb"], [/^(PBB|PUBLIC BANK|PUBLIC)( ISLAMIC)?$/, "pbb"], [/^(HLB|HONG LEONG( BANK)?)( ISLAMIC)?$/, "hlb"], [/^(AMB|AMBANK|AM BANK)( ISLAMIC)?$/, "ambank"], [/^(MUAMALAT|BANK MUAMALAT|BMMB)$/, "muamalat"], [/^(OE|OE CREDIT|JAECOO)$/, "jaecoo"], [/^(GFS|X ?-?STAR|CHAILEASE|CHAIL|CARSOME|CREDIT COMPANY)$/, "credit"]];
+const carFinKey = v => { const t = String(v || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t || t.length > 30) return ""; const m = CAR_FIN_MAP.find(([re]) => re.test(t)); return m ? m[1] : ""; };
+const carFinKeys = d => { const out = new Set(); try { const pages = d && d.native && d.native.data && d.native.data.pages; (pages || []).forEach(pg => { const walk = o => { if (o == null) return; if (typeof o === "string") { const k = carFinKey(o); if (k) out.add(k); } else if (typeof o === "object") Object.values(o).forEach(walk); }; walk(pg && (pg.selects || pg.fin || pg.financing || pg)); }); } catch (e) {}
+  if (out.size) out.add("batucaves");   /* Batu Caves 一定要去 */
+  return CAR_APPT_STOPS.map(s => s.k).filter(k => out.has(k)); };
+const carApptStops = r => r && Array.isArray(r.banks) && r.banks.length ? CAR_APPT_STOPS.filter(s => r.banks.includes(s.k)) : CAR_APPT_STOPS;
+const CAR_APPT_SLOTS = ["9:30 AM", "10:15 AM", "11:00 AM", "11:45 AM", "2:00 PM", "2:45 PM", "3:30 PM", "4:15 PM"];   /* 只去几家 → 时间从早上重新排（中午 12:30–2:00 吃饭） */
+const carApptRetime = (stops, banks, date) => { const out = { ...(stops || {}) }; CAR_APPT_STOPS.filter(s => banks.includes(s.k)).forEach((s, i) => { out[s.k] = { ...(out[s.k] || {}), date: (out[s.k] && out[s.k].date) || date || "", time: CAR_APPT_SLOTS[i] || "" }; }); return out; };
 const carApptText = r => {
   const st = r.stops || {};
   const out = ["CUSTOMER NAME : " + (r.name || "")];
-  CAR_APPT_STOPS.forEach((s, i) => { const v = st[s.k] || {};
+  carApptStops(r).forEach((s, i) => { const v = st[s.k] || {};
     const b = ["*" + (i + 1) + ". " + s.name + "*" + (v.x ? "❌" : "")];
     if (s.addr) b.push(s.addr);
     if (s.link && s.linkLabel) b.push("[" + s.linkLabel + "](" + s.link + ")");
@@ -9538,12 +9547,17 @@ function CarApptAutoAdd({ me }) {
       /* 建好两天后，全部 appointment 排在同一天（星期六、日 → 搬去星期一） */
       const dt = new Date(d.c0 || d.at || Date.now()); dt.setDate(dt.getDate() + 2); while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() + 1);
       const ds = String(dt.getDate()).padStart(2, "0") + "/" + String(dt.getMonth() + 1).padStart(2, "0") + "/" + dt.getFullYear();
-      const stops = {}; CAR_APPT_STOPS.forEach(st => { stops[st.k] = { date: ds, time: CAR_APPT_TIMES[st.k] || "" }; });
+      const bk = carFinKeys(d);
+      let stops = {}; CAR_APPT_STOPS.forEach(st => { stops[st.k] = { date: ds, time: CAR_APPT_TIMES[st.k] || "" }; });
+      if (bk.length) stops = carApptRetime(stops, bk, ds);
       if (add.some(x => nk(x.name) === nm)) return;
-      add.push({ id: "ca_" + d.id, name: nm, stops, by: meC, at: Date.now(), fromCost: d.id }); });
+      add.push({ id: "ca_" + d.id, name: nm, stops, banks: bk.length ? bk : undefined, by: meC, at: Date.now(), fromCost: d.id }); });
     try { localStorage.setItem(LS, JSON.stringify(seen.slice(-2000))); } catch (e) {}
     /* 之前自动开的、名字放错成 Agent 的 → 换回顾客名字 */
     let fix = false; const appts2 = appts.map(x => { if (!x || !x.fromCost) return x; const d = drafts.find(y => y && y.id === x.fromCost); if (!d || !sameUser(d.by, meC)) return x;
+      /* Quotation 的 FINANCING 改了 → 跟着改去哪几家（自己在这里加 / 减过的就不动） */
+      const bk = carFinKeys(d);
+      if (bk.length && !x.bkManual && bk.join(",") !== (x.banks || []).join(",")) { fix = true; const d0 = (Object.values(x.stops || {}).find(v => v && v.date) || {}).date || ""; x = { ...x, banks: bk, stops: x.updatedAt ? x.stops : carApptRetime(x.stops, bk, d0) }; }
       const cn = nk(carClientName(d)); if (cn && cn !== nk(x.name) && nk(x.name) === nk(costKeyName(d))) { fix = true; return { ...x, name: cn }; } return x; });
     /* 自动开的有重复（同一个顾客两个时间表）→ 只留一个：有人改过的优先，不然留最早的；有人改过的两个都留 */
     let all = [...add, ...appts2]; const grp = {};
@@ -9567,6 +9581,7 @@ function CarApptPage({ clients, currentUser }) {
   const upd = (id, fn) => save(items.map(x => x.id === id ? { ...fn(x), updatedAt: Date.now(), updatedBy: me } : x));
   const setStop = (id, k, f, v) => upd(id, x => ({ ...x, stops: { ...(x.stops || {}), [k]: { ...((x.stops || {})[k] || {}), [f]: v } } }));
   const add = () => { if (ro) return; save([{ id: uid(), name: "", stops: {}, by: me, at: Date.now() }, ...items]); };
+  const setBanks = (x, keys) => { const ks = CAR_APPT_STOPS.map(s => s.k).filter(k => keys.includes(k)); upd(x.id, y => ({ ...y, banks: ks.length === CAR_APPT_STOPS.length ? undefined : ks, bkManual: true })); };
   const del = x => { if (window.confirm("删除「" + (x.name || "没有名字") + "」的时间表？")) save(items.filter(y => y.id !== x.id)); };
   const copy = x => { const tx = carApptText(x); const ok = () => { setDone(x.id); setTimeout(() => setDone(""), 1500); };
     try { navigator.clipboard.writeText(tx).then(ok, () => { const a = document.createElement("textarea"); a.value = tx; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); ok(); }); } catch (e) {} };
@@ -9600,15 +9615,18 @@ function CarApptPage({ clients, currentUser }) {
           !ro && h("button", { onClick: () => del(x), title: "删除", style: btn("#fff", "#dc2626", "#fecaca") }, "🗑")),
         h("div", { style: { overflowX: "auto" } }, h("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 560 } },
           h("thead", null, h("tr", null, ["#", "去哪里", "DATE", "TIME", "❌ 不去", ""].map((t, i) => h("th", { key: i, style: { textAlign: "left", fontSize: 11, fontWeight: 900, color: "#64748b", padding: "8px 10px", borderBottom: "1px solid #e2e8f0", letterSpacing: ".04em" } }, t)))),
-          h("tbody", null, CAR_APPT_STOPS.map((s, i) => { const v = st[s.k] || {};
+          h("tbody", null, carApptStops(x).map((s, i) => { const v = st[s.k] || {};
             return h("tr", { key: s.k, style: { background: v.x ? "#fef2f2" : (v.date || v.time) ? "#f0fdf4" : "#fff" } },
               h("td", { style: { padding: "6px 10px", fontWeight: 900, color: "#94a3b8", width: 30 } }, i + 1),
               h("td", { style: { padding: "6px 10px", fontWeight: 900, color: v.x ? "#dc2626" : "#0f172a", textDecoration: v.x ? "line-through" : "none", whiteSpace: "nowrap" } }, s.name),
               h("td", { style: { padding: "6px 6px", width: 120 } }, h(CaInput, { value: v.date || "", disabled: ro, placeholder: "日期", onCommit: val => setStop(x.id, s.k, "date", String(val || "").trim()), style: { ...inp, width: 110 } })),
               h("td", { style: { padding: "6px 6px", width: 110 } }, h(CaInput, { value: v.time || "", disabled: ro, placeholder: "时间", onCommit: val => setStop(x.id, s.k, "time", String(val || "").trim()), style: { ...inp, width: 100 } })),
               h("td", { style: { padding: "6px 10px", width: 70 } }, h("input", { type: "checkbox", disabled: ro, checked: !!v.x, onChange: e => setStop(x.id, s.k, "x", e.target.checked), style: { width: 18, height: 18, accentColor: "#dc2626", cursor: "pointer" } })),
-              h("td", { style: { padding: "6px 10px", whiteSpace: "nowrap", textAlign: "right" } }, (s.link || s.after) && h("a", { href: s.link || "https://waze.com/ul/hw2831c2qu", target: "_blank", rel: "noopener", style: { fontSize: 12, fontWeight: 900, color: "#4f46e5", textDecoration: "none" } }, s.link ? "📍 地图" : "🗺️ Waze")));
+              h("td", { style: { padding: "6px 10px", whiteSpace: "nowrap", textAlign: "right" } }, !ro && carApptStops(x).length > 1 && h("button", { onClick: () => setBanks(x, carApptStops(x).map(t => t.k).filter(t => t !== s.k)), title: "不去这家（拿掉，后面的号码会重新排）", style: { border: "none", background: "none", color: "#cbd5e1", fontWeight: 900, cursor: "pointer", marginRight: 6 } }, "－"), (s.link || s.after) && h("a", { href: s.link || "https://waze.com/ul/hw2831c2qu", target: "_blank", rel: "noopener", style: { fontSize: 12, fontWeight: 900, color: "#4f46e5", textDecoration: "none" } }, s.link ? "📍 地图" : "🗺️ Waze")));
           })))),
+        !ro && carApptStops(x).length < CAR_APPT_STOPS.length && h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", padding: "8px 16px", borderTop: "1px dashed #e2e8f0" } },
+          h("span", { style: { fontSize: 11, fontWeight: 900, color: "#94a3b8" } }, "加回："),
+          CAR_APPT_STOPS.filter(s => !carApptStops(x).includes(s)).map(s => h("button", { key: s.k, onClick: () => setBanks(x, [...carApptStops(x).map(t => t.k), s.k]), style: { border: "1px dashed #a5b4fc", background: "#fff", color: "#4f46e5", borderRadius: 999, padding: "3px 10px", fontWeight: 900, fontSize: 11, cursor: "pointer" } }, "＋ " + s.name))),
         prev === x.id && h("pre", { style: { margin: 0, padding: 16, background: "#f8fafc", borderTop: "1px solid #e2e8f0", fontSize: 12.5, whiteSpace: "pre-wrap", fontFamily: "inherit", fontWeight: 600, color: "#1e293b", maxHeight: 420, overflowY: "auto" } }, carApptText(x)));
     })));
 }
