@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126160800";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126162000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7144,8 +7144,10 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tC)),
     h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" } }, lsFmt(tR)),
     h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "TOTAL"),
-    h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = BALANCE + CUSTOMER USE + AGENT USE" }, lsFmt(bal + cuse + ause)),
-    h("td", { style: cell }), h("td", { style: cell })));   /* 右下角不用再显示 AGENT USE（上面已经有一行） */
+    h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = CREDIT − RECEIVED（不算 OPENING BAL）" }, lsFmt(tC - tR)),
+    ...(bsOpenBal(d) ? [h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11, color: "#0f766e", whiteSpace: "nowrap" } }, "TOTAL + OPENING BAL"),
+      h("td", { style: { ...cell, fontWeight: 900, background: "#ccfbf1", color: "#0f766e", textAlign: "center", whiteSpace: "nowrap" }, title: "TOTAL + OPENING BAL " + lsFmt(bsOpenBal(d)) + "（= BALANCE + CUSTOMER USE + AGENT USE）" }, lsFmt(bal + cuse + ause))]
+      : [h("td", { style: cell }), h("td", { style: cell })])));   /* 右下角不用再显示 AGENT USE（上面已经有一行） */
   /* ===== 像 Google Sheets：右键格子 → 换字颜色 / 底色 / 粗体 / 划线（跟着格子的位置，存在 bankStmt.sty） ===== */
   const sheetRef = React.useRef(null);
   const [bsPop, setBsPop] = React.useState(null);
