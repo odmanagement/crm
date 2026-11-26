@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261126190000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261126191500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -2057,6 +2057,26 @@ function CreditCardPage({ currentUser }) {
   const blank = () => ({ name: "", date: today(), amount: "", co: "", photos: [] });
   const CC_COS = ["FUTURE", "MOTOR CONCEPT"];   /* Amount 隔壁选公司 */
   const canChk = me === "chialing" || isMissionBoss(me);   /* 打勾：Chialing（老板也可以） */
+  const [drafts, saveDrafts] = useCloudList("form_drafts");
+  /* 打勾 → −6% 的数目自动加去同名 PL Costing（Costing Part）的 PAYMENT；取消打勾 → 自动加的那一行拿掉 */
+  const CC_RMK = co => co === "MOTOR CONCEPT" ? "MOTOR CONCEPT TNG" : "FUTURE MERCHANT";
+  const ccNet = x => Math.round(lsNum(x.amount) * 94) / 100;
+  const ccDmy = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || "")); return m ? m[3] + "/" + m[2] + "/" + m[1] : String(v || ""); };
+  const ccDraftsNow = () => Array.isArray(_clMem["form_drafts"]) ? _clMem["form_drafts"] : (drafts || []);
+  const ccFindCost = name => { const k = String(name || "").trim().toUpperCase().replace(/\s+/g, " ");
+    return ccDraftsNow().filter(d => d && /COSTING_PART\.html$/i.test(d.file || "") && d.native && d.native.data && costKeyName(d) === k).sort((p1, p2) => (p2.at || 0) - (p1.at || 0))[0] || null; };
+  const ccPutDraft = (id, fn) => { const list0 = ccDraftsNow(); let hit = false;
+    const nx = list0.map(d => { if (!d || d.id !== id) return d; const data = fn(d.native.data); if (!data) return d; hit = true; return { ...d, native: { ...d.native, data, saved: new Date().toISOString() }, at: Date.now() }; });
+    if (hit) { window.__crmSysWrite = true; try { saveDrafts(nx); } finally { window.__crmSysWrite = false; } } return hit; };
+  const ccAddPay = x => { const d = ccFindCost(x.name); if (!d) { alert("找不到「" + String(x.name || "").toUpperCase() + "」的 PL Costing — 没有加去 PAYMENT（打勾还是有效）"); return null; }
+    const pay = { date: ccDmy(x.date), remark: CC_RMK(x.co === "FINPRO" ? "FUTURE" : x.co), amt: lsFmt(ccNet(x)) };
+    const files = (x.photos || []).map(id => ({ id, t: /^data:application\/pdf/.test(String(_photoCache[id] || "")) ? "application/pdf" : "image/jpeg", n: "" }));
+    ccPutDraft(d.id, data => ({ ...data, balance: [...(data.balance || []), { ...pay, files }] }));
+    return { draft: d.id, ...pay }; };
+  const ccDelPay = cp => { if (!cp || !cp.draft) return; ccPutDraft(cp.draft, data => { const bal = data.balance || []; const i = bal.findIndex(r => r && String(r.remark || "").toUpperCase() === cp.remark && lsNum(r.amt) === lsNum(cp.amt) && String(r.date || "") === cp.date);
+    if (i < 0) return null; return { ...data, balance: bal.filter((_, j) => j !== i) }; }); };
+  const toggleChk = x => { if (x.chk) { ccDelPay(x.ccPay); upd(x.id, { chk: null, ccPay: null }); }
+    else { const cp = ccAddPay(x); upd(x.id, { chk: { by: me, at: Date.now() }, ccPay: cp }); } };
   const coSel = (val, onCh, ex) => h("select", { value: val || "", disabled: ro, onChange: e => onCh(e.target.value),
     style: { ...inp, width: "auto", minWidth: 150, fontWeight: 900, fontSize: 12.5, cursor: ro ? "default" : "pointer", ...(val === "FUTURE" || val === "FINPRO" ? { background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" } : val === "MOTOR CONCEPT" ? { background: "#fff7ed", color: "#c2410c", borderColor: "#fed7aa" } : { color: "#94a3b8" }), ...(ex || {}) } },
     h("option", { value: "" }, "— 选 —"), CC_COS.map(c => h("option", { key: c, value: c }, c)));
@@ -2106,8 +2126,8 @@ function CreditCardPage({ currentUser }) {
           h("td", { style: td }, h(LfPhotos, { ids: x.photos || [], compact: true, ro, onChange: v => upd(x.id, { photos: v }) })),
           h("td", { style: { ...td, fontSize: 12, color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" } }, x.by ? String(x.by).toUpperCase() : ""),
           h("td", { style: { ...td, width: 110, textAlign: "center" } }, h("button", {
-            onClick: canChk && !ro ? () => upd(x.id, x.chk ? { chk: null } : { chk: { by: me, at: Date.now() } }) : undefined,
-            title: x.chk ? "✓ " + String(x.chk.by || "").toUpperCase() + " · " + new Date(x.chk.at || Date.now()).toLocaleDateString("en-GB") + (canChk ? "（再按一下取消）" : "") : canChk ? "按一下打勾" : "等 Chialing 打勾",
+            onClick: canChk && !ro ? () => toggleChk(x) : undefined,
+            title: x.chk ? "✓ " + String(x.chk.by || "").toUpperCase() + " · " + new Date(x.chk.at || Date.now()).toLocaleDateString("en-GB") + (x.ccPay ? "\n已加去 PL Costing PAYMENT：" + x.ccPay.remark + " RM " + x.ccPay.amt : "") + (canChk ? "（再按一下取消）" : "") : canChk ? "按一下打勾" : "等 Chialing 打勾",
             style: { border: x.chk ? "none" : "1.5px dashed #cbd5e1", borderRadius: 8, width: 30, height: 30, cursor: canChk && !ro ? "pointer" : "default", fontWeight: 900, fontSize: 16,
               background: x.chk ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#fff", color: x.chk ? "#fff" : "#cbd5e1" } }, x.chk ? "✓" : "")),
           h("td", { style: { ...td, width: 40, textAlign: "center" } }, !ro && h("button", { onClick: () => del(x.id), title: "删除", style: { border: "none", background: "transparent", color: "#ef4444", cursor: "pointer" } }, h(Trash2, { size: 15 })))))))));
