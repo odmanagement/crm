@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127113000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127114000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -5730,6 +5730,8 @@ function lsFill(win, r) {
   set("acct", r.acct || "");
   [["epfAmt", "epfManual", "epf"], ["socsoAmt", "socsoManual", "socso"]].forEach(([id, mk, vk]) => { const el = g(id); if (!el) return; if (r[mk]) { el.dataset.manual = "1"; el.value = lsFmt(lsNum(r[vk])); } else delete el.dataset.manual; });
   try { win.calcDue(); win.calcStat(); } catch (e) {}
+  /* Lending Sheet 自己算日期时会把标题改回 FINPRO → 算完再放一次（FUTURE 的要显示 FUTURE AGREEMENT） */
+  { const ht = lsTitle(r.date, r.funder); const hd = g("hdr"); if (ht && hd) { if ("value" in hd && hd.tagName !== "DIV") hd.value = ht; else hd.textContent = ht; } }
   const t = id => lsNum((g(id) || {}).textContent);
   return { totA: t("totA"), totB: t("totB"), principal: t("principal"), intAmt: t("intAmt"), grand: t("grand"), tobank: t("tobank") };
 }
