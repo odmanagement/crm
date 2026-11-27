@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127162000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7284,6 +7284,11 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
   const [q, setQ] = React.useState("");
   const [only, setOnly] = React.useState("");
   const [stmtId, setStmtId] = React.useState(null);
+  /* 从 Salary Status 点名字过来 → 自动搜那个人、跳去他所在的分页 */
+  const [bsFocus, setBsFocus] = React.useState(null);
+  React.useEffect(() => { const pg = store === "bank_stmt_people_rencai" ? "bankstmt2" : "bankstmt";
+    const go = () => { const f = window.__crmFocus; if (!f || f.page !== pg || Date.now() - f.at > 60000) return; window.__crmFocus = null; setQ(String(f.name || "")); setBsFocus({ name: String(f.name || ""), at: Date.now() }); };
+    go(); window.addEventListener("crm-focus", go); return () => window.removeEventListener("crm-focus", go); }, [store]);
   /* 自己加的人头（不是 CRM 客户） */
   const [ppl, savePpl] = useCloudList(store || "bank_stmt_people");
   const [rcList] = useCloudList("receipts");
@@ -7332,6 +7337,7 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     ids.splice(i, 1); ids.splice(j, 0, r.manual.id);
     const ordMap = {}; ids.forEach((id, k) => { ordMap[id] = (k + 1) * 10; });
     savePpl(people.map(p => ordMap[p.id] != null && p.ord !== ordMap[p.id] ? { ...p, ord: ordMap[p.id] } : p)); };
+  React.useEffect(() => { if (!bsFocus) return; const k = rcKey(bsFocus.name), r = rows.find(x => rcKey(x.c.name) === k); if (!r) return; const t = tabOf(r); if (t !== ey) setEy(t); setBsFocus(null); });
   const shown = rows.filter(r => {
     if (ey === "endall" ? !endY(r) : tabOf(r) !== ey) return false;   /* 🟣 END 分页 = 全部 END 了的 */
     const bal = bsBalance(r.bs);
@@ -7902,8 +7908,9 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
   const inMonth = r => !month || (r.date ? r.date.slice(0, 7) : "0000-00") === month;
-  const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && r.src === src && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
-    .sort((x, y) => (x.startAt - y.startAt) || String(x.date || "").localeCompare(String(y.date || "")) || String(x.c.name).localeCompare(String(y.c.name)));   /* 旧 → 新：最新 START 的放最下面 */
+  /* 搜名字：Bank Statement + Rencai 全部一起找（不用先按 RENCAI）；照日期排，越久的在最上面（没有日期的放最下面） */
+  const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && (ql ? true : r.src === src) && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
+    .sort((x, y) => ((x.date ? 0 : 1) - (y.date ? 0 : 1)) || String(x.date || "").localeCompare(String(y.date || "")) || (x.startAt - y.startAt) || String(x.c.name).localeCompare(String(y.c.name)));
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   hiRef.current = rows;
   const [hiMiss, setHiMiss] = React.useState("");
@@ -7959,7 +7966,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
         shown.map((r, i) => { const m = SL_ST[r.st], hi = hiK && slNameKey(r.c.name) === hiK; return h("tr", { key: r.c.id, "data-slk": slNameKey(r.c.name), style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}), ...(hi ? { background: "#fef08a", outline: "3px solid #f59e0b", outlineOffset: -3, animation: "slHiPulse 1s ease-in-out 4" } : {}) } },
           h("td", { style: { ...S.td, ...S.tdNumCol, cursor: "pointer", ...(r.stopped ? { background: "#fecaca", color: "#b91c1c", fontWeight: 900 } : {}) }, title: r.stopped ? "在 STOP SALARY · 再点一次搬回来" : "点一下 = 搬去 STOP SALARY", onClick: () => setStopped(r, !r.stopped) }, i + 1),
           h("td", { style: S.td }, r.date ? tpDate(dtDMY(r.date)) : h("span", { style: { color: "#cbd5e1" } }, "—")),
-          h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => r.bsOnly ? (window.__crmGoPage && window.__crmGoPage("bankstmt")) : onOpen(r.c.id), title: r.bsOnly ? "打开 Bank Statement" : "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
+          h("td", { style: { ...S.td, fontWeight: 800 } }, String(r.c.name).toUpperCase(),   /* 点名字不跳去别的页面 */ ql && r.src === "rencai" && h("span", { style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#ffedd5", color: "#7c2d12", border: "1px solid #fdba74" } }, "👥 RENCAI"), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
           /* Bank Statement 栏拿掉了（不再连接） */
           h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
             SL_KEYS.map(k => h("button", { key: k, onClick: () => setPend(p => { const n = { ...p }, nx = slSelToggle(r.sel, k); if (!r.auto && nx.join() === r.sel0.join()) delete n[r.c.id]; else n[r.c.id] = nx; return n; }), title: r.c.salaryStatusBy && r.sel.includes(k) ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.sel.includes(k) ? SL_ST[k][2] : "#fff", color: r.sel.includes(k) ? "#fff" : "#94a3b8", ...(r.sel.includes(k) && r.auto ? { opacity: .75, outline: "2px dashed #fff", outlineOffset: -4 } : {}), ...(r.sel.includes(k) && r.pending ? { outline: "3px dashed #facc15", outlineOffset: -3 } : {}) }, ...(r.sel.includes(k) && r.auto ? { title: "Bank Statement 0 个月 → 自动 NEW SALARY" } : {}) }, SL_ST[k][0])))),
