@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127125500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127152000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7034,8 +7034,10 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
   React.useEffect(() => { const f = () => setSlTick(x => x + 1); window.addEventListener("crm-salstop", f); return () => window.removeEventListener("crm-salstop", f); }, []);
   React.useEffect(() => { const f = () => { if (!focus.current) setD(norm(r.bs)); }; window.addEventListener("crm-own-block", f); return () => window.removeEventListener("crm-own-block", f); });
   const slStop = !!(window.__crmSalStop && window.__crmSalStop.has(slNameKey(r.c.name)));
-  const autos = [{ k: "rc", icon: "🧾", label: "BOSS TAKE", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
-  const rcT = autos.reduce((t, a) => t + a.total, 0), RO = autos.length;
+  /* RETURN CUSTOMER / AGENT SALARY：只是显示（数目已经从 CUSTOMER USE / AGENT USE 扣掉，不再算进 RECEIVED 的总数） */
+  const autos = [{ k: "rc", icon: "🧾", label: "BOSS TAKE", list: r.rc || [] }, { k: "rt", icon: "↩️", label: "RETURN SALARY", list: r.rt || [] }, { k: "rtc", icon: "↩️", label: "RETURN CUSTOMER SALARY", list: r.rtC || [], info: true }, { k: "rta", icon: "↩️", label: "RETURN AGENT SALARY", list: r.rtA || [], info: true }].filter(a => a.list.length).map(a => ({ ...a, total: a.list.reduce((t, x) => t + lsNum(x.amount), 0) }));
+  const rcT = autos.filter(a => !a.info).reduce((t, a) => t + a.total, 0), RO = autos.length;
+  const auCol = a => a.k === "rt" ? "#7c3aed" : a.k === "rtc" ? "#b91c1c" : a.k === "rta" ? "#c2410c" : "#0369a1";
   const [showRc, setShowRc] = React.useState(false);
   const [bdOpen, setBdOpen] = React.useState(false);
   const h = React.createElement;
@@ -7152,8 +7154,8 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           c && (c.date || c.amount) && h("button", { title: c.stop ? "取消 Stop Salary" : "从这一行开始 Stop Salary", onClick: () => { const nx = { ...d, credits: d.credits.map((y, j) => ({ ...y, stop: j === ci ? !c.stop : false })) }; setD(nx); commit(nx); }, style: { border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: 11, opacity: c.stop ? 1 : .25 } }, "⛔"),
           h("div", { onClick: () => setCalcAt(ci), title: "点进去计算薪水", style: { flex: 1, textAlign: "right", cursor: "pointer", fontVariantNumeric: "tabular-nums", minHeight: 16, color: c && c.calc ? "#1d4ed8" : undefined } }, c && c.amount ? c.amount : h("span", { style: { color: "#cbd5e1" } }, "＋")))),
-      h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? fr(k, "h", { textAlign: "right" }) : rcRow ? h("div", { onClick: () => setShowRc(au.k), title: "点一下看全部记录", style: { textAlign: "right", cursor: "pointer", color: au.k === "rt" ? "#7c3aed" : "#0369a1", fontWeight: 900, textDecoration: "underline dotted", fontVariantNumeric: "tabular-nums" } }, lsFmt(au.total)) : ri >= 0 && ri <= recv.length ? mny(rv && rv.amount, v => setRow("received", ri, "amount", v)) : ""),
-      h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : rcRow ? h("div", { onClick: () => setShowRc(au.k), style: { textAlign: "right", cursor: "pointer", color: au.k === "rt" ? "#7c3aed" : "#0369a1", fontWeight: 800, fontSize: 11.5, whiteSpace: "nowrap" } }, au.icon + " " + au.label + " × " + au.list.length) : ri >= 0 && ri <= recv.length ? dt(rv && rv.date, v => setRow("received", ri, "date", v)) : ""),
+      h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? fr(k, "h", { textAlign: "right" }) : rcRow ? h("div", { onClick: () => setShowRc(au.k), title: au.info ? "点一下看全部记录（已经从 " + (au.k === "rtc" ? "CUSTOMER USE" : "AGENT USE") + " 扣掉，不算进 RECEIVED 总数）" : "点一下看全部记录", style: { textAlign: "right", cursor: "pointer", color: auCol(au), ...(au.info ? { fontStyle: "italic" } : {}), fontWeight: 900, textDecoration: "underline dotted", fontVariantNumeric: "tabular-nums" } }, lsFmt(au.total)) : ri >= 0 && ri <= recv.length ? mny(rv && rv.amount, v => setRow("received", ri, "amount", v)) : ""),
+      h("td", { style: { ...cell, minWidth: 100 } }, k === 0 ? hdr("DATE") : rcRow ? h("div", { onClick: () => setShowRc(au.k), style: { textAlign: "right", cursor: "pointer", color: auCol(au), fontWeight: 800, fontSize: 11.5, whiteSpace: "nowrap" } }, au.icon + " " + au.label + " × " + au.list.length) : ri >= 0 && ri <= recv.length ? dt(rv && rv.date, v => setRow("received", ri, "date", v)) : ""),
       h("td", { style: { ...cell, minWidth: 110, fontWeight: 800, textAlign: "center", background: k === 0 && !(d.cells || {})["0_j"] ? "#fee2e2" : undefined } }, (() => {
         /* 黄色上面的格子：填数目 = CUSTOMER USE → 红色字、自动 2 个小数点 */
         const ck = k + "_j", v = (d.cells || {})[ck] || "", isN = BS_NUM_RE.test(String(v)), setC = nv => setD(p => ({ ...p, cells: { ...(p.cells || {}), [ck]: nv } }));
@@ -7297,7 +7299,8 @@ function BankStmtPage({ clients, onOpen, onSaveStmt, store }) {
     if ((banks.size || c.bankStmt) && String(c.name || "").trim()) rows.push({ c, banks: SALARY_BANKS.filter(k => banks.has(k)), bs: c.bankStmt || null, owner: c.staff || c.createdBy || (c.bankStmt && c.bankStmt.updatedBy) || "" });
   });
   people.forEach(p => rows.push({ c: { id: "p:" + p.id, name: p.name, bankStmt: p.bankStmt || null }, banks: [], bs: p.bankStmt || null, manual: p, owner: p.by || p.owner || p.createdBy || "" }));
-  rows.forEach(r => { r.rc = rcBy[rcKey(r.c.name)] || []; r.rt = rtBy[rcKey(r.c.name)] || []; r.rtCu = rtUseSum(rtList, r.c.name, "cust"); r.rtAu = rtUseSum(rtList, r.c.name, "agent"); });
+  rows.forEach(r => { r.rc = rcBy[rcKey(r.c.name)] || []; r.rt = rtBy[rcKey(r.c.name)] || []; r.rtCu = rtUseSum(rtList, r.c.name, "cust"); r.rtAu = rtUseSum(rtList, r.c.name, "agent");
+    r.rtC = (rtList || []).filter(x => x.kind === "cust" && !bsIsUnknownName(x.name) && rcKey(x.name) === rcKey(r.c.name)); r.rtA = (rtList || []).filter(x => x.kind === "agent" && !bsIsUnknownName(x.name) && rcKey(x.name) === rcKey(r.c.name)); });
   const rcSum = r => [...r.rc, ...r.rt].reduce((a, x) => a + lsNum(x.amount), 0);
   const ql = q.trim().toLowerCase();
   /* 上面年份：进行中 / END 按年份（打勾 END 的自动搬去那一年） */
