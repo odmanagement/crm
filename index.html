@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127155000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127155500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -9702,13 +9702,19 @@ const BANK_SOP = [
     banker: "JOE or Encik Chen", phone: "018-2359398",
     steps: ["Direct apply with banker, HP number of banker (018-2359398)", "Customer MUST mention saw it from FB page want to try apply PL", "Our banker will request customer documents and will guide customer step by step.", "All doc send by WhatsApp", "Branch name : Taman Melawati", "Apply loan size 99k / 10.99% rate / 7 years"],
     dont: ["Cant mention got any 3rd party or agency involved ⚠️", "Cant mention got fee involved ⚠️"],
-    forms: [{ name: "Bank Muamalat · Application Form For Financing", file: "SOP_MUAMALAT_PL_FORM.pdf", sign: "签名：第 7、8 页" }] }];
-const sopCopyText = s => [s.title, s.banker ? "\nBank " + s.bank.replace(/^BANK /, "") + " Banker - " + s.banker : "", s.steps.length ? "\n" + s.steps.map((x, i) => (i + 1) + ". " + x).join("\n") : "", s.dont.length ? "\nTHING ❌ DO\n" + s.dont.map((x, i) => (i + 1) + ". " + x).join("\n") : ""].filter(Boolean).join("\n");
+    forms: [{ name: "Bank Muamalat · Application Form For Financing", file: "SOP_MUAMALAT_PL_FORM.pdf", sign: "签名：第 7、8 页" }] },
+  { id: "rhb_richard", bank: "RHB BANK · RICHARD", color: "#0b5cab", bg: "#eff6ff",
+    title: "RHB · Thumbprint（按手印）",
+    banker: "RICHARD",
+    addr: "Ground floor, Lot 1 & 2, Menara Chin Hin, 1, Jalan Naga Emas, Petaling, 57000, WLY, MY",
+    steps: ["For thumbprint — 找 Richard"], dont: [],
+    forms: [] }];
+const sopCopyText = s => [s.title, s.banker ? "\nBank " + s.bank.replace(/^BANK /, "") + " Banker - " + s.banker : "", s.addr ? "📍 " + s.addr : "", s.steps.length ? "\n" + s.steps.map((x, i) => (i + 1) + ". " + x).join("\n") : "", s.dont.length ? "\nTHING ❌ DO\n" + s.dont.map((x, i) => (i + 1) + ". " + x).join("\n") : ""].filter(Boolean).join("\n");
 function BankSopPage() {
   const h = React.createElement;
   const [q, setQ] = React.useState(""), [done, setDone] = React.useState("");
   const k = q.trim().toLowerCase();
-  const list = BANK_SOP.filter(s => !k || (s.bank + " " + s.title + " " + (s.banker || "")).toLowerCase().includes(k));
+  const list = BANK_SOP.filter(s => !k || (s.bank + " " + s.title + " " + (s.banker || "") + " " + (s.addr || "")).toLowerCase().includes(k));
   const copy = s => { const tx = sopCopyText(s); const ok = () => { setDone(s.id); setTimeout(() => setDone(""), 1500); };
     try { navigator.clipboard.writeText(tx).then(ok, () => { const a = document.createElement("textarea"); a.value = tx; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); ok(); }); } catch (e) {} };
   const sec = (t, c) => h("div", { style: { fontSize: 11.5, fontWeight: 900, letterSpacing: ".06em", color: c || "#64748b", margin: "14px 0 6px" } }, t);
@@ -9726,12 +9732,17 @@ function BankSopPage() {
             h("span", { style: { fontWeight: 900, color: "#1e1b4b", fontSize: 14 } }, "👤 Banker：" + s.banker),
             s.phone && h("a", { href: "tel:" + s.phone.replace(/\D/g, ""), style: { textDecoration: "none", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 999, padding: "4px 10px", fontWeight: 900, fontSize: 12.5, color: "#0f172a" } }, "📞 " + s.phone),
             s.phone && h("a", { href: "https://wa.me/6" + s.phone.replace(/\D/g, ""), target: "_blank", rel: "noopener", style: { textDecoration: "none", background: "#22c55e", borderRadius: 999, padding: "4px 10px", fontWeight: 900, fontSize: 12.5, color: "#fff" } }, "WhatsApp")),
+          s.addr && h("div", { style: { display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 12px" } },
+            h("span", { style: { fontSize: 15 } }, "📍"),
+            h("div", { style: { flex: 1, fontSize: 13, fontWeight: 700, color: "#1e293b", lineHeight: 1.45 } }, s.addr),
+            h("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.addr), target: "_blank", rel: "noopener", style: { flex: "none", textDecoration: "none", background: s.color, color: "#fff", borderRadius: 8, padding: "5px 10px", fontWeight: 900, fontSize: 12 } }, "Google Maps"),
+            h("a", { href: "https://waze.com/ul?q=" + encodeURIComponent(s.addr), target: "_blank", rel: "noopener", style: { flex: "none", textDecoration: "none", background: "#33ccff", color: "#fff", borderRadius: 8, padding: "5px 10px", fontWeight: 900, fontSize: 12 } }, "Waze")),
           s.steps.length > 0 && sec("STEP"),
           s.steps.length > 0 && h("ol", { style: { margin: 0, paddingLeft: 22, display: "grid", gap: 6 } }, s.steps.map((x, i) => h("li", { key: i, style: { fontSize: 13.5, fontWeight: 700, color: "#1e293b", lineHeight: 1.45 } }, x))),
           s.dont.length > 0 && sec("THING ❌ DO", "#dc2626"),
           s.dont.length > 0 && h("div", { style: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "10px 14px" } },
             h("ol", { style: { margin: 0, paddingLeft: 20, display: "grid", gap: 4 } }, s.dont.map((x, i) => h("li", { key: i, style: { fontSize: 13.5, fontWeight: 800, color: "#b91c1c" } }, x)))),
-          sec("FORM 表格"),
+          s.forms.length > 0 && sec("FORM 表格"),
           s.forms.map((f, i) => h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 12px", flexWrap: "wrap" } },
             h("span", { style: { flex: "none", width: 36, height: 42, borderRadius: 6, background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" } }, "PDF"),
             h("div", { style: { flex: "1 1 180px", minWidth: 0 } }, h("div", { style: { fontWeight: 900, fontSize: 13, color: "#0f172a" } }, f.name),
