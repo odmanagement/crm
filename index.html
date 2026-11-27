@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127155500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127160000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -6938,7 +6938,7 @@ function BsPeopleLoader() {
           const dt = bsNormDmy(x.date);
           months.push({ date: dt, amt: lsFmt(o.er + o.ee), costed: x.costed === true ? "a" : (x.costed || ""), costedAt: x.costedAt || 0, cid: x.id || ("i" + i) }); }); } catch (e) {}
       /* Bank Statement 的 Balance（黄色格子）：Credited + Fees + Backdate − Received − Boss Take − Return Salary */
-      let bal = "", cuse = "", ause = ""; try { const cu = bsCustUse(bs) - rtUseSum(rtL, p.name, "cust"), au = bsAgentUse(bs) - rtUseSum(rtL, p.name, "agent"), v = bsOpenBal(bs) + bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - cu - au; if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); if (au) ause = lsFmt(au); } catch (e) {}   /* AGENT USE 也扣掉，另外一行放去 Part C */
+      let bal = "", cuse = "", ause = ""; try { const cu = bsCustUse(bs) - rtUseSum(rtL, p.name, "cust"), au = bsAgentUse(bs) - rtUseSum(rtL, p.name, "agent"), v = bsOpenBal(bs) + bsTot(bs.credits) - bsTot(bs.received) - rcSum(p.name) - rtUseSum(rtL, p.name, "cust") - rtUseSum(rtL, p.name, "agent") - cu - au;   /* RETURN CUSTOMER / AGENT 算进 RECEIVED（跟 Bank Statement 一样） */ if (bsTot(bs.credits)) bal = lsFmt(v); if (cu) cuse = lsFmt(cu); if (au) ause = lsFmt(au); } catch (e) {}   /* AGENT USE 也扣掉，另外一行放去 Part C */
       /* Verify 的 Salary：跟 Bank Statement 最近一个月的 Salary 计算（Basic + Allowance + Commission − EPF − SOCSO − EIS − PCB，员工那边） */
       let salItems = null;
       try { const crs = (bs.credits || []).filter(x => x && x.calc); const c = crs.length ? crs[crs.length - 1].calc : (lsNum(bs.salary) ? { salary: bs.salary, ov: {}, adds: [] } : null);
@@ -7086,7 +7086,8 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
   const labels = ["", "Bank A/C No.", "PIN", "ONLINE ID", "PW", "EPF ID", "EPF PW", "TAX NO."];
   const FK = ["", "bankAcc", "pin", "onlineId", "pw", "epfId", "epfPw", "taxNo"];
   const bdFee = d.backdate ? bsBackdate(d.backdate).fee : 0;
-  const cuse = bsCustUse(d) - (r.rtCu || 0), ause = bsAgentUse(d) - (r.rtAu || 0), tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = bsOpenBal(d) + tC - tR - cuse - ause;   /* 黄色 = Balance − 红色 CUSTOMER USE */   /* Balance 不算 Backdate（以前的 Fees 也不算） */
+  const rtInfo = (r.rtCu || 0) + (r.rtAu || 0);   /* RETURN CUSTOMER / AGENT SALARY：从 CUSTOMER / AGENT USE 扣掉，算进 RECEIVED */
+  const cuse = bsCustUse(d) - (r.rtCu || 0), ause = bsAgentUse(d) - (r.rtAu || 0), tC = bsTot(credits), tR = bsTot(recv) + rcT, bal = bsOpenBal(d) + tC - tR - rtInfo - cuse - ause;   /* 黄色 = Balance − 红色 CUSTOMER USE */   /* Balance 不算 Backdate（以前的 Fees 也不算） */
   const trs = [];
   /* 最上面：START SALARY ON 选择（选了之后字还可以手动改） */
   const ST_OPT = BS_START_OPTS, so = ST_OPT.find(o => o.k === d.startType);
@@ -7193,7 +7194,7 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
     (() => { const infoT = autos.filter(a => a.info).reduce((t, a) => t + a.total, 0);   /* RECEIVED 下面的总数：加上 RETURN CUSTOMER / AGENT SALARY（只是显示，TOTAL / BALANCE 不变） */
       return h("td", { style: { ...cell, fontWeight: 900, textAlign: "right" }, title: infoT ? "RECEIVED " + lsFmt(tR) + " + RETURN CUSTOMER / AGENT SALARY " + lsFmt(infoT) : undefined }, lsFmt(tR + infoT)); })(),
     h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11.5, color: "#a16207" } }, "TOTAL"),
-    h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = CREDIT − RECEIVED（不算 OPENING BAL）" }, lsFmt(tC - tR)),
+    h("td", { style: { ...cell, fontWeight: 900, background: "#fde047", textAlign: "center" }, title: "TOTAL = CREDIT − RECEIVED（包括 RETURN CUSTOMER / AGENT SALARY，不算 OPENING BAL）" }, lsFmt(tC - tR - rtInfo)),
     ...(bsOpenBal(d) ? [h("td", { style: { ...cell, textAlign: "right", fontWeight: 900, fontSize: 11, color: "#0f766e", whiteSpace: "nowrap" } }, "TOTAL + OPENING BAL"),
       h("td", { style: { ...cell, fontWeight: 900, background: "#ccfbf1", color: "#0f766e", textAlign: "center", whiteSpace: "nowrap" }, title: "TOTAL + OPENING BAL " + lsFmt(bsOpenBal(d)) + "（= BALANCE + CUSTOMER USE + AGENT USE）" }, lsFmt(bal + cuse + ause))]
       : [h("td", { style: cell }), h("td", { style: cell })])));   /* 右下角不用再显示 AGENT USE（上面已经有一行） */
