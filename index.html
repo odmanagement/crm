@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127160000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127162000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4159,10 +4159,10 @@ function CRM({ onLogout, currentUser }) {
     clients: clients,
     currentUser: currentUser,
     onSetStatus: (cid, st, mo) => persist(clients.map(c => c.id === cid ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: st }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)),
-    onSetStatusBatch: (list, mo) => { const mp = new Map(list); persist(clients.map(c => mp.has(c.id) ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: mp.get(c.id) }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)); },
+    onSetStatusBatch: (list, mo) => { const mp = new Map(list.map(x => [x[0], x[1]])), mx = new Map(list.map(x => [x[0], x[2] || []])); persist(clients.map(c => mp.has(c.id) ? { ...c, salaryStatusM: { ...(c.salaryStatusM || {}), [mo]: mp.get(c.id) }, salaryStatusX: { ...(c.salaryStatusX || {}), [mo]: mx.get(c.id) }, salaryStatusBy: canonUser(currentUser || ""), salaryStatusAt: Date.now() } : c)); },
     onSetRemark: (cid, val) => persist(clients.map(c => c.id === cid ? { ...c, slRemark: val } : c)),
     onSetStopped: (cid, val) => persist(clients.map(c => c.id === cid ? { ...c, slStopped: val } : c)),
-    onClearAll: () => persist(clients.map(c => c.salaryStatus || c.salaryStatusM ? { ...c, salaryStatus: "", salaryStatusM: {}, salaryStatusBy: "", salaryStatusAt: Date.now() } : c)),
+    onClearAll: () => persist(clients.map(c => c.salaryStatus || c.salaryStatusM ? { ...c, salaryStatus: "", salaryStatusM: {}, salaryStatusX: {}, salaryStatusBy: "", salaryStatusAt: Date.now() } : c)),
     onSaveStmt: (cid, bs) => persist(clients.map(c => c.id === cid ? { ...c, bankStmt: { ...bs, updatedAt: Date.now(), updatedBy: canonUser(currentUser || "") } } : c)),
     onOpen: cid => { setPage("personal"); setOpenId(cid); }
   }) : page === "receipt" ? /*#__PURE__*/React.createElement(ReceiptPage, {
@@ -6230,6 +6230,9 @@ SL_ST.comm = ["💼 COMMISSION", "#cffafe", "#0e7490", "#67e8f9", "💼"];
 const SL_KEYS = ["new", "build", "net", "allow", "comm", "stop"];   /* HAVEN'T START 不要了（24/11/2026）；加 ALLOWANCE、COMMISSION */
 const SL_FRESH_FROM = "2026-12";   /* 这个月开始 Salary Status 每个月 1 号重新开始 */
 const SL_CARRY = ["new", "build", "net", "allow", "comm"];
+/* Salary Status 可以选几个（STOP SALARY 只能单独选）：第一个（照 SL_KEYS 顺序）= 主要的（存在 salaryStatusM，跟以前一样），其他的存在 salaryStatusX */
+const slSelNorm = a => SL_KEYS.filter(k => (a || []).includes(k));
+const slSelToggle = (a, k) => { a = slSelNorm(a); if (k === "stop") return a.includes("stop") ? [] : ["stop"]; const b = a.filter(x => x !== "stop"); return b.includes(k) ? b.filter(x => x !== k) : slSelNorm([...b, k]); };
 const ACC_REF_YM = "2026-10";   /* Salary Listing 以后的月份：颜色 + 顺序跟着 10 月 */   /* 这几个 → 自动放进下个月的 Salary Listing；STOP 不放 */
 const SL_REMIND_USERS = ["vv", "alice", "money"];   /* 每个月差不多 20 号提醒来填 Salary Status */
 const slNextYm = ym => { const [y, m] = String(ym).split("-").map(Number), d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
@@ -7836,10 +7839,10 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const nPend = Object.keys(pend).length;
   const applyPend = () => {
     const me = canonUser(window.__crmUser || ""), ids = Object.keys(pend); if (!ids.length) return;
-    const cl = ids.filter(id => !id.startsWith("bs:")).map(id => [id, pend[id]]);
+    const cl = ids.filter(id => !id.startsWith("bs:")).map(id => [id, pend[id][0] || "", pend[id].slice(1)]);
     if (cl.length) onSetStatusBatch && onSetStatusBatch(cl, stM);
     const bs = ids.filter(id => id.startsWith("bs:")); if (bs.length) { let L = (slSt || []).slice();
-      bs.forEach(id => { const key = id.slice(3), o = L.find(x => x && x.id === key) || { id: key, name: (rows.find(r => r.c.id === id) || { c: {} }).c.name }; L = L.filter(x => x && x.id !== key).concat([{ ...o, m: { ...(o.m || {}), [stM]: pend[id] }, by: me, at: Date.now() }]); });
+      bs.forEach(id => { const key = id.slice(3), o = L.find(x => x && x.id === key) || { id: key, name: (rows.find(r => r.c.id === id) || { c: {} }).c.name }; L = L.filter(x => x && x.id !== key).concat([{ ...o, m: { ...(o.m || {}), [stM]: pend[id][0] || "" }, x: { ...(o.x || {}), [stM]: pend[id].slice(1) }, by: me, at: Date.now() }]); });
       saveSlSt(L); }
     setPend({});
     try { carryNext(); } catch (e) { console.error(e); } };
@@ -7892,7 +7895,9 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   rows.forEach(r => { const bp = bpOf(r.c.name); r.src = bp && bp.store === "bank_stmt_people_rencai" ? "rencai" : "bs"; r.startAt = bp ? bp.started || 0 : 0; });
   /* 只显示 Bank Statement 打勾 START 的人（PENDING 的不显示） */
   for (let i = rows.length - 1; i >= 0; i--) if (!rows[i].startAt) rows.splice(i, 1);
-  rows.forEach(r => { r.st0 = r.st; if (pend[r.c.id] != null) { r.st = pend[r.c.id]; r.auto = false; r.pending = true; } });
+  rows.forEach(r => { r.st0 = r.st; const xm = r.bsOnly ? (((slSt || []).find(x => x && x.id === r.bsOnly) || {}).x || {}) : (r.c.salaryStatusX || {});
+    r.sel0 = r.st ? slSelNorm([r.st, ...((r.st === "stop" ? [] : xm[stM]) || [])]) : []; r.sel = r.sel0;
+    if (pend[r.c.id] != null) { r.sel = pend[r.c.id]; r.st = r.sel[0] || ""; r.auto = false; r.pending = true; } });
   const months = Array.from(new Set(rows.map(r => r.date ? r.date.slice(0, 7) : "0000-00"))).sort((x, y) => y.localeCompare(x));
   const mi = months.indexOf(month);
   const ql = q.trim().toLowerCase();
@@ -7916,7 +7921,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     return () => { window.removeEventListener("crm-focus", go); if (iv) clearInterval(iv); };
   });
   const copyText = () => {
-    const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "");
+    const line = (r, i) => (i + 1) + ". " + String(r.c.name).toUpperCase() + " (" + r.banks.map(k => bankLabel(k, "personal")).join(", ") + ")" + (r.date ? " – " + dtDMY(r.date) : "") + ((r.sel || []).length > 1 ? " + " + r.sel.slice(1).map(k => SL_ST[k][0].replace(/^\S+\s/, "")).join(" + ") : "");
     const lastCf = (cfList || [])[0];
     const L = ["*SALARY STATUS" + (lastCf ? " – 确认 " + new Date(lastCf.at).toLocaleDateString("en-GB") : "") + "*"];
     SL_KEYS.forEach(k => { const g = shown.filter(r => r.st === k); if (!g.length) return; L.push("", SL_ST[k][4] + " *" + SL_ST[k][0].replace(/^\S+\s/, "") + " (" + g.length + ")*"); g.forEach((r, i) => L.push(line(r, i))); });
@@ -7929,7 +7934,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const chip = (on, onClick, l, k) => h("button", { key: k, onClick, style: { border: on ? "2px solid #4f46e5" : "1px solid #e2e8f0", background: on ? "#eef2ff" : "#fff", color: on ? "#4338ca" : "#475569", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, l);
   const navBtn = dis => ({ width: 36, height: 36, borderRadius: 10, border: "1px solid #c7d2fe", background: dis ? "#f1f5f9" : "#fff", color: dis ? "#cbd5e1" : "#4f46e5", fontSize: 16, fontWeight: 900, cursor: dis ? "default" : "pointer" });
   const card = { background: "rgba(255,255,255,.95)", borderRadius: 16, padding: "12px 16px", boxShadow: "0 8px 24px -14px rgba(0,0,0,.25)", border: "1px solid #eef0f4", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
-  const nOf = k => shown.filter(r => r.st === k).length;
+  const nOf = k => shown.filter(r => (r.sel || []).includes(k)).length;
   return h("div", { className: "cz-page" }, h("style", null, "@keyframes slHiPulse{50%{background:#fde047;outline-color:#dc2626}}"),
     hiMiss && h("div", { style: { background: "#fef2f2", border: "2px solid #fca5a5", color: "#b91c1c", borderRadius: 12, padding: "10px 14px", fontWeight: 800, marginBottom: 12 } }, "⛔ " + hiMiss + " 已经 STOP SALARY，但 Salary Status 这里没有他（Bank Statement / Rencai 还没按 START 的人不会出现在这里）"),
     h("div", { style: card },
@@ -7957,7 +7962,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
           h("td", { style: { ...S.td, fontWeight: 800, cursor: "pointer" }, onClick: () => r.bsOnly ? (window.__crmGoPage && window.__crmGoPage("bankstmt")) : onOpen(r.c.id), title: r.bsOnly ? "打开 Bank Statement" : "打开客户" }, String(r.c.name).toUpperCase(), (() => { const bp = bpOf(r.c.name); return bp ? h("span", { title: "Bank Statement 已经有几个月的 Salary", style: { display: "inline-block", marginLeft: 6, borderRadius: 999, padding: "2px 9px", fontSize: 11, fontWeight: 900, background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" } }, "💰 " + bp.nMon + " 个月") : null; })(), r.banks.map(tag)),
           /* Bank Statement 栏拿掉了（不再连接） */
           h("td", { style: S.td }, h("div", { style: { display: "inline-flex", flexWrap: "wrap", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" } },
-            SL_KEYS.map(k => h("button", { key: k, onClick: () => setPend(p => { const n = { ...p }; if (r.st0 === k && !r.auto) delete n[r.c.id]; else n[r.c.id] = k; return n; }), title: r.c.salaryStatusBy && r.st === k ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.st === k ? SL_ST[k][2] : "#fff", color: r.st === k ? "#fff" : "#94a3b8", ...(r.st === k && r.auto ? { opacity: .75, outline: "2px dashed #fff", outlineOffset: -4 } : {}), ...(r.st === k && r.pending ? { outline: "3px dashed #facc15", outlineOffset: -3 } : {}) }, ...(r.st === k && r.auto ? { title: "Bank Statement 0 个月 → 自动 NEW SALARY" } : {}) }, SL_ST[k][0])))),
+            SL_KEYS.map(k => h("button", { key: k, onClick: () => setPend(p => { const n = { ...p }, nx = slSelToggle(r.sel, k); if (!r.auto && nx.join() === r.sel0.join()) delete n[r.c.id]; else n[r.c.id] = nx; return n; }), title: r.c.salaryStatusBy && r.sel.includes(k) ? "由 " + String(r.c.salaryStatusBy).toUpperCase() + " 设定" : "", style: { border: "none", padding: "5px 12px", fontWeight: 900, fontSize: 11.5, cursor: "pointer", background: r.sel.includes(k) ? SL_ST[k][2] : "#fff", color: r.sel.includes(k) ? "#fff" : "#94a3b8", ...(r.sel.includes(k) && r.auto ? { opacity: .75, outline: "2px dashed #fff", outlineOffset: -4 } : {}), ...(r.sel.includes(k) && r.pending ? { outline: "3px dashed #facc15", outlineOffset: -3 } : {}) }, ...(r.sel.includes(k) && r.auto ? { title: "Bank Statement 0 个月 → 自动 NEW SALARY" } : {}) }, SL_ST[k][0])))),
           /* Remark：大家都可以写 */
           h("td", { style: { ...S.td, minWidth: 200 } }, h(DebouncedInput, { value: r.bsOnly ? (((slSt || []).find(x => x && x.id === r.bsOnly) || {}).remark || "") : (r.c.slRemark || ""), placeholder: "Remark…",
             onCommit: val => { if (r.bsOnly) { const o = (slSt || []).find(x => x && x.id === r.bsOnly) || { id: r.bsOnly, name: r.c.name }; saveSlSt([...(slSt || []).filter(x => x && x.id !== r.bsOnly), { ...o, remark: val }]); } else onSetRemark && onSetRemark(r.c.id, val); },
