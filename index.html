@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127173000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127174000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -6926,9 +6926,17 @@ function BsToSalSync({ currentUser }) {
   }, [sal, p1, p2, sFresh, f1, f2]);
   return null;
 }
+/* Agreement（Finpro / Future）的 Consultancy Fee (%)（fPct）→ 同名字的 Bank Statement C.F %（最新那份 Agreement） */
+let _agPctSrc = null, _agPctMap = {};
+const agreePctOf = (drafts, name) => {
+  if (drafts !== _agPctSrc) { _agPctSrc = drafts; _agPctMap = {};
+    (Array.isArray(drafts) ? drafts : []).forEach(d => { if (!d || !/AGREEMENT/i.test(d.file || "")) return; const vals = d.values || [], g = id => { const x = vals.find(v => String(v[0]).split("#")[0] === id); return x ? String(x[1] || "").trim() : ""; };
+      const k = slNameKey(g("fName") || d.title || ""), pct = g("fPct").replace(/[^\d.]/g, ""); if (!k || !pct) return; const at = d.at || d.updatedAt || 0;
+      if (!_agPctMap[k] || at >= _agPctMap[k].at) _agPctMap[k] = { pct, at, form: /FUTURE/i.test(d.file || "") ? "Future Agreement" : "Finpro Agreement" }; }); }
+  const k = slNameKey(name); return k ? _agPctMap[k] || null : null; };
 function BsPeopleLoader() {
   const [a] = useCloudList("bank_stmt_people"), [b] = useCloudList("bank_stmt_people_rencai");
-  const [rcL] = useCloudList("receipts"), [rtL] = useCloudList("bs_return_salary");
+  const [rcL] = useCloudList("receipts"), [rtL] = useCloudList("bs_return_salary"), [agDr] = useCloudList("form_drafts");
   React.useEffect(() => {
     const out = [], key = n => String(n || "").trim().toUpperCase().replace(/\s+/g, " ");
     const rcSum = n => [...(rcL || []).filter(x => x.checked && key(x.from) === key(n)), ...(rtL || []).filter(x => x.done && !rtIsUse(x) && !bsIsUnknownName(x.name) && key(x.name) === key(n))].reduce((t, x) => t + lsNum(x.amount), 0);
@@ -6968,12 +6976,12 @@ function BsPeopleLoader() {
       let lastCr = 0; try { const cr4 = bs.credits || [], st4 = cr4.findIndex(x => x && x.stop); let best = "";
         cr4.forEach((x, i) => { if (!x || (st4 >= 0 && i >= st4) || !lsNum(x.amount)) return; const d = x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (d >= best) { best = d; lastCr = lsNum(x.amount); } }); } catch (e) {}
       let firstDate = ""; try { (bs.credits || []).forEach(x => { const d = x && x.date ? bsDmy2Iso(bsNormDmy(x.date)) : ""; if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!firstDate || d < firstDate)) firstDate = d; }); } catch (e) {}
-      out.push({ owner: canonUser(p.owner || p.by || (bs && bs.by) || ""), lastCr, cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(mm ? mm[2] : (bs.cf || "")).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
+      out.push({ owner: canonUser(p.owner || p.by || (bs && bs.by) || ""), lastCr, cuse, ause, noSal: bs.startType === "blue", ended: !!bs.ended, endAt: bs.ended ? (bs.ended.at || 1) : 0, started: bs.started ? (bs.started.at || 1) : 0, company: String(bs.company || "").trim(), salSets, firstDate, nMon, salItems, name: String(p.name).trim().toUpperCase(), agent: String(mm ? mm[1] : (bs.agent || "")).trim().toUpperCase(), cf: String(((agreePctOf(agDr, p.name) || {}).pct) || (mm ? mm[2] : (bs.cf || ""))).trim(), epf, soc, bd, months, bal, store, pid: p.id }); });
     /* 同一个名字有两份（人才 / 一般）→ 有 Bank Statement 月份的放前面 */
     out.sort((x, y) => (y.months.length ? 1 : 0) - (x.months.length ? 1 : 0));
     window.__crmBsPeople = out;
     try { window.dispatchEvent(new Event("crm-bs-people")); } catch (e) {}
-  }, [a, b, rcL, rtL]);
+  }, [a, b, rcL, rtL, agDr]);
   return null;
 }
 /* Costing Part 存档 → Bank Statement 有放进 Costing 的月份标浅黄色（costed） */
@@ -7040,6 +7048,7 @@ function crmLoudAlert(n, onGo) {
 }
 function lfFallbackCopy(v) { try { const ta = document.createElement("textarea"); ta.value = v; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); } catch (_) {} }
 function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDown }) {
+  const [agDrBs] = useCloudList("form_drafts");   /* C.F % 连接 Agreement 的 Consultancy Fee (%) */
   const [, setSlTick] = React.useState(0);
   React.useEffect(() => { const f = () => setSlTick(x => x + 1); window.addEventListener("crm-salstop", f); return () => window.removeEventListener("crm-salstop", f); }, []);
   React.useEffect(() => { const f = () => { if (!focus.current) setD(norm(r.bs)); }; window.addEventListener("crm-own-block", f); return () => window.removeEventListener("crm-own-block", f); });
@@ -7152,9 +7161,11 @@ function BankStmtSheet({ r, onSave, onName, onDel, rencai, onMove, canUp, canDow
       h("td", { style: { ...cell, minWidth: 90, fontWeight: 900, ...(k === 0 && (d.agent || r.owner) ? { background: bsAdminColor(r.owner), color: "#1f2937" } : {}) } }, k === 0 ? (() => {
           /* Agent + C.F %（以前打成「CANDY - 16%」的自动分开显示） */
           const mm = !d.cf && /^(.*?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(String(d.agent || "")), ag = mm ? mm[1] : (d.agent || ""), cf = mm ? mm[2] : (d.cf || "");
+          const agP = agreePctOf(agDrBs, nm || r.c.name);   /* 有 Agreement → C.F % 跟 Agreement 的 Consultancy Fee (%) 走（改 Agreement 就跟着变） */
           return h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap" } },
             h("div", { style: { flex: "1 0 auto", width: "calc(" + (Math.max(5, String(ag || "").length) * 1.25).toFixed(2) + "ch + 14px)", minWidth: 60 } }, tx(ag, v => setD(p => ({ ...p, agent: v.toUpperCase(), cf: p.cf || cf })), { textAlign: "center", fontWeight: 900 }, "AGENT")),
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "C.F"),
+            agP ? h("div", { title: "连接 " + agP.form + " 的 Consultancy Fee (%)（要改去 Agreement 改）", style: { minWidth: 24, flex: "0 0 auto", textAlign: "center", fontWeight: 900, cursor: "help", borderBottom: "2px dotted #0ea5e9" } }, agP.pct) :
             h("div", { style: { width: "calc(" + Math.max(2, String(cf || "").length) + "ch + 8px)", minWidth: 24, flex: "0 0 auto" } }, tx(cf, v => setD(p => ({ ...p, cf: v.replace(/[^\d.]/g, ""), agent: ag })), { textAlign: "center", fontWeight: 900 }, "")),
             h("span", { style: { fontWeight: 900, fontSize: 11.5 } }, "%")); })() : k === 7 ? tx(d.ic, v => set("ic", v), { fontWeight: 800 }, "IC") : fr(k, "c", { fontWeight: 400 })),
       h("td", { style: { ...cell, minWidth: 90 } }, k === 0 ? h("input", { ...ro, value: d.salary || "", placeholder: "SALARY", onChange: e => set("salary", e.target.value), onFocus: ev.onFocus, onBlur: e => { focus.current = false; const t = e.target.value.trim(); if (/^[\d,]+(\.\d+)?$/.test(t)) set("salary", lsFmt(lsNum(t))); setTimeout(() => commit(), 0); }, style: { ...box, ...aw(d.salary || "SALARY"), textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" } }) : fr(k, "d")),
