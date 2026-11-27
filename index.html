@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127172000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127173000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -6235,6 +6235,13 @@ const slSelNorm = a => SL_KEYS.filter(k => (a || []).includes(k));
 const slSelToggle = (a, k) => { a = slSelNorm(a); if (k === "stop") return a.includes("stop") ? [] : ["stop"]; const b = a.filter(x => x !== "stop"); return b.includes(k) ? b.filter(x => x !== k) : slSelNorm([...b, k]); };
 const ACC_REF_YM = "2026-10";   /* Salary Listing 以后的月份：颜色 + 顺序跟着 10 月 */   /* 这几个 → 自动放进下个月的 Salary Listing；STOP 不放 */
 const SL_REMIND_USERS = ["vv", "alice", "money"];   /* 每个月差不多 20 号提醒来填 Salary Status */
+/* 以前 Salary Status 按「确认更改」会放进「下个月」的 Salary Listing → 现在改成同一个月：之前放错去下个月的（还没人动过）搬回来 */
+const accFixAutoSl = list => { if (!Array.isArray(list)) return null; let ch = false; const out = [];
+  list.forEach(x => { if (x && x.autoSl && !x.autoSlFix && x.ym === slNextYm(x.autoSl) && x.autoSl >= "2026-11") { ch = true;
+      if (list.some(y => y && y !== x && y.ym === x.autoSl && slNameKey(y.name) === slNameKey(x.name))) return;   /* 那个月已经有这个人 → 不要重复 */
+      out.push({ ...x, ym: x.autoSl, autoSlFix: 1 }); return; }
+    out.push(x); });
+  return ch ? out : null; };
 const slNextYm = ym => { const [y, m] = String(ym).split("-").map(Number), d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
 /* 提醒日：20 号；20 号是星期六 / 日 → 提早到星期五 */
 const slRemindDay = (y, m) => { const d = new Date(y, m, 20), w = d.getDay(); return w === 6 ? 19 : w === 0 ? 18 : 20; };
@@ -7436,6 +7443,7 @@ function AccSalaryPage({ currentUser }) {
     if (t && sal > 0 && Math.abs(sal - lsNum(t.salary)) < 0.005) ["pcb", "hrdf"].forEach(k => { if (!String(x[k] || "").trim() && String(t[k] || "").trim()) set(k, t[k]); });
     return y; };
   const accFillView = x => { try { return accFill(x); } catch (e) { return x; } };
+  React.useEffect(() => { if (!accFresh || isReadOnlyUser()) return; const f = accFixAutoSl(list); if (f) saveRaw(f); }, [list, accFresh]);
   const refIdx = new Map(); items.filter(x => x.ym === ACC_REF_YM).forEach((x, i) => { const k = slNameKey(x.name); if (k && !refIdx.has(k)) refIdx.set(k, i); });
   const allRows = items.filter(x => x.ym === ym && !isEnded(x)).map(accFillView).map((x, i) => [x, ym > ACC_REF_YM && refIdx.has(slNameKey(x.name)) ? refIdx.get(slNameKey(x.name)) : 1e6 + i]).sort((a, b) => ((a[0].lbl === "RC") - (b[0].lbl === "RC")) || a[1] - b[1]).map(a => a[0]);   /* RENCAI（RC）全部放最下面 */
   React.useEffect(() => { if (!canEdit || !accFresh || !Array.isArray(list)) return; let ch = false;
@@ -7860,7 +7868,8 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     setPend({});
     try { carryNext(); } catch (e) { console.error(e); } };
   /* 按「确认更改」→ NEW / CONTINUE / NETT 的人自动放进同一个月的 Salary Listing（11 月的 Status → 11 月 Salary）；STOP（或搬去 STOP SALARY）→ 不放（之前自动放的拿掉） */
-  const [accL, saveAcc] = useCloudList("acc_salary");
+  const [accL, saveAcc, accLFresh] = useCloudList("acc_salary");
+  React.useEffect(() => { if (!accLFresh || isReadOnlyUser()) return; const f = accFixAutoSl(accL); if (f) saveAcc(f); }, [accL, accLFresh]);
   const carryNext = () => {
     if (!Array.isArray(accL)) return;
     const nx = stM, me = canonUser(window.__crmUser || ""); let list = accL.slice(), ch = false;
