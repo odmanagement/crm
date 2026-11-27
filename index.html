@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127124000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127125500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -4769,9 +4769,9 @@ const OWN_FREE_DEEP = {
   bs_return_salary: /^(name|atm)$/,   /* Return Salary 的名字谁都可以改（UNKNOWN → 真名字） */
   /* Bank Statement / Rencai 最右边那一栏（COMPANY / POSITION / USE CARD / 下面的格子）：全部人都可以改 */
   bank_stmt_people: /^(company|position|useCard|\d+_k|ord)$/, bank_stmt_people_rencai: /^(company|position|useCard|\d+_k|ord)$/,   /* ord = 移上移下，谁都可以 */
-  lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)/i,
+  lending_fee: /photos|paid|^pays$|^toBankPays$|payDate|payTime|ret(Done|Photos)|^id$|^toBank(Date|Time|Skip)$/i,   /* 放照片时系统会补 id / 搬 toBankDate → 别人也可以放照片 */
   /* Verify：Mark Verified / Failed / Reopen 全部人都可以按（资料本身还是只有建立的人可以改） */
-  verifications: /^(status|verifiedBy|verifiedAt|clientId)$/, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)/i };
+  verifications: /^(status|verifiedBy|verifiedAt|clientId)$/, od_payments: /photos|paid|^pays$|payDate|payTime|ret(Done|Photos)|^id$/i };
 /* 代填：某人建立的资料，这些人也可以改（Bank Statement / Rencai：谁建的 Chialing 都可以填） */
 /* 某些人可以改别人资料的某几格：Boss Take 的名字（from）→ CHIALING 可以改全部人的（包括老板） */
 const OWN_FIELD_DELEGATE = { receipts: { chialing: /^from$/ }, bs_return_salary: { chialing: /^done$/ } };   /* Return Salary（Bank Statement）：CHIALING 也可以按 DONE */
