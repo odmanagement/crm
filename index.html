@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127163500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127170000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7429,6 +7429,8 @@ function AccSalaryPage({ currentUser }) {
   const accFill = x => { if (!x || !x.name || !(String(x.ym || "") > ACC_REF_YM)) return x; const t = refRow.get(slNameKey(x.name)); let y = x, c = false; const set = (k, v) => { if (v === undefined || v === null || v === "") return; if (!c) { y = { ...y }; c = true; } y[k] = v; };
     if (t && !x.styInit) { set("sty", { ...(t.sty || {}), ...(x.sty || {}) }); if (x.color === undefined) set("color", t.color); if (x.blue === undefined) set("blue", t.blue); if (x.nameBg === undefined) set("nameBg", t.nameBg); set("styInit", 1); }
     if (t) ["company", "acc", "agent"].forEach(k => { if (!String(x[k] || "").trim()) set(k, t[k]); });
+    /* 公司 / Agent：跟 10 月同名字那一行一样（自己手动改过的就不动） */
+    if (t) ["company", "agent"].forEach(k => { const v = String(t[k] || "").trim(); if (v && !x["man_" + k] && String(y[k] || "").trim() !== v) set(k, v); });
     const sal = lsNum(x.salary);
     if (sal > 0 && !x.noDed && !["epf", "socso", "eis"].some(k => String(x[k] || "").trim())) { try { const o = bsCalcOut({ salary: sal, ov: {}, adds: [] }); set("epf", lsFmt(o.v("epfEr") + o.v("epfEe"))); set("socso", lsFmt(o.v("socEr") + o.v("socEe"))); set("eis", lsFmt(o.v("eisEr") + o.v("eisEe"))); set("autoDed", 1); } catch (e) {} }
     if (t && sal > 0 && Math.abs(sal - lsNum(t.salary)) < 0.005) ["pcb", "hrdf"].forEach(k => { if (!String(x[k] || "").trim() && String(t[k] || "").trim()) set(k, t[k]); });
@@ -7440,7 +7442,7 @@ function AccSalaryPage({ currentUser }) {
     const next = items.map(x => { const y = accFill(x); if (y !== x) ch = true; return y; });
     if (ch) saveRaw(next); }, [list, accFresh]);
   const rows = allRows.filter(x => !sql || [x.name, x.company, x.agent, x.lbl, x.acc].join(" ").toLowerCase().includes(sql));
-  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, updBy: currentUser, updAt: Date.now() } : x));
+  const upd = (id, k, v) => save(items.map(x => x.id === id ? { ...x, [k]: v, ...(k === "company" || k === "agent" ? { ["man_" + k]: 1 } : {}), updBy: currentUser, updAt: Date.now() } : x));
   const add = () => save([...items, { id: uid(), ym, company: "", name: "", agent: "", by: currentUser, at: Date.now() }]);
   const copyPrev = () => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 2, 1), pv = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
     const src = items.filter(x => x.ym === pv && !(x.name && endYm[slNameKey(x.name)])); if (!src.length) { window.alert(ymLabel(pv) + " 没有资料"); return; }   /* END 了的人不复制 */
@@ -7473,9 +7475,14 @@ function AccSalaryPage({ currentUser }) {
   const cs = (x, f) => { const t = (x.sty || {})[f]; if (!t) return {}; return { ...(t.c ? { color: t.c } : {}), ...(t.bg ? { background: t.bg } : {}), ...(t.b ? { fontWeight: 900 } : {}), ...(t.s ? { textDecoration: "line-through" } : {}) }; };
   const pe = (x, f) => !canEdit ? {} : { onContextMenu: e => { e.preventDefault(); setPop({ id: x.id, f, x: e.clientX, y: e.clientY }); },
     onClickCapture: paint ? e => { e.preventDefault(); e.stopPropagation(); setPop({ id: x.id, f, x: e.clientX, y: e.clientY }); } : undefined };
-  const setSty = (id, f, patch, whole) => save(items.map(x => { if (x.id !== id) return x; const st = { ...(x.sty || {}) };
-    (whole ? FLDS : [f]).forEach(ff => { const n = { ...(st[ff] || {}), ...patch }; Object.keys(n).forEach(k => { if (!n[k]) delete n[k]; }); if (Object.keys(n).length) st[ff] = n; else delete st[ff]; });
-    return { ...x, sty: st, updBy: currentUser, updAt: Date.now() }; }));
+  const setSty = (id, f, patch, whole) => save(items.map(x0 => { if (x0.id !== id) return x0; const x = accFillView(x0), st = { ...(x.sty || {}) };   /* 先照 10 月补好颜色（styInit），之后不会再被 10 月的颜色盖回去 */
+    const fs = whole ? FLDS : [f], ex = {};
+    /* 名字那格的底色以前存在 nameBg → 选「无」/ 清除也要一起拿掉 */
+    if ("bg" in patch && fs.includes("name") && x.nameBg) ex.nameBg = "";
+    /* 整行有颜色（蓝色 / 其他）→ 选黑色要真的存黑色，不然还是跟整行的颜色 */
+    const rowC = x.color || x.blue; if ("c" in patch && !patch.c && rowC) patch = { ...patch, c: "#000000" };
+    fs.forEach(ff => { const n = { ...(st[ff] || {}), ...patch }; Object.keys(n).forEach(k => { if (!n[k]) delete n[k]; }); if (Object.keys(n).length) st[ff] = n; else delete st[ff]; });
+    return { ...x, ...ex, sty: st, styInit: 1, updBy: currentUser, updAt: Date.now() }; }));
   const P = pop && items.find(x => x.id === pop.id), PS = P ? ((P.sty || {})[pop.f] || {}) : {};
   const TXT = ["#000000", "#dc2626", "#2563eb", "#16a34a", "#9333ea", "#ea580c", "#d61fd6", "#64748b"];
   const HL = ["#ffff00", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#fed7aa", "#e9d5ff", "#fecaca", "#e5e7eb"];
@@ -7910,7 +7917,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
   const inMonth = r => !month || (r.date ? r.date.slice(0, 7) : "0000-00") === month;
   /* 搜名字：Bank Statement + Rencai 全部一起找（不用先按 RENCAI）；照日期排，越久的在最上面（没有日期的放最下面） */
   const shown = rows.filter(r => inMonth(r) && (!fb || r.banks.includes(fb)) && (ql ? true : r.src === src) && (fs === "stopped" ? r.stopped : !r.stopped) && (!ql || String(r.c.name).toLowerCase().includes(ql)))
-    .sort((x, y) => ((x.date ? 0 : 1) - (y.date ? 0 : 1)) || String(x.date || "").localeCompare(String(y.date || "")) || (x.startAt - y.startAt) || String(x.c.name).localeCompare(String(y.c.name)));
+    .sort((x, y) => (((bpOf(y.c.name) || {}).nMon || 0) - ((bpOf(x.c.name) || {}).nMon || 0)) || ((x.date ? 0 : 1) - (y.date ? 0 : 1)) || String(x.date || "").localeCompare(String(y.date || "")) || (x.startAt - y.startAt) || String(x.c.name).localeCompare(String(y.c.name)));   /* 跟着「💰 几个月」排：越多个月（越久）的放越上面；一样的再跟日期 */
   const mLabel = m => !m ? "全部月份" : m === "0000-00" ? "没有日期" : rcMonthLabel(m);
   hiRef.current = rows;
   const [hiMiss, setHiMiss] = React.useState("");
