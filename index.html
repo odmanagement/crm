@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127120500";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127122000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -9683,10 +9683,16 @@ function CarApptPage({ clients, currentUser }) {
 }
 /* ===== SOP：每家银行的步骤 / 不能做的事 / 申请表格（表格 PDF 放在 GitHub 同一个文件夹） ===== */
 const BANK_SOP = [
-  { id: "alliance", bank: "ALLIANCE BANK", color: "#0f4c81", bg: "#eff6ff",
+  { id: "alliance", bank: "ALLIANCE BANK · MARK", color: "#0f4c81", bg: "#eff6ff",
     title: "Alliance CashFirst Personal Loan / CashVantage Financing-i",
+    banker: "MARK",
     steps: [], dont: [],
     forms: [{ name: "Alliance CashFirst / CashVantage · Application Form", file: "SOP_ALLIANCE_PL_FORM.pdf", sign: "" }] },
+  { id: "alliance_jayden", bank: "ALLIANCE BANK · JAYDEN", color: "#0e7490", bg: "#ecfeff",
+    title: "Alliance CashWise Personal Loan / Financing-i",
+    banker: "JAYDEN",
+    steps: [], dont: [],
+    forms: [{ name: "Alliance CashWise · Personal Loan / Financing-i Application Form", file: "SOP_ALLIANCE_CASHWISE_FORM.pdf", sign: "签名：第 8、10、13、19、21 页" }] },
   { id: "muamalat", bank: "BANK MUAMALAT", color: "#7c2d92", bg: "#faf5ff",
     title: "STEP to guide customer apply through Bank Muamalat",
     banker: "JOE or Encik Chen", phone: "018-2359398",
