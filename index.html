@@ -965,7 +965,7 @@ const autoStage = l => {
 };
 const autoStageClients = list => { let ch = false; const out = (list || []).map(c => { if (!c || !Array.isArray(c.loans)) return c; let cc = false; const loans = c.loans.map(l => { const n = autoStage(l); if (n !== l) cc = true; return n; }); if (!cc) return c; ch = true; return { ...c, loans }; }); return ch ? out : list; };
 /* ===== 自动更新：发现 GitHub 上有新版本就自动刷新 ===== */
-const APP_BUILD = "20261127170000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
+const APP_BUILD = "20261127171000";   /* 每次上传新版都要换 → 所有开着的 CRM 1 分钟内自动刷新 */
 (function autoUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
   let reloading = false;
@@ -7859,11 +7859,11 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
       saveSlSt(L); }
     setPend({});
     try { carryNext(); } catch (e) { console.error(e); } };
-  /* 按「确认更改」→ NEW / CONTINUE / NETT 的人自动放进下个月的 Salary Listing；STOP（或搬去 STOP SALARY）→ 不放（之前自动放的拿掉） */
+  /* 按「确认更改」→ NEW / CONTINUE / NETT 的人自动放进同一个月的 Salary Listing（11 月的 Status → 11 月 Salary）；STOP（或搬去 STOP SALARY）→ 不放（之前自动放的拿掉） */
   const [accL, saveAcc] = useCloudList("acc_salary");
   const carryNext = () => {
     if (!Array.isArray(accL)) return;
-    const nx = slNextYm(stM), me = canonUser(window.__crmUser || ""); let list = accL.slice(), ch = false;
+    const nx = stM, me = canonUser(window.__crmUser || ""); let list = accL.slice(), ch = false;
     rows.forEach(r => { const k = slNameKey(r.c.name); if (!k) return; const bp = bpOf(r.c.name); if (bp && bp.ended) return;
       const st = r.stopped ? "stop" : r.st, i = list.findIndex(x => x && x.ym === nx && slNameKey(x.name) === k);
       /* NETT SALARY：NET 自动填上个月（之前最近一个月）的 NET */
@@ -7968,6 +7968,7 @@ function SalaryListPage({ clients, onOpen, onSetStatus, onSaveStmt, currentUser,
     h("div", { style: S.tableWrap }, h("table", { className: "cz-table", style: S.dataTable },
       h("thead", null, h("tr", null, h("th", { style: { ...S.th, ...S.thNumCol } }, "#"), h("th", { style: S.th }, "Date"), h("th", { style: S.th }, "Name"), h("th", { style: S.th }, h("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } }, "Salary Status",
         h("input", { type: "month", value: stM, onChange: e => e.target.value && setStM(e.target.value), title: "选月份来按 Salary Status", style: { border: "1px solid rgba(255,255,255,.6)", borderRadius: 8, padding: "2px 6px", fontWeight: 900, fontSize: 12, fontFamily: "inherit", background: "#fff", color: "#9d174d" } }),
+        h("span", { title: "按「确认更改」→ 放进这个月的 Salary Listing", style: { background: "#fff", color: "#9d174d", borderRadius: 8, padding: "2px 8px", fontWeight: 900, fontSize: 12, whiteSpace: "nowrap" } }, ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][(+stM.slice(5) || 1) - 1] + " " + stM.slice(0, 4) + " SALARY"),
         stM !== nowM && h("button", { onClick: () => setStM(nowM), style: { border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 800, fontSize: 11, cursor: "pointer" } }, "这个月"))), h("th", { style: S.th }, "Remark"), h("th", { style: S.th }, "Company"))),
       h("tbody", null, shown.length === 0 ? h("tr", null, h("td", { colSpan: 6, style: { ...S.td, textAlign: "center", color: "#94a3b8", padding: 30 } }, rows.length ? "这个月份没有 / 找不到" : "还没有 — Personal Loan 的银行填 CIMB 或 AEON CREDIT 就会自动出现在这里")) :
         shown.map((r, i) => { const m = SL_ST[r.st], hi = hiK && slNameKey(r.c.name) === hiK; return h("tr", { key: r.c.id, "data-slk": slNameKey(r.c.name), style: { ...S.tr, ...(m && r.st !== "build" ? { background: m[1] + "66" } : {}), ...(hi ? { background: "#fef08a", outline: "3px solid #f59e0b", outlineOffset: -3, animation: "slHiPulse 1s ease-in-out 4" } : {}) } },
