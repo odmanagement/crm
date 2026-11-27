@@ -485,6 +485,7 @@
   </label>
   <button class="btn-primary" onclick="addSheet()">+ Add Page</button>
   <button class="btn-primary" onclick="document.getElementById('ciFile').click()" title="选 Excel 文件（.xlsx / .xls / .csv）→ 每部车自动开一页、自动输入。也可以把文件拖进来，或者在 Excel copy 几行按 Ctrl+V" style="background:#16a34a;border-color:#16a34a">📥 Import Excel</button>
+  <button class="btn-primary" onclick="ocrOpen()" title="别人 send 的 Excel 截图（JPG / PNG）→ 自动读字 → 每部车自动开一页、自动输入" style="background:#7c3aed;border-color:#7c3aed">📷 Import 截图</button>
   <input type="file" id="ciFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none" onchange="ciImportFile(this.files[0]); this.value=''">
   <button class="btn-primary" onclick="copyInfo(this)">Agent Copy</button>
   <button class="btn-primary" onclick="agentFinalCopy(this)">Agent Final Copy</button>
@@ -1572,6 +1573,91 @@
   }, true);
   document.addEventListener('dragover', e => { const f = e.dataTransfer && [...(e.dataTransfer.items||[])].some(i => /sheet|excel|csv/i.test(i.type)); if(f && !e.target.closest('.photo-drop')) e.preventDefault(); });
   document.addEventListener('drop', e => { if(e.target.closest('.photo-drop')) return; const f = e.dataTransfer && [...(e.dataTransfer.files||[])].find(x => /\.(xlsx|xls|csv)$/i.test(x.name)); if(f){ e.preventDefault(); ciImportFile(f); } });
+
+  /* ===== 📷 Import 截图：JPG / PNG（Excel 截图）→ 浏览器自己读字（Tesseract）→ 跟 Import Excel 一样自动输入 ===== */
+  function ocrLoad(){ return window.Tesseract ? Promise.resolve(window.Tesseract) : new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'; sc.onload = () => ok(window.Tesseract); sc.onerror = () => bad(new Error('load')); document.head.appendChild(sc); }); }
+  function ocrToast(t, keep){ let d = document.getElementById('ocrToast'); if(!d){ d = document.createElement('div'); d.id = 'ocrToast'; d.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#7c3aed;color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,.2);font-family:inherit;text-transform:none'; document.body.appendChild(d); } d.textContent = t; clearTimeout(d._t); if(!keep) d._t = setTimeout(() => d.remove(), 4000); }
+  /* 放大 2 倍 + 黑白，字比较读得准 */
+  function ocrPrep(file){ return new Promise((ok, bad) => { const img = new Image(); img.onload = () => { const k = img.width < 2400 ? 2 : 1, c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k; const x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.drawImage(img, 0, 0, c.width, c.height);
+      const d = x.getImageData(0, 0, c.width, c.height), a = d.data; for(let i = 0; i < a.length; i += 4){ const g = 0.299*a[i] + 0.587*a[i+1] + 0.114*a[i+2]; a[i] = a[i+1] = a[i+2] = g; } x.putImageData(d, 0, 0); URL.revokeObjectURL(img.src); ok(c); }; img.onerror = bad; img.src = URL.createObjectURL(file); }); }
+  /* 读到的字 → 一行一行、一格一格（字跟字隔很远 = 下一格） */
+  function ocrRows(words){
+    words = words.filter(w => w && w.text && w.text.trim() && w.bbox).map(w => ({ t: w.text.trim(), x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, cy: (w.bbox.y0 + w.bbox.y1) / 2, h: w.bbox.y1 - w.bbox.y0 }));
+    if(!words.length) return [];
+    const hs = words.map(w => w.h).sort((a, b) => a - b), H = hs[Math.floor(hs.length / 2)] || 10;
+    words.sort((a, b) => a.cy - b.cy); const lines = [];
+    words.forEach(w => { const L = lines.find(l => Math.abs(l.cy - w.cy) < H * 0.6); if(L){ L.w.push(w); L.cy = (L.cy * (L.w.length - 1) + w.cy) / L.w.length; } else lines.push({ cy: w.cy, w: [w] }); });
+    lines.sort((a, b) => a.cy - b.cy);
+    return lines.map(l => { const ws = l.w.sort((a, b) => a.x0 - b.x0), cells = []; let cur = null, last = null;
+      ws.forEach(w => { if(cur && w.x0 - last.x1 < H * 1.1) cur.push(w.t); else { cur = [w.t]; cells.push(cur); } last = w; });
+      return cells.map(c => { let v = c.join(' ').replace(/[|\[\]{}“”"‘’]/g, '').trim();
+          if(/^[A-Z]{1,4}\s?\d{1,4}[A-Z]{0,1}\)$/i.test(v)) v = v.slice(0, -1) + 'J';   /* 车牌最后的 J 常常读成 ) */
+          return v.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9%.]+$/g, '').trim(); }).filter(c => c && /[A-Za-z0-9]/.test(c) && !(c.length === 1 && !/^[AM0-9]$/i.test(c))); });
+  }
+  /* 颜色格子读出来的乱字（例如 VHIT）拿掉：A / M 后面的字，只留 Financing 那一格 */
+  const OCR_FIN = /(CIMB|GFS|AMB|AM\s*BANK|CHAIL|CARSO|X\s*-?\s*STAR|AEON|PBB|PUBLIC|MAYBANK|MBB|HLB|HONG\s*LEONG|RHB|AFFIN|BSN|ALLIANCE|MUAMALAT|JAECOO|CREDIT)/i;
+  function ocrClean(row){
+    const ti = row.findIndex(c => /^(A|M|AT|MT|AUTO|MANUAL)$/i.test(c)); if(ti < 0) return row;
+    const strs = []; row.forEach((c, i) => { if(i > ti && ciNum(c) == null && !CI_COLORS.test(c)) strs.push(i); });
+    if(strs.length <= 1) return row;
+    const keep = strs.find(i => OCR_FIN.test(row[i])) ?? strs.reduce((a, b) => row[b].length > row[a].length ? b : a);
+    return row.filter((c, i) => !strs.includes(i) || i === keep);
+  }
+  /* 自动核对：截图最后面的总数（车下面那几行的数目）要等于读到的 LOAN / CB / MONTHLY 加起来 */
+  function ocrCheck(rows, data){
+    const sum = { loan: 0, cb: 0, mthly: 0 }; data.cars.forEach(c => { sum.loan += c.loan || 0; sum.cb += c.cb || 0; sum.mthly += c.mthly || 0; });
+    let last = -1; rows.forEach((r, i) => { if(r.some(v => typeof v === 'string' && ciPlate(v))) last = i; });
+    const tots = []; rows.slice(last + 1).forEach(r => r.forEach(v => { const n = ciNum(v); if(n != null && n >= 100) tots.push(n); }));
+    const near = (a, b) => Math.abs(a - b) < 0.5, S = [sum.loan, sum.cb, sum.mthly], ok = [], bad = [];
+    tots.forEach(n => (S.some(x => near(x, n)) ? ok : bad).push(n));
+    return { sum, ok, bad };
+  }
+  async function ocrImport(file){
+    if(!file || !(file.type || '').startsWith('image/')){ alert('请用 JPG / PNG 截图'); return; }
+    const m = document.getElementById('ocrModal'); if(m) m.remove();
+    ocrToast('📷 读取截图中…（第一次要下载读字工具，会慢一点）', true);
+    try{
+      const T = await ocrLoad(), cv = await ocrPrep(file);
+      const r = await T.recognize(cv, 'eng', { logger: x => { if(x && x.status === 'recognizing text') ocrToast('📷 读取中… ' + Math.round((x.progress || 0) * 100) + '%', true); } });
+      let words = (r && r.data && r.data.words) || []; if(!words.length) ((r && r.data && r.data.blocks) || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l => (l.words || []).forEach(w => words.push(w)))));
+      const rows = ocrRows(words).map(ocrClean);
+      const data = ciParseRows(rows);
+      const t = document.getElementById('ocrToast'); if(t) t.remove();
+      if(!data.cars.length){ alert('截图里读不到车的资料（要看得到车牌那一行）。\n请用比较清楚的截图，或者直接 Import Excel。'); return; }
+      ciFill(data);
+      /* 原本的截图放进第一页的 Photos，方便对照 */
+      try{ const s1 = container.querySelector('.sheet:not(.fixed-page)'); if(s1) addPhotos([file], s1.querySelector('.photo-area')); }catch(e){}
+      const ck = ocrCheck(rows, data), sumTx = 'LOAN ' + ciMoney(ck.sum.loan) + '\nCB ' + ciMoney(ck.sum.cb) + '\nMONTHLY ' + ciMoney(ck.sum.mthly);
+      setTimeout(() => alert(ck.bad.length ? '⚠⚠ 数目对不上截图的总数！请一部一部检查 ⚠⚠\n\n截图的总数：' + ck.bad.map(ciMoney).join('、') + '（读到的加起来对不上）\n\n读到 ' + data.cars.length + ' 部车，加起来：\n' + sumTx
+        : ck.ok.length ? '✅ 读到 ' + data.cars.length + ' 部车，跟截图的总数对得上（' + ck.ok.map(ciMoney).join('、') + '）\n\n' + sumTx + '\n\n车牌 / Financing / Tenure 没有总数可以核对，请看一眼。'
+        : '✓ 读到 ' + data.cars.length + ' 部车。\n截图下面没有总数，没办法自动核对 — 请对照截图检查数目。\n\n' + sumTx), 300);
+    }catch(e){ const t = document.getElementById('ocrToast'); if(t) t.remove(); alert('读不到这张截图（可能是网络问题，读字工具下载不到）。请再试一次。'); }
+  }
+  function ocrOpen(){
+    if(document.getElementById('ocrModal')) return;
+    const m = document.createElement('div'); m.id = 'ocrModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;text-transform:none';
+    m.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:420px;width:90%;padding:22px;text-align:center;font-family:inherit;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+      + '<div style="font-size:17px;font-weight:800;color:#5b21b6;margin-bottom:10px">📷 Import 截图</div>'
+      + '<div style="font-size:13.5px;color:#334155;line-height:1.6;margin-bottom:14px">Copy 别人 send 的截图，在这里按 <b>Ctrl+V</b><br>或者把 JPG 拖进来 / 选文件</div>'
+      + '<button id="ocrPick" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer">选 JPG / PNG 文件</button> '
+      + '<button id="ocrClose" style="background:#fff;color:#64748b;border:1px solid #cbd5e1;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer">取消</button>'
+      + '<input type="file" id="ocrFile" accept="image/*" style="display:none"></div>';
+    document.body.appendChild(m);
+    const fi = m.querySelector('#ocrFile');
+    m.querySelector('#ocrPick').onclick = () => fi.click();
+    fi.onchange = () => { if(fi.files[0]) ocrImport(fi.files[0]); };
+    m.querySelector('#ocrClose').onclick = () => m.remove();
+    m.onclick = e => { if(e.target === m) m.remove(); };
+    m.ondragover = e => e.preventDefault();
+    m.ondrop = e => { e.preventDefault(); const f = [...(e.dataTransfer.files || [])].find(x => (x.type || '').startsWith('image/')); if(f) ocrImport(f); };
+  }
+  /* 开着 📷 窗口时按 Ctrl+V → 读截图（不放进 Photos） */
+  document.addEventListener('paste', e => {
+    if(!document.getElementById('ocrModal')) return;
+    const it = e.clipboardData && [...e.clipboardData.items].find(i => i.kind === 'file' && i.type.startsWith('image/'));
+    if(!it) return; e.preventDefault(); e.stopImmediatePropagation(); ocrImport(it.getAsFile());
+  }, true);
   addSheet();      // first quotation page
   addFixedPage();  // cashback breakdown, fixed at the bottom
   window.__ready = true;
